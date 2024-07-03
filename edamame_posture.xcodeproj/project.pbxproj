@@ -1,0 +1,327 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 53;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		CA60A0AAC81AE0CC112EE43E /* Cargo.toml in Sources */ = {isa = PBXBuildFile; fileRef = CA60FDE660EB3EF4668187A5 /* Cargo.toml */; settings = {COMPILER_FLAGS = "--lib"; }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXBuildRule section */
+		CA60FDE660EBAC6C1400ACA8 /* PBXBuildRule */ = {
+			isa = PBXBuildRule;
+			compilerSpec = com.apple.compilers.proxy.script;
+			dependencyFile = "$(DERIVED_FILE_DIR)/$(CARGO_XCODE_TARGET_ARCH)-$(EXECUTABLE_NAME).d";
+			filePatterns = "*/Cargo.toml";
+			fileType = pattern.proxy;
+			inputFiles = (
+			);
+			isEditable = 0;
+			name = "Cargo project build";
+			outputFiles = (
+				"$(OBJECT_FILE_DIR)/$(CARGO_XCODE_TARGET_ARCH)-$(EXECUTABLE_NAME)",
+			);
+			script = "# generated with cargo-xcode 1.5.0\n\nset -eu; export PATH=\"$PATH:$HOME/.cargo/bin:/usr/local/bin\";\nif [ \"${IS_MACCATALYST-NO}\" = YES ]; then\n    CARGO_XCODE_TARGET_TRIPLE=\"${CARGO_XCODE_TARGET_ARCH}-apple-ios-macabi\"\nelse\n    CARGO_XCODE_TARGET_TRIPLE=\"${CARGO_XCODE_TARGET_ARCH}-apple-${CARGO_XCODE_TARGET_OS}\"\nfi\nif [ \"$CARGO_XCODE_TARGET_OS\" != \"darwin\" ]; then\n    PATH=\"${PATH/\\/Contents\\/Developer\\/Toolchains\\/XcodeDefault.xctoolchain\\/usr\\/bin:/xcode-provided-ld-cant-link-lSystem-for-the-host-build-script:}\"\nfi\nPATH=\"$PATH:/opt/homebrew/bin\" # Rust projects often depend on extra tools like nasm, which Xcode lacks\nif [ \"$CARGO_XCODE_BUILD_MODE\" == release ]; then\n    OTHER_INPUT_FILE_FLAGS=\"${OTHER_INPUT_FILE_FLAGS} --release\"\nfi\nif command -v rustup &> /dev/null; then\n    if ! rustup target list --installed | egrep -q \"${CARGO_XCODE_TARGET_TRIPLE}\"; then\n        echo \"warning: this build requires rustup toolchain for $CARGO_XCODE_TARGET_TRIPLE, but it isn't installed\"\n        rustup target add \"${CARGO_XCODE_TARGET_TRIPLE}\" || echo >&2 \"warning: can't install $CARGO_XCODE_TARGET_TRIPLE\"\n    fi\nfi\nif [ \"$ACTION\" = clean ]; then\n ( set -x; cargo clean --manifest-path=\"$SCRIPT_INPUT_FILE\" ${OTHER_INPUT_FILE_FLAGS} --target=\"${CARGO_XCODE_TARGET_TRIPLE}\"; );\nelse\n ( set -x; cargo build --manifest-path=\"$SCRIPT_INPUT_FILE\" --features=\"${CARGO_XCODE_FEATURES:-}\" ${OTHER_INPUT_FILE_FLAGS} --target=\"${CARGO_XCODE_TARGET_TRIPLE}\"; );\nfi\n# it's too hard to explain Cargo's actual exe path to Xcode build graph, so hardlink to a known-good path instead\nBUILT_SRC=\"${CARGO_TARGET_DIR}/${CARGO_XCODE_TARGET_TRIPLE}/${CARGO_XCODE_BUILD_MODE}/${CARGO_XCODE_CARGO_FILE_NAME}\"\nln -f -- \"$BUILT_SRC\" \"$SCRIPT_OUTPUT_FILE_0\"\n\n# xcode generates dep file, but for its own path, so append our rename to it\nDEP_FILE_SRC=\"${CARGO_TARGET_DIR}/${CARGO_XCODE_TARGET_TRIPLE}/${CARGO_XCODE_BUILD_MODE}/${CARGO_XCODE_CARGO_DEP_FILE_NAME}\"\nif [ -f \"$DEP_FILE_SRC\" ]; then\n    DEP_FILE_DST=\"${DERIVED_FILE_DIR}/${CARGO_XCODE_TARGET_ARCH}-${EXECUTABLE_NAME}.d\"\n    cp -f \"$DEP_FILE_SRC\" \"$DEP_FILE_DST\"\n    echo >> \"$DEP_FILE_DST\" \"$SCRIPT_OUTPUT_FILE_0: $BUILT_SRC\"\nfi\n\n# lipo script needs to know all the platform-specific files that have been built\n# archs is in the file name, so that paths don't stay around after archs change\n# must match input for LipoScript\nFILE_LIST=\"${DERIVED_FILE_DIR}/${ARCHS}-${EXECUTABLE_NAME}.xcfilelist\"\ntouch \"$FILE_LIST\"\nif ! egrep -q \"$SCRIPT_OUTPUT_FILE_0\" \"$FILE_LIST\" ; then\n    echo >> \"$FILE_LIST\" \"$SCRIPT_OUTPUT_FILE_0\"\nfi\n";
+		};
+/* End PBXBuildRule section */
+
+/* Begin PBXContainerItemProxy section */
+		501794012B619A43001FC943 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 501793FD2B619A43001FC943 /* edamame_core.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = CA60F18AB4112FECFB1D0BE7;
+			remoteInfo = "edamame_core-staticlib";
+		};
+		50BFBAF42BFD4404002F0227 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 501793FD2B619A43001FC943 /* edamame_core.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = 50EA347C2B8D31EA007CBCE2;
+			remoteInfo = "edamame_core-dynamic";
+		};
+		50BFBAF62BFD4404002F0227 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 501793FD2B619A43001FC943 /* edamame_core.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = 50EA34822B8D32C3007CBCE2;
+			remoteInfo = edamame_core;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		501793FD2B619A43001FC943 /* edamame_core.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = edamame_core.xcodeproj; path = ../edamame_core/edamame_core.xcodeproj; sourceTree = "<group>"; };
+		ADDEDBA66A6E1 /* libresolv.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libresolv.tbd; path = usr/lib/libresolv.tbd; sourceTree = SDKROOT; };
+		CA600327324FD77BEFD65E0C /* libedamame_posture_static.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libedamame_posture_static.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		CA60FDE660EB3EF4668187A5 /* Cargo.toml */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = Cargo.toml; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		501793FE2B619A43001FC943 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				501794022B619A43001FC943 /* liblibedamame_core.a */,
+				50BFBAF52BFD4404002F0227 /* liblibedamame_core.dylib */,
+				50BFBAF72BFD4404002F0227 /* edamame_core.framework */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		ADDEDBA66A6E2 /* Required for static linking */ = {
+			isa = PBXGroup;
+			children = (
+				ADDEDBA66A6E1 /* libresolv.tbd */,
+			);
+			name = "Required for static linking";
+			sourceTree = "<group>";
+		};
+		CA60FDE660EB22869D176AE5 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				CA600327324FD77BEFD65E0C /* libedamame_posture_static.a */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		CA60FDE660EB98AF0B5890DB /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				ADDEDBA66A6E2 /* Required for static linking */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		CA60FDE660EBD65BC3C892A8 = {
+			isa = PBXGroup;
+			children = (
+				501793FD2B619A43001FC943 /* edamame_core.xcodeproj */,
+				CA60FDE660EB3EF4668187A5 /* Cargo.toml */,
+				CA60FDE660EB22869D176AE5 /* Products */,
+				CA60FDE660EB98AF0B5890DB /* Frameworks */,
+			);
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		CA600327324FE0CC112EE43E /* edamame_posture-staticlib */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = CA603626B7F3E0CC112EE43E /* Build configuration list for PBXNativeTarget "edamame_posture-staticlib" */;
+			buildPhases = (
+				CA6072E078A8E0CC112EE43E /* Sources */,
+				CA60FDE660EBAF6EBB7F357C /* Universal Binary lipo */,
+			);
+			buildRules = (
+				CA60FDE660EBAC6C1400ACA8 /* PBXBuildRule */,
+			);
+			dependencies = (
+			);
+			name = "edamame_posture-staticlib";
+			productName = libedamame_posture.a;
+			productReference = CA600327324FD77BEFD65E0C /* libedamame_posture_static.a */;
+			productType = "com.apple.product-type.library.static";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		CA60FDE660EBE04653AD465F /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 1300;
+				TargetAttributes = {
+					CA600327324FE0CC112EE43E = {
+						CreatedOnToolsVersion = 9.2;
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = CA60FDE660EB80E02D6C7F57 /* Build configuration list for PBXProject "edamame_posture" */;
+			compatibilityVersion = "Xcode 11.4";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = CA60FDE660EBD65BC3C892A8;
+			productRefGroup = CA60FDE660EB22869D176AE5 /* Products */;
+			projectDirPath = "";
+			projectReferences = (
+				{
+					ProductGroup = 501793FE2B619A43001FC943 /* Products */;
+					ProjectRef = 501793FD2B619A43001FC943 /* edamame_core.xcodeproj */;
+				},
+			);
+			projectRoot = "";
+			targets = (
+				CA600327324FE0CC112EE43E /* edamame_posture-staticlib */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXReferenceProxy section */
+		501794022B619A43001FC943 /* liblibedamame_core.a */ = {
+			isa = PBXReferenceProxy;
+			fileType = archive.ar;
+			path = liblibedamame_core.a;
+			remoteRef = 501794012B619A43001FC943 /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		50BFBAF52BFD4404002F0227 /* liblibedamame_core.dylib */ = {
+			isa = PBXReferenceProxy;
+			fileType = archive.ar;
+			path = liblibedamame_core.dylib;
+			remoteRef = 50BFBAF42BFD4404002F0227 /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		50BFBAF72BFD4404002F0227 /* edamame_core.framework */ = {
+			isa = PBXReferenceProxy;
+			fileType = wrapper.framework;
+			path = edamame_core.framework;
+			remoteRef = 50BFBAF62BFD4404002F0227 /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+/* End PBXReferenceProxy section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		CA60FDE660EBAF6EBB7F357C /* Universal Binary lipo */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(DERIVED_FILE_DIR)/$(ARCHS)-$(EXECUTABLE_NAME).xcfilelist",
+			);
+			name = "Universal Binary lipo";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(TARGET_BUILD_DIR)/$(EXECUTABLE_PATH)",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# generated with cargo-xcode 1.5.0\n\n            set -eux; cat \"$DERIVED_FILE_DIR/$ARCHS-$EXECUTABLE_NAME.xcfilelist\" | tr '\\n' '\\0' | xargs -0 lipo -create -output \"$TARGET_BUILD_DIR/$EXECUTABLE_PATH\"\n            if [ ${LD_DYLIB_INSTALL_NAME:+1} ]; then\n                install_name_tool -id \"$LD_DYLIB_INSTALL_NAME\" \"$TARGET_BUILD_DIR/$EXECUTABLE_PATH\"\n            fi\n        \n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		CA6072E078A8E0CC112EE43E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CA60A0AAC81AE0CC112EE43E /* Cargo.toml in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		CA60226F0DC7E0CC112EE43E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CARGO_XCODE_CARGO_DEP_FILE_NAME = libedamame_posture.d;
+				CARGO_XCODE_CARGO_FILE_NAME = libedamame_posture.a;
+				INSTALL_GROUP = "";
+				INSTALL_MODE_FLAG = "";
+				INSTALL_OWNER = "";
+				PRODUCT_NAME = edamame_posture_static;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "macosx iphonesimulator iphoneos appletvsimulator appletvos";
+			};
+			name = Release;
+		};
+		CA6091A09B16228BE02872F8 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CARGO_TARGET_DIR = "$(PROJECT_TEMP_DIR)/cargo_target";
+				CARGO_XCODE_BUILD_MODE = debug;
+				CARGO_XCODE_FEATURES = "";
+				"CARGO_XCODE_TARGET_ARCH[arch=arm64*]" = aarch64;
+				"CARGO_XCODE_TARGET_ARCH[arch=i386]" = i686;
+				"CARGO_XCODE_TARGET_ARCH[arch=x86_64*]" = x86_64;
+				"CARGO_XCODE_TARGET_OS[sdk=appletvos*]" = tvos;
+				"CARGO_XCODE_TARGET_OS[sdk=appletvsimulator*]" = tvos;
+				"CARGO_XCODE_TARGET_OS[sdk=iphoneos*]" = ios;
+				"CARGO_XCODE_TARGET_OS[sdk=iphonesimulator*]" = "ios-sim";
+				"CARGO_XCODE_TARGET_OS[sdk=iphonesimulator*][arch=x86_64*]" = ios;
+				"CARGO_XCODE_TARGET_OS[sdk=macosx*]" = darwin;
+				CURRENT_PROJECT_VERSION = 0.3.2;
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
+				MARKETING_VERSION = 0.3.2;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = edamame_posture;
+				SDKROOT = macosx;
+				SUPPORTS_MACCATALYST = YES;
+			};
+			name = Debug;
+		};
+		CA6091A09B163CC16B37690B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CARGO_TARGET_DIR = "$(PROJECT_TEMP_DIR)/cargo_target";
+				CARGO_XCODE_BUILD_MODE = release;
+				CARGO_XCODE_FEATURES = "";
+				"CARGO_XCODE_TARGET_ARCH[arch=arm64*]" = aarch64;
+				"CARGO_XCODE_TARGET_ARCH[arch=i386]" = i686;
+				"CARGO_XCODE_TARGET_ARCH[arch=x86_64*]" = x86_64;
+				"CARGO_XCODE_TARGET_OS[sdk=appletvos*]" = tvos;
+				"CARGO_XCODE_TARGET_OS[sdk=appletvsimulator*]" = tvos;
+				"CARGO_XCODE_TARGET_OS[sdk=iphoneos*]" = ios;
+				"CARGO_XCODE_TARGET_OS[sdk=iphonesimulator*]" = "ios-sim";
+				"CARGO_XCODE_TARGET_OS[sdk=iphonesimulator*][arch=x86_64*]" = ios;
+				"CARGO_XCODE_TARGET_OS[sdk=macosx*]" = darwin;
+				CURRENT_PROJECT_VERSION = 0.3.2;
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
+				MARKETING_VERSION = 0.3.2;
+				PRODUCT_NAME = edamame_posture;
+				SDKROOT = macosx;
+				SUPPORTS_MACCATALYST = YES;
+			};
+			name = Release;
+		};
+		CA60E89766EAE0CC112EE43E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CARGO_XCODE_CARGO_DEP_FILE_NAME = libedamame_posture.d;
+				CARGO_XCODE_CARGO_FILE_NAME = libedamame_posture.a;
+				INSTALL_GROUP = "";
+				INSTALL_MODE_FLAG = "";
+				INSTALL_OWNER = "";
+				PRODUCT_NAME = edamame_posture_static;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "macosx iphonesimulator iphoneos appletvsimulator appletvos";
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		CA603626B7F3E0CC112EE43E /* Build configuration list for PBXNativeTarget "edamame_posture-staticlib" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CA60226F0DC7E0CC112EE43E /* Release */,
+				CA60E89766EAE0CC112EE43E /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		CA60FDE660EB80E02D6C7F57 /* Build configuration list for PBXProject "edamame_posture" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CA6091A09B163CC16B37690B /* Release */,
+				CA6091A09B16228BE02872F8 /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = CA60FDE660EBE04653AD465F /* Project object */;
+}

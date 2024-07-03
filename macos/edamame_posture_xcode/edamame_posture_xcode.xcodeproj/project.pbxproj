@@ -1,0 +1,460 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		501403342B619A8600210DDE /* liblibedamame_core.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 5017940E2B619A4F001FC943 /* liblibedamame_core.a */; };
+		501793EC2B61569D001FC943 /* libedamame_posture_static.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 502620BD2A1CFA2D00FCAC6D /* libedamame_posture_static.a */; };
+		501793FA2B618BC9001FC943 /* EDAMAMENative in Frameworks */ = {isa = PBXBuildFile; productRef = 501793F92B618BC9001FC943 /* EDAMAMENative */; };
+		5026209C2A1CF51B00FCAC6D /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5026209B2A1CF51B00FCAC6D /* main.swift */; };
+		502620DE2A1D33D200FCAC6D /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 502620DD2A1D33D200FCAC6D /* SystemConfiguration.framework */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		5017940D2B619A4F001FC943 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 501794092B619A4F001FC943 /* edamame_core.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = CA60F18AB4112FECFB1D0BE7;
+			remoteInfo = "edamame_core-staticlib";
+		};
+		502620BC2A1CFA2D00FCAC6D /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 502620A22A1CF53900FCAC6D /* edamame_posture.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = CA600327324FD77BEFD65E0C;
+			remoteInfo = "edamame_posture-staticlib";
+		};
+		50BFBB032BFD4BDB002F0227 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 501794092B619A4F001FC943 /* edamame_core.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = 50EA347C2B8D31EA007CBCE2;
+			remoteInfo = "edamame_core-dynamic";
+		};
+		50BFBB052BFD4BDB002F0227 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 501794092B619A4F001FC943 /* edamame_core.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = 50EA34822B8D32C3007CBCE2;
+			remoteInfo = edamame_core;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		502620962A1CF51B00FCAC6D /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		501793F02B617E09001FC943 /* EDAMAMENative */ = {isa = PBXFileReference; lastKnownFileType = wrapper; name = EDAMAMENative; path = ../../../edamame_core/apple/EDAMAMENative; sourceTree = "<group>"; };
+		501793F12B617E65001FC943 /* EDAMAMENative.o */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.objfile"; name = EDAMAMENative.o; path = ../../../../build/macos/Build/Products/Release/EDAMAMENative.o; sourceTree = "<group>"; };
+		501794092B619A4F001FC943 /* edamame_core.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = edamame_core.xcodeproj; path = ../../../edamame_core/edamame_core.xcodeproj; sourceTree = "<group>"; };
+		502620982A1CF51B00FCAC6D /* edamame_posture */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = edamame_posture; sourceTree = BUILT_PRODUCTS_DIR; };
+		5026209B2A1CF51B00FCAC6D /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
+		502620A22A1CF53900FCAC6D /* edamame_posture.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = edamame_posture.xcodeproj; path = ../../edamame_posture.xcodeproj; sourceTree = "<group>"; };
+		502620DA2A1D333000FCAC6D /* edamame_posture-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "edamame_posture-Bridging-Header.h"; sourceTree = "<group>"; };
+		502620DD2A1D33D200FCAC6D /* SystemConfiguration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SystemConfiguration.framework; path = System/Library/Frameworks/SystemConfiguration.framework; sourceTree = SDKROOT; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		502620952A1CF51B00FCAC6D /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				501793EC2B61569D001FC943 /* libedamame_posture_static.a in Frameworks */,
+				501793FA2B618BC9001FC943 /* EDAMAMENative in Frameworks */,
+				502620DE2A1D33D200FCAC6D /* SystemConfiguration.framework in Frameworks */,
+				501403342B619A8600210DDE /* liblibedamame_core.a in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		5017940A2B619A4F001FC943 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				5017940E2B619A4F001FC943 /* liblibedamame_core.a */,
+				50BFBB042BFD4BDB002F0227 /* liblibedamame_core.dylib */,
+				50BFBB062BFD4BDB002F0227 /* edamame_core.framework */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		5026208F2A1CF51B00FCAC6D = {
+			isa = PBXGroup;
+			children = (
+				501794092B619A4F001FC943 /* edamame_core.xcodeproj */,
+				501793F02B617E09001FC943 /* EDAMAMENative */,
+				502620A22A1CF53900FCAC6D /* edamame_posture.xcodeproj */,
+				5026209A2A1CF51B00FCAC6D /* edamame_posture_xcode */,
+				502620992A1CF51B00FCAC6D /* Products */,
+				502620C62A1CFB4800FCAC6D /* Frameworks */,
+			);
+			sourceTree = "<group>";
+		};
+		502620992A1CF51B00FCAC6D /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				502620982A1CF51B00FCAC6D /* edamame_posture */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		5026209A2A1CF51B00FCAC6D /* edamame_posture_xcode */ = {
+			isa = PBXGroup;
+			children = (
+				5026209B2A1CF51B00FCAC6D /* main.swift */,
+				502620DA2A1D333000FCAC6D /* edamame_posture-Bridging-Header.h */,
+			);
+			path = edamame_posture_xcode;
+			sourceTree = "<group>";
+		};
+		502620A32A1CF53900FCAC6D /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				502620BD2A1CFA2D00FCAC6D /* libedamame_posture_static.a */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		502620C62A1CFB4800FCAC6D /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				501793F12B617E65001FC943 /* EDAMAMENative.o */,
+				502620DD2A1D33D200FCAC6D /* SystemConfiguration.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		502620972A1CF51B00FCAC6D /* edamame_posture */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 5026209F2A1CF51B00FCAC6D /* Build configuration list for PBXNativeTarget "edamame_posture" */;
+			buildPhases = (
+				502620942A1CF51B00FCAC6D /* Sources */,
+				502620952A1CF51B00FCAC6D /* Frameworks */,
+				502620962A1CF51B00FCAC6D /* CopyFiles */,
+				502620E02A1D3C1000FCAC6D /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = edamame_posture;
+			packageProductDependencies = (
+				501793F92B618BC9001FC943 /* EDAMAMENative */,
+			);
+			productName = edamame_posture_xcode;
+			productReference = 502620982A1CF51B00FCAC6D /* edamame_posture */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		502620902A1CF51B00FCAC6D /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = NO;
+				LastSwiftUpdateCheck = 1420;
+				LastUpgradeCheck = 1420;
+				TargetAttributes = {
+					502620972A1CF51B00FCAC6D = {
+						CreatedOnToolsVersion = 14.2;
+						LastSwiftMigration = 1420;
+					};
+				};
+			};
+			buildConfigurationList = 502620932A1CF51B00FCAC6D /* Build configuration list for PBXProject "edamame_posture_xcode" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 5026208F2A1CF51B00FCAC6D;
+			productRefGroup = 502620992A1CF51B00FCAC6D /* Products */;
+			projectDirPath = "";
+			projectReferences = (
+				{
+					ProductGroup = 502620A32A1CF53900FCAC6D /* Products */;
+					ProjectRef = 502620A22A1CF53900FCAC6D /* edamame_posture.xcodeproj */;
+				},
+				{
+					ProductGroup = 5017940A2B619A4F001FC943 /* Products */;
+					ProjectRef = 501794092B619A4F001FC943 /* edamame_core.xcodeproj */;
+				},
+			);
+			projectRoot = "";
+			targets = (
+				502620972A1CF51B00FCAC6D /* edamame_posture */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXReferenceProxy section */
+		5017940E2B619A4F001FC943 /* liblibedamame_core.a */ = {
+			isa = PBXReferenceProxy;
+			fileType = archive.ar;
+			path = liblibedamame_core.a;
+			remoteRef = 5017940D2B619A4F001FC943 /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		502620BD2A1CFA2D00FCAC6D /* libedamame_posture_static.a */ = {
+			isa = PBXReferenceProxy;
+			fileType = archive.ar;
+			path = libedamame_posture_static.a;
+			remoteRef = 502620BC2A1CFA2D00FCAC6D /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		50BFBB042BFD4BDB002F0227 /* liblibedamame_core.dylib */ = {
+			isa = PBXReferenceProxy;
+			fileType = archive.ar;
+			path = liblibedamame_core.dylib;
+			remoteRef = 50BFBB032BFD4BDB002F0227 /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		50BFBB062BFD4BDB002F0227 /* edamame_core.framework */ = {
+			isa = PBXReferenceProxy;
+			fileType = wrapper.framework;
+			path = edamame_core.framework;
+			remoteRef = 50BFBB052BFD4BDB002F0227 /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+/* End PBXReferenceProxy section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		502620E02A1D3C1000FCAC6D /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "mkdir -p \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}\" ${PROJECT_DIR}/../target\ncp -f \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}\" ${PROJECT_DIR}/../target/edamame_posture\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		502620942A1CF51B00FCAC6D /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5026209C2A1CF51B00FCAC6D /* main.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		5026209D2A1CF51B00FCAC6D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		5026209E2A1CF51B00FCAC6D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+			};
+			name = Release;
+		};
+		502620A02A1CF51B00FCAC6D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
+				CODE_SIGN_STYLE = Manual;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_HARDENED_RUNTIME = NO;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SWIFT_OBJC_BRIDGING_HEADER = "edamame_posture_xcode/edamame_posture-Bridging-Header.h";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		502620A12A1CF51B00FCAC6D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
+				CODE_SIGN_STYLE = Manual;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_HARDENED_RUNTIME = NO;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SWIFT_OBJC_BRIDGING_HEADER = "edamame_posture_xcode/edamame_posture-Bridging-Header.h";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		502620932A1CF51B00FCAC6D /* Build configuration list for PBXProject "edamame_posture_xcode" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5026209D2A1CF51B00FCAC6D /* Debug */,
+				5026209E2A1CF51B00FCAC6D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		5026209F2A1CF51B00FCAC6D /* Build configuration list for PBXNativeTarget "edamame_posture" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				502620A02A1CF51B00FCAC6D /* Debug */,
+				502620A12A1CF51B00FCAC6D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		501793F92B618BC9001FC943 /* EDAMAMENative */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = EDAMAMENative;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 502620902A1CF51B00FCAC6D /* Project object */;
+}
