@@ -63,8 +63,8 @@
 		501793FE2B619A43001FC943 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				501794022B619A43001FC943 /* liblibedamame_core.a */,
-				50BFBAF52BFD4404002F0227 /* liblibedamame_core.dylib */,
+				501794022B619A43001FC943 /* libedamame_core.a */,
+				50BFBAF52BFD4404002F0227 /* libedamame_core.dylib */,
 				50BFBAF72BFD4404002F0227 /* edamame_core.framework */,
 			);
 			name = Products;
@@ -163,17 +163,17 @@
 /* End PBXProject section */
 
 /* Begin PBXReferenceProxy section */
-		501794022B619A43001FC943 /* liblibedamame_core.a */ = {
+		501794022B619A43001FC943 /* libedamame_core.a */ = {
 			isa = PBXReferenceProxy;
 			fileType = archive.ar;
-			path = liblibedamame_core.a;
+			path = libedamame_core.a;
 			remoteRef = 501794012B619A43001FC943 /* PBXContainerItemProxy */;
 			sourceTree = BUILT_PRODUCTS_DIR;
 		};
-		50BFBAF52BFD4404002F0227 /* liblibedamame_core.dylib */ = {
+		50BFBAF52BFD4404002F0227 /* libedamame_core.dylib */ = {
 			isa = PBXReferenceProxy;
 			fileType = archive.ar;
-			path = liblibedamame_core.dylib;
+			path = libedamame_core.dylib;
 			remoteRef = 50BFBAF42BFD4404002F0227 /* PBXContainerItemProxy */;
 			sourceTree = BUILT_PRODUCTS_DIR;
 		};

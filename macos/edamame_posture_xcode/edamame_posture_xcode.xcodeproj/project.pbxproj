@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		501403342B619A8600210DDE /* liblibedamame_core.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 5017940E2B619A4F001FC943 /* liblibedamame_core.a */; };
+		501403342B619A8600210DDE /* libedamame_core.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 5017940E2B619A4F001FC943 /* libedamame_core.a */; };
 		501793EC2B61569D001FC943 /* libedamame_posture_static.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 502620BD2A1CFA2D00FCAC6D /* libedamame_posture_static.a */; };
 		501793FA2B618BC9001FC943 /* EDAMAMENative in Frameworks */ = {isa = PBXBuildFile; productRef = 501793F92B618BC9001FC943 /* EDAMAMENative */; };
 		5026209C2A1CF51B00FCAC6D /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5026209B2A1CF51B00FCAC6D /* main.swift */; };
@@ -76,7 +76,7 @@
 				501793EC2B61569D001FC943 /* libedamame_posture_static.a in Frameworks */,
 				501793FA2B618BC9001FC943 /* EDAMAMENative in Frameworks */,
 				502620DE2A1D33D200FCAC6D /* SystemConfiguration.framework in Frameworks */,
-				501403342B619A8600210DDE /* liblibedamame_core.a in Frameworks */,
+				501403342B619A8600210DDE /* libedamame_core.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -86,8 +86,8 @@
 		5017940A2B619A4F001FC943 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				5017940E2B619A4F001FC943 /* liblibedamame_core.a */,
-				50BFBB042BFD4BDB002F0227 /* liblibedamame_core.dylib */,
+				5017940E2B619A4F001FC943 /* libedamame_core.a */,
+				50BFBB042BFD4BDB002F0227 /* libedamame_core.dylib */,
 				50BFBB062BFD4BDB002F0227 /* edamame_core.framework */,
 			);
 			name = Products;
@@ -208,10 +208,10 @@
 /* End PBXProject section */
 
 /* Begin PBXReferenceProxy section */
-		5017940E2B619A4F001FC943 /* liblibedamame_core.a */ = {
+		5017940E2B619A4F001FC943 /* libedamame_core.a */ = {
 			isa = PBXReferenceProxy;
 			fileType = archive.ar;
-			path = liblibedamame_core.a;
+			path = libedamame_core.a;
 			remoteRef = 5017940D2B619A4F001FC943 /* PBXContainerItemProxy */;
 			sourceTree = BUILT_PRODUCTS_DIR;
 		};
@@ -222,10 +222,10 @@
 			remoteRef = 502620BC2A1CFA2D00FCAC6D /* PBXContainerItemProxy */;
 			sourceTree = BUILT_PRODUCTS_DIR;
 		};
-		50BFBB042BFD4BDB002F0227 /* liblibedamame_core.dylib */ = {
+		50BFBB042BFD4BDB002F0227 /* libedamame_core.dylib */ = {
 			isa = PBXReferenceProxy;
 			fileType = archive.ar;
-			path = liblibedamame_core.dylib;
+			path = libedamame_core.dylib;
 			remoteRef = 50BFBB032BFD4BDB002F0227 /* PBXContainerItemProxy */;
 			sourceTree = BUILT_PRODUCTS_DIR;
 		};
