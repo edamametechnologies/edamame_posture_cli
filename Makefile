@@ -36,7 +36,7 @@ macos_debug: update_threats switch_to_staticlib clean_frb
 	# Binary is not signed in the project
 	xcodebuild -project ./macos/edamame_posture_xcode/edamame_posture_xcode.xcodeproj -scheme edamame_posture -configuration Debug
 	# Sign to run locally
-	./localsign.sh ./macos/target/edamame_posture
+	./localsign_macos.sh ./macos/target/edamame_posture
 	bash -c "export RUST_BACKTRACE=1; export EDAMAME_LOG_LEVEL=info; rust-lldb ./macos/target/edamame_posture"
 
 windows: OS=Windows
