@@ -378,7 +378,6 @@ pub extern "C" fn rust_main() {
 
 #[cfg(not(target_os = "macos"))]
 pub fn main() {
-    setup_logging();
     run();
 }
 
