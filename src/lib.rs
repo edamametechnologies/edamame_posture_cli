@@ -22,9 +22,7 @@ impl State {
             let contents = fs::read_to_string(path).expect("Unable to read state file");
             serde_yaml::from_str(&contents).expect("Unable to parse state file")
         } else {
-            State {
-                pid: None,
-            }
+            State { pid: None }
         }
     }
 
@@ -113,7 +111,13 @@ fn run() {
     let args: Vec<String> = std::env::args().collect();
     if args.len() > 1 && args[1] == "background-process" {
         // Reporting and community are on
-        initialize("posture".to_string(), "EN".to_string(), device, false, false);
+        initialize(
+            "posture".to_string(),
+            "EN".to_string(),
+            device,
+            false,
+            false,
+        );
 
         if args.len() == 5 {
             // Save state
@@ -141,7 +145,6 @@ fn pid_exists(pid: u32) -> bool {
 }
 
 fn run_base() {
-
     let matches = Command::new("edamame_posture")
         .version("1.0")
         .author("Frank Lyonnet")
@@ -165,7 +168,7 @@ fn run_base() {
         .subcommand(Command::new("stop").about("Stop reporting background process"))
         .subcommand(Command::new("status").about("Get status of reporting background process"))
         .get_matches();
-    
+
     match matches.subcommand() {
         Some(("score", _)) => handle_score(),
         Some(("get-core-info", _)) => handle_get_core_info(),
@@ -173,7 +176,7 @@ fn run_base() {
             let user = sub_matches.get_one::<String>("USER").unwrap().to_string();
             let domain = sub_matches.get_one::<String>("DOMAIN").unwrap().to_string();
             handle_request_pin(user, domain);
-        },
+        }
         Some(("get-core-version", _)) => handle_get_core_version(),
         Some(("start", sub_matches)) => {
             let user = sub_matches.get_one::<String>("USER").unwrap().to_string();
@@ -206,7 +209,7 @@ fn stop_background_process() {
             println!("Stopping background process with PID: {}", pid);
             let _ = ProcessCommand::new("kill").arg(pid.to_string()).status();
             State::clear();
-            
+
             // Disconnect domain
             disconnect_domain();
         } else {
@@ -230,10 +233,22 @@ fn show_background_process_status() {
             println!("  - PIN: {}", connection_status.pin);
             println!("  - Success: {}", connection_status.is_success);
             println!("  - Connected: {}", connection_status.is_connected);
-            println!("  - Outdated backend: {}", connection_status.is_outdated_backend);
-            println!("  - Outdated threats: {}", connection_status.is_outdated_threats);
-            println!("  - Last network activity: {}", connection_status.last_network_activity);
-            println!("  - Backend error code: {}", connection_status.backend_error_code);
+            println!(
+                "  - Outdated backend: {}",
+                connection_status.is_outdated_backend
+            );
+            println!(
+                "  - Outdated threats: {}",
+                connection_status.is_outdated_threats
+            );
+            println!(
+                "  - Last network activity: {}",
+                connection_status.last_network_activity
+            );
+            println!(
+                "  - Backend error code: {}",
+                connection_status.backend_error_code
+            );
         } else {
             eprintln!("Background process not found with PID: {}", pid);
             State::clear();
@@ -244,12 +259,11 @@ fn show_background_process_status() {
 }
 
 fn background_process(user: String, domain: String, pin: String) {
-    
     // Set credentials
     set_credentials(user, domain, pin);
     // Connect domain
     handle_connect_domain();
-    
+
     // Request immediate score computation
     let _ = get_score(false);
 
