@@ -38,6 +38,6 @@ jobs:
 
       # Remove references to bridge generated rust files
       - run: cd ../edamame_core/src; sed -i '/mod frb_generated/d' ./lib.rs
-      - run: cd rust; cargo fmt --all --check
+      - run: cargo fmt --all --check
 
 
