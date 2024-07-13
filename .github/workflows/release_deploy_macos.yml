@@ -51,24 +51,6 @@ jobs:
       - name: Check out Git repository
         uses: actions/checkout@v3
 
-      - name: Flutter Action
-        uses: subosito/flutter-action@v2
-
-      - name: Enable macOS for Flutter
-        shell: bash
-        run: flutter config --enable-macos-desktop
-
-      - name: Install dependencies
-        shell: bash
-        run: |
-          flutter pub cache clean
-          flutter pub get --verbose
-
-      - name: Install CocoaPods w/ Homebrew
-        run: |
-          brew install cocoapods
-          cd macos; pod install
-
       - name: Extract branch name
         shell: bash
         run: echo "branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_OUTPUT
