@@ -51,11 +51,6 @@ jobs:
       - name: Check out Git repository
         uses: actions/checkout@v3
 
-      - name: Setup fastlane
-        run: |
-          brew install fastlane
-          cd macos/fastlane && fastlane match appstore --readonly
-
       - name: Flutter Action
         uses: subosito/flutter-action@v2
 
