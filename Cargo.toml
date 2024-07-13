@@ -14,7 +14,7 @@ crate-type = ["staticlib", "lib"]
 # TODO: don't depend on local path - required for the macOS build process for now
 #edamame_foundation = { git = "https://github.com/edamametechnologies/edamame_foundation" }
 edamame_foundation = { path = "../edamame_foundation" }
-edamame_core = { path = "../edamame_core" }
+edamame_core = { path = "../edamame_core" , features = ["nopwned", "nolanscan", "nohealth"] }
 
 # YAML
 serde = "1.0.204"

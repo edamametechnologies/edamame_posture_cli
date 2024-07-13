@@ -1426,6 +1426,7 @@ dependencies = [
  "uuid",
  "vergen",
  "whoami",
+ "winapi",
 ]
 
 [[package]]
@@ -1463,6 +1464,7 @@ dependencies = [
  "sorted-vec",
  "strum",
  "strum_macros",
+ "thiserror",
  "tokio",
  "tonic 0.11.0",
  "tonic-build",

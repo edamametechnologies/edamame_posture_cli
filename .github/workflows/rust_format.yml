@@ -1,0 +1,43 @@
+on:
+  push:
+    branches: [ dev, main ]
+  pull_request:
+
+name: Rust Format
+
+jobs:
+  fmt:
+    name: Check Rust
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: rustup component add rustfmt
+
+      - name: Extract branch name
+        shell: bash
+        run: echo "branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_OUTPUT
+        id: extract_branch
+
+      - name: Setup for edamame_foundation
+        shell: bash
+        run: |
+          cd ..
+          git clone --branch ${{ steps.extract_branch.outputs.branch }} https://github.com/edamametechnologies/edamame_foundation.git
+
+      - name: Configure Git Authentication to import private crates
+        run: |
+          git config --global user.email "dev@edamame.tech"
+          git config --global user.name "EDAMAME Dev"
+          git config --global url."https://edamamedev:${{ secrets.DEV_GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
+
+      - name: Setup for edamame_core
+        shell: bash
+        run: |
+          cd ..
+          git clone --branch ${{ steps.extract_branch.outputs.branch }} https://github.com/edamametechnologies/edamame_core.git
+
+      # Remove references to bridge generated rust files
+      - run: cd ../edamame_core/src; sed -i '/mod frb_generated/d' ./lib.rs
+      - run: cd rust; cargo fmt --all --check
+
+

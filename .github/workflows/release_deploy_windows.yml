@@ -1,0 +1,98 @@
+name: Build, test and publish Windows MSIX to Microsoft Store
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - 'dev'
+      - 'main'
+    paths-ignore:
+      - 'macos/**'
+      - 'linux/**'
+      - 'snap/**'
+      - .github/workflows/release_deploy_linux.yml
+      - .github/workflows/release_deploy_macos.yml
+
+# Auto cancel previous runs if they were not completed.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+# Declare default permissions as read only.
+permissions: read-all
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 90
+
+    env:
+      EDAMAME_APP_SENTRY: ${{ secrets.EDAMAME_APP_SENTRY }}
+      PWNED_API_KEY: ${{ secrets.PWNED_API_KEY }}
+      EDAMAME_TARGET: ${{ secrets.EDAMAME_TARGET }}
+      EDAMAME_CA_PEM: ${{ secrets.EDAMAME_CA_PEM }}
+      EDAMAME_CLIENT_PEM: ${{ secrets.EDAMAME_CLIENT_PEM }}
+      EDAMAME_CLIENT_KEY: ${{ secrets.EDAMAME_CLIENT_KEY }}
+      LAMBDA_SIGNATURE: ${{ secrets.LAMBDA_SIGNATURE }}
+
+    steps:
+
+      - name: Setup .NET 8.0
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Setup MS Store CLI
+        uses: microsoft/setup-msstore-cli@v1
+
+      - name: Check out Git repository
+        uses: actions/checkout@v3
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          flutter pub cache clean
+          flutter pub get --verbose
+
+      - name: Install additional packages w/ Chocolatey
+        run: |
+          choco install protoc wget
+          dotnet tool install --global AzureSignTool
+
+      - name: Extract branch name
+        shell: bash
+        run: echo "branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_OUTPUT
+        id: extract_branch
+
+      - name: Setup for edamame_foundation
+        shell: bash
+        run: |
+          cd ..
+          git clone --branch ${{ steps.extract_branch.outputs.branch }} https://github.com/edamametechnologies/edamame_foundation.git
+          cd ./edamame_foundation
+          cat ./Cargo.toml | sed 's/\"staticlib\"/\"cdylib\"/g' > ./Cargo.toml.dynamic
+          cp ./Cargo.toml.dynamic ./Cargo.toml
+          ./update-threats.sh Windows
+
+      - name: Configure Git Authentication to import private crates
+        run: |
+          git config --global user.email "dev@edamame.tech"
+          git config --global user.name "EDAMAME Dev"
+          git config --global url."https://edamamedev:${{ secrets.DEV_GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
+
+      - name: Setup for edamame_core
+        shell: bash
+        run: |
+          cd ..
+          git clone --branch ${{ steps.extract_branch.outputs.branch }} https://github.com/edamametechnologies/edamame_core.git
+          cd ./edamame_core
+          cat ./Cargo.toml | sed 's/\"staticlib\"/\"cdylib\"/g' > ./Cargo.toml.dynamic
+          cp ./Cargo.toml.dynamic ./Cargo.toml
+
+      - name: Build application
+        # Main or dev
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev'
+        shell: bash
+        run: |
+            make windows
+

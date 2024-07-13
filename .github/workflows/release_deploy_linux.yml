@@ -1,0 +1,84 @@
+name: Build, test and publish Linux package using SNAP
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - 'dev'
+      - 'main'
+    paths-ignore:
+      - 'macos/**'
+      - 'windows/**'
+      - .github/workflows/release_deploy_windows.yml
+      - .github/workflows/release_deploy_macos.yml
+
+# Auto cancel previous runs if they were not completed.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+# Declare default permissions as read only.
+permissions: read-all
+
+jobs:
+  build:
+    runs-on: edamame-large-runner
+    timeout-minutes: 90
+
+    env:
+      EDAMAME_APP_SENTRY: ${{ secrets.EDAMAME_APP_SENTRY }}
+      PWNED_API_KEY: ${{ secrets.PWNED_API_KEY }}
+      EDAMAME_TARGET: ${{ secrets.EDAMAME_TARGET }}
+      EDAMAME_CA_PEM: ${{ secrets.EDAMAME_CA_PEM }}
+      EDAMAME_CLIENT_PEM: ${{ secrets.EDAMAME_CLIENT_PEM }}
+      EDAMAME_CLIENT_KEY: ${{ secrets.EDAMAME_CLIENT_KEY }}
+      LAMBDA_SIGNATURE: ${{ secrets.LAMBDA_SIGNATURE }}
+
+    steps:
+
+      - name: Check out Git repository
+        uses: actions/checkout@v3
+
+      - name: Install additional packages w/ apt
+        run: |
+          # Install build dependencies
+          sudo apt-get install -y protobuf-compiler clang cmake lsb-release software-properties-common gnupg libssl-dev wget curl file git unzip xz-utils zip libglu1-mesa ninja-build pkg-config libgtk-3-dev libayatana-appindicator3-dev libnotify-dev libgles2-mesa 
+          # Install flutter test dependencies
+          sudo apt-get install -y dbus network-manager
+
+      - name: Extract branch name
+        id: extract_branch
+        shell: bash
+        run: echo "branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_OUTPUT
+
+      - name: Setup for edamame_foundation
+        shell: bash
+        run: |
+          cd ..
+          git clone --branch ${{ steps.extract_branch.outputs.branch }} https://github.com/edamametechnologies/edamame_foundation.git
+          cd ./edamame_foundation
+          cat ./Cargo.toml | sed 's/\"staticlib\"/\"cdylib\"/g' > ./Cargo.toml.dynamic
+          cp ./Cargo.toml.dynamic ./Cargo.toml
+          ./update-threats.sh Windows
+
+      - name: Configure Git Authentication to import private crates
+        run: |
+          git config --global user.email "dev@edamame.tech"
+          git config --global user.name "EDAMAME Dev"
+          git config --global url."https://edamamedev:${{ secrets.DEV_GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
+
+      - name: Setup for edamame_core
+        shell: bash
+        run: |
+          cd ..
+          git clone --branch ${{ steps.extract_branch.outputs.branch }} https://github.com/edamametechnologies/edamame_core.git
+          cd ./edamame_core
+          cat ./Cargo.toml | sed 's/\"staticlib\"/\"cdylib\"/g' > ./Cargo.toml.dynamic
+          cp ./Cargo.toml.dynamic ./Cargo.toml
+
+      - name: Build application
+        # Main or dev
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev'
+        shell: bash
+        run: |
+          make linux
