@@ -54,7 +54,7 @@ jobs:
       - name: Setup fastlane
         run: |
           brew install fastlane
-          cd ios/fastlane && fastlane match appstore --readonly
+          cd macos/fastlane && fastlane match appstore --readonly
 
       - name: Flutter Action
         uses: subosito/flutter-action@v2
