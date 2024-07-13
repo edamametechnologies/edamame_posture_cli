@@ -48,12 +48,6 @@ jobs:
       - name: Check out Git repository
         uses: actions/checkout@v3
 
-      - name: Install dependencies
-        shell: bash
-        run: |
-          flutter pub cache clean
-          flutter pub get --verbose
-
       - name: Install additional packages w/ Chocolatey
         run: |
           choco install protoc wget
