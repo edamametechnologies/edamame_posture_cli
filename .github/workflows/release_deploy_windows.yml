@@ -100,8 +100,7 @@ jobs:
       - name: Signing
         shell: bash
         run: |
-          VERSION=$(grep '^version =' ./Cargo.toml | awk '{print $3}' | tr -d '"')
-          ./windows/sign.sh ./windows/target/edamame_posture.exe
+          AzureSignTool sign -kvu "${AZURE_SIGN_KEY_VAULT_URI}" -kvi "${AZURE_SIGN_CLIENT_ID}" -kvt "${AZURE_SIGN_TENANT_ID}" -kvs "${AZURE_SIGN_CLIENT_SECRET}" -kvc ${AZURE_SIGN_CERT_NAME} -tr http://timestamp.digicert.com -v ./windows/target/edamame_posture.exe
 
       # Dev only (upload to dev folder)
       - name: Upload helper to AWS

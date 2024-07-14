@@ -1,4 +1,4 @@
-name: Build, test and publish Linux package using SNAP
+name: Build, test and publish for Linux
 
 on:
   workflow_dispatch:
@@ -85,3 +85,19 @@ jobs:
         shell: bash
         run: |
           make linux_publish
+
+      # Dev only (upload to dev folder)
+      - name: Upload helper to AWS
+        if: github.ref == 'refs/heads/dev'
+        shell: bash
+        run: |
+          VERSION=$(grep '^version =' ./Cargo.toml | awk '{print $3}' | tr -d '"')
+          aws s3 cp ./macos/target/edamame_posture s3://edamame-helper/dev/linux/${VERSION}/edamame_posture --acl public-read
+
+      # Main only (upload to base folder)
+      - name: Upload helper to AWS
+        if: github.ref == 'refs/heads/main'
+        shell: bash
+        run: |
+          VERSION=$(grep '^version =' ./Cargo.toml | awk '{print $3}' | tr -d '"')
+          aws s3 cp ./macos/target/edamame_posture s3://edamame-helper/linux/${VERSION}/edamame_posture --acl public-read
