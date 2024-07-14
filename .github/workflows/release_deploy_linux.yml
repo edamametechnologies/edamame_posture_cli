@@ -92,7 +92,7 @@ jobs:
         shell: bash
         run: |
           VERSION=$(grep '^version =' ./Cargo.toml | awk '{print $3}' | tr -d '"')
-          aws s3 cp ./macos/target/edamame_posture s3://edamame-helper/dev/linux/${VERSION}/edamame_posture --acl public-read
+          aws s3 cp ./linux/target/edamame_posture s3://edamame-helper/dev/linux/${VERSION}/edamame_posture --acl public-read
 
       # Main only (upload to base folder)
       - name: Upload helper to AWS
@@ -100,4 +100,4 @@ jobs:
         shell: bash
         run: |
           VERSION=$(grep '^version =' ./Cargo.toml | awk '{print $3}' | tr -d '"')
-          aws s3 cp ./macos/target/edamame_posture s3://edamame-helper/linux/${VERSION}/edamame_posture --acl public-read
+          aws s3 cp ./linux/target/edamame_posture s3://edamame-helper/linux/${VERSION}/edamame_posture --acl public-read
