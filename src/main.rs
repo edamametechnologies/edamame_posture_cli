@@ -274,13 +274,6 @@ fn background_process(user: String, domain: String, pin: String) {
     }
 }
 
-#[cfg(target_os = "macos")]
-#[no_mangle]
-pub extern "C" fn rust_main() {
-    run();
-}
-
-#[cfg(not(target_os = "macos"))]
 pub fn main() {
     run();
 }

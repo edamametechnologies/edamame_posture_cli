@@ -3,18 +3,11 @@ name = "edamame_posture"
 version = "0.3.82"
 edition = "2021"
 
-[lib]
-# Dynamic lib version is not used on apple platforms as it's painful but we must use it on windows and linux
-# We must keep "lib" if we want to build targets with cargo
-crate-type = ["staticlib", "lib"]
-
 [dependencies]
 
 # EDAMAME foundation
-# TODO: don't depend on local path - required for the macOS build process for now
-#edamame_foundation = { git = "https://github.com/edamametechnologies/edamame_foundation" }
-edamame_foundation = { path = "../edamame_foundation" }
-edamame_core = { path = "../edamame_core" , features = ["nopwned", "nolanscan", "nohealth"] }
+edamame_foundation = { git = "https://github.com/edamametechnologies/edamame_foundation", branch = "dev" }
+edamame_core = { git = "https://github.com/edamametechnologies/edamame_core", branch = "dev" }
 
 # YAML
 serde = "1.0.204"
@@ -40,3 +33,4 @@ dotenv-build = "0.1"
 
 # Build metadata
 vergen = { version = "8.3.1", features = ["build", "git", "gitcl", "si"] }
+

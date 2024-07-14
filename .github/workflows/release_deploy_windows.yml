@@ -60,35 +60,11 @@ jobs:
           choco install protoc wget
           dotnet tool install --global AzureSignTool
 
-      - name: Extract branch name
-        shell: bash
-        run: echo "branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_OUTPUT
-        id: extract_branch
-
-      - name: Setup for edamame_foundation
-        shell: bash
-        run: |
-          cd ..
-          git clone --branch ${{ steps.extract_branch.outputs.branch }} https://github.com/edamametechnologies/edamame_foundation.git
-          cd ./edamame_foundation
-          cat ./Cargo.toml | sed 's/\"staticlib\"/\"cdylib\"/g' > ./Cargo.toml.dynamic
-          cp ./Cargo.toml.dynamic ./Cargo.toml
-          ./update-threats.sh Windows
-
       - name: Configure Git Authentication to import private crates
         run: |
           git config --global user.email "dev@edamame.tech"
           git config --global user.name "EDAMAME Dev"
           git config --global url."https://edamamedev:${{ secrets.DEV_GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
-
-      - name: Setup for edamame_core
-        shell: bash
-        run: |
-          cd ..
-          git clone --branch ${{ steps.extract_branch.outputs.branch }} https://github.com/edamametechnologies/edamame_core.git
-          cd ./edamame_core
-          cat ./Cargo.toml | sed 's/\"staticlib\"/\"cdylib\"/g' > ./Cargo.toml.dynamic
-          cp ./Cargo.toml.dynamic ./Cargo.toml
 
       - name: Build application
         # Main or dev
