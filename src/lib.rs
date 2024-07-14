@@ -116,7 +116,8 @@ fn run() {
             "EN".to_string(),
             device,
             false,
-            false,
+            // Disable community
+            true,
         );
 
         if args.len() == 5 {

@@ -1,6 +1,6 @@
 [package]
 name = "edamame_posture"
-version = "0.3.34"
+version = "0.3.82"
 edition = "2021"
 
 [lib]

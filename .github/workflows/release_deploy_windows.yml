@@ -33,7 +33,14 @@ jobs:
       EDAMAME_CA_PEM: ${{ secrets.EDAMAME_CA_PEM }}
       EDAMAME_CLIENT_PEM: ${{ secrets.EDAMAME_CLIENT_PEM }}
       EDAMAME_CLIENT_KEY: ${{ secrets.EDAMAME_CLIENT_KEY }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
       LAMBDA_SIGNATURE: ${{ secrets.LAMBDA_SIGNATURE }}
+      AZURE_SIGN_TENANT_ID: ${{ secrets.AZURE_SIGN_TENANT_ID }}
+      AZURE_SIGN_KEY_VAULT_URI: ${{ secrets.AZURE_SIGN_KEY_VAULT_URI }}
+      AZURE_SIGN_CLIENT_ID: ${{ secrets.AZURE_SIGN_CLIENT_ID }}
+      AZURE_SIGN_CLIENT_SECRET: ${{ secrets.AZURE_SIGN_CLIENT_SECRET }}
 
     steps:
 
@@ -88,5 +95,26 @@ jobs:
         if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev'
         shell: bash
         run: |
-            make windows
+            make windows_publish
 
+      - name: Signing
+        shell: bash
+        run: |
+          VERSION=$(grep '^version =' ./Cargo.toml | awk '{print $3}' | tr -d '"')
+          ./windows/sign.sh ./windows/target/edamame_posture.exe
+
+      # Dev only (upload to dev folder)
+      - name: Upload helper to AWS
+        if: github.ref == 'refs/heads/dev'
+        shell: bash
+        run: |
+          VERSION=$(grep '^version =' ./Cargo.toml | awk '{print $3}' | tr -d '"')
+          aws s3 cp ./macos/target/edamame_posture.exe s3://edamame-helper/dev/windows/${VERSION}/edamame_posture.exe --acl public-read
+
+      # Main only (upload to base folder)
+      - name: Upload helper to AWS
+        if: github.ref == 'refs/heads/main'
+        shell: bash
+        run: |
+          VERSION=$(grep '^version =' ./Cargo.toml | awk '{print $3}' | tr -d '"')
+          aws s3 cp ./macos/target/edamame_posture.exe s3://edamame-helper/windows/${VERSION}/edamame_posture.exe --acl public-read
