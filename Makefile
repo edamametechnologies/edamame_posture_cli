@@ -18,7 +18,7 @@ macos_debug:
 macos_publish: macos_release
 	# Sign + hardened runtime
 	./macos/sign.sh ./target/release/edamame_posture
-	./macos/notarize.sh ./target/release/edamame_posture
+	./macos/notarization.sh ./target/release/edamame_posture
 
 windows: windows_release
 
