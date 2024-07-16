@@ -102,9 +102,9 @@ jobs:
         shell: bash
         run: |
           cd ./macos
-          codesign --timestamp --options=runtime -s "Developer ID Application: Edamame Technologies (WSL782B48J)" -v ./target/edamame_posture
+          codesign --timestamp --options=runtime -s "Developer ID Application: Edamame Technologies (WSL782B48J)" -v ./target/release/edamame_posture
           KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
-          ./notarize.sh ./target/edamame_posture
+          ./notarize.sh ./target/release/edamame_posture
 
       # Dev only (upload to dev folder)
       - name: Upload helper to AWS
@@ -112,7 +112,7 @@ jobs:
         shell: bash
         run: |
           VERSION=$(grep '^version =' ./Cargo.toml | awk '{print $3}' | tr -d '"')
-          aws s3 cp ./macos/target/edamame_posture s3://edamame-helper/dev/macos/${VERSION}/edamame_posture --acl public-read
+          aws s3 cp ./target/release/edamame_posture s3://edamame-helper/dev/macos/${VERSION}/edamame_posture --acl public-read
 
       # Main only (upload to base folder)
       - name: Upload helper to AWS
@@ -120,4 +120,4 @@ jobs:
         shell: bash
         run: |
           VERSION=$(grep '^version =' ./Cargo.toml | awk '{print $3}' | tr -d '"')
-          aws s3 cp ./macos/target/edamame_posture s3://edamame-helper/macos/${VERSION}/edamame_posture --acl public-read
+          aws s3 cp ./target/release/edamame_posture s3://edamame-helper/macos/${VERSION}/edamame_posture --acl public-read

@@ -76,7 +76,7 @@ jobs:
       - name: Signing
         shell: bash
         run: |
-          AzureSignTool sign -kvu "${AZURE_SIGN_KEY_VAULT_URI}" -kvi "${AZURE_SIGN_CLIENT_ID}" -kvt "${AZURE_SIGN_TENANT_ID}" -kvs "${AZURE_SIGN_CLIENT_SECRET}" -kvc ${AZURE_SIGN_CERT_NAME} -tr http://timestamp.digicert.com -v ./windows/target/edamame_posture.exe
+          AzureSignTool sign -kvu "${AZURE_SIGN_KEY_VAULT_URI}" -kvi "${AZURE_SIGN_CLIENT_ID}" -kvt "${AZURE_SIGN_TENANT_ID}" -kvs "${AZURE_SIGN_CLIENT_SECRET}" -kvc ${AZURE_SIGN_CERT_NAME} -tr http://timestamp.digicert.com -v ./target/release/edamame_posture.exe
 
       # Dev only (upload to dev folder)
       - name: Upload helper to AWS
@@ -84,7 +84,7 @@ jobs:
         shell: bash
         run: |
           VERSION=$(grep '^version =' ./Cargo.toml | awk '{print $3}' | tr -d '"')
-          aws s3 cp ./macos/target/edamame_posture.exe s3://edamame-helper/dev/windows/${VERSION}/edamame_posture.exe --acl public-read
+          aws s3 cp ./target/release/edamame_posture.exe s3://edamame-helper/dev/windows/${VERSION}/edamame_posture.exe --acl public-read
 
       # Main only (upload to base folder)
       - name: Upload helper to AWS
@@ -92,4 +92,4 @@ jobs:
         shell: bash
         run: |
           VERSION=$(grep '^version =' ./Cargo.toml | awk '{print $3}' | tr -d '"')
-          aws s3 cp ./macos/target/edamame_posture.exe s3://edamame-helper/windows/${VERSION}/edamame_posture.exe --acl public-read
+          aws s3 cp ./target/release/edamame_posture.exe s3://edamame-helper/windows/${VERSION}/edamame_posture.exe --acl public-read

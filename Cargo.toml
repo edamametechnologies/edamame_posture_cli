@@ -7,7 +7,7 @@ edition = "2021"
 
 # EDAMAME foundation
 edamame_foundation = { git = "https://github.com/edamametechnologies/edamame_foundation", branch = "dev" }
-edamame_core = { git = "https://github.com/edamametechnologies/edamame_core", branch = "dev" }
+edamame_core = { git = "https://github.com/edamametechnologies/edamame_core", branch = "dev", features = ["nohealth", "nolanscan", "nopwned"] }
 
 # YAML
 serde = "1.0.204"
@@ -27,9 +27,6 @@ tracing = "0.1.40"
 sentry = "0.34.0"
 
 [build-dependencies]
-
-# Environment variables (build time)
-dotenv-build = "0.1"
 
 # Build metadata
 vergen = { version = "8.3.1", features = ["build", "git", "gitcl", "si"] }
