@@ -100,17 +100,17 @@ jobs:
           make macos_publish
 
       # Dev only (upload to dev folder)
-      - name: Upload helper to AWS
+      - name: Upload posture to AWS
         if: github.ref == 'refs/heads/dev'
         shell: bash
         run: |
           VERSION=$(grep '^version =' ./Cargo.toml | awk '{print $3}' | tr -d '"')
-          aws s3 cp ./target/release/edamame_posture s3://edamame-helper/dev/macos/${VERSION}/edamame_posture --acl public-read
+          aws s3 cp ./target/release/edamame_posture s3://edamame-posture/dev/macos/${VERSION}/edamame_posture --acl public-read
 
       # Main only (upload to base folder)
-      - name: Upload helper to AWS
+      - name: Upload posture to AWS
         if: github.ref == 'refs/heads/main'
         shell: bash
         run: |
           VERSION=$(grep '^version =' ./Cargo.toml | awk '{print $3}' | tr -d '"')
-          aws s3 cp ./target/release/edamame_posture s3://edamame-helper/macos/${VERSION}/edamame_posture --acl public-read
+          aws s3 cp ./target/release/edamame_posture s3://edamame-posture/macos/${VERSION}/edamame_posture --acl public-read
