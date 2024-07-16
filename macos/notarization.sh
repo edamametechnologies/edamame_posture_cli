@@ -4,7 +4,7 @@ APP_PATH="$1"
 
 # Perform multiple attempts as this command sometimes fails
 while true; do
-  sub=$(xcrun notarytool submit ."$APP_PATH" --keychain-profile "Edamame")
+  sub=$(xcrun notarytool submit "$APP_PATH" --keychain-profile "Edamame")
   if [ $? -eq 0 ]; then
     break
   fi
