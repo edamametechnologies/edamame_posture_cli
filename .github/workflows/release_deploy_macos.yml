@@ -96,15 +96,8 @@ jobs:
       - name: Build application
         shell: bash
         run: |
-          make macos_publish
-
-      - name: Signing and Notarization
-        shell: bash
-        run: |
-          cd ./macos
-          codesign --timestamp --options=runtime -s "Developer ID Application: Edamame Technologies (WSL782B48J)" -v ./target/release/edamame_posture
           KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
-          ./notarize.sh ./target/release/edamame_posture
+          make macos_publish
 
       # Dev only (upload to dev folder)
       - name: Upload helper to AWS
