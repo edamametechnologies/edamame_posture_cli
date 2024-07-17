@@ -9,6 +9,7 @@ use std::thread;
 use std::time::Duration;
 use sysinfo::{Pid, System};
 use tracing::error;
+use envcrypt::envc;
 
 #[derive(Serialize, Deserialize, Debug)]
 struct State {
@@ -113,6 +114,7 @@ fn run() {
         // Reporting and community are on
         initialize(
             "posture".to_string(),
+            envc!("VERGEN_GIT_BRANCH").to_string(),
             "EN".to_string(),
             device,
             false,
@@ -133,7 +135,7 @@ fn run() {
         }
     } else {
         // Reporting and community are off
-        initialize("cli".to_string(), "EN".to_string(), device, true, true);
+        initialize("cli".to_string(), envc!("VERGEN_GIT_BRANCH").to_string(), "EN".to_string(), device, true, true);
 
         run_base();
     }
@@ -192,6 +194,7 @@ fn run_base() {
 }
 
 fn start_background_process(user: String, domain: String, pin: String) {
+    
     let child = ProcessCommand::new(std::env::current_exe().unwrap())
         .arg("background-process")
         .arg(user)
@@ -275,5 +278,6 @@ fn background_process(user: String, domain: String, pin: String) {
 }
 
 pub fn main() {
+    
     run();
 }

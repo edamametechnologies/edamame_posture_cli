@@ -389,9 +389,9 @@ dependencies = [
 
 [[package]]
 name = "async-signal"
-version = "0.2.8"
+version = "0.2.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "794f185324c2f00e771cd9f1ae8b5ac68be2ca7abb129a87afd6e86d228bc54d"
+checksum = "dfb3634b73397aa844481f814fad23bbf07fdb0eabec10f2eb95e58944b1ec32"
 dependencies = [
  "async-io 2.3.3",
  "async-lock 3.4.0",
@@ -1373,7 +1373,6 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "0.3.82"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=dev#82ea0b76afc529b8a1d6e1ac810668513f1367a7"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1398,7 +1397,6 @@ dependencies = [
  "lazy_static",
  "libc",
  "libp2p",
- "log",
  "mac_address",
  "machine-uid",
  "once_cell",
@@ -1426,7 +1424,6 @@ dependencies = [
  "uuid",
  "vergen",
  "whoami",
- "winapi",
  "windows 0.58.0",
 ]
 
@@ -1536,6 +1533,7 @@ dependencies = [
  "dirs",
  "edamame_core",
  "edamame_foundation 0.3.3 (git+https://github.com/edamametechnologies/edamame_foundation?branch=dev)",
+ "envcrypt",
  "sentry",
  "serde",
  "serde_yaml",
@@ -5318,9 +5316,9 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "tokio"
-version = "1.38.0"
+version = "1.38.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ba4f4a02a7a80d6f274636f0aa95c7e383b912d41fe721a31f29e29698585a4a"
+checksum = "eb2caba9f80616f438e09748d5acda951967e1ea58508ef53d9c6402485a46df"
 dependencies = [
  "backtrace",
  "bytes",

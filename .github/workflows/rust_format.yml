@@ -30,14 +30,6 @@ jobs:
           git config --global user.name "EDAMAME Dev"
           git config --global url."https://edamamedev:${{ secrets.DEV_GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
 
-      - name: Setup for edamame_core
-        shell: bash
-        run: |
-          cd ..
-          git clone --branch ${{ steps.extract_branch.outputs.branch }} https://github.com/edamametechnologies/edamame_core.git
-          # Remove references to bridge generated rust files
-          cd ../edamame_core/src; sed -i '/mod frb_generated/d' ./lib.rs
-
       - name: Check code format
         run: |
           cargo fmt --all -- --check
