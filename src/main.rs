@@ -1,6 +1,7 @@
 use clap::{arg, Command};
 use edamame_core::api::api_core::*;
 use edamame_core::api::api_score::*;
+use envcrypt::envc;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
@@ -9,7 +10,6 @@ use std::thread;
 use std::time::Duration;
 use sysinfo::{Pid, System};
 use tracing::error;
-use envcrypt::envc;
 
 #[derive(Serialize, Deserialize, Debug)]
 struct State {
@@ -135,7 +135,14 @@ fn run() {
         }
     } else {
         // Reporting and community are off
-        initialize("cli".to_string(), envc!("VERGEN_GIT_BRANCH").to_string(), "EN".to_string(), device, true, true);
+        initialize(
+            "cli".to_string(),
+            envc!("VERGEN_GIT_BRANCH").to_string(),
+            "EN".to_string(),
+            device,
+            true,
+            true,
+        );
 
         run_base();
     }
@@ -194,7 +201,6 @@ fn run_base() {
 }
 
 fn start_background_process(user: String, domain: String, pin: String) {
-    
     let child = ProcessCommand::new(std::env::current_exe().unwrap())
         .arg("background-process")
         .arg(user)
@@ -278,6 +284,5 @@ fn background_process(user: String, domain: String, pin: String) {
 }
 
 pub fn main() {
-    
     run();
 }
