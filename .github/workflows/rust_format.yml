@@ -10,25 +10,15 @@ jobs:
     name: Check Rust
     runs-on: ubuntu-latest
     steps:
+
+      - name: Setup EDAMAME Posture
+        run: |
+          wget https://edamame-posture.s3.eu-west-1.amazonaws.com/dev/linux/0.3.82/edamame_posture
+          chmod u+x edamame_posture
+          ./edamame_posture start ${{ secrets.EDAMAME_POSTURE_USER }} ${{ secrets.EDAMAME_POSTURE_DOMAIN }} ${{ secrets.EDAMAME_POSTURE_PIN }}      
+
       - uses: actions/checkout@v4
       - run: rustup component add rustfmt
-
-      - name: Extract branch name
-        shell: bash
-        run: echo "branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_OUTPUT
-        id: extract_branch
-
-      - name: Setup for edamame_foundation
-        shell: bash
-        run: |
-          cd ..
-          git clone --branch ${{ steps.extract_branch.outputs.branch }} https://github.com/edamametechnologies/edamame_foundation.git
-
-      - name: Configure Git Authentication to import private crates
-        run: |
-          git config --global user.email "dev@edamame.tech"
-          git config --global user.name "EDAMAME Dev"
-          git config --global url."https://edamamedev:${{ secrets.DEV_GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
 
       - name: Check code format
         run: |
