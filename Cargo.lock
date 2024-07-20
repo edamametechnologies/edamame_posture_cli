@@ -1528,7 +1528,7 @@ dependencies = [
 
 [[package]]
 name = "edamame_posture"
-version = "0.3.82"
+version = "0.3.83"
 dependencies = [
  "clap 4.5.9",
  "dirs",
