@@ -209,25 +209,32 @@ fn start_background_process(user: String, domain: String, pin: String) {
         .arg(pin)
         .spawn()
         .expect("Failed to start background process");
-    
+
     // Read the state and wait until a network activity is detected and the connection is successful
     let mut connection_status = get_connection();
-    
+
     // Setup a 60 seconds timeout
     let mut timeout = Duration::from_secs(60);
-    while !(connection_status.is_success && connection_status.last_network_activity != "") || timeout.as_secs() == 0 {
+    while !(connection_status.is_success && connection_status.last_network_activity != "")
+        || timeout.as_secs() == 0
+    {
         println!("Wait for score computation and reporting to complete...");
         thread::sleep(Duration::from_secs(5));
         timeout = timeout - Duration::from_secs(5);
         connection_status = get_connection();
     }
     if timeout.as_secs() == 0 {
-        eprintln!("Timeout waiting for background process to connect to domain, killing process...");
+        eprintln!(
+            "Timeout waiting for background process to connect to domain, killing process..."
+        );
         stop_background_process();
         // Exit with an error code
         std::process::exit(1);
     } else {
-        println!("Background process ({}) is running and connected to domain", child.id());
+        println!(
+            "Background process ({}) is running and connected to domain",
+            child.id()
+        );
     }
 }
 
