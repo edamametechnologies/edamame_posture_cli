@@ -1,6 +1,7 @@
 use clap::{arg, Command};
 use edamame_core::api::api_core::*;
 use edamame_core::api::api_score::*;
+use edamame_core::api::api_score_threats::*;
 use envcrypt::envc;
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -48,6 +49,8 @@ impl State {
 }
 
 fn handle_score() {
+    // Update threats
+    update_threats();
     let _ = get_score(true);
     let mut score = get_score(false);
     while score.compute_in_progress {
@@ -301,6 +304,8 @@ fn show_background_process_status() {
 }
 
 fn background_process(user: String, domain: String, pin: String) {
+    // Update threats
+    update_threats();
     // Set credentials
     set_credentials(user, domain, pin);
     // Connect domain
