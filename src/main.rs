@@ -86,7 +86,6 @@ fn handle_get_core_info() {
 
 fn handle_connect_domain() {
     connect_domain();
-    println!("Connected to domain");
 }
 
 fn handle_request_pin(user: String, domain: String) {
@@ -132,6 +131,8 @@ fn run() {
             background_process(args[2].clone(), args[3].clone(), args[4].clone());
         } else {
             eprintln!("Invalid arguments for background process");
+            // Exit with an error code
+            std::process::exit(1);
         }
     } else {
         // Reporting and community are off
@@ -208,25 +209,47 @@ fn start_background_process(user: String, domain: String, pin: String) {
         .arg(pin)
         .spawn()
         .expect("Failed to start background process");
-
-    println!("Background process started with PID: {}", child.id());
+    
+    // Read the state and wait until a network activity is detected and the connection is successful
+    let mut connection_status = get_connection();
+    
+    // Setup a 60 seconds timeout
+    let mut timeout = Duration::from_secs(60);
+    while !(connection_status.is_success && connection_status.last_network_activity != "") || timeout.as_secs() == 0 {
+        println!("Wait for score computation and reporting to complete...");
+        thread::sleep(Duration::from_secs(5));
+        timeout = timeout - Duration::from_secs(5);
+        connection_status = get_connection();
+    }
+    if timeout.as_secs() == 0 {
+        eprintln!("Timeout waiting for background process to connect to domain, killing process...");
+        stop_background_process();
+        // Exit with an error code
+        std::process::exit(1);
+    } else {
+        println!("Background process ({}) is running and connected to domain", child.id());
+    }
 }
 
 fn stop_background_process() {
     let state = State::load();
     if let Some(pid) = state.pid {
         if pid_exists(pid) {
-            println!("Stopping background process with PID: {}", pid);
+            println!("Stopping background process ({})", pid);
             let _ = ProcessCommand::new("kill").arg(pid.to_string()).status();
             State::clear();
 
             // Disconnect domain
             disconnect_domain();
         } else {
-            eprintln!("No background process found with PID: {}", pid);
+            eprintln!("No background process found ({})", pid);
+            // Exit with an error code
+            std::process::exit(1);
         }
     } else {
         eprintln!("No background process is running.");
+        // Exit with an error code
+        std::process::exit(1);
     }
 }
 
@@ -234,7 +257,7 @@ fn show_background_process_status() {
     let state = State::load();
     if let Some(pid) = state.pid {
         if pid_exists(pid) {
-            println!("Background process running with PID: {}", pid);
+            println!("Background process running ({})", pid);
             // Read connection status
             let connection_status = get_connection();
             println!("Connection status:");
@@ -260,8 +283,10 @@ fn show_background_process_status() {
                 connection_status.backend_error_code
             );
         } else {
-            eprintln!("Background process not found with PID: {}", pid);
+            eprintln!("Background process not found ({})", pid);
             State::clear();
+            // Exit with an error code
+            std::process::exit(1);
         }
     } else {
         println!("No background process is running.");

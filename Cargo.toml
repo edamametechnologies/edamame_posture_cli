@@ -1,13 +1,13 @@
 [package]
 name = "edamame_posture"
-version = "0.3.82"
+version = "0.3.83"
 edition = "2021"
 
 [dependencies]
 
 # EDAMAME foundation
 edamame_foundation = { git = "https://github.com/edamametechnologies/edamame_foundation", branch = "dev" }
-edamame_core = { git = "https://github.com/edamametechnologies/edamame_core", branch = "dev", features = ["nohealth", "nolanscan", "nopwned"] }
+edamame_core = { git = "https://github.com/edamametechnologies/edamame_core", branch = "dev", features = [ "nohealth", "nolanscan", "nopwned", "nobridge", "swiftrs" ] }
 
 # YAML
 serde = "1.0.204"
