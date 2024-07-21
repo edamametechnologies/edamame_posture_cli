@@ -14,17 +14,21 @@ use std::time::Duration;
 use sysinfo::{Pid, System};
 use tracing::error;
 #[cfg(windows)]
-use winapi::um::handleapi::CloseHandle;
+use std::ptr::null_mut;
 #[cfg(windows)]
-use winapi::um::processthreadsapi::CreateProcessW;
-#[cfg(windows)]
-use winapi::um::processthreadsapi::PROCESS_INFORMATION;
-#[cfg(windows)]
-use winapi::um::processthreadsapi::STARTUPINFOW;
+use winapi::{
+    shared::minwindef::FALSE,
+    um::{
+        handleapi::CloseHandle,
+        processthreadsapi::{CreateProcessW, PROCESS_INFORMATION, STARTUPINFOW},
+    },
+};
 #[cfg(windows)]
 use winapi::um::winbase::DETACHED_PROCESS;
 #[cfg(windows)]
 use winapi::um::winnt::HANDLE;
+#[cfg(windows)]
+use widestring::U16CString;
 
 #[derive(Serialize, Deserialize, Debug)]
 struct State {
@@ -306,27 +310,30 @@ fn start_background_process(user: String, domain: String, pin: String) {
             pin
         );
 
-        let mut si = STARTUPINFOW::default();
-        let mut pi = PROCESS_INFORMATION::default();
+        let cmd = U16CString::from_str(cmd).unwrap();
+        let mut si: STARTUPINFOW = unsafe { std::mem::zeroed() };
+        let mut pi: PROCESS_INFORMATION = unsafe { std::mem::zeroed() };
 
-        unsafe {
-            if CreateProcessW(
-                std::ptr::null(),
-                to_wide_null(&cmd).as_mut_ptr(),
-                std::ptr::null_mut(),
-                std::ptr::null_mut(),
+        let success = unsafe {
+            CreateProcessW(
+                null_mut(),
+                cmd.as_ptr() as *mut _,
+                null_mut(),
+                null_mut(),
                 0,
                 DETACHED_PROCESS,
-                std::ptr::null_mut(),
-                std::ptr::null(),
+                null_mut(),
+                null_mut(),
                 &mut si,
                 &mut pi,
-            ) == 0
-            {
+            )
+        };
+
+        if success == FALSE {
                 eprintln!("Failed to create background process");
                 std::process::exit(1);
-            } else {
-                println!("Background process launched ({})", pi.dwProcessId);
+        } else {
+            unsafe {
                 CloseHandle(pi.hProcess as HANDLE);
                 CloseHandle(pi.hThread as HANDLE);
             }
