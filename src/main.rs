@@ -9,12 +9,18 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
 use std::process::Command as ProcessCommand;
+#[cfg(windows)]
+use std::ptr::null_mut;
 use std::thread;
 use std::time::Duration;
 use sysinfo::{Pid, System};
 use tracing::error;
 #[cfg(windows)]
-use std::ptr::null_mut;
+use widestring::U16CString;
+#[cfg(windows)]
+use winapi::um::winbase::DETACHED_PROCESS;
+#[cfg(windows)]
+use winapi::um::winnt::HANDLE;
 #[cfg(windows)]
 use winapi::{
     shared::minwindef::FALSE,
@@ -23,12 +29,6 @@ use winapi::{
         processthreadsapi::{CreateProcessW, PROCESS_INFORMATION, STARTUPINFOW},
     },
 };
-#[cfg(windows)]
-use winapi::um::winbase::DETACHED_PROCESS;
-#[cfg(windows)]
-use winapi::um::winnt::HANDLE;
-#[cfg(windows)]
-use widestring::U16CString;
 
 #[derive(Serialize, Deserialize, Debug)]
 struct State {
@@ -330,8 +330,8 @@ fn start_background_process(user: String, domain: String, pin: String) {
         };
 
         if success == FALSE {
-                eprintln!("Failed to create background process");
-                std::process::exit(1);
+            eprintln!("Failed to create background process");
+            std::process::exit(1);
         } else {
             unsafe {
                 CloseHandle(pi.hProcess as HANDLE);
