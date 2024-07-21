@@ -190,9 +190,9 @@ dependencies = [
 
 [[package]]
 name = "arrayref"
-version = "0.3.7"
+version = "0.3.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6b4930d2cb77ce62f89ee5d5289b4ac049559b1c45539271f5ed4fdc7db34545"
+checksum = "9d151e35f61089500b617991b791fc8bfd237ae50cd5950803758a179b41e67a"
 
 [[package]]
 name = "arrayvec"
@@ -264,9 +264,9 @@ dependencies = [
 
 [[package]]
 name = "async-compression"
-version = "0.4.11"
+version = "0.4.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cd066d0b4ef8ecb03a55319dc13aa6910616d0f44008a045bb1835af830abff5"
+checksum = "fec134f64e2bc57411226dfc4e52dec859ddfc7e711fc5e07b612584f000e4aa"
 dependencies = [
  "flate2",
  "futures-core",
@@ -1086,6 +1086,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "daemonize"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ab8bfdaacb3c887a54d41bdf48d3af8873b3f5566469f8ba21b92057509f116e"
+dependencies = [
+ "libc",
+]
+
+[[package]]
 name = "darling"
 version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1373,7 +1382,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "0.3.83"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=dev#4b5fa1792eb52222479916b0a8a2e516af9bdae0"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=dev#955b721176baed7e213c8b979d2dac48dbf10906"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1431,7 +1440,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "0.3.3"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=dev#7a2858ae767944363f8d4b4b9ff87803d6942a44"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=dev#d41947820f3e4df0654b35fdce11eea6505c2121"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1480,7 +1489,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "0.3.3"
-source = "git+https://github.com/edamametechnologies/edamame_foundation#7a2858ae767944363f8d4b4b9ff87803d6942a44"
+source = "git+https://github.com/edamametechnologies/edamame_foundation#d41947820f3e4df0654b35fdce11eea6505c2121"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1531,6 +1540,7 @@ name = "edamame_posture"
 version = "0.3.83"
 dependencies = [
  "clap 4.5.9",
+ "daemonize",
  "dirs",
  "edamame_core",
  "edamame_foundation 0.3.3 (git+https://github.com/edamametechnologies/edamame_foundation?branch=dev)",
@@ -1541,6 +1551,7 @@ dependencies = [
  "sysinfo",
  "tracing",
  "vergen",
+ "winapi",
 ]
 
 [[package]]

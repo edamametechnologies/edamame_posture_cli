@@ -1,4 +1,6 @@
 use clap::{arg, Command};
+#[cfg(unix)]
+use daemonize::Daemonize;
 use edamame_core::api::api_core::*;
 use edamame_core::api::api_score::*;
 use edamame_core::api::api_score_threats::*;
@@ -11,6 +13,18 @@ use std::thread;
 use std::time::Duration;
 use sysinfo::{Pid, System};
 use tracing::error;
+#[cfg(windows)]
+use winapi::um::handleapi::CloseHandle;
+#[cfg(windows)]
+use winapi::um::processthreadsapi::CreateProcessW;
+#[cfg(windows)]
+use winapi::um::processthreadsapi::PROCESS_INFORMATION;
+#[cfg(windows)]
+use winapi::um::processthreadsapi::STARTUPINFOW;
+#[cfg(windows)]
+use winapi::um::winbase::DETACHED_PROCESS;
+#[cfg(windows)]
+use winapi::um::winnt::HANDLE;
 
 #[derive(Serialize, Deserialize, Debug)]
 struct State {
@@ -82,9 +96,46 @@ fn handle_score() {
     }
 }
 
+fn handle_wait_for_success() {
+    // Read the state and wait until a network activity is detected and the connection is successful
+    let mut connection_status = get_connection();
+
+    // Setup a 60 seconds timeout
+    let mut timeout = 60;
+    while !(connection_status.is_success && connection_status.last_network_activity != "")
+        && timeout > 0
+    {
+        println!("Wait for score computation and reporting to complete... (success: {}, network activity: {})", connection_status.is_success, connection_status.last_network_activity);
+        thread::sleep(Duration::from_secs(5));
+        timeout = timeout - 5;
+        connection_status = get_connection();
+    }
+    if timeout <= 0 {
+        eprintln!(
+            "Timeout waiting for background process to connect to domain, killing process..."
+        );
+        stop_background_process();
+        // Exit with an error code
+        std::process::exit(1);
+    } else {
+        println!(
+            "Connection successful with domain {} and user {} (success: {}, network activity: {})",
+            connection_status.connected_domain,
+            connection_status.connected_user,
+            connection_status.is_success,
+            connection_status.last_network_activity
+        );
+    }
+}
+
 fn handle_get_core_info() {
     let core_info = get_core_info();
     println!("Core information: {}", core_info);
+}
+
+fn handle_get_threats_info() {
+    let threats = get_threats_info();
+    println!("Threats information: {}", threats);
 }
 
 fn handle_connect_domain() {
@@ -164,7 +215,9 @@ fn run_base() {
         .author("Frank Lyonnet")
         .about("CLI interface to edamame_core")
         .subcommand(Command::new("score").about("Get score information"))
+        .subcommand(Command::new("wait-for-success").about("Wait for success"))
         .subcommand(Command::new("get-core-info").about("Get core information"))
+        .subcommand(Command::new("get-threats-info").about("Get threats information"))
         .subcommand(
             Command::new("request-pin")
                 .about("Request PIN")
@@ -185,7 +238,9 @@ fn run_base() {
 
     match matches.subcommand() {
         Some(("score", _)) => handle_score(),
+        Some(("wait-for-success", _)) => handle_wait_for_success(),
         Some(("get-core-info", _)) => handle_get_core_info(),
+        Some(("get-threats-info", _)) => handle_get_threats_info(),
         Some(("request-pin", sub_matches)) => {
             let user = sub_matches.get_one::<String>("USER").unwrap().to_string();
             let domain = sub_matches.get_one::<String>("DOMAIN").unwrap().to_string();
@@ -205,39 +260,77 @@ fn run_base() {
 }
 
 fn start_background_process(user: String, domain: String, pin: String) {
-    let child = ProcessCommand::new(std::env::current_exe().unwrap())
-        .arg("background-process")
-        .arg(user)
-        .arg(domain)
-        .arg(pin)
-        .spawn()
-        .expect("Failed to start background process");
+    // Show core version
+    handle_get_core_version();
 
-    // Read the state and wait until a network activity is detected and the connection is successful
-    let mut connection_status = get_connection();
+    // Show core info
+    handle_get_core_info();
 
-    // Setup a 60 seconds timeout
-    let mut timeout = Duration::from_secs(60);
-    while !(connection_status.is_success && connection_status.last_network_activity != "")
-        || timeout.as_secs() == 0
+    println!("Starting background process...");
+
+    #[cfg(unix)]
     {
-        println!("Wait for score computation and reporting to complete...");
-        thread::sleep(Duration::from_secs(5));
-        timeout = timeout - Duration::from_secs(5);
-        connection_status = get_connection();
+        let daemonize = Daemonize::new()
+            .pid_file("/tmp/edamame.pid")
+            .chown_pid_file(true)
+            .working_directory("/tmp")
+            .privileged_action(
+                move || -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+                    let child = ProcessCommand::new(std::env::current_exe().unwrap())
+                        .arg("background-process")
+                        .arg(&user)
+                        .arg(&domain)
+                        .arg(&pin)
+                        .spawn()
+                        .expect("Failed to start background process");
+
+                    println!("Background process ({}) launched", child.id());
+                    Ok(())
+                },
+            );
+
+        match daemonize.start() {
+            Ok(_) => println!("Successfully daemonized"),
+            Err(e) => eprintln!("Error daemonizing: {}", e),
+        }
     }
-    if timeout.as_secs() == 0 {
-        eprintln!(
-            "Timeout waiting for background process to connect to domain, killing process..."
+
+    #[cfg(windows)]
+    {
+        let exe = std::env::current_exe().unwrap();
+        let cmd = format!(
+            "{} background-process {} {} {}",
+            exe.display(),
+            user,
+            domain,
+            pin
         );
-        stop_background_process();
-        // Exit with an error code
-        std::process::exit(1);
-    } else {
-        println!(
-            "Background process ({}) is running and connected to domain",
-            child.id()
-        );
+
+        let mut si = STARTUPINFOW::default();
+        let mut pi = PROCESS_INFORMATION::default();
+
+        unsafe {
+            if CreateProcessW(
+                std::ptr::null(),
+                to_wide_null(&cmd).as_mut_ptr(),
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+                0,
+                DETACHED_PROCESS,
+                std::ptr::null_mut(),
+                std::ptr::null(),
+                &mut si,
+                &mut pi,
+            ) == 0
+            {
+                eprintln!("Failed to create background process");
+                std::process::exit(1);
+            } else {
+                println!("Background process launched ({})", pi.dwProcessId);
+                CloseHandle(pi.hProcess as HANDLE);
+                CloseHandle(pi.hThread as HANDLE);
+            }
+        }
     }
 }
 
@@ -304,15 +397,21 @@ fn show_background_process_status() {
 }
 
 fn background_process(user: String, domain: String, pin: String) {
+    println!("Forcing update of threats...");
     // Update threats
     update_threats();
+
+    // Show threats info
+    handle_get_threats_info();
+
     // Set credentials
     set_credentials(user, domain, pin);
-    // Connect domain
-    handle_connect_domain();
 
     // Request immediate score computation
     let _ = get_score(false);
+
+    // Connect domain
+    handle_connect_domain();
 
     // Loop for ever as background process is running
     loop {

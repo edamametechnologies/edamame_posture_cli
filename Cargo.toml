@@ -9,6 +9,10 @@ edition = "2021"
 edamame_foundation = { git = "https://github.com/edamametechnologies/edamame_foundation", branch = "dev" }
 edamame_core = { git = "https://github.com/edamametechnologies/edamame_core", branch = "dev", features = [ "nohealth", "nolanscan", "nopwned", "nobridge", "swiftrs" ] }
 
+# Process
+daemonize = "0.5.0"
+winapi = { version = "0.3.9", features = ["winbase", "processthreadsapi", "handleapi", "winnt"] }
+
 # YAML
 serde = "1.0.204"
 serde_yaml = "0.9.34+deprecated"
