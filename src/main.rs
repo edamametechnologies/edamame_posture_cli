@@ -5,9 +5,11 @@ use edamame_core::api::api_core::*;
 use edamame_core::api::api_score::*;
 use edamame_core::api::api_score_threats::*;
 use envcrypt::envc;
+use fs2::FileExt;
 use glob::glob;
 use serde::{Deserialize, Serialize};
-use std::fs;
+use std::fs::{self, File};
+use std::io::{Read, Write};
 use std::path::PathBuf;
 use std::process::Command as ProcessCommand;
 #[cfg(windows)]
@@ -34,23 +36,44 @@ use winapi::{
 #[derive(Serialize, Deserialize, Debug)]
 struct State {
     pid: Option<u32>,
+    is_success: bool,
+    connected_domain: String,
+    connected_user: String,
+    last_network_activity: String,
 }
 
 impl State {
     fn load() -> Self {
         let path = Self::state_file_path();
         if path.exists() {
-            let contents = fs::read_to_string(path).expect("Unable to read state file");
-            serde_yaml::from_str(&contents).expect("Unable to parse state file")
+            let mut file = File::open(&path).expect("Unable to open state file");
+            file.lock_shared().expect("Unable to lock file for reading");
+            let mut contents = String::new();
+            file.read_to_string(&mut contents)
+                .expect("Unable to read state file");
+            let state: State = serde_yaml::from_str(&contents).expect("Unable to parse state file");
+            file.unlock().expect("Unable to unlock file");
+            state
         } else {
-            State { pid: None }
+            State {
+                pid: None,
+                is_success: false,
+                connected_domain: "".to_string(),
+                connected_user: "".to_string(),
+                last_network_activity: "".to_string(),
+            }
         }
     }
 
     fn save(&self) {
         let path = Self::state_file_path();
+        let mut file = File::create(&path).expect("Unable to create state file");
+        file.lock_exclusive()
+            .expect("Unable to lock file for writing");
         let contents = serde_yaml::to_string(self).expect("Unable to serialize state");
-        fs::write(path, contents).expect("Unable to write state file");
+        file.write_all(contents.as_bytes())
+            .expect("Unable to write state file");
+        file.unlock().expect("Unable to unlock file");
     }
 
     fn state_file_path() -> PathBuf {
@@ -103,16 +126,14 @@ fn handle_score() {
 
 fn handle_wait_for_success(timeout: u64) {
     // Read the state and wait until a network activity is detected and the connection is successful
-    let mut connection_status = get_connection();
+    let mut state = State::load();
 
     let mut timeout = timeout;
-    while !(connection_status.is_success && connection_status.last_network_activity != "")
-        && timeout > 0
-    {
-        println!("Wait for score computation and reporting to complete... (success: {}, network activity: {})", connection_status.is_success, connection_status.last_network_activity);
+    while !(state.is_success && state.last_network_activity != "") && timeout > 0 {
+        println!("Wait for score computation and reporting to complete... (success: {}, network activity: {})", state.is_success, state.last_network_activity);
         thread::sleep(Duration::from_secs(5));
         timeout = timeout - 5;
-        connection_status = get_connection();
+        state = State::load();
     }
     if timeout <= 0 {
         eprintln!(
@@ -149,10 +170,10 @@ fn handle_wait_for_success(timeout: u64) {
     } else {
         println!(
             "Connection successful with domain {} and user {} (success: {}, network activity: {})",
-            connection_status.connected_domain,
-            connection_status.connected_user,
-            connection_status.is_success,
-            connection_status.last_network_activity
+            state.connected_domain,
+            state.connected_user,
+            state.is_success,
+            state.last_network_activity
         );
     }
 }
@@ -194,7 +215,7 @@ fn run() {
     let args: Vec<String> = std::env::args().collect();
     if args.len() > 1 && args[1] == "background-process" {
         // Debug logging
-        std::env::set_var("EDAMAME_LOG_LEVEL", "debug");
+        //std::env::set_var("EDAMAME_LOG_LEVEL", "debug");
 
         // Reporting and community are on
         initialize(
@@ -211,6 +232,10 @@ fn run() {
             // Save state
             let state = State {
                 pid: Some(std::process::id()),
+                is_success: false,
+                connected_domain: args[3].clone(),
+                connected_user: args[2].clone(),
+                last_network_activity: "".to_string(),
             };
             state.save();
 
@@ -469,9 +494,14 @@ fn background_process(user: String, domain: String, pin: String) {
     // Connect domain
     handle_connect_domain();
 
-    // Loop for ever as background process is running
+    // Loop for ever as background process is running, write the shared state based on the connection status
     loop {
-        thread::sleep(Duration::from_secs(60));
+        let connection_status = get_connection();
+        let mut state = State::load();
+        state.is_success = connection_status.is_success;
+        state.last_network_activity = connection_status.last_network_activity;
+        state.save();
+        thread::sleep(Duration::from_secs(5));
     }
 }
 

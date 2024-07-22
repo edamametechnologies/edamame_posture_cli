@@ -1382,7 +1382,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "0.3.83"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=dev#34577382e0b7c7b22aaa7864514956e87c2a1c08"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=dev#a6acd074b33076890b759995c60ed90e0fd317de"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1545,6 +1545,7 @@ dependencies = [
  "edamame_core",
  "edamame_foundation 0.3.3 (git+https://github.com/edamametechnologies/edamame_foundation?branch=dev)",
  "envcrypt",
+ "fs2",
  "glob",
  "serde",
  "serde_yaml",
@@ -1831,6 +1832,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e13624c2627564efccf4934284bdd98cbaa14e79b0b5a141218e507b3a823456"
 dependencies = [
  "percent-encoding",
+]
+
+[[package]]
+name = "fs2"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9564fc758e15025b46aa6643b1b77d047d1a56a1aea6e01002ac0c7026876213"
+dependencies = [
+ "libc",
+ "winapi",
 ]
 
 [[package]]
@@ -4212,14 +4223,13 @@ dependencies = [
 
 [[package]]
 name = "quinn-udp"
-version = "0.5.2"
+version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9096629c45860fc7fb143e125eb826b5e721e10be3263160c7d60ca832cf8c46"
+checksum = "25a78e6f726d84fcf960409f509ae354a32648f090c8d32a2ea8b1a1bc3bab14"
 dependencies = [
  "libc",
  "once_cell",
  "socket2 0.5.7",
- "tracing",
  "windows-sys 0.52.0",
 ]
 
