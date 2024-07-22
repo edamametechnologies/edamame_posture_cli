@@ -16,7 +16,6 @@ use std::process::Command as ProcessCommand;
 use std::ptr::null_mut;
 use std::thread;
 use std::time::Duration;
-use sysinfo::{Pid, System};
 use tracing::{error, info};
 #[cfg(windows)]
 use widestring::U16CString;
@@ -31,6 +30,9 @@ use winapi::{
         handleapi::CloseHandle,
         processthreadsapi::{CreateProcessW, PROCESS_INFORMATION, STARTUPINFOW},
     },
+};
+use sysinfo::{
+    Pid, Disks, Networks, System,
 };
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -128,6 +130,8 @@ fn handle_wait_for_success(timeout: u64) {
     // Read the state and wait until a network activity is detected and the connection is successful
     let mut state = State::load();
 
+    handle_get_system_info();
+
     let mut timeout = timeout;
     while !(state.is_success && state.last_network_activity != "") && timeout > 0 {
         println!("Wait for score computation and reporting to complete... (success: {}, network activity: {})", state.is_success, state.last_network_activity);
@@ -138,7 +142,7 @@ fn handle_wait_for_success(timeout: u64) {
 
     // Print the score
     handle_score();
-    
+
     if timeout <= 0 {
         eprintln!(
             "Timeout waiting for background process to connect to domain, killing process..."
@@ -289,6 +293,7 @@ fn run_base() {
         )
         .subcommand(Command::new("get-core-info").about("Get core information"))
         .subcommand(Command::new("get-threats-info").about("Get threats information"))
+        .subcommand(Command::new("get-system-info").about("Get system information"))
         .subcommand(
             Command::new("request-pin")
                 .about("Request PIN")
@@ -317,6 +322,7 @@ fn run_base() {
         }
         Some(("get-core-info", _)) => handle_get_core_info(),
         Some(("get-threats-info", _)) => handle_get_threats_info(),
+        Some(("get-system-info", _)) => handle_get_system_info(),
         Some(("request-pin", sub_matches)) => {
             let user = sub_matches.get_one::<String>("USER").unwrap().to_string();
             let domain = sub_matches.get_one::<String>("DOMAIN").unwrap().to_string();
@@ -482,6 +488,86 @@ fn show_background_process_status() {
     }
 }
 
+fn handle_get_system_info() {
+    let mut sys = System::new_all();
+    sys.refresh_all();
+    sysinfo::set_open_files_limit(0);
+
+    println!("System information:");
+    // RAM and swap information
+    println!("  - total memory: {} bytes", sys.total_memory());
+    println!("  - used memory : {} bytes", sys.used_memory());
+    println!("  - total swap  : {} bytes", sys.total_swap());
+    println!("  - used swap   : {} bytes", sys.used_swap());
+
+    // Display system information
+    println!("System name:             {:?}", System::name());
+    println!("System kernel version:   {:?}", System::kernel_version());
+    println!("System OS version:       {:?}", System::os_version());
+    println!("System host name:        {:?}", System::host_name());
+
+    // Number of CPUs
+    println!("NB CPUs: {}", sys.cpus().len());
+
+    // We display all disks' information
+    println!("=> disks:");
+    let disks = Disks::new_with_refreshed_list();
+    for disk in &disks {
+        println!("{disk:?}");
+    }
+
+    // Network interfaces name
+    let networks = Networks::new_with_refreshed_list();
+    println!("=> networks:");
+    for (interface_name, _data) in &networks {
+        println!(
+            "{interface_name}",
+        );
+    }
+
+    // Platform-specific information
+    #[cfg(target_os = "macos")]
+    {
+        use std::process::Command;
+
+        let output = Command::new("system_profiler")
+            .arg("SPHardwareDataType")
+            .output()
+            .expect("Failed to execute command");
+
+        println!("=> macOS specific information:");
+        println!("System profiler hardware data:");
+        println!("{}", String::from_utf8_lossy(&output.stdout));
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        use std::fs;
+
+        let cpuinfo = fs::read_to_string("/proc/cpuinfo")
+            .expect("Failed to read /proc/cpuinfo");
+
+        println!("=> Linux specific information:");
+        println!("CPU information from /proc/cpuinfo:");
+        println!("{}", cpuinfo);
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        use std::process::Command;
+
+        let output = Command::new("powershell")
+            .arg("-Command")
+            .arg("Get-WmiObject -Class Win32_ComputerSystem | Select-Object -Property Model")
+            .output()
+            .expect("Failed to execute command");
+
+        println!("=> Windows specific information:");
+        println!("Computer system model from WMI:");
+        println!("{}", String::from_utf8_lossy(&output.stdout));
+    }
+}
+
 fn background_process(user: String, domain: String, pin: String) {
     
     // We are using the logger as we are in the background process
@@ -499,7 +585,7 @@ fn background_process(user: String, domain: String, pin: String) {
 
     // Request immediate score computation
     info!("Requesting immediate score computation...");
-    let _ = get_score(false);
+    let _ = get_score(true);
 
     // Connect domain
     info!("Connecting to domain...");
