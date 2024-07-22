@@ -17,7 +17,7 @@ use std::ptr::null_mut;
 use std::thread;
 use std::time::Duration;
 use sysinfo::{Pid, System};
-use tracing::error;
+use tracing::{error, info};
 #[cfg(windows)]
 use widestring::U16CString;
 #[cfg(windows)]
@@ -135,6 +135,10 @@ fn handle_wait_for_success(timeout: u64) {
         timeout = timeout - 5;
         state = State::load();
     }
+
+    // Print the score
+    handle_score();
+    
     if timeout <= 0 {
         eprintln!(
             "Timeout waiting for background process to connect to domain, killing process..."
@@ -479,20 +483,26 @@ fn show_background_process_status() {
 }
 
 fn background_process(user: String, domain: String, pin: String) {
-    println!("Forcing update of threats...");
+    
+    // We are using the logger as we are in the background process
+    info!("Forcing update of threats...");
     // Update threats
     update_threats();
 
     // Show threats info
-    handle_get_threats_info();
+    let threats = get_threats_info();
+    info!("Threats information: {}", threats);
 
     // Set credentials
+    info!("Setting credentials for user: {}, domain: {}", user, domain);
     set_credentials(user, domain, pin);
 
     // Request immediate score computation
+    info!("Requesting immediate score computation...");
     let _ = get_score(false);
 
     // Connect domain
+    info!("Connecting to domain...");
     handle_connect_domain();
 
     // Loop for ever as background process is running, write the shared state based on the connection status
