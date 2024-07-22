@@ -169,12 +169,13 @@ fn handle_wait_for_success(timeout: u64) {
         std::process::exit(1);
     } else {
         println!(
-            "Connection successful with domain {} and user {} (success: {}, network activity: {})",
+            "Connection successful with domain {} and user {} (success: {}, network activity: {}), pausing for 60 seconds to ensure access control is applied...",
             state.connected_domain,
             state.connected_user,
             state.is_success,
             state.last_network_activity
         );
+        thread::sleep(Duration::from_secs(60));
     }
 }
 
@@ -248,8 +249,8 @@ fn run() {
     } else {
         // Reporting and community are off
         initialize(
-            // "cli" will hide the logs from the user
-            "debug".to_string(),
+            // Use "debug" to show the logs to the user
+            "cli".to_string(),
             envc!("VERGEN_GIT_BRANCH").to_string(),
             "EN".to_string(),
             device,
