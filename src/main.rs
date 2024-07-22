@@ -16,6 +16,7 @@ use std::process::Command as ProcessCommand;
 use std::ptr::null_mut;
 use std::thread;
 use std::time::Duration;
+use sysinfo::{Disks, Networks, Pid, System};
 use tracing::{error, info};
 #[cfg(windows)]
 use widestring::U16CString;
@@ -30,9 +31,6 @@ use winapi::{
         handleapi::CloseHandle,
         processthreadsapi::{CreateProcessW, PROCESS_INFORMATION, STARTUPINFOW},
     },
-};
-use sysinfo::{
-    Pid, Disks, Networks, System,
 };
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -520,9 +518,7 @@ fn handle_get_system_info() {
     let networks = Networks::new_with_refreshed_list();
     println!("=> networks:");
     for (interface_name, _data) in &networks {
-        println!(
-            "{interface_name}",
-        );
+        println!("{interface_name}",);
     }
 
     // Platform-specific information
@@ -544,8 +540,7 @@ fn handle_get_system_info() {
     {
         use std::fs;
 
-        let cpuinfo = fs::read_to_string("/proc/cpuinfo")
-            .expect("Failed to read /proc/cpuinfo");
+        let cpuinfo = fs::read_to_string("/proc/cpuinfo").expect("Failed to read /proc/cpuinfo");
 
         println!("=> Linux specific information:");
         println!("CPU information from /proc/cpuinfo:");
@@ -569,7 +564,6 @@ fn handle_get_system_info() {
 }
 
 fn background_process(user: String, domain: String, pin: String) {
-    
     // We are using the logger as we are in the background process
     info!("Forcing update of threats...");
     // Update threats
