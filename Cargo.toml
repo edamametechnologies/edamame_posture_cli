@@ -9,6 +9,9 @@ edition = "2021"
 edamame_foundation = { git = "https://github.com/edamametechnologies/edamame_foundation", branch = "dev" }
 edamame_core = { git = "https://github.com/edamametechnologies/edamame_core", branch = "dev", features = [ "nohealth", "nolanscan", "nopwned", "nobridge", "swiftrs" ] }
 
+# Files with wildcards
+glob = "0.3.1"
+
 # YAML
 serde = "1.0.204"
 serde_yaml = "0.9.34+deprecated"
@@ -22,9 +25,6 @@ clap = "4.1.1"
 
 # Logging
 tracing = "0.1.40"
-
-# Sentry
-sentry = "0.34.0"
 
 # Encrypted env (weak)
 envcrypt = "0.5.0"

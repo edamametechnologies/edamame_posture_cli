@@ -22,7 +22,7 @@ permissions: read-all
 
 jobs:
   build:
-    runs-on: edamame-large-runner
+    runs-on: ubuntu-latest
     timeout-minutes: 90
 
     env:

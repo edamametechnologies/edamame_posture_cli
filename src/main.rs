@@ -5,6 +5,7 @@ use edamame_core::api::api_core::*;
 use edamame_core::api::api_score::*;
 use edamame_core::api::api_score_threats::*;
 use envcrypt::envc;
+use glob::glob;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
@@ -100,12 +101,11 @@ fn handle_score() {
     }
 }
 
-fn handle_wait_for_success() {
+fn handle_wait_for_success(timeout: u64) {
     // Read the state and wait until a network activity is detected and the connection is successful
     let mut connection_status = get_connection();
 
-    // Setup a 60 seconds timeout
-    let mut timeout = 60;
+    let mut timeout = timeout;
     while !(connection_status.is_success && connection_status.last_network_activity != "")
         && timeout > 0
     {
@@ -119,6 +119,31 @@ fn handle_wait_for_success() {
             "Timeout waiting for background process to connect to domain, killing process..."
         );
         stop_background_process();
+        // Display the process logs stored in the executable directory with prefix "edamame_posture"
+        match std::env::current_exe() {
+            Ok(exe_path) => {
+                let log_pattern = exe_path
+                    .with_file_name("edamame_posture.*")
+                    .to_string_lossy()
+                    .into_owned();
+                match find_log_files(&log_pattern) {
+                    Ok(log_files) => {
+                        for log_file in log_files {
+                            match fs::read_to_string(&log_file) {
+                                Ok(contents) => println!("{}", contents),
+                                Err(err) => eprintln!(
+                                    "Error reading log file {}: {}",
+                                    log_file.display(),
+                                    err
+                                ),
+                            }
+                        }
+                    }
+                    Err(err) => eprintln!("Error finding log files: {}", err),
+                }
+            }
+            Err(err) => eprintln!("Error getting current executable path: {}", err),
+        }
         // Exit with an error code
         std::process::exit(1);
     } else {
@@ -219,7 +244,15 @@ fn run_base() {
         .author("Frank Lyonnet")
         .about("CLI interface to edamame_core")
         .subcommand(Command::new("score").about("Get score information"))
-        .subcommand(Command::new("wait-for-success").about("Wait for success"))
+        .subcommand(
+            Command::new("wait-for-success")
+                .about("Wait for success")
+                .arg(
+                    arg!(<TIMEOUT> "Timeout in seconds")
+                        .required(false)
+                        .value_parser(clap::value_parser!(u64)),
+                ),
+        )
         .subcommand(Command::new("get-core-info").about("Get core information"))
         .subcommand(Command::new("get-threats-info").about("Get threats information"))
         .subcommand(
@@ -242,7 +275,12 @@ fn run_base() {
 
     match matches.subcommand() {
         Some(("score", _)) => handle_score(),
-        Some(("wait-for-success", _)) => handle_wait_for_success(),
+        Some(("wait-for-success", sub_matches)) => {
+            let timeout = sub_matches
+                .get_one::<u64>("TIMEOUT")
+                .unwrap_or_else(|| &120);
+            handle_wait_for_success(*timeout)
+        }
         Some(("get-core-info", _)) => handle_get_core_info(),
         Some(("get-threats-info", _)) => handle_get_threats_info(),
         Some(("request-pin", sub_matches)) => {
@@ -341,6 +379,17 @@ fn start_background_process(user: String, domain: String, pin: String) {
     }
 }
 
+fn find_log_files(pattern: &str) -> Result<Vec<PathBuf>, glob::PatternError> {
+    let mut log_files = Vec::new();
+    for entry in glob(pattern)? {
+        match entry {
+            Ok(path) => log_files.push(path),
+            Err(e) => eprintln!("Error processing entry: {:?}", e),
+        }
+    }
+    Ok(log_files)
+}
+
 fn stop_background_process() {
     let state = State::load();
     if let Some(pid) = state.pid {
@@ -353,13 +402,9 @@ fn stop_background_process() {
             disconnect_domain();
         } else {
             eprintln!("No background process found ({})", pid);
-            // Exit with an error code
-            std::process::exit(1);
         }
     } else {
         eprintln!("No background process is running.");
-        // Exit with an error code
-        std::process::exit(1);
     }
 }
 
