@@ -193,6 +193,9 @@ fn run() {
 
     let args: Vec<String> = std::env::args().collect();
     if args.len() > 1 && args[1] == "background-process" {
+        // Debug logging
+        std::env::set_var("EDAMAME_LOG_LEVEL", "debug");
+
         // Reporting and community are on
         initialize(
             "posture".to_string(),
@@ -220,7 +223,8 @@ fn run() {
     } else {
         // Reporting and community are off
         initialize(
-            "cli".to_string(),
+            // "cli" will hide the logs from the user
+            "debug".to_string(),
             envc!("VERGEN_GIT_BRANCH").to_string(),
             "EN".to_string(),
             device,
