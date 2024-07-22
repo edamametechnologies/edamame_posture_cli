@@ -58,6 +58,3 @@ clean:
 
 test:
 	cargo test
-
-debug:
-	cargo build -vv
