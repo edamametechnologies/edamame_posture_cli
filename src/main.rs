@@ -269,7 +269,8 @@ fn run() {
             // Set device ID
             // Prefix it with the machine uid
             let machine_uid = machine_uid::get().unwrap_or("".to_string());
-            device.device_id = (machine_uid + "/" + args[5].clone().to_string().as_str()).to_string();
+            device.device_id =
+                (machine_uid + "/" + args[5].clone().to_string().as_str()).to_string();
 
             // Reporting and community are on
             initialize(
@@ -371,7 +372,10 @@ fn run_base() {
             let domain = sub_matches.get_one::<String>("DOMAIN").unwrap().to_string();
             let pin = sub_matches.get_one::<String>("PIN").unwrap().to_string();
             // If no device ID is provided, use an empty string to trigger detection
-            let device_id = sub_matches.get_one::<String>("DEVICE_ID").unwrap_or(&"".to_string()).to_string();
+            let device_id = sub_matches
+                .get_one::<String>("DEVICE_ID")
+                .unwrap_or(&"".to_string())
+                .to_string();
             start_background_process(user, domain, pin, device_id);
         }
         Some(("stop", _)) => stop_background_process(),
