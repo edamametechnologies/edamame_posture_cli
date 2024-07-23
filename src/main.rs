@@ -239,7 +239,7 @@ fn handle_get_core_version() {
 }
 
 fn run() {
-    let device = DeviceInfoAPI {
+    let mut device = DeviceInfoAPI {
         device_id: "".to_string(),
         model: "".to_string(),
         brand: "".to_string(),
@@ -255,18 +255,7 @@ fn run() {
         // Debug logging
         //std::env::set_var("EDAMAME_LOG_LEVEL", "debug");
 
-        // Reporting and community are on
-        initialize(
-            "posture".to_string(),
-            envc!("VERGEN_GIT_BRANCH").to_string(),
-            "EN".to_string(),
-            device,
-            false,
-            // Disable community
-            true,
-        );
-
-        if args.len() == 5 {
+        if args.len() == 6 {
             // Save state
             let state = State {
                 pid: Some(std::process::id()),
@@ -276,6 +265,22 @@ fn run() {
                 last_network_activity: "".to_string(),
             };
             state.save();
+
+            // Set device ID
+            // Prefix it with the machine uid
+            let machine_uid = machine_uid::get().unwrap_or("".to_string());
+            device.device_id = (machine_uid + "/" + args[5].clone().to_string().as_str()).to_string();
+
+            // Reporting and community are on
+            initialize(
+                "posture".to_string(),
+                envc!("VERGEN_GIT_BRANCH").to_string(),
+                "EN".to_string(),
+                device,
+                false,
+                // Disable community
+                true,
+            );
 
             background_process(args[2].clone(), args[3].clone(), args[4].clone());
         } else {
@@ -336,7 +341,8 @@ fn run_base() {
                 .about("Start reporting background process")
                 .arg(arg!(<USER> "User name").required(true))
                 .arg(arg!(<DOMAIN> "Domain name").required(true))
-                .arg(arg!(<PIN> "PIN").required(true)),
+                .arg(arg!(<PIN> "PIN").required(true))
+                .arg(arg!(<DEVICE_ID> "Device ID").required(false)),
         )
         .subcommand(Command::new("stop").about("Stop reporting background process"))
         .subcommand(Command::new("status").about("Get status of reporting background process"))
@@ -364,7 +370,9 @@ fn run_base() {
             let user = sub_matches.get_one::<String>("USER").unwrap().to_string();
             let domain = sub_matches.get_one::<String>("DOMAIN").unwrap().to_string();
             let pin = sub_matches.get_one::<String>("PIN").unwrap().to_string();
-            start_background_process(user, domain, pin);
+            // If no device ID is provided, use an empty string to trigger detection
+            let device_id = sub_matches.get_one::<String>("DEVICE_ID").unwrap_or(&"".to_string()).to_string();
+            start_background_process(user, domain, pin, device_id);
         }
         Some(("stop", _)) => stop_background_process(),
         Some(("status", _)) => show_background_process_status(),
@@ -372,7 +380,7 @@ fn run_base() {
     }
 }
 
-fn start_background_process(user: String, domain: String, pin: String) {
+fn start_background_process(user: String, domain: String, pin: String, device_id: String) {
     // Show core version
     handle_get_core_version();
 
@@ -394,6 +402,7 @@ fn start_background_process(user: String, domain: String, pin: String) {
                         .arg(&user)
                         .arg(&domain)
                         .arg(&pin)
+                        .arg(&device_id)
                         .spawn()
                         .expect("Failed to start background process");
 
