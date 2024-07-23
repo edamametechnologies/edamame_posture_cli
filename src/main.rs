@@ -96,10 +96,17 @@ fn handle_score() {
     let _ = get_score(true);
     let mut score = get_score(false);
     while score.compute_in_progress {
+        print!(".");
         thread::sleep(Duration::from_millis(100));
         score = get_score(false);
     }
+    // Make sure we have the final score
+    score = get_score(true);
     // Pretty print the final score with important details
+    println!("Threat model version: {}", score.model_name);
+    println!("Threat model date: {}", score.model_date);
+    println!("Threat model signature: {}", score.model_signature);
+    println!("Score computed at: {}", score.last_compute);
     println!("Stars: {:?}", score.stars);
     println!("Network: {:?}", score.network);
     println!("System Integrity: {:?}", score.system_integrity);
@@ -493,32 +500,32 @@ fn handle_get_system_info() {
 
     println!("System information:");
     // RAM and swap information
-    println!("  - total memory: {} bytes", sys.total_memory());
-    println!("  - used memory : {} bytes", sys.used_memory());
-    println!("  - total swap  : {} bytes", sys.total_swap());
-    println!("  - used swap   : {} bytes", sys.used_swap());
+    println!("  - Total memory: {} bytes", sys.total_memory());
+    println!("  - Used memory : {} bytes", sys.used_memory());
+    println!("  - Total swap  : {} bytes", sys.total_swap());
+    println!("  - Used swap   : {} bytes", sys.used_swap());
 
     // Display system information
-    println!("System name:             {:?}", System::name());
-    println!("System kernel version:   {:?}", System::kernel_version());
-    println!("System OS version:       {:?}", System::os_version());
-    println!("System host name:        {:?}", System::host_name());
+    println!("  - System name:             {:?}", System::name());
+    println!("  - System kernel version:   {:?}", System::kernel_version());
+    println!("  - System OS version:       {:?}", System::os_version());
+    println!("  - System host name:        {:?}", System::host_name());
 
     // Number of CPUs
     println!("NB CPUs: {}", sys.cpus().len());
 
     // We display all disks' information
-    println!("=> disks:");
+    println!("Disks:");
     let disks = Disks::new_with_refreshed_list();
     for disk in &disks {
-        println!("{disk:?}");
+        println!("  - {disk:?}");
     }
 
     // Network interfaces name
     let networks = Networks::new_with_refreshed_list();
-    println!("=> networks:");
+    println!("Networks:");
     for (interface_name, _data) in &networks {
-        println!("{interface_name}",);
+        println!("  - {interface_name}",);
     }
 
     // Platform-specific information
@@ -531,7 +538,7 @@ fn handle_get_system_info() {
             .output()
             .expect("Failed to execute command");
 
-        println!("=> macOS specific information:");
+        println!("macOS specific information:");
         println!("System profiler hardware data:");
         println!("{}", String::from_utf8_lossy(&output.stdout));
     }
@@ -542,7 +549,7 @@ fn handle_get_system_info() {
 
         let cpuinfo = fs::read_to_string("/proc/cpuinfo").expect("Failed to read /proc/cpuinfo");
 
-        println!("=> Linux specific information:");
+        println!("Linux specific information:");
         println!("CPU information from /proc/cpuinfo:");
         println!("{}", cpuinfo);
     }
@@ -557,7 +564,7 @@ fn handle_get_system_info() {
             .output()
             .expect("Failed to execute command");
 
-        println!("=> Windows specific information:");
+        println!("Windows specific information:");
         println!("Computer system model from WMI:");
         println!("{}", String::from_utf8_lossy(&output.stdout));
     }
