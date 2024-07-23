@@ -135,6 +135,8 @@ fn handle_wait_for_success(timeout: u64) {
     // Read the state and wait until a network activity is detected and the connection is successful
     let mut state = State::load();
 
+    handle_get_device_info();
+    
     handle_get_system_info();
 
     let mut timeout = timeout;
@@ -197,6 +199,19 @@ fn handle_get_core_info() {
     println!("Core information: {}", core_info);
 }
 
+fn handle_get_device_info() {
+    let device_info = get_device_info();
+    println!("Device information:");
+    println!("  - Device ID: {}", device_info.device_id);
+    println!("  - Model: {}", device_info.model);
+    println!("  - Brand: {}", device_info.brand);
+    println!("  - OS Name: {}", device_info.os_name);
+    println!("  - OS Version: {}", device_info.os_version);
+    println!("  - IPv4: {}", device_info.ip4);
+    println!("  - IPv6: {}", device_info.ip6);
+    println!("  - MAC: {}", device_info.mac);
+}
+
 fn handle_get_threats_info() {
     let threats = get_threats_info();
     println!("Threats information: {}", threats);
@@ -224,6 +239,9 @@ fn run() {
         brand: "".to_string(),
         os_name: "".to_string(),
         os_version: "".to_string(),
+        ip4: "".to_string(),
+        ip6: "".to_string(),
+        mac: "".to_string(),
     };
 
     let args: Vec<String> = std::env::args().collect();
@@ -297,6 +315,7 @@ fn run_base() {
                 ),
         )
         .subcommand(Command::new("get-core-info").about("Get core information"))
+        .subcommand(Command::new("get-device-info").about("Get device information"))
         .subcommand(Command::new("get-threats-info").about("Get threats information"))
         .subcommand(Command::new("get-system-info").about("Get system information"))
         .subcommand(
@@ -326,6 +345,7 @@ fn run_base() {
             handle_wait_for_success(*timeout)
         }
         Some(("get-core-info", _)) => handle_get_core_info(),
+        Some(("get-device-info", _)) => handle_get_device_info(),
         Some(("get-threats-info", _)) => handle_get_threats_info(),
         Some(("get-system-info", _)) => handle_get_system_info(),
         Some(("request-pin", sub_matches)) => {
@@ -507,7 +527,10 @@ fn handle_get_system_info() {
 
     // Display system information
     println!("  - System name:             {:?}", System::name());
-    println!("  - System kernel version:   {:?}", System::kernel_version());
+    println!(
+        "  - System kernel version:   {:?}",
+        System::kernel_version()
+    );
     println!("  - System OS version:       {:?}", System::os_version());
     println!("  - System host name:        {:?}", System::host_name());
 
@@ -575,7 +598,7 @@ fn background_process(user: String, domain: String, pin: String) {
     info!("Forcing update of threats...");
     // Update threats
     update_threats();
-
+    
     // Show threats info
     let threats = get_threats_info();
     info!("Threats information: {}", threats);
