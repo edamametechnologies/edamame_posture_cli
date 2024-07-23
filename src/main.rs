@@ -131,6 +131,32 @@ fn handle_score() {
     }
 }
 
+fn display_logs() {
+    // Display the process logs stored in the executable directory with prefix "edamame_posture"
+    match std::env::current_exe() {
+        Ok(exe_path) => {
+            let log_pattern = exe_path
+                .with_file_name("edamame_posture.*")
+                .to_string_lossy()
+                .into_owned();
+            match find_log_files(&log_pattern) {
+                Ok(log_files) => {
+                    for log_file in log_files {
+                        match fs::read_to_string(&log_file) {
+                            Ok(contents) => println!("{}", contents),
+                            Err(err) => {
+                                eprintln!("Error reading log file {}: {}", log_file.display(), err)
+                            }
+                        }
+                    }
+                }
+                Err(err) => eprintln!("Error finding log files: {}", err),
+            }
+        }
+        Err(err) => eprintln!("Error getting current executable path: {}", err),
+    }
+}
+
 fn handle_wait_for_success(timeout: u64) {
     // Read the state and wait until a network activity is detected and the connection is successful
     let mut state = State::load();
@@ -155,34 +181,14 @@ fn handle_wait_for_success(timeout: u64) {
             "Timeout waiting for background process to connect to domain, killing process..."
         );
         stop_background_process();
-        // Display the process logs stored in the executable directory with prefix "edamame_posture"
-        match std::env::current_exe() {
-            Ok(exe_path) => {
-                let log_pattern = exe_path
-                    .with_file_name("edamame_posture.*")
-                    .to_string_lossy()
-                    .into_owned();
-                match find_log_files(&log_pattern) {
-                    Ok(log_files) => {
-                        for log_file in log_files {
-                            match fs::read_to_string(&log_file) {
-                                Ok(contents) => println!("{}", contents),
-                                Err(err) => eprintln!(
-                                    "Error reading log file {}: {}",
-                                    log_file.display(),
-                                    err
-                                ),
-                            }
-                        }
-                    }
-                    Err(err) => eprintln!("Error finding log files: {}", err),
-                }
-            }
-            Err(err) => eprintln!("Error getting current executable path: {}", err),
-        }
+
+        display_logs();
+
         // Exit with an error code
         std::process::exit(1);
     } else {
+        display_logs();
+
         println!(
             "Connection successful with domain {} and user {} (success: {}, network activity: {}), pausing for 60 seconds to ensure access control is applied...",
             state.connected_domain,
