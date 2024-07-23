@@ -136,7 +136,7 @@ fn handle_wait_for_success(timeout: u64) {
     let mut state = State::load();
 
     handle_get_device_info();
-    
+
     handle_get_system_info();
 
     let mut timeout = timeout;
@@ -598,7 +598,7 @@ fn background_process(user: String, domain: String, pin: String) {
     info!("Forcing update of threats...");
     // Update threats
     update_threats();
-    
+
     // Show threats info
     let threats = get_threats_info();
     info!("Threats information: {}", threats);
