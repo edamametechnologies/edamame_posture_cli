@@ -11,6 +11,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
 
+      - name: Setup EDAMAME Posture
+        uses: edamametechnologies/edamame_posture_action@v0.3.83
+        with:
+          edamame_user: ${{ vars.EDAMAME_POSTURE_USER }}
+          edamame_domain: ${{ vars.EDAMAME_POSTURE_DOMAIN }}
+          edamame_pin: ${{ secrets.EDAMAME_POSTURE_PIN }}
+          edamame_id: ${{ github.run_id }}
+
       - uses: actions/checkout@v4
       - run: rustup component add rustfmt
 
