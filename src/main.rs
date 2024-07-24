@@ -7,6 +7,7 @@ use edamame_core::api::api_score_threats::*;
 use envcrypt::envc;
 use fs2::FileExt;
 use glob::glob;
+use machine_uid;
 use serde::{Deserialize, Serialize};
 use std::fs::{self, File};
 use std::io::{Read, Write};
@@ -18,19 +19,13 @@ use std::time::Duration;
 use sysinfo::{Disks, Networks, Pid, System};
 use tracing::{error, info};
 #[cfg(windows)]
-use windows::core::{
-    PCWSTR,
-    PWSTR,
-};
+use widestring::U16CString;
 #[cfg(windows)]
-use windows::Win32::Foundation::{
-    HANDLE,
-    CloseHandle,
-};
+use windows::core::{PCWSTR, PWSTR};
+#[cfg(windows)]
+use windows::Win32::Foundation::{CloseHandle, HANDLE};
 #[cfg(windows)]
 use windows::Win32::System::Threading::*;
-#[cfg(windows)]
-use widestring::U16CString;
 
 #[derive(Serialize, Deserialize, Debug)]
 struct State {
@@ -264,6 +259,7 @@ fn run() {
             {
                 let state = State {
                     pid: Some(std::process::id()),
+                    handle: None,
                     is_success: false,
                     connected_domain: args[3].clone(),
                     connected_user: args[2].clone(),
@@ -429,13 +425,19 @@ fn start_background_process(user: String, domain: String, pin: String, device_id
 
     #[cfg(windows)]
     {
-        let exe = std::env::current_exe().expect("Failed to get current executable path").display().to_string();
+        let exe = std::env::current_exe()
+            .expect("Failed to get current executable path")
+            .display()
+            .to_string();
         // Format the command line string, quoting the executable path if it contains spaces
-        let cmd = format!("{} background-process {} {} {} {}", exe, user, domain, pin, device_id);
+        let cmd = format!(
+            "{} background-process {} {} {} {}",
+            exe, user, domain, pin, device_id
+        );
 
         let creation_flags = CREATE_UNICODE_ENVIRONMENT | DETACHED_PROCESS;
         let mut process_information = PROCESS_INFORMATION::default();
-        let startup_info : STARTUPINFOW = STARTUPINFOW{
+        let startup_info: STARTUPINFOW = STARTUPINFOW {
             cb: u32::try_from(std::mem::size_of::<STARTUPINFOW>()).unwrap(),
             lpReserved: PWSTR::null(),
             lpDesktop: PWSTR::null(),
@@ -459,24 +461,30 @@ fn start_background_process(user: String, domain: String, pin: String, device_id
         let mut cmd = U16CString::from_str(cmd).unwrap();
         let cmd_pwstr = PWSTR::from_raw(cmd.as_mut_ptr());
 
-        let success = unsafe{ CreateProcessW(
-            PCWSTR::null(),
-            cmd_pwstr,
-            None,
-            None,
-            false,
-            creation_flags,
-            None,
-            PCWSTR::null(),
-            &startup_info,
-            &mut process_information
-        )}.as_bool();
+        let success = unsafe {
+            CreateProcessW(
+                PCWSTR::null(),
+                cmd_pwstr,
+                None,
+                None,
+                false,
+                creation_flags,
+                None,
+                PCWSTR::null(),
+                &startup_info,
+                &mut process_information,
+            )
+        }
+        .as_bool();
 
         if !success {
             eprintln!("Failed to create background process");
             std::process::exit(1);
         } else {
-            println!("Background process ({}) launched", process_information.dwProcessId);
+            println!(
+                "Background process ({}) launched",
+                process_information.dwProcessId
+            );
 
             // In order to debug the launched process, uncomment this
             //unsafe { WaitForSingleObject(process_information.hProcess, INFINITE); }
@@ -681,7 +689,6 @@ fn handle_get_system_info() {
 }
 
 fn background_process(user: String, domain: String, pin: String) {
-
     // We are using the logger as we are in the background process
     info!("Forcing update of threats...");
     // Update threats
