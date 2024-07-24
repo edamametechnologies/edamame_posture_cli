@@ -136,7 +136,7 @@ fn handle_lanscan(optional_arg: Option<String>) {
     pb.set_style(ProgressStyle::default_bar()
         .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos:>7}/{len:7} ({eta})")
         .progress_chars("#>-"));
-    
+
     // Skip scan if devices are already scanned
     devices = get_lan_devices(false, false, false);
     if devices.last_scan == "" {
