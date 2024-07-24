@@ -136,12 +136,19 @@ fn handle_lanscan(optional_arg: Option<String>) {
     pb.set_style(ProgressStyle::default_bar()
         .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos:>7}/{len:7} ({eta})")
         .progress_chars("#>-"));
+    
+    // Skip scan if devices are already scanned
     devices = get_lan_devices(false, false, false);
-    while devices.scan_in_progress {
-        pb.set_position(devices.scan_progress_percent as u64);
-        sleep(Duration::from_secs(5));
-        devices = get_lan_devices(false, false, false);
+    if devices.last_scan == "" {
+        // Start the scan
+        devices = get_lan_devices(true, false, false);
+        while devices.scan_in_progress {
+            pb.set_position(devices.scan_progress_percent as u64);
+            sleep(Duration::from_secs(5));
+            devices = get_lan_devices(false, false, false);
+        }
     }
+
     println!("LAN scan completed:");
     for device in devices.devices.iter() {
         println!("  - '{}'", device.hostname);
