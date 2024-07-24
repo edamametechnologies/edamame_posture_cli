@@ -461,7 +461,7 @@ fn start_background_process(user: String, domain: String, pin: String, device_id
         let mut cmd = U16CString::from_str(cmd).unwrap();
         let cmd_pwstr = PWSTR::from_raw(cmd.as_mut_ptr());
 
-        let success = unsafe {
+        match unsafe {
             CreateProcessW(
                 PCWSTR::null(),
                 cmd_pwstr,
@@ -474,38 +474,38 @@ fn start_background_process(user: String, domain: String, pin: String, device_id
                 &startup_info,
                 &mut process_information,
             )
-        }
-        .as_bool();
+        } {
+            Ok(_) => {
+                println!(
+                    "Background process ({}) launched",
+                    process_information.dwProcessId
+                );
 
-        if !success {
-            eprintln!("Failed to create background process");
-            std::process::exit(1);
-        } else {
-            println!(
-                "Background process ({}) launched",
-                process_information.dwProcessId
-            );
+                // In order to debug the launched process, uncomment this
+                //unsafe { WaitForSingleObject(process_information.hProcess, INFINITE); }
+                //let mut exit_code: u32 = 0;
+                //unsafe { GetExitCodeProcess(process_information.hProcess, &mut exit_code); }
+                //println!("exitcode: {}", exit_code);
 
-            // In order to debug the launched process, uncomment this
-            //unsafe { WaitForSingleObject(process_information.hProcess, INFINITE); }
-            //let mut exit_code: u32 = 0;
-            //unsafe { GetExitCodeProcess(process_information.hProcess, &mut exit_code); }
-            //println!("exitcode: {}", exit_code);
+                // Save state within the parent for Windows
+                let state = State {
+                    pid: Some(process_information.dwProcessId),
+                    handle: Some(process_information.hProcess.0 as u64),
+                    is_success: false,
+                    connected_domain: domain,
+                    connected_user: user,
+                    last_network_activity: "".to_string(),
+                };
+                state.save();
 
-            // Save state within the parent for Windows
-            let state = State {
-                pid: Some(process_information.dwProcessId),
-                handle: Some(process_information.hProcess.0 as u64),
-                is_success: false,
-                connected_domain: domain,
-                connected_user: user,
-                last_network_activity: "".to_string(),
-            };
-            state.save();
-
-            unsafe {
-                CloseHandle(process_information.hProcess);
-                CloseHandle(process_information.hThread);
+                unsafe {
+                    CloseHandle(process_information.hProcess).unwrap();
+                    CloseHandle(process_information.hThread).unwrap();
+                }
+            }
+            Err(e) => {
+                eprintln!("Failed to create background process ({:?})", e);
+                std::process::exit(1)
             }
         }
     }
@@ -545,24 +545,24 @@ fn stop_background_process() {
 #[cfg(windows)]
 fn stop_background_process() {
     let state = State::load();
-    if let Some(handle) = state.handle {
-        let process_handle = HANDLE(handle as isize);
-        if !process_handle.is_invalid() {
-            println!("Stopping background process ({})", state.handle.unwrap());
-            // Don't kill, rather stop the child loop
-            //unsafe {
-            //    TerminateProcess(process_handle, 1);
-            //    CloseHandle(process_handle);
-            //}
-            State::clear();
+    if let Some(_handle) = state.handle {
+        println!("Stopping background process ({})", state.handle.unwrap());
+        // Don't kill, rather stop the child loop
+        //let process_handle = HANDLE(handle.as_mut_ptr());
+        //if !process_handle.is_invalid() {
+        //  unsafe {
+        //      TerminateProcess(process_handle, 1);
+        //      CloseHandle(process_handle);
+        //  }
+        //} else {
+        //      eprintln!("Invalid process handle ({})", handle);
+        //}
+        State::clear();
 
-            sleep(Duration::from_secs(10));
+        sleep(Duration::from_secs(10));
 
-            // Disconnect domain
-            disconnect_domain();
-        } else {
-            eprintln!("Invalid process handle ({})", handle);
-        }
+        // Disconnect domain
+        disconnect_domain();
     } else {
         eprintln!("No background process is running.");
     }
