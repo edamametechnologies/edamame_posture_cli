@@ -26,6 +26,8 @@ use windows::core::{PCWSTR, PWSTR};
 use windows::Win32::Foundation::{CloseHandle, HANDLE};
 #[cfg(windows)]
 use windows::Win32::System::Threading::*;
+use edamame_core::api::api_lanscan::*;
+use indicatif::{ProgressBar, ProgressStyle};
 
 #[derive(Serialize, Deserialize, Debug)]
 struct State {
@@ -88,16 +90,88 @@ impl State {
     }
 }
 
+fn handle_lanscan(optional_arg: Option<String>) {
+    println!(
+        "Lanscan functionality executed with argument: {:?}",
+        optional_arg
+    );
+    let interface = optional_arg.map(|interface| ("dummy".to_string(), 24u8, interface));
+    let network = LANScanAPINetwork {
+        interfaces: interface.into_iter().collect(),
+        scanned_interfaces: vec![],
+        is_ethernet: true,
+        is_wifi: false,
+        is_vpn: false,
+        is_tethering: false,
+        is_mobile: false,
+        wifi_bssid: "".to_string(),
+        wifi_ip: "".to_string(),
+        wifi_submask: "".to_string(),
+        wifi_gateway: "".to_string(),
+        wifi_broadcast: "".to_string(),
+        wifi_name: "".to_string(),
+        wifi_ipv6: "".to_string(),
+    };
+
+    // This will start the gateway detection
+    println!("Initializing network...");
+    set_network(network.clone());
+    
+    // Wait for the gateway detection to complete
+    sleep(Duration::from_secs(120));
+    
+    let mut devices = get_lan_devices(false, false, false);
+    println!("Final network is: {:?}", devices.network);
+
+    if !devices.consent_given {
+        grant_consent();
+    }
+
+    _ = get_lan_devices(true, false, false);
+
+    sleep(Duration::from_secs(5));
+
+    let total_steps = 100;
+    let pb = ProgressBar::new(total_steps);
+    pb.set_style(ProgressStyle::default_bar()
+        .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos:>7}/{len:7} ({eta})")
+        .progress_chars("#>-"));
+    devices = get_lan_devices(false, false, false);
+    while devices.scan_in_progress {
+        pb.set_position(devices.scan_progress_percent as u64);
+        sleep(Duration::from_secs(5));
+        devices = get_lan_devices(false, false, false);
+    }
+    println!("LAN scan completed:");
+    for device in devices.devices.iter() {
+        println!("  - '{}'", device.hostname);
+        println!("    - Type: {}", device.device_type);
+        println!("    - Vendor: {}", device.device_vendor);
+        println!("    - IPs: {}", device.ip_addresses.join(", "));
+        println!("    - MACs: {}", device.mac_addresses.join(", "));
+        println!("    - Has EDAMAME: {}", device.has_edamame);
+        println!("    - Criticality: {}", device.criticality);
+        println!("    - Open ports: {}", device.open_ports.iter().map(|port| port.port.to_string()).collect::<Vec<String>>().join(", "));
+    }
+    println!("{}/{} devices have EDAMAME", devices.devices.iter().filter(|device| device.has_edamame).count(), devices.devices.len());
+    println!("{}/{} devices are highly critical", devices.devices.iter().filter(|device| device.criticality == "High").count(), devices.devices.len());
+    println!("");
+}
+
 fn handle_score() {
-    // Update threats
-    update_threats();
-    let _ = get_score(true);
+
+    let total_steps = 100;
+    let pb = ProgressBar::new(total_steps);
+    pb.set_style(ProgressStyle::default_bar()
+        .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos:>7}/{len:7} ({eta})")
+        .progress_chars("#>-"));
     let mut score = get_score(false);
     while score.compute_in_progress {
-        print!(".");
+        pb.set_position(score.compute_progress_percent as u64);
         sleep(Duration::from_millis(100));
         score = get_score(false);
     }
+    
     // Make sure we have the final score
     score = get_score(true);
     // Pretty print the final score with important details
@@ -127,6 +201,7 @@ fn handle_score() {
     for metric in score.inactive.iter() {
         println!("  - {}", metric.name);
     }
+    println!("");
 }
 
 fn display_logs() {
@@ -141,7 +216,10 @@ fn display_logs() {
                 Ok(log_files) => {
                     for log_file in log_files {
                         match fs::read_to_string(&log_file) {
-                            Ok(contents) => println!("{}", contents),
+                            Ok(contents) => {
+                                println!("{}", contents);
+                                println!("");
+                            },
                             Err(err) => {
                                 eprintln!("Error reading log file {}: {}", log_file.display(), err)
                             }
@@ -173,6 +251,9 @@ fn handle_wait_for_success(timeout: u64) {
 
     // Print the score
     handle_score();
+
+    // Print the lanscan results
+    handle_lanscan(None);
 
     if timeout <= 0 {
         eprintln!(
@@ -253,7 +334,7 @@ fn run() {
         // Debug logging
         std::env::set_var("EDAMAME_LOG_LEVEL", "debug");
 
-        if args.len() == 6 {
+        if args.len() == 7 {
             // Save state within the child for unix
             #[cfg(unix)]
             {
@@ -285,7 +366,8 @@ fn run() {
                 true,
             );
 
-            background_process(args[2].clone(), args[3].clone(), args[4].clone());
+            let lan_scanning = if args[6] == "true" { true } else { false };
+            background_process(args[2].clone(), args[3].clone(), args[4].clone(), lan_scanning);
         } else {
             eprintln!("Invalid arguments for background process: {:?}", args);
             // Exit with an error code
@@ -320,6 +402,11 @@ fn run_base() {
         .about("CLI interface to edamame_core")
         .subcommand(Command::new("score").about("Get score information"))
         .subcommand(
+            Command::new("lanscan")
+                .about("Performs a LAN scan")
+                .arg(arg!(-i --interface [INTERFACE] "Optional interface to scan"))
+        )
+        .subcommand(
             Command::new("wait-for-success")
                 .about("Wait for success")
                 .arg(
@@ -345,14 +432,33 @@ fn run_base() {
                 .arg(arg!(<USER> "User name").required(true))
                 .arg(arg!(<DOMAIN> "Domain name").required(true))
                 .arg(arg!(<PIN> "PIN").required(true))
-                .arg(arg!(<DEVICE_ID> "Device ID").required(false)),
+                .arg(arg!(<DEVICE_ID> "Device ID in the form of a string")
+                    .required(false)
+                )
+                .arg(arg!(<LAN_SCANNING> "LAN scanning enabled (true/false)").required(false)
+                    .value_parser(clap::value_parser!(bool))
+                ),
         )
         .subcommand(Command::new("stop").about("Stop reporting background process"))
         .subcommand(Command::new("status").about("Get status of reporting background process"))
         .get_matches();
 
     match matches.subcommand() {
-        Some(("score", _)) => handle_score(),
+        Some(("score", _)) => {
+            // Update threats
+            update_threats();
+            // Request a score computation
+            let _ = get_score(true);
+            handle_score();
+        },
+        Some(("lanscan", sub_matches)) => {
+            let interface = sub_matches
+                .get_one::<String>("interface")
+                .map(|s| s.to_string());
+            // Request a LAN scan
+            _ = get_lan_devices(true, false, false);
+            handle_lanscan(interface);
+        }
         Some(("wait-for-success", sub_matches)) => {
             let timeout = sub_matches
                 .get_one::<u64>("TIMEOUT")
@@ -370,15 +476,18 @@ fn run_base() {
         }
         Some(("get-core-version", _)) => handle_get_core_version(),
         Some(("start", sub_matches)) => {
-            let user = sub_matches.get_one::<String>("USER").unwrap().to_string();
-            let domain = sub_matches.get_one::<String>("DOMAIN").unwrap().to_string();
-            let pin = sub_matches.get_one::<String>("PIN").unwrap().to_string();
+            let user = sub_matches.get_one::<String>("USER").expect("USER not provided").to_string();
+            let domain = sub_matches.get_one::<String>("DOMAIN").expect("DOMAIN not provided").to_string();
+            let pin = sub_matches.get_one::<String>("PIN").expect("PIN not provided").to_string();
             // If no device ID is provided, use an empty string to trigger detection
             let device_id = sub_matches
                 .get_one::<String>("DEVICE_ID")
-                .unwrap_or(&"".to_string())
+                .unwrap_or(&String::new())
                 .to_string();
-            start_background_process(user, domain, pin, device_id);
+            let lan_scanning = *sub_matches
+                .get_one::<bool>("LAN_SCANNING")
+                .unwrap_or(&true);
+            start_background_process(user, domain, pin, device_id, lan_scanning);
         }
         Some(("stop", _)) => stop_background_process(),
         Some(("status", _)) => show_background_process_status(),
@@ -386,7 +495,7 @@ fn run_base() {
     }
 }
 
-fn start_background_process(user: String, domain: String, pin: String, device_id: String) {
+fn start_background_process(user: String, domain: String, pin: String, device_id: String, lan_scanning: bool) {
     // Show core version
     handle_get_core_version();
 
@@ -409,6 +518,7 @@ fn start_background_process(user: String, domain: String, pin: String, device_id
                         .arg(&domain)
                         .arg(&pin)
                         .arg(&device_id)
+                        .arg(&lan_scanning.to_string())
                         .spawn()
                         .expect("Failed to start background process");
 
@@ -431,8 +541,8 @@ fn start_background_process(user: String, domain: String, pin: String, device_id
             .to_string();
         // Format the command line string, quoting the executable path if it contains spaces
         let cmd = format!(
-            "{} background-process {} {} {} {}",
-            exe, user, domain, pin, device_id
+            "{} background-process {} {} {} {} {}",
+            exe, user, domain, pin, device_id, lan_scanning.to_string()
         );
 
         let creation_flags = CREATE_UNICODE_ENVIRONMENT | DETACHED_PROCESS;
@@ -643,7 +753,7 @@ fn handle_get_system_info() {
     let networks = Networks::new_with_refreshed_list();
     println!("Networks:");
     for (interface_name, _data) in &networks {
-        println!("  - {interface_name}",);
+        println!("  - {interface_name}", );
     }
 
     // Platform-specific information
@@ -688,9 +798,9 @@ fn handle_get_system_info() {
     }
 }
 
-fn background_process(user: String, domain: String, pin: String) {
+fn background_process(user: String, domain: String, pin: String, lan_scanning: bool) {
     // We are using the logger as we are in the background process
-    info!("Forcing update of threats...");
+    info!("Updating threats...");
     // Update threats
     update_threats();
 
@@ -702,15 +812,24 @@ fn background_process(user: String, domain: String, pin: String) {
     info!("Setting credentials for user: {}, domain: {}", user, domain);
     set_credentials(user, domain, pin);
 
+    // Scan the network interfaces
+    if lan_scanning {
+        info!("Scanning network interfaces...");
+        // Request a LAN scan
+        _ = get_lan_devices(true, false, false);
+        // Wait for the scan to complete
+        handle_lanscan(None);
+    }
+
     // Request immediate score computation
-    info!("Requesting immediate score computation...");
+    info!("Computing score...");
     let _ = get_score(true);
 
     // Connect domain
     info!("Connecting to domain...");
     handle_connect_domain();
 
-    // Loop for ever as background process is running, write the shared state based on the connection status
+    // Loop forever as background process is running, write the shared state based on the connection status
     loop {
         let connection_status = get_connection();
         let mut state = State::load();
