@@ -12,26 +12,26 @@ use std::fs::{self, File};
 use std::io::{Read, Write};
 use std::path::PathBuf;
 use std::process::Command as ProcessCommand;
-#[cfg(windows)]
-use std::ptr::null_mut;
 use std::thread;
 use std::time::Duration;
 use sysinfo::{Disks, Networks, Pid, System};
 use tracing::{error, info};
 #[cfg(windows)]
-use widestring::U16CString;
+use windows::Win32::System::Threading as WinThreading;
 #[cfg(windows)]
-use winapi::um::winbase::DETACHED_PROCESS;
-#[cfg(windows)]
-use winapi::um::winnt::HANDLE;
-#[cfg(windows)]
-use winapi::{
-    shared::minwindef::FALSE,
-    um::{
-        handleapi::CloseHandle,
-        processthreadsapi::{CreateProcessW, PROCESS_INFORMATION, STARTUPINFOW},
-    },
+use windows::core::{
+    PCWSTR,
+    PWSTR,
 };
+#[cfg(windows)]
+use windows::Win32::Foundation::{
+    HANDLE,
+    CloseHandle,
+};
+#[cfg(windows)]
+use windows::Win32::System::Threading::*;
+#[cfg(windows)]
+use widestring::U16CString;
 
 #[derive(Serialize, Deserialize, Debug)]
 struct State {
@@ -45,6 +45,7 @@ struct State {
 impl State {
     fn load() -> Self {
         let path = Self::state_file_path();
+        println!("Loading state from {}", path.display());
         if path.exists() {
             let mut file = File::open(&path).expect("Unable to open state file");
             file.lock_shared().expect("Unable to lock file for reading");
@@ -67,6 +68,7 @@ impl State {
 
     fn save(&self) {
         let path = Self::state_file_path();
+        println!("Saving state to {}", path.display());
         let mut file = File::create(&path).expect("Unable to create state file");
         file.lock_exclusive()
             .expect("Unable to lock file for writing");
@@ -285,14 +287,14 @@ fn run() {
 
             background_process(args[2].clone(), args[3].clone(), args[4].clone());
         } else {
-            eprintln!("Invalid arguments for background process");
+            eprintln!("Invalid arguments for background process: {:?}", args);
             // Exit with an error code
             std::process::exit(1);
         }
     } else {
         // Reporting and community are off
         initialize(
-            // Use "debug" to show the logs to the user
+            // Use "cli-debug" to show the logs to the user, "cli" otherwise
             "cli".to_string(),
             envc!("VERGEN_GIT_BRANCH").to_string(),
             "EN".to_string(),
@@ -423,41 +425,58 @@ fn start_background_process(user: String, domain: String, pin: String, device_id
 
     #[cfg(windows)]
     {
-        let exe = std::env::current_exe().unwrap();
-        let cmd = format!(
-            "{} background-process {} {} {}",
-            exe.display(),
-            user,
-            domain,
-            pin
-        );
+        let exe = std::env::current_exe().expect("Failed to get current executable path").display().to_string();
+        // Format the command line string, quoting the executable path if it contains spaces
+        let cmd = format!("{} background-process {} {} {} {}", exe, user, domain, pin, device_id);
 
-        let cmd = U16CString::from_str(cmd).unwrap();
-        let mut si: STARTUPINFOW = unsafe { std::mem::zeroed() };
-        let mut pi: PROCESS_INFORMATION = unsafe { std::mem::zeroed() };
-
-        let success = unsafe {
-            CreateProcessW(
-                null_mut(),
-                cmd.as_ptr() as *mut _,
-                null_mut(),
-                null_mut(),
-                0,
-                DETACHED_PROCESS,
-                null_mut(),
-                null_mut(),
-                &mut si,
-                &mut pi,
-            )
+        let creation_flags = CREATE_UNICODE_ENVIRONMENT | DETACHED_PROCESS;
+        let mut process_information = PROCESS_INFORMATION::default();
+        let startup_info : WinThreading::STARTUPINFOW = WinThreading::STARTUPINFOW{
+            cb: u32::try_from(std::mem::size_of::<WinThreading::STARTUPINFOW>()).unwrap(),
+            lpReserved: PWSTR::null(),
+            lpDesktop: PWSTR::null(),
+            lpTitle: PWSTR::null(),
+            dwX: 0,
+            dwY: 0,
+            dwXSize: 0,
+            dwYSize: 0,
+            dwXCountChars: 0,
+            dwYCountChars: 0,
+            dwFillAttribute: 0,
+            dwFlags: WinThreading::STARTUPINFOW_FLAGS(0),
+            wShowWindow: 0,
+            cbReserved2: 0,
+            lpReserved2: std::ptr::null_mut(),
+            hStdInput: HANDLE::default(),
+            hStdOutput: HANDLE::default(),
+            hStdError: HANDLE::default(),
         };
 
-        if success == FALSE {
+        let mut cmd = U16CString::from_str(cmd).unwrap();
+        let cmd_pwstr = PWSTR::from_raw(cmd.as_mut_ptr());
+
+        let success = unsafe{ WinThreading::CreateProcessW(
+            PCWSTR::null(),
+            cmd_pwstr,
+            None,
+            None,
+            false,
+            creation_flags,
+            None,
+            PCWSTR::null(),
+            &startup_info,
+            &mut process_information
+        )}.as_bool();
+
+        if !success {
             eprintln!("Failed to create background process");
             std::process::exit(1);
         } else {
+            println!("Background process ({}) launched", process_information.dwProcessId);
+
             unsafe {
-                CloseHandle(pi.hProcess as HANDLE);
-                CloseHandle(pi.hThread as HANDLE);
+                CloseHandle(process_information.hProcess);
+                CloseHandle(process_information.hThread);
             }
         }
     }
@@ -613,6 +632,7 @@ fn handle_get_system_info() {
 }
 
 fn background_process(user: String, domain: String, pin: String) {
+
     // We are using the logger as we are in the background process
     info!("Forcing update of threats...");
     // Update threats
