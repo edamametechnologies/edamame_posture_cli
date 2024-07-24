@@ -42,7 +42,6 @@ struct State {
 impl State {
     fn load() -> Self {
         let path = Self::state_file_path();
-        println!("Loading state from {}", path.display());
         if path.exists() {
             let mut file = File::open(&path).expect("Unable to open state file");
             file.lock_shared().expect("Unable to lock file for reading");
@@ -66,7 +65,6 @@ impl State {
 
     fn save(&self) {
         let path = Self::state_file_path();
-        println!("Saving state to {}", path.display());
         let mut file = File::create(&path).expect("Unable to create state file");
         file.lock_exclusive()
             .expect("Unable to lock file for writing");
@@ -90,36 +88,7 @@ impl State {
     }
 }
 
-fn handle_lanscan(optional_arg: Option<String>) {
-    println!(
-        "Lanscan functionality executed with argument: {:?}",
-        optional_arg
-    );
-    let interface = optional_arg.map(|interface| ("dummy".to_string(), 24u8, interface));
-    let network = LANScanAPINetwork {
-        interfaces: interface.into_iter().collect(),
-        scanned_interfaces: vec![],
-        is_ethernet: true,
-        is_wifi: false,
-        is_vpn: false,
-        is_tethering: false,
-        is_mobile: false,
-        wifi_bssid: "".to_string(),
-        wifi_ip: "".to_string(),
-        wifi_submask: "".to_string(),
-        wifi_gateway: "".to_string(),
-        wifi_broadcast: "".to_string(),
-        wifi_name: "".to_string(),
-        wifi_ipv6: "".to_string(),
-    };
-
-    // This will start the gateway detection
-    println!("Initializing network...");
-    set_network(network.clone());
-
-    // Wait for the gateway detection to complete
-    sleep(Duration::from_secs(120));
-
+fn handle_lanscan() {
     let mut devices = get_lan_devices(false, false, false);
     println!("Final network is: {:?}", devices.network);
 
@@ -283,7 +252,7 @@ fn handle_wait_for_success(timeout: u64) {
     handle_score();
 
     // Print the lanscan results
-    handle_lanscan(None);
+    handle_lanscan();
 
     if timeout <= 0 {
         eprintln!(
@@ -436,11 +405,7 @@ fn run_base() {
         .author("Frank Lyonnet")
         .about("CLI interface to edamame_core")
         .subcommand(Command::new("score").about("Get score information"))
-        .subcommand(
-            Command::new("lanscan")
-                .about("Performs a LAN scan")
-                .arg(arg!(-i --interface [INTERFACE] "Optional interface to scan")),
-        )
+        .subcommand(Command::new("lanscan").about("Performs a LAN scan"))
         .subcommand(
             Command::new("wait-for-success")
                 .about("Wait for success")
@@ -486,13 +451,32 @@ fn run_base() {
             let _ = get_score(true);
             handle_score();
         }
-        Some(("lanscan", sub_matches)) => {
-            let interface = sub_matches
-                .get_one::<String>("interface")
-                .map(|s| s.to_string());
+        Some(("lanscan", _)) => {
+            // Initialize network
+            set_network(LANScanAPINetwork {
+                interfaces: vec![],
+                scanned_interfaces: vec![],
+                is_ethernet: true,
+                is_wifi: false,
+                is_vpn: false,
+                is_tethering: false,
+                is_mobile: false,
+                wifi_bssid: "".to_string(),
+                wifi_ip: "".to_string(),
+                wifi_submask: "".to_string(),
+                wifi_gateway: "".to_string(),
+                wifi_broadcast: "".to_string(),
+                wifi_name: "".to_string(),
+                wifi_ipv6: "".to_string(),
+            });
+
+            // Wait for the gateway detection to complete
+            sleep(Duration::from_secs(180));
+
             // Request a LAN scan
             _ = get_lan_devices(true, false, false);
-            handle_lanscan(interface);
+
+            handle_lanscan();
         }
         Some(("wait-for-success", sub_matches)) => {
             let timeout = sub_matches
@@ -868,10 +852,33 @@ fn background_process(user: String, domain: String, pin: String, lan_scanning: b
     // Scan the network interfaces
     if lan_scanning {
         info!("Scanning network interfaces...");
+
+        // Initialize network
+        set_network(LANScanAPINetwork {
+            interfaces: vec![],
+            scanned_interfaces: vec![],
+            is_ethernet: true,
+            is_wifi: false,
+            is_vpn: false,
+            is_tethering: false,
+            is_mobile: false,
+            wifi_bssid: "".to_string(),
+            wifi_ip: "".to_string(),
+            wifi_submask: "".to_string(),
+            wifi_gateway: "".to_string(),
+            wifi_broadcast: "".to_string(),
+            wifi_name: "".to_string(),
+            wifi_ipv6: "".to_string(),
+        });
+
+        // Wait for the gateway detection to complete
+        sleep(Duration::from_secs(120));
+
         // Request a LAN scan
         _ = get_lan_devices(true, false, false);
+
         // Wait for the scan to complete
-        handle_lanscan(None);
+        handle_lanscan();
     }
 
     // Request immediate score computation
