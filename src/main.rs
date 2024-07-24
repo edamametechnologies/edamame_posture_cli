@@ -11,13 +11,12 @@ use serde::{Deserialize, Serialize};
 use std::fs::{self, File};
 use std::io::{Read, Write};
 use std::path::PathBuf;
+#[cfg(unix)]
 use std::process::Command as ProcessCommand;
-use std::thread;
+use std::thread::sleep;
 use std::time::Duration;
 use sysinfo::{Disks, Networks, Pid, System};
 use tracing::{error, info};
-#[cfg(windows)]
-use windows::Win32::System::Threading as WinThreading;
 #[cfg(windows)]
 use windows::core::{
     PCWSTR,
@@ -36,6 +35,7 @@ use widestring::U16CString;
 #[derive(Serialize, Deserialize, Debug)]
 struct State {
     pid: Option<u32>,
+    handle: Option<u64>, // Add handle for Windows
     is_success: bool,
     connected_domain: String,
     connected_user: String,
@@ -58,6 +58,7 @@ impl State {
         } else {
             State {
                 pid: None,
+                handle: None, // Initialize handle
                 is_success: false,
                 connected_domain: "".to_string(),
                 connected_user: "".to_string(),
@@ -99,7 +100,7 @@ fn handle_score() {
     let mut score = get_score(false);
     while score.compute_in_progress {
         print!(".");
-        thread::sleep(Duration::from_millis(100));
+        sleep(Duration::from_millis(100));
         score = get_score(false);
     }
     // Make sure we have the final score
@@ -170,7 +171,7 @@ fn handle_wait_for_success(timeout: u64) {
     let mut timeout = timeout;
     while !(state.is_success && state.last_network_activity != "") && timeout > 0 {
         println!("Wait for score computation and reporting to complete... (success: {}, network activity: {})", state.is_success, state.last_network_activity);
-        thread::sleep(Duration::from_secs(5));
+        sleep(Duration::from_secs(5));
         timeout = timeout - 5;
         state = State::load();
     }
@@ -198,7 +199,7 @@ fn handle_wait_for_success(timeout: u64) {
             state.is_success,
             state.last_network_activity
         );
-        thread::sleep(Duration::from_secs(60));
+        sleep(Duration::from_secs(60));
     }
 }
 
@@ -258,15 +259,18 @@ fn run() {
         std::env::set_var("EDAMAME_LOG_LEVEL", "debug");
 
         if args.len() == 6 {
-            // Save state
-            let state = State {
-                pid: Some(std::process::id()),
-                is_success: false,
-                connected_domain: args[3].clone(),
-                connected_user: args[2].clone(),
-                last_network_activity: "".to_string(),
-            };
-            state.save();
+            // Save state within the child for unix
+            #[cfg(unix)]
+            {
+                let state = State {
+                    pid: Some(std::process::id()),
+                    is_success: false,
+                    connected_domain: args[3].clone(),
+                    connected_user: args[2].clone(),
+                    last_network_activity: "".to_string(),
+                };
+                state.save();
+            }
 
             // Set device ID
             // Prefix it with the machine uid
@@ -431,8 +435,8 @@ fn start_background_process(user: String, domain: String, pin: String, device_id
 
         let creation_flags = CREATE_UNICODE_ENVIRONMENT | DETACHED_PROCESS;
         let mut process_information = PROCESS_INFORMATION::default();
-        let startup_info : WinThreading::STARTUPINFOW = WinThreading::STARTUPINFOW{
-            cb: u32::try_from(std::mem::size_of::<WinThreading::STARTUPINFOW>()).unwrap(),
+        let startup_info : STARTUPINFOW = STARTUPINFOW{
+            cb: u32::try_from(std::mem::size_of::<STARTUPINFOW>()).unwrap(),
             lpReserved: PWSTR::null(),
             lpDesktop: PWSTR::null(),
             lpTitle: PWSTR::null(),
@@ -443,7 +447,7 @@ fn start_background_process(user: String, domain: String, pin: String, device_id
             dwXCountChars: 0,
             dwYCountChars: 0,
             dwFillAttribute: 0,
-            dwFlags: WinThreading::STARTUPINFOW_FLAGS(0),
+            dwFlags: STARTUPINFOW_FLAGS(0),
             wShowWindow: 0,
             cbReserved2: 0,
             lpReserved2: std::ptr::null_mut(),
@@ -455,7 +459,7 @@ fn start_background_process(user: String, domain: String, pin: String, device_id
         let mut cmd = U16CString::from_str(cmd).unwrap();
         let cmd_pwstr = PWSTR::from_raw(cmd.as_mut_ptr());
 
-        let success = unsafe{ WinThreading::CreateProcessW(
+        let success = unsafe{ CreateProcessW(
             PCWSTR::null(),
             cmd_pwstr,
             None,
@@ -473,6 +477,23 @@ fn start_background_process(user: String, domain: String, pin: String, device_id
             std::process::exit(1);
         } else {
             println!("Background process ({}) launched", process_information.dwProcessId);
+
+            // In order to debug the launched process, uncomment this
+            //unsafe { WaitForSingleObject(process_information.hProcess, INFINITE); }
+            //let mut exit_code: u32 = 0;
+            //unsafe { GetExitCodeProcess(process_information.hProcess, &mut exit_code); }
+            //println!("exitcode: {}", exit_code);
+
+            // Save state within the parent for Windows
+            let state = State {
+                pid: Some(process_information.dwProcessId),
+                handle: Some(process_information.hProcess.0 as u64),
+                is_success: false,
+                connected_domain: domain,
+                connected_user: user,
+                last_network_activity: "".to_string(),
+            };
+            state.save();
 
             unsafe {
                 CloseHandle(process_information.hProcess);
@@ -493,18 +514,46 @@ fn find_log_files(pattern: &str) -> Result<Vec<PathBuf>, glob::PatternError> {
     Ok(log_files)
 }
 
+#[cfg(unix)]
 fn stop_background_process() {
     let state = State::load();
     if let Some(pid) = state.pid {
         if pid_exists(pid) {
             println!("Stopping background process ({})", pid);
-            let _ = ProcessCommand::new("kill").arg(pid.to_string()).status();
+            // Don't kill, rather stop the child loop
+            //let _ = ProcessCommand::new("kill").arg(pid.to_string()).status();
             State::clear();
 
             // Disconnect domain
             disconnect_domain();
         } else {
             eprintln!("No background process found ({})", pid);
+        }
+    } else {
+        eprintln!("No background process is running.");
+    }
+}
+
+#[cfg(windows)]
+fn stop_background_process() {
+    let state = State::load();
+    if let Some(handle) = state.handle {
+        let process_handle = HANDLE(handle as isize);
+        if !process_handle.is_invalid() {
+            println!("Stopping background process ({})", state.handle.unwrap());
+            // Don't kill, rather stop the child loop
+            //unsafe {
+            //    TerminateProcess(process_handle, 1);
+            //    CloseHandle(process_handle);
+            //}
+            State::clear();
+
+            sleep(Duration::from_secs(10));
+
+            // Disconnect domain
+            disconnect_domain();
+        } else {
+            eprintln!("Invalid process handle ({})", handle);
         }
     } else {
         eprintln!("No background process is running.");
@@ -661,7 +710,19 @@ fn background_process(user: String, domain: String, pin: String) {
         state.is_success = connection_status.is_success;
         state.last_network_activity = connection_status.last_network_activity;
         state.save();
-        thread::sleep(Duration::from_secs(5));
+
+        // Exit if there are no pid/handle anymore
+        #[cfg(unix)]
+        if state.pid.is_none() {
+            std::process::exit(0);
+        }
+
+        #[cfg(windows)]
+        if state.handle.is_none() {
+            std::process::exit(0);
+        }
+
+        sleep(Duration::from_secs(5));
     }
 }
 
