@@ -92,14 +92,9 @@ fn handle_lanscan() {
     let mut devices = get_lan_devices(false, false, false);
     println!("Final network is: {:?}", devices.network);
 
-    if !devices.consent_given {
-        grant_consent();
-    }
-
-    _ = get_lan_devices(true, false, false);
-
-    sleep(Duration::from_secs(5));
-
+    // The network, has been set, consent has been granted and a scan has been requested if needed
+    
+    // Display the lanscan results
     let total_steps = 100;
     let pb = ProgressBar::new(total_steps);
     pb.set_style(ProgressStyle::default_bar()
@@ -266,7 +261,9 @@ fn handle_wait_for_success(timeout: u64) {
         wifi_name: "".to_string(),
         wifi_ipv6: "".to_string(),
     });
-    // Consent has been granted and scan has completed
+    
+    // Consent has been granted and scan has completed by the child
+    
     // Print the lanscan results
     handle_lanscan();
 
