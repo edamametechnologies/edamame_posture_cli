@@ -492,7 +492,7 @@ fn run_base() {
         Some(("wait-for-success", sub_matches)) => {
             let timeout = sub_matches
                 .get_one::<u64>("TIMEOUT")
-                .unwrap_or_else(|| &300);
+                .unwrap_or_else(|| &600);
             handle_wait_for_success(*timeout)
         }
         Some(("get-core-info", _)) => handle_get_core_info(),
