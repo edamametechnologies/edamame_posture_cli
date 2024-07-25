@@ -93,7 +93,7 @@ fn handle_lanscan() {
     println!("Final network is: {:?}", devices.network);
 
     // The network, has been set, consent has been granted and a scan has been requested if needed
-    
+
     // Display the lanscan results
     let total_steps = 100;
     let pb = ProgressBar::new(total_steps);
@@ -101,19 +101,15 @@ fn handle_lanscan() {
         .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos:>7}/{len:7} ({eta})")
         .progress_chars("#>-"));
 
-    // Skip scan if devices are already scanned
+    // Wait completion of the scan
     devices = get_lan_devices(false, false, false);
-    if devices.last_scan == "" {
-        // Start the scan
-        devices = get_lan_devices(true, false, false);
-        while devices.scan_in_progress {
-            pb.set_position(devices.scan_progress_percent as u64);
-            sleep(Duration::from_secs(5));
-            devices = get_lan_devices(false, false, false);
-        }
+    while devices.scan_in_progress {
+        pb.set_position(devices.scan_progress_percent as u64);
+        sleep(Duration::from_secs(5));
+        devices = get_lan_devices(false, false, false);
     }
 
-    println!("LAN scan completed:");
+    println!("LAN scan completed at: {}", devices.last_scan);
     for device in devices.devices.iter() {
         println!("  - '{}'", device.hostname);
         println!("    - Type: {}", device.device_type);
@@ -261,9 +257,9 @@ fn handle_wait_for_success(timeout: u64) {
         wifi_name: "".to_string(),
         wifi_ipv6: "".to_string(),
     });
-    
+
     // Consent has been granted and scan has completed by the child
-    
+
     // Print the lanscan results
     handle_lanscan();
 
