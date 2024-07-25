@@ -164,6 +164,7 @@ fn handle_score() {
     pb.set_style(ProgressStyle::default_bar()
         .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos:>7}/{len:7} ({eta})")
         .progress_chars("#>-"));
+
     let mut score = get_score(false);
     while score.compute_in_progress {
         pb.set_position(score.compute_progress_percent as u64);
@@ -248,7 +249,8 @@ fn handle_wait_for_success(timeout: u64) {
         state = State::load();
     }
 
-    // Print the score
+    // Compute and display the score
+    compute_score();
     handle_score();
 
     // Print the lanscan results
@@ -448,7 +450,7 @@ fn run_base() {
             // Update threats
             update_threats();
             // Request a score computation
-            let _ = get_score(true);
+            compute_score();
             handle_score();
         }
         Some(("lanscan", _)) => {
@@ -902,7 +904,7 @@ fn background_process(user: String, domain: String, pin: String, lan_scanning: b
 
     // Request immediate score computation
     info!("Score computation requested...");
-    let _ = get_score(true);
+    compute_score();
 
     // Connect domain
     info!("Connecting to domain...");
