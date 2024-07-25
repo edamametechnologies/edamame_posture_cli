@@ -137,23 +137,17 @@ fn handle_lanscan() {
                 .join(", ")
         );
     }
-    println!(
-        "{}/{} devices have EDAMAME",
-        devices
-            .devices
-            .iter()
-            .filter(|device| device.has_edamame)
-            .count(),
-        devices.devices.len()
-    );
-    println!(
-        "{}/{} devices are highly critical",
-        devices
-            .devices
-            .iter()
-            .filter(|device| device.criticality == "High")
-            .count(),
-        devices.devices.len()
+    println!("Total devices: {}, {} devices have EDAMAME, {} devices are highly critical", devices.devices.len(),
+             devices
+                 .devices
+                 .iter()
+                 .filter(|device| device.has_edamame)
+                 .count(),
+             devices
+                 .devices
+                 .iter()
+                 .filter(|device| device.criticality == "High")
+                 .count()
     );
     println!("");
 }
@@ -253,6 +247,24 @@ fn handle_wait_for_success(timeout: u64) {
     compute_score();
     handle_score();
 
+    // Initialize network to autodetect
+    set_network(LANScanAPINetwork {
+        interfaces: vec![],
+        scanned_interfaces: vec![],
+        is_ethernet: true,
+        is_wifi: false,
+        is_vpn: false,
+        is_tethering: false,
+        is_mobile: false,
+        wifi_bssid: "".to_string(),
+        wifi_ip: "".to_string(),
+        wifi_submask: "".to_string(),
+        wifi_gateway: "".to_string(),
+        wifi_broadcast: "".to_string(),
+        wifi_name: "".to_string(),
+        wifi_ipv6: "".to_string(),
+    });
+    // Consent has been granted and scan has completed
     // Print the lanscan results
     handle_lanscan();
 
@@ -801,7 +813,7 @@ fn handle_get_system_info() {
     let networks = Networks::new_with_refreshed_list();
     println!("Networks:");
     for (interface_name, _data) in &networks {
-        println!("  - {interface_name}",);
+        println!("  - {interface_name}", );
     }
 
     // Platform-specific information
@@ -864,7 +876,7 @@ fn background_process(user: String, domain: String, pin: String, lan_scanning: b
     if lan_scanning {
         info!("Scanning network interfaces...");
 
-        // Initialize network
+        // Initialize network to autodetect
         set_network(LANScanAPINetwork {
             interfaces: vec![],
             scanned_interfaces: vec![],
