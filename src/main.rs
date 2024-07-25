@@ -331,7 +331,7 @@ fn run() {
     let args: Vec<String> = std::env::args().collect();
     if args.len() > 1 && args[1] == "background-process" {
         // Debug logging
-        std::env::set_var("EDAMAME_LOG_LEVEL", "debug");
+        //std::env::set_var("EDAMAME_LOG_LEVEL", "debug");
 
         if args.len() == 7 {
             // Save state within the child for unix
@@ -470,8 +470,17 @@ fn run_base() {
                 wifi_ipv6: "".to_string(),
             });
 
+            // Grant consent
+            grant_consent();
+
             // Wait for the gateway detection to complete
-            sleep(Duration::from_secs(180));
+            let mut last_gateway_scan = get_last_gateway_scan();
+            while last_gateway_scan == "" {
+                println!("Waiting for gateway detection to complete...");
+                sleep(Duration::from_secs(5));
+                last_gateway_scan = get_last_gateway_scan();
+            }
+            println!("Gateway detection complete");
 
             // Request a LAN scan
             _ = get_lan_devices(true, false, false);
@@ -871,8 +880,18 @@ fn background_process(user: String, domain: String, pin: String, lan_scanning: b
             wifi_ipv6: "".to_string(),
         });
 
+        // Grant consent
+        grant_consent();
+
         // Wait for the gateway detection to complete
-        sleep(Duration::from_secs(120));
+        let mut last_gateway_scan = get_last_gateway_scan();
+        while last_gateway_scan == "" {
+            info!("Waiting for gateway detection to complete...");
+            sleep(Duration::from_secs(5));
+            last_gateway_scan = get_last_gateway_scan();
+        }
+
+        info!("Gateway detection complete, requesting a LAN scan...");
 
         // Request a LAN scan
         _ = get_lan_devices(true, false, false);
@@ -882,7 +901,7 @@ fn background_process(user: String, domain: String, pin: String, lan_scanning: b
     }
 
     // Request immediate score computation
-    info!("Computing score...");
+    info!("Score computation requested...");
     let _ = get_score(true);
 
     // Connect domain
@@ -907,6 +926,10 @@ fn background_process(user: String, domain: String, pin: String, lan_scanning: b
         if state.handle.is_none() {
             std::process::exit(0);
         }
+        info!(
+            "Connection status updated: success: {}, network activity: {}",
+            state.is_success, state.last_network_activity
+        );
 
         sleep(Duration::from_secs(5));
     }

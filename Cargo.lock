@@ -1395,7 +1395,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "0.3.83"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=dev#bc80b147a2e35ea55ea202e70b6eca9a6b37a2c5"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=dev#6977bf037119ab5594a1704165db2b85e5813808"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1420,6 +1420,7 @@ dependencies = [
  "lazy_static",
  "libc",
  "libp2p",
+ "log",
  "mac_address",
  "machine-uid",
  "once_cell",
