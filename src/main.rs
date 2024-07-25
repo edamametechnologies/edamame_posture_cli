@@ -137,17 +137,19 @@ fn handle_lanscan() {
                 .join(", ")
         );
     }
-    println!("Total devices: {}, {} devices have EDAMAME, {} devices are highly critical", devices.devices.len(),
-             devices
-                 .devices
-                 .iter()
-                 .filter(|device| device.has_edamame)
-                 .count(),
-             devices
-                 .devices
-                 .iter()
-                 .filter(|device| device.criticality == "High")
-                 .count()
+    println!(
+        "Total devices: {}, {} devices have EDAMAME, {} devices are highly critical",
+        devices.devices.len(),
+        devices
+            .devices
+            .iter()
+            .filter(|device| device.has_edamame)
+            .count(),
+        devices
+            .devices
+            .iter()
+            .filter(|device| device.criticality == "High")
+            .count()
     );
     println!("");
 }
@@ -813,7 +815,7 @@ fn handle_get_system_info() {
     let networks = Networks::new_with_refreshed_list();
     println!("Networks:");
     for (interface_name, _data) in &networks {
-        println!("  - {interface_name}", );
+        println!("  - {interface_name}",);
     }
 
     // Platform-specific information
