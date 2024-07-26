@@ -530,6 +530,8 @@ fn run_base() {
                 .get_one::<String>("DEVICE_ID")
                 .unwrap_or(&String::new())
                 .to_string();
+            // Make sure the device_id doesn't contain slashes. Replace them with "_".
+            let device_id = device_id.replace("/", "_");
             let lan_scanning = *sub_matches.get_one::<bool>("LAN_SCANNING").unwrap_or(&true);
             start_background_process(user, domain, pin, device_id, lan_scanning);
         }
