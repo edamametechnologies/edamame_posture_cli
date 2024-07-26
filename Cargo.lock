@@ -1395,7 +1395,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "0.3.83"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=dev#a4884ca0927a95121b32bb309c5fbcac1e51eedc"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=dev#f8c8690f8a7a86dca887b66b5e880ddfb387b93a"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1454,7 +1454,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "0.3.3"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=dev#b181d28836d15e46d1c565ed917667273c79fdd0"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=dev#d0c13b86406d580e8bb14e77c608104f979611c0"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -5919,9 +5919,9 @@ dependencies = [
 
 [[package]]
 name = "version_check"
-version = "0.9.4"
+version = "0.9.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
+checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 
 [[package]]
 name = "void"
