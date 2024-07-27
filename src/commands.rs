@@ -27,33 +27,6 @@ pub fn handle_wait_for_connection(timeout: u64) {
         state = State::load();
     }
 
-    // Compute and display the score
-    compute_score();
-    handle_score();
-
-    // Initialize network to autodetect
-    set_network(LANScanAPINetwork {
-        interfaces: vec![],
-        scanned_interfaces: vec![],
-        is_ethernet: true,
-        is_wifi: false,
-        is_vpn: false,
-        is_tethering: false,
-        is_mobile: false,
-        wifi_bssid: "".to_string(),
-        wifi_ip: "".to_string(),
-        wifi_submask: "".to_string(),
-        wifi_gateway: "".to_string(),
-        wifi_broadcast: "".to_string(),
-        wifi_name: "".to_string(),
-        wifi_ipv6: "".to_string(),
-    });
-
-    // Consent has been granted and scan has completed by the child
-
-    // Print the lanscan results
-    handle_lanscan();
-
     if timeout <= 0 {
         eprintln!(
             "Timeout waiting for background process to connect to domain, killing process..."
@@ -65,6 +38,33 @@ pub fn handle_wait_for_connection(timeout: u64) {
         // Exit with an error code
         std::process::exit(1);
     } else {
+        // Compute and display the score
+        compute_score();
+        handle_score();
+
+        // Initialize network to autodetect
+        set_network(LANScanAPINetwork {
+            interfaces: vec![],
+            scanned_interfaces: vec![],
+            is_ethernet: true,
+            is_wifi: false,
+            is_vpn: false,
+            is_tethering: false,
+            is_mobile: false,
+            wifi_bssid: "".to_string(),
+            wifi_ip: "".to_string(),
+            wifi_submask: "".to_string(),
+            wifi_gateway: "".to_string(),
+            wifi_broadcast: "".to_string(),
+            wifi_name: "".to_string(),
+            wifi_ipv6: "".to_string(),
+        });
+
+        // Consent has been granted and scan has completed by the child
+
+        // Print the lanscan results
+        handle_lanscan();
+
         display_logs();
 
         println!(
