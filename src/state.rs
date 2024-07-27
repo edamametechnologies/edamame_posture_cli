@@ -1,10 +1,10 @@
+use fs2::FileExt;
+use serde::{Deserialize, Serialize};
 use std::fs;
 use std::fs::File;
-use std::path::PathBuf;
-use serde::{Deserialize, Serialize};
-use fs2::FileExt;
 use std::io::Read;
 use std::io::Write;
+use std::path::PathBuf;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct State {

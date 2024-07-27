@@ -15,7 +15,7 @@ use envcrypt::envc;
 use machine_uid;
 use std::thread::sleep;
 use std::time::Duration;
-use tracing::{error};
+use tracing::error;
 
 fn run() {
     let mut device = DeviceInfoAPI {

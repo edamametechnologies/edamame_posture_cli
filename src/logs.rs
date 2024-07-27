@@ -1,6 +1,6 @@
+use glob::glob;
 use std::fs;
 use std::path::PathBuf;
-use glob::glob;
 
 fn find_log_files(pattern: &str) -> Result<Vec<PathBuf>, glob::PatternError> {
     let mut log_files = Vec::new();

@@ -1,14 +1,22 @@
-use std::time::Duration;
+use crate::{
+    handle_connect_domain, handle_get_core_info, handle_get_core_version, handle_lanscan, State,
+};
+#[cfg(unix)]
 use daemonize::Daemonize;
-use edamame_core::api::api_core::{disconnect_domain, get_connection, get_threats_info, set_credentials};
-use edamame_core::api::api_lanscan::{get_lan_devices, get_last_gateway_scan, grant_consent, LANScanAPINetwork, set_network};
+use edamame_core::api::api_core::{
+    disconnect_domain, get_connection, get_threats_info, set_credentials,
+};
+use edamame_core::api::api_lanscan::{
+    get_lan_devices, get_last_gateway_scan, grant_consent, set_network, LANScanAPINetwork,
+};
 use edamame_core::api::api_score::compute_score;
 use edamame_core::api::api_score_threats::update_threats;
 #[cfg(unix)]
 use std::process::Command as ProcessCommand;
 use std::thread::sleep;
+use std::time::Duration;
 use sysinfo::{Pid, System};
-use tracing::{info};
+use tracing::info;
 #[cfg(windows)]
 use widestring::U16CString;
 #[cfg(windows)]
@@ -17,7 +25,6 @@ use windows::core::{PCWSTR, PWSTR};
 use windows::Win32::Foundation::{CloseHandle, HANDLE};
 #[cfg(windows)]
 use windows::Win32::System::Threading::*;
-use crate::{State, handle_connect_domain, handle_get_core_info, handle_get_core_version, handle_lanscan};
 
 pub fn background_process(user: String, domain: String, pin: String, lan_scanning: bool) {
     // We are using the logger as we are in the background process
@@ -109,7 +116,6 @@ pub fn background_process(user: String, domain: String, pin: String, lan_scannin
         sleep(Duration::from_secs(5));
     }
 }
-
 
 fn pid_exists(pid: u32) -> bool {
     let mut system = System::new_all();

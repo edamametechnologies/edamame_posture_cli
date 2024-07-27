@@ -1,12 +1,15 @@
-use std::thread::sleep;
-use std::time::Duration;
-use edamame_core::api::api_core::{connect_domain, get_core_info, get_core_version, get_device_info, get_threats_info, request_pin, set_credentials};
-use edamame_core::api::api_lanscan::{get_lan_devices, LANScanAPINetwork, set_network};
+use crate::{display_logs, stop_background_process, State};
+use edamame_core::api::api_core::{
+    connect_domain, get_core_info, get_core_version, get_device_info, get_threats_info,
+    request_pin, set_credentials,
+};
+use edamame_core::api::api_lanscan::{get_lan_devices, set_network, LANScanAPINetwork};
 use edamame_core::api::api_score::{compute_score, get_score};
 use edamame_core::api::api_score_threats::remediate;
 use indicatif::{ProgressBar, ProgressStyle};
+use std::thread::sleep;
+use std::time::Duration;
 use sysinfo::{Disks, Networks, System};
-use crate::{State, stop_background_process, display_logs};
 
 pub fn handle_wait_for_connection(timeout: u64) {
     // Read the state and wait until a network activity is detected and the connection is successful
@@ -112,7 +115,6 @@ pub fn handle_get_core_version() {
     let version = get_core_version();
     println!("Core version: {}", version);
 }
-
 
 pub fn handle_lanscan() {
     let mut devices = get_lan_devices(false, false, false);
@@ -298,20 +300,19 @@ pub fn handle_get_system_info() {
 }
 
 pub fn handle_remediate() {
-    
     // Get the score
     let mut score = get_score(false);
     while score.compute_in_progress {
         sleep(Duration::from_millis(100));
         score = get_score(false);
     }
-    
+
     // Print the threats that can be remediated
     println!("Threats that can be remediated:");
     for metric in score.auto_remediate.iter() {
         println!("  - {}", metric.name);
     }
-    
+
     // Remediate the threats with "remote login" as an exception
     for metric in score.auto_remediate.iter() {
         if metric.name != "remote login enabled" {
@@ -319,7 +320,7 @@ pub fn handle_remediate() {
             remediate(metric.name.clone(), true);
         }
     }
-    
+
     // Show the score after remediation
     handle_score();
 }
