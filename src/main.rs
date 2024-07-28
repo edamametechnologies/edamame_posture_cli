@@ -55,14 +55,13 @@ fn run() {
             device.device_id =
                 (machine_uid + "/" + args[5].clone().to_string().as_str()).to_string();
 
-            // Reporting and community are on
+            // Reporting is on community is off
             initialize(
                 "posture".to_string(),
                 envc!("VERGEN_GIT_BRANCH").to_string(),
                 "EN".to_string(),
                 device,
                 false,
-                // Disable community
                 true,
             );
 

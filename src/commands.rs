@@ -12,19 +12,20 @@ use std::time::Duration;
 use sysinfo::{Disks, Networks, System};
 
 pub fn handle_wait_for_connection(timeout: u64) {
-    // Read the state and wait until a network activity is detected and the connection is successful
-    let mut state = State::load();
-
+    
     handle_get_device_info();
 
     handle_get_system_info();
 
+    println!("Waiting for score computation and reporting to complete...");
     let mut timeout = timeout;
+    // Read the state and wait until a network activity is detected and the connection is successful
+    let mut state = State::load();
     while !(state.is_success && state.last_network_activity != "") && timeout > 0 {
-        println!("Wait for score computation and reporting to complete... (success: {}, network activity: {})", state.is_success, state.last_network_activity);
         sleep(Duration::from_secs(5));
         timeout = timeout - 5;
         state = State::load();
+        println!("Waiting for score computation and reporting to complete... (success: {}, network activity: {})", state.is_success, state.last_network_activity);
     }
 
     if timeout <= 0 {
@@ -117,8 +118,23 @@ pub fn handle_get_core_version() {
 }
 
 pub fn handle_lanscan() {
+    
     let mut devices = get_lan_devices(false, false, false);
-    println!("Final network is: {:?}", devices.network);
+    // Interfaces are in the form (ip, subnet, name)
+    let interfaces = devices.network.network
+        .interfaces
+        .iter()
+        .map(|interface| {
+            format!(
+                "{} ({}/{})",
+                interface.2,
+                interface.0,
+                interface.1
+            )
+        })
+        .collect::<Vec<String>>()
+        .join(", ");
+    println!("Final network interfaces: {}", interfaces);
 
     // The network, has been set, consent has been granted and a scan has been requested if needed
 
@@ -190,31 +206,32 @@ pub fn handle_score() {
     // Make sure we have the final score
     score = get_score(true);
     // Pretty print the final score with important details
-    println!("Threat model version: {}", score.model_name);
-    println!("Threat model date: {}", score.model_date);
-    println!("Threat model signature: {}", score.model_signature);
-    println!("Score computed at: {}", score.last_compute);
-    println!("Stars: {:?}", score.stars);
-    println!("Network: {:?}", score.network);
-    println!("System Integrity: {:?}", score.system_integrity);
-    println!("System Services: {:?}", score.system_services);
-    println!("Applications: {:?}", score.applications);
-    println!("Credentials: {:?}", score.credentials);
-    println!("Overall: {:?}", score.overall);
+    println!("Security Score summary:");
+    println!("  - Threat model version: {}", score.model_name);
+    println!("  - Threat model date: {}", score.model_date);
+    println!("  - Threat model signature: {}", score.model_signature);
+    println!("  - Score computed at: {}", score.last_compute);
+    println!("  - Stars: {:?}", score.stars);
+    println!("  - Network: {:?}", score.network);
+    println!("  - System Integrity: {:?}", score.system_integrity);
+    println!("  - System Services: {:?}", score.system_services);
+    println!("  - Applications: {:?}", score.applications);
+    println!("  - Credentials: {:?}", score.credentials);
+    println!("  - Overall: {:?}", score.overall);
     // Active threats
-    println!("Active threats:");
+    println!("  - Active threats:");
     for metric in score.active.iter() {
-        println!("  - {}", metric.name);
+        println!("    - {}", metric.name);
     }
     // Unknown threats
-    println!("Unknown threats:");
+    println!("  - Unknown threats:");
     for metric in score.unknown.iter() {
-        println!("  - {}", metric.name);
+        println!("    - {}", metric.name);
     }
     // Inactive threats
-    println!("Inactive threats:");
+    println!("  - Inactive threats:");
     for metric in score.inactive.iter() {
-        println!("  - {}", metric.name);
+        println!("    - {}", metric.name);
     }
     println!("");
 }
@@ -241,20 +258,20 @@ pub fn handle_get_system_info() {
     println!("  - System host name:        {:?}", System::host_name());
 
     // Number of CPUs
-    println!("NB CPUs: {}", sys.cpus().len());
+    println!("  - NB CPUs: {}", sys.cpus().len());
 
     // We display all disks' information
-    println!("Disks:");
+    println!("  - Disks:");
     let disks = Disks::new_with_refreshed_list();
     for disk in &disks {
-        println!("  - {disk:?}");
+        println!("    - {disk:?}");
     }
 
     // Network interfaces name
     let networks = Networks::new_with_refreshed_list();
-    println!("Networks:");
+    println!("  - Networks:");
     for (interface_name, _data) in &networks {
-        println!("  - {interface_name}",);
+        println!("    - {interface_name}",);
     }
 
     // Platform-specific information
@@ -268,7 +285,7 @@ pub fn handle_get_system_info() {
             .expect("Failed to execute command");
 
         println!("macOS specific information:");
-        println!("System profiler hardware data:");
+        println!("  - System profiler hardware data:");
         println!("{}", String::from_utf8_lossy(&output.stdout));
     }
 
@@ -279,7 +296,7 @@ pub fn handle_get_system_info() {
         let cpuinfo = fs::read_to_string("/proc/cpuinfo").expect("Failed to read /proc/cpuinfo");
 
         println!("Linux specific information:");
-        println!("CPU information from /proc/cpuinfo:");
+        println!("  - CPU information from /proc/cpuinfo:");
         println!("{}", cpuinfo);
     }
 
@@ -294,7 +311,7 @@ pub fn handle_get_system_info() {
             .expect("Failed to execute command");
 
         println!("Windows specific information:");
-        println!("Computer system model from WMI:");
+        println!("  - Computer system model from WMI:");
         println!("{}", String::from_utf8_lossy(&output.stdout));
     }
 }
