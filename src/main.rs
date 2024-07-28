@@ -120,7 +120,10 @@ fn run_base() {
                 .arg(arg!(<DOMAIN> "Domain name").required(true)),
         )
         .subcommand(Command::new("get-core-version").about("Get core version"))
-        .subcommand(Command::new("remediate").about("Remediate threats"))
+        .subcommand(
+            Command::new("remediate")
+                .about("Remediate threats"))
+                .arg(arg!(<REMEDIATIONS> "Remediations to skip").required(false))
         .subcommand(
             Command::new("start")
                 .about("Start reporting background process")
@@ -198,7 +201,13 @@ fn run_base() {
             handle_request_pin(user, domain);
         }
         Some(("get-core-version", _)) => handle_get_core_version(),
-        Some(("remediate", _)) => handle_remediate(),
+        Some(("remediate", sub_matches)) => {
+            let remediations_to_skip = sub_matches
+                .get_one::<String>("REMEDIATIONS")
+                .unwrap_or(&String::new())
+                .to_string();
+            handle_remediate(&remediations_to_skip)
+        },
         Some(("start", sub_matches)) => {
             let user = sub_matches
                 .get_one::<String>("USER")

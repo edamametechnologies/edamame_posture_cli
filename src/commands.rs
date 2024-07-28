@@ -314,7 +314,7 @@ pub fn handle_get_system_info() {
     }
 }
 
-pub fn handle_remediate() {
+pub fn handle_remediate(remediations_to_skip: &str) {
     // Get the score
     let mut score = get_score(false);
     while score.compute_in_progress {
@@ -327,10 +327,15 @@ pub fn handle_remediate() {
     for metric in score.auto_remediate.iter() {
         println!("  - {}", metric.name);
     }
-
+    
+    // Extract the remediations to skip
+    let mut remediations_to_skip = remediations_to_skip.split(',').collect::<Vec<&str>>();
+    // Add "remote login enabled" to the list of exceptions (to prevent being locked out...)
+    remediations_to_skip.push("remote login enabled");
+    
     // Remediate the threats with "remote login" as an exception
     for metric in score.auto_remediate.iter() {
-        if metric.name != "remote login enabled" {
+        if !remediations_to_skip.contains(&metric.name.as_str()) {
             println!("Remediating threat: {}", metric.name);
             remediate(metric.name.clone(), true);
         }
