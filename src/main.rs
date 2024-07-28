@@ -61,8 +61,8 @@ fn run() {
                 envc!("VERGEN_GIT_BRANCH").to_string(),
                 "EN".to_string(),
                 device,
-                false,
                 true,
+                false,
             );
 
             let lan_scanning = if args[6] == "true" { true } else { false };
@@ -85,8 +85,8 @@ fn run() {
             envc!("VERGEN_GIT_BRANCH").to_string(),
             "EN".to_string(),
             device,
-            true,
-            true,
+            false,
+            false,
         );
 
         run_base();

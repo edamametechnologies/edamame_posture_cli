@@ -1,11 +1,10 @@
 use crate::{display_logs, stop_background_process, State};
 use edamame_core::api::api_core::{
-    connect_domain, get_core_info, get_core_version, get_device_info, get_threats_info,
-    request_pin, set_credentials,
+    connect_domain, get_core_info, get_core_version, get_device_info, request_pin, set_credentials,
 };
 use edamame_core::api::api_lanscan::{get_lan_devices, set_network, LANScanAPINetwork};
 use edamame_core::api::api_score::{compute_score, get_score};
-use edamame_core::api::api_score_threats::remediate;
+use edamame_core::api::api_score_threats::{get_threats_url, remediate};
 use indicatif::{ProgressBar, ProgressStyle};
 use std::thread::sleep;
 use std::time::Duration;
@@ -97,7 +96,11 @@ pub fn handle_get_device_info() {
 }
 
 pub fn handle_get_threats_info() {
-    let threats = get_threats_info();
+    let score = get_score(false);
+    let threats = format!(
+        "Threat model name: {}, date: {}, signature: {}",
+        score.model_name, score.model_date, score.model_signature
+    );
     println!("Threats information: {}", threats);
 }
 
@@ -198,11 +201,13 @@ pub fn handle_score() {
 
     // Make sure we have the final score
     score = get_score(true);
+    let url = get_threats_url().to_string();
     // Pretty print the final score with important details
     println!("Security Score summary:");
     println!("  - Threat model version: {}", score.model_name);
     println!("  - Threat model date: {}", score.model_date);
     println!("  - Threat model signature: {}", score.model_signature);
+    println!("  - Threat model URL: {}", url);
     println!("  - Score computed at: {}", score.last_compute);
     println!("  - Stars: {:?}", score.stars);
     println!("  - Network: {:?}", score.network);
@@ -216,14 +221,14 @@ pub fn handle_score() {
     for metric in score.active.iter() {
         println!("    - {}", metric.name);
     }
-    // Unknown threats
-    println!("  - Unknown threats:");
-    for metric in score.unknown.iter() {
-        println!("    - {}", metric.name);
-    }
     // Inactive threats
     println!("  - Inactive threats:");
     for metric in score.inactive.iter() {
+        println!("    - {}", metric.name);
+    }
+    // Unknown threats
+    println!("  - Unknown threats:");
+    for metric in score.unknown.iter() {
         println!("    - {}", metric.name);
     }
     println!("");

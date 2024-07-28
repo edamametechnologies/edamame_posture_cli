@@ -1,11 +1,10 @@
+use crate::commands::handle_get_threats_info;
 use crate::{
     handle_connect_domain, handle_get_core_info, handle_get_core_version, handle_lanscan, State,
 };
 #[cfg(unix)]
 use daemonize::Daemonize;
-use edamame_core::api::api_core::{
-    disconnect_domain, get_connection, get_threats_info, set_credentials,
-};
+use edamame_core::api::api_core::{disconnect_domain, get_connection, set_credentials};
 use edamame_core::api::api_lanscan::{
     get_lan_devices, get_last_gateway_scan, grant_consent, set_network, LANScanAPINetwork,
 };
@@ -33,8 +32,7 @@ pub fn background_process(user: String, domain: String, pin: String, lan_scannin
     update_threats();
 
     // Show threats info
-    let threats = get_threats_info();
-    info!("Threats information: {}", threats);
+    handle_get_threats_info();
 
     // Set credentials
     info!("Setting credentials for user: {}, domain: {}", user, domain);
