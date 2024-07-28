@@ -12,7 +12,6 @@ use std::time::Duration;
 use sysinfo::{Disks, Networks, System};
 
 pub fn handle_wait_for_connection(timeout: u64) {
-    
     handle_get_device_info();
 
     handle_get_system_info();
@@ -118,20 +117,14 @@ pub fn handle_get_core_version() {
 }
 
 pub fn handle_lanscan() {
-    
     let mut devices = get_lan_devices(false, false, false);
     // Interfaces are in the form (ip, subnet, name)
-    let interfaces = devices.network.network
+    let interfaces = devices
+        .network
+        .network
         .interfaces
         .iter()
-        .map(|interface| {
-            format!(
-                "{} ({}/{})",
-                interface.2,
-                interface.0,
-                interface.1
-            )
-        })
+        .map(|interface| format!("{} ({}/{})", interface.2, interface.0, interface.1))
         .collect::<Vec<String>>()
         .join(", ");
     println!("Final network interfaces: {}", interfaces);
