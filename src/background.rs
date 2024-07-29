@@ -26,6 +26,11 @@ use windows::Win32::Foundation::{CloseHandle, HANDLE};
 use windows::Win32::System::Threading::*;
 
 pub fn background_process(user: String, domain: String, pin: String, lan_scanning: bool) {
+    info!(
+        "Starting background process with user: {}, domain: {}, lan_scanning: {}",
+        user, domain, lan_scanning
+    );
+
     // We are using the logger as we are in the background process
     info!("Updating threats...");
     // Update threats
@@ -77,7 +82,7 @@ pub fn background_process(user: String, domain: String, pin: String, lan_scannin
         _ = get_lan_devices(true, false, false);
 
         // Wait for the scan to complete
-        handle_lanscan();
+        handle_lanscan(true);
     }
 
     // Request immediate score computation

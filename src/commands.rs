@@ -61,8 +61,8 @@ pub fn handle_wait_for_connection(timeout: u64) {
 
         // Consent has been granted and scan has completed by the child
 
-        // Print the lanscan results
-        handle_lanscan();
+        // Print the lanscan results, don't wait
+        handle_lanscan(false);
 
         display_logs();
 
@@ -119,7 +119,7 @@ pub fn handle_get_core_version() {
     println!("Core version: {}", version);
 }
 
-pub fn handle_lanscan() {
+pub fn handle_lanscan(wait_for_completion: bool) {
     let mut devices = get_lan_devices(false, false, false);
     // Interfaces are in the form (ip, subnet, name)
     let interfaces = devices
@@ -143,10 +143,12 @@ pub fn handle_lanscan() {
 
     // Wait completion of the scan
     devices = get_lan_devices(false, false, false);
-    while devices.scan_in_progress {
-        pb.set_position(devices.scan_progress_percent as u64);
-        sleep(Duration::from_secs(5));
-        devices = get_lan_devices(false, false, false);
+    if wait_for_completion {
+        while devices.scan_in_progress {
+            pb.set_position(devices.scan_progress_percent as u64);
+            sleep(Duration::from_secs(5));
+            devices = get_lan_devices(false, false, false);
+        }
     }
 
     println!("LAN scan completed at: {}", devices.last_scan);

@@ -72,6 +72,7 @@ fn run() {
             }
 
             let lan_scanning = if args[6] == "true" { true } else { false };
+
             background_process(
                 args[2].clone(),
                 args[3].clone(),
@@ -142,9 +143,9 @@ fn run_base() {
                 .arg(arg!(<USER> "User name").required(true))
                 .arg(arg!(<DOMAIN> "Domain name").required(true))
                 .arg(arg!(<PIN> "PIN").required(true))
-                .arg(arg!(<DEVICE_ID> "Device ID in the form of a string").required(false))
+                .arg(arg!(<DEVICE_ID> "Device ID in the form of a string, this will be used as a suffix to the detected hardware ID").required(true))
                 .arg(
-                    arg!(<LAN_SCANNING> "LAN scanning enabled (true/false)")
+                    arg!(<LAN_SCANNING> "LAN scanning enabled")
                         .required(false)
                         .value_parser(clap::value_parser!(bool)),
                 ),
@@ -195,13 +196,17 @@ fn run_base() {
             // Request a LAN scan
             _ = get_lan_devices(true, false, false);
 
-            handle_lanscan();
+            handle_lanscan(true);
         }
         Some(("wait-for-connection", sub_matches)) => {
-            let timeout = sub_matches
-                .get_one::<u64>("TIMEOUT")
-                .unwrap_or_else(|| &600);
-            handle_wait_for_connection(*timeout)
+            let timeout = match sub_matches.get_one::<u64>("TIMEOUT") {
+                Some(timeout) => timeout,
+                None => {
+                    println!("Timeout not provided, defaulting to 600 seconds");
+                    &600
+                }
+            };
+            handle_wait_for_connection(*timeout);
         }
         Some(("get-core-info", _)) => handle_get_core_info(),
         Some(("get-device-info", _)) => handle_get_device_info(),
@@ -236,10 +241,13 @@ fn run_base() {
             // If no device ID is provided, use an empty string to trigger detection
             let device_id = sub_matches
                 .get_one::<String>("DEVICE_ID")
-                .unwrap_or(&String::new())
+                .expect("DEVICE_ID not provided")
                 .to_string();
-            let lan_scanning = *sub_matches.get_one::<bool>("LAN_SCANNING").unwrap_or(&true);
-            start_background_process(user, domain, pin, device_id, lan_scanning);
+            // Default to false if not provided
+            let lan_scanning = sub_matches
+                .get_one::<bool>("LAN_SCANNING")
+                .unwrap_or(&false);
+            start_background_process(user, domain, pin, device_id, *lan_scanning);
         }
         Some(("stop", _)) => stop_background_process(),
         Some(("status", _)) => show_background_process_status(),
