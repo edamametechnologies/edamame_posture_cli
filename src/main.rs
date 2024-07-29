@@ -15,7 +15,6 @@ use envcrypt::envc;
 use machine_uid;
 use std::thread::sleep;
 use std::time::Duration;
-use tracing::error;
 
 fn run() {
     let mut device = DeviceInfoAPI {
@@ -65,6 +64,13 @@ fn run() {
                 false,
             );
 
+            let admin_status = get_admin_status();
+            if !admin_status {
+                eprintln!("This command requires admin privileges, exiting...");
+                // Exit with an error code
+                std::process::exit(1);
+            }
+
             let lan_scanning = if args[6] == "true" { true } else { false };
             background_process(
                 args[2].clone(),
@@ -88,6 +94,13 @@ fn run() {
             false,
             false,
         );
+
+        let admin_status = get_admin_status();
+        if !admin_status {
+            eprintln!("This command requires admin privileges, exiting...");
+            // Exit with an error code
+            std::process::exit(1);
+        }
 
         run_base();
     }
@@ -230,7 +243,7 @@ fn run_base() {
         }
         Some(("stop", _)) => stop_background_process(),
         Some(("status", _)) => show_background_process_status(),
-        _ => error!("Invalid command, use --help for more information"),
+        _ => eprintln!("Invalid command, use --help for more information"),
     }
 }
 
