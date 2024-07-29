@@ -120,10 +120,9 @@ fn run_base() {
                 .arg(arg!(<DOMAIN> "Domain name").required(true)),
         )
         .subcommand(Command::new("get-core-version").about("Get core version"))
-        .subcommand(
-            Command::new("remediate")
-                .about("Remediate threats"))
-                .arg(arg!(<REMEDIATIONS> "Remediations to skip").required(false))
+        .subcommand(Command::new("remediate").about("Remediate threats").arg(
+            arg!(<REMEDIATIONS> "Remediations to skip (comma separated list)").required(false),
+        ))
         .subcommand(
             Command::new("start")
                 .about("Start reporting background process")
@@ -147,7 +146,7 @@ fn run_base() {
             update_threats();
             // Request a score computation
             compute_score();
-            handle_score();
+            handle_score(true);
         }
         Some(("lanscan", _)) => {
             // Initialize network
@@ -207,7 +206,7 @@ fn run_base() {
                 .unwrap_or(&String::new())
                 .to_string();
             handle_remediate(&remediations_to_skip)
-        },
+        }
         Some(("start", sub_matches)) => {
             let user = sub_matches
                 .get_one::<String>("USER")

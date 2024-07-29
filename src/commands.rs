@@ -39,7 +39,7 @@ pub fn handle_wait_for_connection(timeout: u64) {
     } else {
         // Compute and display the score
         compute_score();
-        handle_score();
+        handle_score(true);
 
         // Initialize network to autodetect
         set_network(LANScanAPINetwork {
@@ -185,7 +185,7 @@ pub fn handle_lanscan() {
     println!("");
 }
 
-pub fn handle_score() {
+pub fn handle_score(progress_bar: bool) {
     let total_steps = 100;
     let pb = ProgressBar::new(total_steps);
     pb.set_style(ProgressStyle::default_bar()
@@ -194,7 +194,9 @@ pub fn handle_score() {
 
     let mut score = get_score(false);
     while score.compute_in_progress {
-        pb.set_position(score.compute_progress_percent as u64);
+        if progress_bar {
+            pb.set_position(score.compute_progress_percent as u64);
+        }
         sleep(Duration::from_millis(100));
         score = get_score(false);
     }
@@ -315,32 +317,42 @@ pub fn handle_get_system_info() {
 }
 
 pub fn handle_remediate(remediations_to_skip: &str) {
+    println!("Score before remediation:");
+    println!("-------------------------");
+    println!("");
+
+    // Show the score before remediation
+    handle_score(false);
+
     // Get the score
-    let mut score = get_score(false);
-    while score.compute_in_progress {
-        sleep(Duration::from_millis(100));
-        score = get_score(false);
-    }
+    let score = get_score(true);
 
     // Print the threats that can be remediated
     println!("Threats that can be remediated:");
     for metric in score.auto_remediate.iter() {
         println!("  - {}", metric.name);
     }
-    
+
     // Extract the remediations to skip
     let mut remediations_to_skip = remediations_to_skip.split(',').collect::<Vec<&str>>();
     // Add "remote login enabled" to the list of exceptions (to prevent being locked out...)
     remediations_to_skip.push("remote login enabled");
-    
+
     // Remediate the threats with "remote login" as an exception
+    println!("");
+    println!("Remediating threats:");
     for metric in score.auto_remediate.iter() {
         if !remediations_to_skip.contains(&metric.name.as_str()) {
-            println!("Remediating threat: {}", metric.name);
+            println!("  - {}", metric.name);
             remediate(metric.name.clone(), true);
         }
     }
 
+    println!("");
+    println!("Score after remediation:");
+    println!("------------------------");
+    println!("");
+
     // Show the score after remediation
-    handle_score();
+    handle_score(false);
 }
