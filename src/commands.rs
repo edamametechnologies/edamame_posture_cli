@@ -67,13 +67,13 @@ pub fn handle_wait_for_connection(timeout: u64) {
         display_logs();
 
         println!(
-            "Connection successful with domain {} and user {} (success: {}, network activity: {}), pausing for 60 seconds to ensure access control is applied...",
+            "Connection successful with domain {} and user {} (success: {}, network activity: {}), pausing for 120 seconds to ensure access control is applied...",
             state.connected_domain,
             state.connected_user,
             state.is_success,
             state.last_network_activity
         );
-        sleep(Duration::from_secs(60));
+        sleep(Duration::from_secs(120));
     }
 }
 
