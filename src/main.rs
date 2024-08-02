@@ -156,8 +156,6 @@ fn run_base() {
 
     match matches.subcommand() {
         Some(("score", _)) => {
-            // Update threats
-            update_threats();
             // Request a score computation
             compute_score();
             handle_score(true);

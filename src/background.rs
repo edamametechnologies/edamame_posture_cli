@@ -9,7 +9,6 @@ use edamame_core::api::api_lanscan::{
     get_lan_devices, get_last_gateway_scan, grant_consent, set_network, LANScanAPINetwork,
 };
 use edamame_core::api::api_score::compute_score;
-use edamame_core::api::api_score_threats::update_threats;
 #[cfg(unix)]
 use std::process::Command as ProcessCommand;
 use std::thread::sleep;
@@ -32,9 +31,6 @@ pub fn background_process(user: String, domain: String, pin: String, lan_scannin
     );
 
     // We are using the logger as we are in the background process
-    info!("Updating threats...");
-    // Update threats
-    update_threats();
 
     // Show threats info
     handle_get_threats_info();
