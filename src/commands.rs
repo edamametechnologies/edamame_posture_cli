@@ -156,7 +156,7 @@ pub fn handle_lanscan(wait_for_completion: bool) {
     } else {
         println!("LAN scan completed at: {}", devices.last_scan);
     }
-    
+
     for device in devices.devices.iter() {
         println!("  - '{}'", device.hostname);
         println!("    - Type: {}", device.device_type);

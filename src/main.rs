@@ -10,7 +10,6 @@ use clap::{arg, Command};
 use edamame_core::api::api_core::*;
 use edamame_core::api::api_lanscan::*;
 use edamame_core::api::api_score::*;
-use edamame_core::api::api_score_threats::*;
 use envcrypt::envc;
 use machine_uid;
 use std::thread::sleep;
