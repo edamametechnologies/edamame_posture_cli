@@ -67,13 +67,12 @@ pub fn handle_wait_for_connection(timeout: u64) {
         display_logs();
 
         println!(
-            "Connection successful with domain {} and user {} (success: {}, network activity: {}), pausing for 120 seconds to ensure access control is applied...",
+            "Connection successful with domain {} and user {} (success: {}, network activity: {})",
             state.connected_domain,
             state.connected_user,
             state.is_success,
             state.last_network_activity
         );
-        sleep(Duration::from_secs(120));
     }
 }
 
@@ -151,7 +150,13 @@ pub fn handle_lanscan(wait_for_completion: bool) {
         }
     }
 
-    println!("LAN scan completed at: {}", devices.last_scan);
+    if devices.last_scan == "" {
+        println!("LAN scan not completed");
+        return;
+    } else {
+        println!("LAN scan completed at: {}", devices.last_scan);
+    }
+    
     for device in devices.devices.iter() {
         println!("  - '{}'", device.hostname);
         println!("    - Type: {}", device.device_type);
