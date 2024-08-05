@@ -1349,8 +1349,8 @@ dependencies = [
 
 [[package]]
 name = "edamame_core"
-version = "0.3.86"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=dev#576aa2f2b7b7a68dd9884c77435150f5968e283a"
+version = "0.3.87"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=dev#415f9beadbc9de3ece588d68a1ee8532f952d45a"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1409,7 +1409,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "0.3.4"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=dev#b9bdb1dc881b8001854cf7d45f1eb441a839adc3"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=dev#0c137d5ed421134f8ecd2937742e7f496b36c6fc"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1458,7 +1458,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "0.3.4"
-source = "git+https://github.com/edamametechnologies/edamame_foundation#b9bdb1dc881b8001854cf7d45f1eb441a839adc3"
+source = "git+https://github.com/edamametechnologies/edamame_foundation#0c137d5ed421134f8ecd2937742e7f496b36c6fc"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -6361,9 +6361,9 @@ dependencies = [
 
 [[package]]
 name = "xml-rs"
-version = "0.8.20"
+version = "0.8.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "791978798f0597cfc70478424c2b4fdc2b7a8024aaff78497ef00f24ef674193"
+checksum = "539a77ee7c0de333dcc6da69b177380a0b81e0dacfa4f7344c465a36871ee601"
 
 [[package]]
 name = "xmltree"
