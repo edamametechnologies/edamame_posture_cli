@@ -185,7 +185,7 @@ fn run_base() {
             let mut last_gateway_scan = get_last_gateway_scan();
             while last_gateway_scan == "" {
                 println!("Waiting for gateway detection to complete...");
-                sleep(Duration::from_secs(5));
+                sleep(Duration::from_secs(20));
                 last_gateway_scan = get_last_gateway_scan();
             }
             println!("Gateway detection complete");
