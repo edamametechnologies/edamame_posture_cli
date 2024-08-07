@@ -102,6 +102,8 @@ jobs:
           xcrun notarytool store-credentials -k appstore_connect_api_key.p8 -d ${{ secrets.APPLE_APPSTORE_CONNECT_API_KEY_ID }} -i ${{ secrets.APPLE_APPSTORE_CONNECT_API_ISSUER_ID }} Edamame
 
       - name: Build application
+        # Main or dev
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev'
         shell: bash
         run: |
           KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
