@@ -735,9 +735,9 @@ checksum = "8318a53db07bb3f8dca91a600466bdb3f2eaadeedfdbcf02e1accbad9271ba50"
 
 [[package]]
 name = "cc"
-version = "1.1.7"
+version = "1.1.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "26a5c3fd7bfa1ce3897a3a3501d362b2d87b7f2583ebcb4a949ec25911025cbc"
+checksum = "504bdec147f2cc13c8b57ed9401fd8a147cc66b67ad5cb241394244f2c947549"
 
 [[package]]
 name = "cesu8"
@@ -1142,6 +1142,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "dashmap"
+version = "6.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "804c8821570c3f8b70230c2ba75ffa5c0f9a4189b9a432b6656c536712acae28"
+dependencies = [
+ "cfg-if",
+ "crossbeam-utils",
+ "hashbrown 0.14.5",
+ "lock_api",
+ "once_cell",
+ "parking_lot_core 0.9.10",
+]
+
+[[package]]
 name = "data-encoding"
 version = "2.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1349,8 +1363,8 @@ dependencies = [
 
 [[package]]
 name = "edamame_core"
-version = "0.3.89"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=dev#a7730f37685d980d0cdae48a9a9271f071fb4284"
+version = "0.3.90"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=dev#cb57854afeeeae72e72ff46ab229a1f436f0509b"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1358,6 +1372,7 @@ dependencies = [
  "base64 0.22.1",
  "bincode",
  "chrono",
+ "dashmap",
  "dotenv-build",
  "edamame_backend",
  "edamame_foundation 0.3.4 (git+https://github.com/edamametechnologies/edamame_foundation)",
