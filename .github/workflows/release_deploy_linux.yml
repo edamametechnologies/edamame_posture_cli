@@ -41,6 +41,7 @@ jobs:
 
       - name: Harden-Runner
         uses: step-security/harden-runner@v2.9.1
+        egress-policy: allow-all
 
       - name: Setup EDAMAME Posture
         uses: edamametechnologies/edamame_posture_action@v0
