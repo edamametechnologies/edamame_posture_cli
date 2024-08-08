@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 
 # EDAMAME foundation
-edamame_foundation = { git = "https://github.com/edamametechnologies/edamame_foundation", branch = "dev" }
+edamame_foundation = { git = "https://github.com/edamametechnologies/edamame_foundation", version = "0.3.4" }
 edamame_core = { git = "https://github.com/edamametechnologies/edamame_core", branch = "dev", features = [ "nohealth", "nopwned", "nobridge", "swiftrs" ] }
 
 # Files

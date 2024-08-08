@@ -1363,8 +1363,8 @@ dependencies = [
 
 [[package]]
 name = "edamame_core"
-version = "0.3.90"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=dev#cb57854afeeeae72e72ff46ab229a1f436f0509b"
+version = "0.4.0"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=dev#6a142795b964c4baf044a7bd7c739884e3c1b912"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1375,7 +1375,7 @@ dependencies = [
  "dashmap",
  "dotenv-build",
  "edamame_backend",
- "edamame_foundation 0.3.4 (git+https://github.com/edamametechnologies/edamame_foundation)",
+ "edamame_foundation",
  "encoding_rs",
  "envcrypt",
  "eui48",
@@ -1424,56 +1424,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "0.3.4"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=dev#505e7f722dfa470d21f2cd4ac8b4415bfd6158fd"
-dependencies = [
- "anyhow",
- "arp-toolkit",
- "async-trait",
- "base64 0.22.1",
- "chrono",
- "edamame_backend",
- "encoding_rs",
- "eui48",
- "futures-util",
- "humantime",
- "ipnet",
- "lazy_static",
- "libc",
- "network-interface",
- "once_cell",
- "oui",
- "parking_lot 0.12.3",
- "powershell_script",
- "prost",
- "rand",
- "regex",
- "reqwest",
- "run_script",
- "sentry",
- "sentry-tracing",
- "serde",
- "serde_json",
- "serde_with",
- "sorted-vec",
- "strum",
- "strum_macros",
- "thiserror",
- "tokio",
- "tonic",
- "tonic-build",
- "tracing",
- "tracing-android",
- "tracing-appender",
- "tracing-oslog",
- "tracing-subscriber",
- "uuid",
- "wez-mdns",
-]
-
-[[package]]
-name = "edamame_foundation"
-version = "0.3.4"
-source = "git+https://github.com/edamametechnologies/edamame_foundation#505e7f722dfa470d21f2cd4ac8b4415bfd6158fd"
+source = "git+https://github.com/edamametechnologies/edamame_foundation#6e651076158cb7bb588c767c38ef70c2087d34f1"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1527,7 +1478,7 @@ dependencies = [
  "daemonize",
  "dirs",
  "edamame_core",
- "edamame_foundation 0.3.4 (git+https://github.com/edamametechnologies/edamame_foundation?branch=dev)",
+ "edamame_foundation",
  "envcrypt",
  "fs2",
  "glob",
