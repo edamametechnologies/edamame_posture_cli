@@ -844,18 +844,18 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.5.13"
+version = "4.5.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0fbb260a053428790f3de475e304ff84cdbc4face759ea7a3e64c1edd938a7fc"
+checksum = "c937d4061031a6d0c8da4b9a4f98a172fc2976dfb1c19213a9cf7d0d3c837e36"
 dependencies = [
  "clap_builder",
 ]
 
 [[package]]
 name = "clap_builder"
-version = "4.5.13"
+version = "4.5.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "64b17d7ea74e9f833c7dbf2cbe4fb12ff26783eda4782a8975b72f895c9b4d99"
+checksum = "85379ba512b21a328adf887e85f7742d12e96eb31f3ef077df4ffc26b506ffed"
 dependencies = [
  "anstream",
  "anstyle",
@@ -1351,10 +1351,11 @@ dependencies = [
 [[package]]
 name = "edamame_backend"
 version = "0.3.3"
-source = "git+https://github.com/edamametechnologies/edamame_backend#00bf91c112df08d485974b022cd0716a11348545"
+source = "git+https://github.com/edamametechnologies/edamame_backend#faaaf7e63fb9ef3baad55dcbb442b355c8e77ab1"
 dependencies = [
  "anyhow",
  "blake3",
+ "chrono",
  "hex",
  "hmac",
  "serde",
@@ -1363,8 +1364,8 @@ dependencies = [
 
 [[package]]
 name = "edamame_core"
-version = "0.4.0"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=dev#6a142795b964c4baf044a7bd7c739884e3c1b912"
+version = "0.4.1"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=dev#c72ccc6c62985aa2870e18128a2e3e706d5cd4fc"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1424,7 +1425,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "0.3.4"
-source = "git+https://github.com/edamametechnologies/edamame_foundation#6e651076158cb7bb588c767c38ef70c2087d34f1"
+source = "git+https://github.com/edamametechnologies/edamame_foundation#033e87dea18168cf5458d6983853bd22f8091032"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1474,7 +1475,7 @@ dependencies = [
 name = "edamame_posture"
 version = "0.3.84"
 dependencies = [
- "clap 4.5.13",
+ "clap 4.5.14",
  "daemonize",
  "dirs",
  "edamame_core",
@@ -5667,9 +5668,9 @@ checksum = "8ecb6da28b8a351d773b68d5825ac39017e680750f980f3a1a85cd8dd28a47c1"
 
 [[package]]
 name = "ureq"
-version = "2.10.0"
+version = "2.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "72139d247e5f97a3eff96229a7ae85ead5328a39efe76f8bf5a06313d505b6ea"
+checksum = "b74fc6b57825be3373f7054754755f03ac3a8f5d70015ccad699ba2029956f4a"
 dependencies = [
  "base64 0.22.1",
  "log",
