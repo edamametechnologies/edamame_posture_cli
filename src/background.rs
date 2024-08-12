@@ -59,6 +59,9 @@ pub fn background_process(user: String, domain: String, pin: String, lan_scannin
             wifi_broadcast: "".to_string(),
             wifi_name: "".to_string(),
             wifi_ipv6: "".to_string(),
+            // Must be in RFC3339 format, set to EPOCH
+            last_seen: "1970-01-01T00:00:00Z".to_string(),
+            last_name: "".to_string(),
         });
 
         // Grant consent

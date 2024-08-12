@@ -57,6 +57,9 @@ pub fn handle_wait_for_connection(timeout: u64) {
             wifi_broadcast: "".to_string(),
             wifi_name: "".to_string(),
             wifi_ipv6: "".to_string(),
+            // Must be in RFC3339 format, set to EPOCH
+            last_seen: "1970-01-01T00:00:00Z".to_string(),
+            last_name: "".to_string(),
         });
 
         // Consent has been granted and scan has completed by the child
@@ -122,7 +125,6 @@ pub fn handle_lanscan(wait_for_completion: bool) {
     let mut devices = get_lan_devices(false, false, false);
     // Interfaces are in the form (ip, subnet, name)
     let interfaces = devices
-        .network
         .network
         .interfaces
         .iter()
