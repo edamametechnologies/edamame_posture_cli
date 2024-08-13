@@ -1,6 +1,6 @@
 # edamame_posture
 This is the CLI tool to compute and remediate the security posture of a device. This is designed to be used in CI/CD pipelines or test devices.
-See the associated Github action for an example of how to use it. This covers a variety of security threats involving the device.
+See the associated GitHub action for an example of how to use it. This covers a variety of security threats involving the device.
 Network scans are performed by default when launching the background service, but can be disabled if needed.
 
 ## Usage
@@ -96,6 +96,12 @@ Administrator privileges are required for most commands.
 ### Error Handling
 If a command requires admin privileges and they are not available, the tool will exit with an error message.
 Invalid arguments or subcommands will prompt usage instructions.
+
+### Download official binaries for edamame_posture
+
+* [Linux](https://edamame-posture.s3.eu-west-1.amazonaws.com/linux/0.3.84/edamame_posture)
+* [macOS (signed)](https://edamame-posture.s3.eu-west-1.amazonaws.com/macos/0.3.84/edamame_posture)
+* [Windows (signed)](https://edamame-posture.s3.eu-west-1.amazonaws.com/windows/0.3.84/edamame_posture.exe)
 
 ## Author
 Frank Lyonnet
