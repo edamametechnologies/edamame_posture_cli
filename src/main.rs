@@ -253,6 +253,9 @@ fn run_base() {
         Some(("status", _)) => show_background_process_status(),
         _ => eprintln!("Invalid command, use --help for more information"),
     }
+
+    // Properly terminate the core
+    terminate();
 }
 
 pub fn main() {
