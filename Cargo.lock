@@ -1388,8 +1388,8 @@ dependencies = [
 
 [[package]]
 name = "edamame_core"
-version = "0.4.5"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=dev#ac938a88a6aa7acd83f068d0cd23daff8b4b1c14"
+version = "0.4.6"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=dev#27670c7bd317b5dea55e97558cf41c71a8abfa98"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1439,6 +1439,8 @@ dependencies = [
  "strum_macros",
  "surge-ping",
  "swift-rs",
+ "system-configuration 0.6.0",
+ "system-configuration-sys 0.6.0",
  "tokio",
  "tonic",
  "tracing",
@@ -1451,13 +1453,14 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "0.3.4"
-source = "git+https://github.com/edamametechnologies/edamame_foundation#16b1be893e7564cb1d3bb4e9710e3a4dc02736f5"
+source = "git+https://github.com/edamametechnologies/edamame_foundation#ad4855fd0f0a11b73bc7d0c864b276df70982041"
 dependencies = [
  "anyhow",
  "arp-toolkit",
  "async-trait",
  "base64 0.22.1",
  "chrono",
+ "dashmap 6.0.1",
  "edamame_backend",
  "encoding_rs",
  "eui48",
