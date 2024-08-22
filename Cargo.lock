@@ -1375,7 +1375,7 @@ dependencies = [
 [[package]]
 name = "edamame_backend"
 version = "0.3.3"
-source = "git+https://github.com/edamametechnologies/edamame_backend#faaaf7e63fb9ef3baad55dcbb442b355c8e77ab1"
+source = "git+https://github.com/edamametechnologies/edamame_backend#9bd48ade5afa5a206f2bd5605854bd9eaa35866a"
 dependencies = [
  "anyhow",
  "blake3",
@@ -1388,8 +1388,8 @@ dependencies = [
 
 [[package]]
 name = "edamame_core"
-version = "0.4.6"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=dev#a80d26ec9ca90e73171a252ffa28ac9bc81b60c6"
+version = "0.4.7"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=dev#f21edbfc058ca909d7612f1836d7f2f257202f43"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1439,6 +1439,7 @@ dependencies = [
  "strum_macros",
  "surge-ping",
  "swift-rs",
+ "system-configuration 0.6.0",
  "tokio",
  "tonic",
  "tracing",
@@ -1451,7 +1452,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "0.3.4"
-source = "git+https://github.com/edamametechnologies/edamame_foundation#ad4855fd0f0a11b73bc7d0c864b276df70982041"
+source = "git+https://github.com/edamametechnologies/edamame_foundation#44c55bd81d85165cbd31b10b92b01f1f6d05d4a5"
 dependencies = [
  "anyhow",
  "arp-toolkit",
