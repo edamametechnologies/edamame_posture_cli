@@ -35,7 +35,7 @@ Retrieves detailed device information.
 Syntax: edamame_posture get-device-info
 
 ### get-threats-info
-Fetches information about potential threats detected on the device.
+Fetches information about the threat model in use.
 
 Syntax: edamame_posture get-threats-info
 
