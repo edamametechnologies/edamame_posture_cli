@@ -47,7 +47,7 @@ Syntax: edamame_posture get-system-info
 ### request-pin
 Requests a PIN for user authentication.
 
-Syntax: edamame_posture request-pin <USER> <DOMAIN>
+Syntax: edamame_posture request-pin \<USER\> \<DOMAIN\>
 
 USER: User name
 
@@ -68,7 +68,7 @@ REMEDIATIONS: Comma-separated list of remediations to skip (optional)
 ### start
 Starts the background process for continuous monitoring and reporting.
 
-Syntax: edamame_posture start <USER> <DOMAIN> <PIN> <DEVICE_ID> [LAN_SCANNING]
+Syntax: edamame_posture start \<USER\> \<DOMAIN\> \<PIN\> \<DEVICE_ID\> [LAN_SCANNING]
 
 USER: User name
 
