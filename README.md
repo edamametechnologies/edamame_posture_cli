@@ -99,9 +99,9 @@ Invalid arguments or subcommands will prompt usage instructions.
 
 ### Download official binaries for edamame_posture
 
-* [Linux](https://edamame-posture.s3.eu-west-1.amazonaws.com/linux/0.3.84/edamame_posture)
-* [macOS (signed)](https://edamame-posture.s3.eu-west-1.amazonaws.com/macos/0.3.84/edamame_posture)
-* [Windows (signed)](https://edamame-posture.s3.eu-west-1.amazonaws.com/windows/0.3.84/edamame_posture.exe)
+* [Linux](https://edamame-posture.s3.eu-west-1.amazonaws.com/linux/latest/edamame_posture)
+* [macOS (signed)](https://edamame-posture.s3.eu-west-1.amazonaws.com/macos/latest/edamame_posture)
+* [Windows (signed)](https://edamame-posture.s3.eu-west-1.amazonaws.com/windows/latest/edamame_posture.exe)
 
 ## Author
 Frank Lyonnet
