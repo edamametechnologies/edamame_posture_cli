@@ -145,6 +145,7 @@ pub fn handle_lanscan(wait_for_completion: bool) {
     // Wait completion of the scan
     devices = get_lan_devices(false, false, false);
     if wait_for_completion {
+        println!("Waiting for LAN scan to complete...");
         while devices.scan_in_progress {
             pb.set_position(devices.scan_progress_percent as u64);
             sleep(Duration::from_secs(5));
