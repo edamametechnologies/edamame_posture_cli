@@ -98,3 +98,4 @@ jobs:
         run: |
           VERSION=$(grep '^version =' ./Cargo.toml | awk '{print $3}' | tr -d '"')
           aws s3 cp ./target/release/edamame_posture.exe s3://edamame-posture/windows/${VERSION}/edamame_posture.exe --acl public-read
+          aws s3 cp ./target/release/edamame_posture.exe s3://edamame-posture/windows/latest/edamame_posture.exe --acl public-read
