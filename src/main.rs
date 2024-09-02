@@ -43,6 +43,8 @@ fn run() {
                     connected_domain: args[3].clone(),
                     connected_user: args[2].clone(),
                     last_network_activity: "".to_string(),
+                    score: ScoreAPI::default(),
+                    devices: LANScanAPI::default(),
                 };
                 state.save();
             }
@@ -196,7 +198,8 @@ fn run_base() {
             // Request a LAN scan
             _ = get_lan_devices(true, false, false);
 
-            handle_lanscan(true);
+            // Wait for the LAN scan to complete
+            handle_lanscan();
         }
         Some(("wait-for-connection", sub_matches)) => {
             let timeout = match sub_matches.get_one::<u64>("TIMEOUT") {

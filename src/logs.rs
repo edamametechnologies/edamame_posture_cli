@@ -27,7 +27,7 @@ pub fn display_logs() {
                         match fs::read_to_string(&log_file) {
                             Ok(contents) => {
                                 println!("{}", contents);
-                                println!("");
+                                println!();
                             }
                             Err(err) => {
                                 eprintln!("Error reading log file {}: {}", log_file.display(), err)

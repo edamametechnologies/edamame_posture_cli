@@ -8,7 +8,7 @@ use edamame_core::api::api_core::{disconnect_domain, get_connection, set_credent
 use edamame_core::api::api_lanscan::{
     get_lan_devices, get_last_gateway_scan, grant_consent, set_network, LANScanAPINetwork,
 };
-use edamame_core::api::api_score::compute_score;
+use edamame_core::api::api_score::{compute_score, get_score};
 #[cfg(unix)]
 use std::process::Command as ProcessCommand;
 use std::thread::sleep;
@@ -81,7 +81,7 @@ pub fn background_process(user: String, domain: String, pin: String, lan_scannin
         _ = get_lan_devices(true, false, false);
 
         // Wait for the scan to complete
-        handle_lanscan(true);
+        handle_lanscan();
     }
 
     // Request immediate score computation
@@ -98,6 +98,8 @@ pub fn background_process(user: String, domain: String, pin: String, lan_scannin
         let mut state = State::load();
         state.is_success = connection_status.is_success;
         state.last_network_activity = connection_status.last_network_activity;
+        state.devices = get_lan_devices(false, false, false);
+        state.score = get_score(true);
         state.save();
 
         // Exit if there are no pid/handle anymore
@@ -286,6 +288,8 @@ pub fn start_background_process(
                     connected_domain: domain,
                     connected_user: user,
                     last_network_activity: "".to_string(),
+                    devices: LANScanAPI::default(),
+                    score: ScoreAPI::default(),
                 };
                 state.save();
 
