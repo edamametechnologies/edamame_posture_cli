@@ -2,8 +2,8 @@ use crate::{display_logs, stop_background_process, State};
 use edamame_core::api::api_core::{
     connect_domain, get_core_info, get_core_version, get_device_info, request_pin, set_credentials,
 };
-use edamame_core::api::api_lanscan::{get_lan_devices, set_network, LANScanAPINetwork};
-use edamame_core::api::api_score::{compute_score, get_score};
+use edamame_core::api::api_lanscan::{get_lan_devices, LANScanAPI};
+use edamame_core::api::api_score::{get_score, ScoreAPI};
 use edamame_core::api::api_score_threats::{get_threats_url, remediate};
 use indicatif::{ProgressBar, ProgressStyle};
 use std::thread::sleep;
@@ -37,38 +37,6 @@ pub fn handle_wait_for_connection(timeout: u64) {
         // Exit with an error code
         std::process::exit(1);
     } else {
-        // Compute and display the score
-        compute_score();
-        handle_score(true);
-
-        // Initialize network to autodetect
-        set_network(LANScanAPINetwork {
-            interfaces: vec![],
-            scanned_interfaces: vec![],
-            is_ethernet: true,
-            is_wifi: false,
-            is_vpn: false,
-            is_tethering: false,
-            is_mobile: false,
-            wifi_bssid: "".to_string(),
-            wifi_ip: "".to_string(),
-            wifi_submask: "".to_string(),
-            wifi_gateway: "".to_string(),
-            wifi_broadcast: "".to_string(),
-            wifi_name: "".to_string(),
-            wifi_ipv6: "".to_string(),
-            // Must be in RFC3339 format, set to EPOCH
-            last_seen: "1970-01-01T00:00:00Z".to_string(),
-            last_name: "".to_string(),
-        });
-
-        // Consent has been granted and scan has completed by the child
-
-        // Print the lanscan results, don't wait
-        handle_lanscan(false);
-
-        display_logs();
-
         println!(
             "Connection successful with domain {} and user {} (success: {}, network activity: {})",
             state.connected_domain,
@@ -76,6 +44,14 @@ pub fn handle_wait_for_connection(timeout: u64) {
             state.is_success,
             state.last_network_activity
         );
+
+        // Print the score results stored in the state
+        display_score(&state.score);
+
+        // Print the lanscan results stored in the state
+        display_lanscan(&state.devices);
+
+        display_logs();
     }
 }
 
@@ -121,8 +97,8 @@ pub fn handle_get_core_version() {
     println!("Core version: {}", version);
 }
 
-pub fn handle_lanscan(wait_for_completion: bool) {
-    let mut devices = get_lan_devices(false, false, false);
+pub fn display_lanscan(devices: &LANScanAPI) {
+    println!("LAN scan completed at: {}", devices.last_scan);
     // Interfaces are in the form (ip, subnet, name)
     let interfaces = devices
         .network
@@ -131,35 +107,10 @@ pub fn handle_lanscan(wait_for_completion: bool) {
         .map(|interface| format!("{} ({}/{})", interface.2, interface.0, interface.1))
         .collect::<Vec<String>>()
         .join(", ");
-    println!("Final network interfaces: {}", interfaces);
-
-    // The network, has been set, consent has been granted and a scan has been requested if needed
-
-    // Display the lanscan results
-    let total_steps = 100;
-    let pb = ProgressBar::new(total_steps);
-    pb.set_style(ProgressStyle::default_bar()
-        .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos:>7}/{len:7} ({eta})")
-        .progress_chars("#>-"));
-
-    // Wait completion of the scan
-    devices = get_lan_devices(false, false, false);
-    if wait_for_completion {
-        println!("Waiting for LAN scan to complete...");
-        while devices.scan_in_progress {
-            pb.set_position(devices.scan_progress_percent as u64);
-            sleep(Duration::from_secs(5));
-            devices = get_lan_devices(false, false, false);
-        }
+    println!("Network interfaces scanned: {}", interfaces);
+    if devices.devices.len() > 0 {
+        println!("Devices found:");
     }
-
-    if devices.last_scan == "" {
-        println!("LAN scan not completed");
-        return;
-    } else {
-        println!("LAN scan completed at: {}", devices.last_scan);
-    }
-
     for device in devices.devices.iter() {
         println!("  - '{}'", device.hostname);
         println!("    - Type: {}", device.device_type);
@@ -192,27 +143,31 @@ pub fn handle_lanscan(wait_for_completion: bool) {
             .filter(|device| device.criticality == "High")
             .count()
     );
-    println!("");
+    println!();
 }
 
-pub fn handle_score(progress_bar: bool) {
+pub fn handle_lanscan() {
+    // The network, has been set, consent has been granted and a scan has been requested if needed
     let total_steps = 100;
     let pb = ProgressBar::new(total_steps);
     pb.set_style(ProgressStyle::default_bar()
         .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos:>7}/{len:7} ({eta})")
         .progress_chars("#>-"));
 
-    let mut score = get_score(false);
-    while score.compute_in_progress {
-        if progress_bar {
-            pb.set_position(score.compute_progress_percent as u64);
-        }
-        sleep(Duration::from_millis(100));
-        score = get_score(false);
+    // Wait completion of the scan
+    let mut devices = get_lan_devices(false, false, false);
+    println!("Waiting for LAN scan to complete...");
+    while devices.scan_in_progress {
+        pb.set_position(devices.scan_progress_percent as u64);
+        sleep(Duration::from_secs(5));
+        devices = get_lan_devices(false, false, false);
     }
 
-    // Make sure we have the final score
-    score = get_score(true);
+    // Display the devices
+    display_lanscan(&devices);
+}
+
+pub fn display_score(score: &ScoreAPI) {
     let url = get_threats_url().to_string();
     // Pretty print the final score with important details
     println!("Security Score summary:");
@@ -243,7 +198,28 @@ pub fn handle_score(progress_bar: bool) {
     for metric in score.unknown.iter() {
         println!("    - {}", metric.name);
     }
-    println!("");
+    println!();
+}
+
+pub fn handle_score(progress_bar: bool) {
+    let total_steps = 100;
+    let pb = ProgressBar::new(total_steps);
+    pb.set_style(ProgressStyle::default_bar()
+        .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos:>7}/{len:7} ({eta})")
+        .progress_chars("#>-"));
+
+    let mut score = get_score(false);
+    while score.compute_in_progress {
+        if progress_bar {
+            pb.set_position(score.compute_progress_percent as u64);
+        }
+        sleep(Duration::from_millis(100));
+        score = get_score(false);
+    }
+
+    // Make sure we have the final score
+    score = get_score(true);
+    display_score(&score);
 }
 
 pub fn handle_get_system_info() {
@@ -329,7 +305,7 @@ pub fn handle_get_system_info() {
 pub fn handle_remediate(remediations_to_skip: &str) {
     println!("Score before remediation:");
     println!("-------------------------");
-    println!("");
+    println!();
 
     // Show the score before remediation
     handle_score(false);
@@ -349,7 +325,7 @@ pub fn handle_remediate(remediations_to_skip: &str) {
     remediations_to_skip.push("remote login enabled");
 
     // Remediate the threats with "remote login" as an exception
-    println!("");
+    println!();
     println!("Remediating threats:");
     for metric in score.auto_remediate.iter() {
         if !remediations_to_skip.contains(&metric.name.as_str()) {
@@ -358,10 +334,10 @@ pub fn handle_remediate(remediations_to_skip: &str) {
         }
     }
 
-    println!("");
+    println!();
     println!("Score after remediation:");
     println!("------------------------");
-    println!("");
+    println!();
 
     // Show the score after remediation
     handle_score(false);
