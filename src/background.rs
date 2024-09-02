@@ -23,6 +23,10 @@ use windows::core::{PCWSTR, PWSTR};
 use windows::Win32::Foundation::{CloseHandle, HANDLE};
 #[cfg(windows)]
 use windows::Win32::System::Threading::*;
+#[cfg(windows)]
+use edamame_core::api::api_lanscan::LANScanAPI;
+#[cfg(windows)]
+use edamame_core::api::api_score::ScoreAPI;
 
 pub fn background_process(user: String, domain: String, pin: String, lan_scanning: bool) {
     info!(
