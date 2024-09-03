@@ -5,9 +5,13 @@ use crate::{
 #[cfg(unix)]
 use daemonize::Daemonize;
 use edamame_core::api::api_core::{disconnect_domain, get_connection, set_credentials};
+#[cfg(windows)]
+use edamame_core::api::api_lanscan::LANScanAPI;
 use edamame_core::api::api_lanscan::{
     get_lan_devices, get_last_gateway_scan, grant_consent, set_network, LANScanAPINetwork,
 };
+#[cfg(windows)]
+use edamame_core::api::api_score::ScoreAPI;
 use edamame_core::api::api_score::{compute_score, get_score};
 #[cfg(unix)]
 use std::process::Command as ProcessCommand;
@@ -23,10 +27,6 @@ use windows::core::{PCWSTR, PWSTR};
 use windows::Win32::Foundation::{CloseHandle, HANDLE};
 #[cfg(windows)]
 use windows::Win32::System::Threading::*;
-#[cfg(windows)]
-use edamame_core::api::api_lanscan::LANScanAPI;
-#[cfg(windows)]
-use edamame_core::api::api_score::ScoreAPI;
 
 pub fn background_process(user: String, domain: String, pin: String, lan_scanning: bool) {
     info!(
