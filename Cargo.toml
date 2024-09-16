@@ -1,13 +1,13 @@
 [package]
 name = "edamame_posture"
-version = "0.6.0"
+version = "0.6.1"
 edition = "2021"
 
 [dependencies]
 
 # EDAMAME foundation
 edamame_foundation = { git = "https://github.com/edamametechnologies/edamame_foundation", version = "0.3.4" }
-edamame_core = { git = "https://github.com/edamametechnologies/edamame_core", branch = "dev", features = [ "nohealth", "nopwned", "nobridge", "swiftrs" ] }
+edamame_core = { git = "https://github.com/edamametechnologies/edamame_core", branch = "main", features = [ "nohealth", "nopwned", "nobridge", "swiftrs" ] }
 #edamame_core = { path = "../edamame_core", features = [ "nohealth", "nopwned", "nobridge", "swiftrs" ] }
 
 # Files
@@ -15,14 +15,14 @@ glob = "0.3.1"
 fs2 = "0.4.3"
 
 # Progress
-indicatif = "0.15.0"
+indicatif = "0.17.7"
 
 # YAML
 serde = "1.0.204"
 serde_yaml = "0.9.34+deprecated"
 
 # System
-sysinfo = "0.30.13"
+sysinfo = "0.31.3"
 dirs = "5.0.1"
 
 # Machine UID
