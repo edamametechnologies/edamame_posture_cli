@@ -152,6 +152,7 @@ pub fn handle_lanscan() {
     let pb = ProgressBar::new(total_steps);
     pb.set_style(ProgressStyle::default_bar()
         .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos:>7}/{len:7} ({eta})")
+        .expect("failed to set progress style")
         .progress_chars("#>-"));
 
     // Wait completion of the scan
@@ -206,6 +207,7 @@ pub fn handle_score(progress_bar: bool) {
     let pb = ProgressBar::new(total_steps);
     pb.set_style(ProgressStyle::default_bar()
         .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos:>7}/{len:7} ({eta})")
+        .expect("failed to set progress style")
         .progress_chars("#>-"));
 
     let mut score = get_score(false);
