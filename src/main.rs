@@ -45,6 +45,7 @@ fn run() {
                     last_network_activity: "".to_string(),
                     score: ScoreAPI::default(),
                     devices: LANScanAPI::default(),
+                    connections: Vec::new(),
                 };
                 state.save();
             }
@@ -123,6 +124,38 @@ fn run_base() {
                         .required(false)
                         .value_parser(clap::value_parser!(u64)),
                 ),
+        )
+        .subcommand(Command::new("get-connections")
+            .about("Get connections")
+            .arg(
+                arg!(<ZEEK_FORMAT> "Zeek format")
+                    .required(false)
+                    .value_parser(clap::value_parser!(bool)),
+            )
+            .arg(
+                arg!(<LOCAL_TRAFFIC> "Include local traffic")
+                    .required(false)
+                    .default_value("false")
+                    .value_parser(clap::value_parser!(bool))
+            )
+        )
+        .subcommand(Command::new("capture").about("Capture packets").arg(
+            arg!(<SECONDS> "Number of seconds to capture")
+                .required(false)
+                .value_parser(clap::value_parser!(u64))
+            )
+            // Optional Zeek format
+            .arg(
+                arg!(<ZEEK_FORMAT> "Zeek format")
+                    .required(false)
+                    .value_parser(clap::value_parser!(bool)),
+            )
+            .arg(
+                arg!(<LOCAL_TRAFFIC> "Include local traffic")
+                    .required(false)
+                    .default_value("false")
+                    .value_parser(clap::value_parser!(bool))
+            )
         )
         .subcommand(Command::new("get-core-info").about("Get core information"))
         .subcommand(Command::new("get-device-info").about("Get device information"))
@@ -210,6 +243,21 @@ fn run_base() {
                 }
             };
             handle_wait_for_connection(*timeout);
+        }
+        Some(("get-connections", sub_matches)) => {
+            let zeek_format = sub_matches.get_one::<bool>("ZEEK_FORMAT").unwrap_or(&false);
+            let local_traffic = sub_matches
+                .get_one::<bool>("LOCAL_TRAFFIC")
+                .unwrap_or(&false);
+            handle_get_connections(*zeek_format, *local_traffic);
+        }
+        Some(("capture", sub_matches)) => {
+            let seconds = sub_matches.get_one::<u64>("SECONDS").unwrap_or(&600);
+            let zeek_format = sub_matches.get_one::<bool>("ZEEK_FORMAT").unwrap_or(&false);
+            let local_traffic = sub_matches
+                .get_one::<bool>("LOCAL_TRAFFIC")
+                .unwrap_or(&false);
+            handle_capture(*seconds, *zeek_format, *local_traffic);
         }
         Some(("get-core-info", _)) => handle_get_core_info(),
         Some(("get-device-info", _)) => handle_get_device_info(),

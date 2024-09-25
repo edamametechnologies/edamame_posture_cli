@@ -1,10 +1,8 @@
 use crate::{display_logs, stop_background_process, State};
-use edamame_core::api::api_core::{
-    connect_domain, get_core_info, get_core_version, get_device_info, request_pin, set_credentials,
-};
-use edamame_core::api::api_lanscan::{get_lan_devices, LANScanAPI};
-use edamame_core::api::api_score::{get_score, ScoreAPI};
-use edamame_core::api::api_score_threats::{get_threats_url, remediate};
+use edamame_core::api::api_core::*;
+use edamame_core::api::api_lanscan::*;
+use edamame_core::api::api_score::*;
+use edamame_core::api::api_score_threats::*;
 use indicatif::{ProgressBar, ProgressStyle};
 use std::thread::sleep;
 use std::time::Duration;
@@ -50,6 +48,9 @@ pub fn handle_wait_for_connection(timeout: u64) {
 
         // Print the lanscan results stored in the state
         display_lanscan(&state.devices);
+
+        // Print the connections stored in the state
+        format_connections_log(&state.connections, false);
 
         display_logs();
     }
@@ -166,6 +167,45 @@ pub fn handle_lanscan() {
 
     // Display the devices
     display_lanscan(&devices);
+}
+
+pub fn handle_get_connections(local_traffic: bool, zeek_format: bool) {
+    // Read the connections in the state
+    let state = State::load();
+    let connections = state.connections;
+
+    // Format the connections and display them
+    let connections = if zeek_format {
+        format_connections_zeek(&connections, local_traffic)
+    } else {
+        format_connections_log(&connections, local_traffic)
+    };
+    for connection in connections.iter() {
+        println!("{}", connection);
+    }
+}
+
+pub fn handle_capture(seconds: u64, zeek_format: bool, local_traffic: bool) {
+    // Start capturing packets
+    start_capture();
+
+    // Wait for the specified number of seconds
+    sleep(Duration::from_secs(seconds));
+
+    // Stop capturing packets
+    stop_capture();
+
+    // Display the captured connections
+    let connections = get_connections();
+
+    let connections = if zeek_format {
+        format_connections_zeek(&connections, local_traffic)
+    } else {
+        format_connections_log(&connections, local_traffic)
+    };
+    for connection in connections.iter() {
+        println!("{}", connection);
+    }
 }
 
 pub fn display_score(score: &ScoreAPI) {
