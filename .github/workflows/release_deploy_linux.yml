@@ -64,6 +64,8 @@ jobs:
           sudo apt-get install -y protobuf-compiler clang cmake lsb-release software-properties-common gnupg libssl-dev wget curl file git unzip xz-utils zip libglu1-mesa ninja-build pkg-config libgtk-3-dev libayatana-appindicator3-dev libnotify-dev libgles2-mesa 
           # Install flutter test dependencies
           sudo apt-get install -y dbus network-manager
+          # For packet capture
+          sudo apt-get install -y libpcap-dev
 
       - name: Configure Git Authentication to import private crates
         run: |
