@@ -24,6 +24,15 @@ Syntax: edamame_posture wait-for-connection [TIMEOUT]
 
 TIMEOUT: Timeout in seconds (optional, defaults to 600 seconds if not provided)
 
+### capture
+Captures network traffic for a specified duration and formats it as a log.
+
+Syntax: edamame_posture capture [SECONDS] [ZEEK_FORMAT]
+
+SECONDS: Duration in seconds (optional, defaults to 600 seconds if not provided)
+
+ZEEK_FORMAT: Format the output as Zeek log (optional, defaults to false if not provided)
+
 ### get-core-info
 Fetches core information of the device.
 
