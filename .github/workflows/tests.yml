@@ -29,18 +29,18 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            protobuf_install: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+            dependencies_install: sudo apt-get update && sudo apt-get install -y protobuf-compiler libpcap-dev
           - os: macos-latest
-            protobuf_install: brew install protobuf
+            dependencies_install: brew install protobuf
           - os: windows-latest
-            protobuf_install: choco install protoc
+            dependencies_install: choco install protoc
           # No need to test on iOS and Android
           #- os: macos-latest
           #  platform: ios
-          #  protobuf_install: brew install protobuf
+          #  dependencies_install: brew install protobuf
           #- os: ubuntu-latest
           #  platform: android
-          #  protobuf_install: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+          #  dependencies_install: sudo apt-get update && sudo apt-get install -y protobuf-compiler
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
     steps:
@@ -139,8 +139,8 @@ jobs:
           fi
         shell: bash
 
-      - name: Install protobuf
-        run: ${{ matrix.protobuf_install }}
+      - name: Install dependencies
+        run: ${{ matrix.dependencies_install }}
 
       - name: Setup Android SDK
         if: matrix.platform == 'android'
