@@ -1,4 +1,4 @@
-name: Build, test and publish for Linux
+name: Build and publish for Linux
 
 on:
   workflow_dispatch:
