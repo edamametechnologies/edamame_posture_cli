@@ -1,5 +1,5 @@
-use edamame_core::api::api_lanscan::LANScanAPI;
-use edamame_core::api::api_score::ScoreAPI;
+use edamame_core::api::api_lanscan::*;
+use edamame_core::api::api_score::*;
 use fs2::FileExt;
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -18,6 +18,7 @@ pub struct State {
     pub last_network_activity: String,
     pub score: ScoreAPI,
     pub devices: LANScanAPI,
+    pub connections: Vec<ConnectionInfoAPI>,
 }
 
 impl Default for State {
@@ -31,6 +32,7 @@ impl Default for State {
             last_network_activity: "".to_string(),
             score: ScoreAPI::default(),
             devices: LANScanAPI::default(),
+            connections: Vec::new(),
         }
     }
 }
@@ -57,13 +59,14 @@ impl State {
         } else {
             State {
                 pid: None,
-                handle: None, // Initialize handle
+                handle: None,
                 is_success: false,
                 connected_domain: "".to_string(),
                 connected_user: "".to_string(),
                 last_network_activity: "".to_string(),
                 score: ScoreAPI::default(),
                 devices: LANScanAPI::default(),
+                connections: Vec::new(),
             }
         }
     }

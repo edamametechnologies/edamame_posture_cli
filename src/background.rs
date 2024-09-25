@@ -7,9 +7,7 @@ use daemonize::Daemonize;
 use edamame_core::api::api_core::{disconnect_domain, get_connection, set_credentials};
 #[cfg(windows)]
 use edamame_core::api::api_lanscan::LANScanAPI;
-use edamame_core::api::api_lanscan::{
-    get_lan_devices, get_last_gateway_scan, grant_consent, set_network, LANScanAPINetwork,
-};
+use edamame_core::api::api_lanscan::*;
 #[cfg(windows)]
 use edamame_core::api::api_score::ScoreAPI;
 use edamame_core::api::api_score::{compute_score, get_score};
@@ -46,6 +44,9 @@ pub fn background_process(user: String, domain: String, pin: String, lan_scannin
     // Scan the network interfaces
     if lan_scanning {
         info!("Scanning network interfaces...");
+
+        // Start capture
+        start_capture();
 
         // Initialize network to autodetect
         set_network(LANScanAPINetwork {
@@ -97,13 +98,15 @@ pub fn background_process(user: String, domain: String, pin: String, lan_scannin
     handle_connect_domain();
 
     // Loop forever as background process is running, write the shared state based on the connection status
+    // Load the state to get the current PID/handle
+    let mut state = State::load();
     loop {
         let connection_status = get_connection();
-        let mut state = State::load();
         state.is_success = connection_status.is_success;
         state.last_network_activity = connection_status.last_network_activity;
         state.devices = get_lan_devices(false, false, false);
         state.score = get_score(true);
+        state.connections = get_connections();
         state.save();
 
         // Exit if there are no pid/handle anymore
@@ -116,10 +119,6 @@ pub fn background_process(user: String, domain: String, pin: String, lan_scannin
         if state.handle.is_none() {
             std::process::exit(0);
         }
-        info!(
-            "Connection status updated: success: {}, network activity: {}",
-            state.is_success, state.last_network_activity
-        );
 
         sleep(Duration::from_secs(5));
     }
