@@ -1,4 +1,4 @@
-name: Build, test and publish for macOS
+name: Build and publish for macOS
 
 on:
   workflow_dispatch:

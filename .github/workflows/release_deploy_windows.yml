@@ -1,4 +1,4 @@
-name: Build, test and publish Windows MSIX to Microsoft Store
+name: Build and publish Windows MSIX to Microsoft Store
 
 on:
   workflow_dispatch:
