@@ -40,7 +40,7 @@ jobs:
           #  dependencies_install: brew install protobuf
           #- os: ubuntu-latest
           #  platform: android
-          #  dependencies_install: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+          #  dependencies_install: sudo apt-get update && sudo apt-get install -y protobuf-compiler libpcap-dev
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
     steps:
