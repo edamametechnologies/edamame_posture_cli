@@ -99,3 +99,9 @@ jobs:
           VERSION=$(grep '^version =' ./Cargo.toml | awk '{print $3}' | tr -d '"')
           aws s3 cp ./target/release/edamame_posture.exe s3://edamame-posture/windows/${VERSION}/edamame_posture.exe --acl public-read
           aws s3 cp ./target/release/edamame_posture.exe s3://edamame-posture/windows/latest/edamame_posture.exe --acl public-read
+
+      - name: Dump EDAMAME Posture sessions
+        if: github.ref == 'refs/heads/main'
+        uses: edamametechnologies/edamame_posture_action@v0
+        with:
+          dump_sessions_log: true

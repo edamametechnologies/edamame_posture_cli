@@ -51,11 +51,6 @@ jobs:
           edamame_domain: ${{ vars.EDAMAME_POSTURE_DOMAIN }}
           edamame_pin: ${{ secrets.EDAMAME_POSTURE_PIN }}
           edamame_id: ${{ github.run_id }}
-          auto_remediate: true
-          network_scan: true
-          # This PAT is required to check for access with git, not needed when only checking API access
-          token: ${{ secrets.DEV_GITHUB_TOKEN }}
-          wait_for_repo: true
 
       - name: Configure Git Authentication to import private crates
         run: |
