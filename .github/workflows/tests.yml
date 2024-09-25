@@ -57,6 +57,12 @@ jobs:
           token: ${{ secrets.DEV_GITHUB_TOKEN }}
           wait_for_repo: true
 
+      - name: Configure Git Authentication to import private crates
+        run: |
+          git config --global user.email "dev@edamame.tech"
+          git config --global user.name "EDAMAME Dev"
+          git config --global url."https://edamamedev:${{ secrets.DEV_GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
+
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
