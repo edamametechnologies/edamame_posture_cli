@@ -293,6 +293,7 @@ pub fn start_background_process(
                     last_network_activity: "".to_string(),
                     devices: LANScanAPI::default(),
                     score: ScoreAPI::default(),
+                    connections: vec![],
                 };
                 state.save();
 
