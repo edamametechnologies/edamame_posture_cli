@@ -23,13 +23,7 @@ jobs:
           edamame_domain: ${{ vars.EDAMAME_POSTURE_DOMAIN }}
           edamame_pin: ${{ secrets.EDAMAME_POSTURE_PIN }}
           edamame_id: ${{ github.run_id }}
-
-      - name: Check out Git repository
-        uses: nick-fields/retry@v2
-        with:
-          timeout_minutes: 10
-          max_attempts: 10
-          command: actions/checkout@v4
+          checkout: true
 
       - run: rustup component add rustfmt
 

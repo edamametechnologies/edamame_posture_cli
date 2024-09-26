@@ -49,6 +49,7 @@ jobs:
           edamame_id: ${{ github.run_id }}
           network_scan: true
           auto_remediate: true
+          checkout: true
           
       - name: Setup .NET 8.0
         uses: actions/setup-dotnet@v3
@@ -57,13 +58,6 @@ jobs:
 
       - name: Setup MS Store CLI
         uses: microsoft/setup-msstore-cli@v1
-
-      - name: Check out Git repository
-        uses: nick-fields/retry@v2
-        with:
-          timeout_minutes: 10
-          max_attempts: 10
-          command: actions/checkout@v4
 
       - name: Install additional packages w/ Chocolatey
         run: |
