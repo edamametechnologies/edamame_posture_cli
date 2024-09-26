@@ -50,7 +50,11 @@ jobs:
           auto_remediate: true
 
       - name: Check out Git repository
-        uses: actions/checkout@v4
+        uses: nick-fields/retry@v2
+        with:
+          timeout_minutes: 10
+          max_attempts: 10
+          command: actions/checkout@v4
 
       - name: Install additional packages w/ apt
         run: |
