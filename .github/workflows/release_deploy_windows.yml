@@ -47,7 +47,9 @@ jobs:
           edamame_domain: ${{ vars.EDAMAME_POSTURE_DOMAIN }}
           edamame_pin: ${{ secrets.EDAMAME_POSTURE_PIN }}
           edamame_id: ${{ github.run_id }}
-
+          network_scan: true
+          auto_remediate: true
+          
       - name: Setup .NET 8.0
         uses: actions/setup-dotnet@v3
         with:
