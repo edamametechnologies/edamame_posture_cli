@@ -110,7 +110,7 @@ pub fn background_process(
         let connection_status = get_connection();
         state.devices = get_lan_devices(false, false, false);
         state.score = get_score(true);
-        state.connections = get_connections();
+        state.connections = get_connections(true);
         state.whitelist_conformance = get_whitelist_conformance();
         state.connected_user = connection_status.connected_user;
         state.connected_domain = connection_status.connected_domain;
