@@ -26,7 +26,13 @@ use windows::Win32::Foundation::{CloseHandle, HANDLE};
 #[cfg(windows)]
 use windows::Win32::System::Threading::*;
 
-pub fn background_process(user: String, domain: String, pin: String, lan_scanning: bool) {
+pub fn background_process(
+    user: String,
+    domain: String,
+    pin: String,
+    lan_scanning: bool,
+    whitelist_name: String,
+) {
     info!(
         "Starting background process with user: {}, domain: {}, lan_scanning: {}",
         user, domain, lan_scanning
@@ -46,7 +52,7 @@ pub fn background_process(user: String, domain: String, pin: String, lan_scannin
         info!("Scanning network interfaces...");
 
         // Start capture
-        start_capture();
+        start_capture(whitelist_name.clone());
 
         // Initialize network to autodetect
         set_network(LANScanAPINetwork {
@@ -102,11 +108,18 @@ pub fn background_process(user: String, domain: String, pin: String, lan_scannin
     let mut state = State::load();
     loop {
         let connection_status = get_connection();
-        state.is_success = connection_status.is_success;
-        state.last_network_activity = connection_status.last_network_activity;
         state.devices = get_lan_devices(false, false, false);
         state.score = get_score(true);
         state.connections = get_connections();
+        state.whitelist_conformance = get_whitelist_conformance();
+        state.connected_user = connection_status.connected_user;
+        state.connected_domain = connection_status.connected_domain;
+        state.is_connected = connection_status.is_success;
+        state.whitelist_name = whitelist_name.clone();
+        state.last_network_activity = connection_status.last_network_activity;
+        state.is_outdated_backend = connection_status.is_outdated_backend;
+        state.is_outdated_threats = connection_status.is_outdated_threats;
+        state.backend_error_code = connection_status.backend_error_code;
         state.save();
 
         // Exit if there are no pid/handle anymore
@@ -135,30 +148,17 @@ pub fn show_background_process_status() {
     if let Some(pid) = state.pid {
         if pid_exists(pid) {
             println!("Background process running ({})", pid);
-            // Read connection status
-            let connection_status = get_connection();
-            println!("Connection status:");
-            println!("  - User: {}", connection_status.connected_user);
-            println!("  - Domain: {}", connection_status.connected_domain);
-            println!("  - PIN: {}", connection_status.pin);
-            println!("  - Success: {}", connection_status.is_success);
-            println!("  - Connected: {}", connection_status.is_connected);
-            println!(
-                "  - Outdated backend: {}",
-                connection_status.is_outdated_backend
-            );
-            println!(
-                "  - Outdated threats: {}",
-                connection_status.is_outdated_threats
-            );
-            println!(
-                "  - Last network activity: {}",
-                connection_status.last_network_activity
-            );
-            println!(
-                "  - Backend error code: {}",
-                connection_status.backend_error_code
-            );
+            println!("Status:");
+            println!("  - User: {}", state.connected_user);
+            println!("  - Domain: {}", state.connected_domain);
+            println!("  - Connected: {}", state.is_connected);
+            println!("  - Last network activity: {}", state.last_network_activity);
+            println!("  - Whitelist conformance: {}", state.whitelist_conformance);
+            println!("  - Whitelist name: {}", state.whitelist_name);
+            println!("  - Outdated backend: {}", state.is_outdated_backend);
+            println!("  - Outdated threats: {}", state.is_outdated_threats);
+            println!("  - Last network activity: {}", state.last_network_activity);
+            println!("  - Backend error code: {}", state.backend_error_code);
         } else {
             eprintln!("Background process not found ({})", pid);
             State::clear();
@@ -170,18 +170,30 @@ pub fn show_background_process_status() {
     }
 }
 
+pub fn is_background_process_running() -> bool {
+    let state = State::load();
+    state.pid.is_some() || state.handle.is_some()
+}
+
 pub fn start_background_process(
     user: String,
     domain: String,
     pin: String,
     device_id: String,
     lan_scanning: bool,
+    whitelist_name: String,
 ) {
     // Show core version
     handle_get_core_version();
 
     // Show core info
     handle_get_core_info();
+
+    // Check if the background process is already running
+    if is_background_process_running() {
+        eprintln!("Background process already running.");
+        std::process::exit(1);
+    }
 
     println!("Starting background process...");
 
@@ -200,6 +212,7 @@ pub fn start_background_process(
                         .arg(&pin)
                         .arg(&device_id)
                         .arg(&lan_scanning.to_string())
+                        .arg(&whitelist_name)
                         .spawn()
                         .expect("Failed to start background process");
 
@@ -287,13 +300,18 @@ pub fn start_background_process(
                 let state = State {
                     pid: Some(process_information.dwProcessId),
                     handle: Some(process_information.hProcess.0 as u64),
-                    is_success: false,
+                    is_connected: false,
                     connected_domain: domain,
                     connected_user: user,
                     last_network_activity: "".to_string(),
                     devices: LANScanAPI::default(),
                     score: ScoreAPI::default(),
                     connections: vec![],
+                    whitelist_name: whitelist_name,
+                    whitelist_conformance: true,
+                    is_outdated_backend: false,
+                    is_outdated_threats: false,
+                    backend_error_code: "".to_string(),
                 };
                 state.save();
 
