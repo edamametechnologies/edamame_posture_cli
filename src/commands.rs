@@ -17,11 +17,11 @@ pub fn handle_wait_for_connection(timeout: u64) {
     let mut timeout = timeout;
     // Read the state and wait until a network activity is detected and the connection is successful
     let mut state = State::load();
-    while !(state.is_success && state.last_network_activity != "") && timeout > 0 {
+    while !(state.is_connected && state.last_network_activity != "") && timeout > 0 {
         sleep(Duration::from_secs(5));
         timeout = timeout - 5;
         state = State::load();
-        println!("Waiting for score computation and reporting to complete... (success: {}, network activity: {})", state.is_success, state.last_network_activity);
+        println!("Waiting for score computation and reporting to complete... (connected: {}, network activity: {})", state.is_connected, state.last_network_activity);
     }
 
     if timeout <= 0 {
@@ -36,10 +36,10 @@ pub fn handle_wait_for_connection(timeout: u64) {
         std::process::exit(1);
     } else {
         println!(
-            "Connection successful with domain {} and user {} (success: {}, network activity: {})",
+            "Connection successful with domain {} and user {} (connected: {}, network activity: {})",
             state.connected_domain,
             state.connected_user,
-            state.is_success,
+            state.is_connected,
             state.last_network_activity
         );
 
@@ -169,7 +169,7 @@ pub fn handle_lanscan() {
     display_lanscan(&devices);
 }
 
-pub fn handle_get_connections(local_traffic: bool, zeek_format: bool) {
+pub fn handle_get_connections(local_traffic: bool, zeek_format: bool) -> i32 {
     // Read the connections in the state
     let state = State::load();
     let connections = state.connections;
@@ -183,11 +183,18 @@ pub fn handle_get_connections(local_traffic: bool, zeek_format: bool) {
     for connection in connections.iter() {
         println!("{}", connection);
     }
+    // Check whitelist conformance
+    if !state.whitelist_conformance {
+        eprintln!("Some connections failed the whitelist check");
+        return 1;
+    } else {
+        return 0;
+    }
 }
 
-pub fn handle_capture(seconds: u64, zeek_format: bool, local_traffic: bool) {
+pub fn handle_capture(seconds: u64, whitelist_name: &str, zeek_format: bool, local_traffic: bool) {
     // Start capturing packets
-    start_capture();
+    start_capture(whitelist_name.to_string());
 
     // Wait for the specified number of seconds
     sleep(Duration::from_secs(seconds));

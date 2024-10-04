@@ -2,16 +2,6 @@ name: Build and publish Windows MSIX to Microsoft Store
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - 'dev'
-      - 'main'
-    paths-ignore:
-      - 'macos/**'
-      - 'linux/**'
-      - 'snap/**'
-      - .github/workflows/release_deploy_linux.yml
-      - .github/workflows/release_deploy_macos.yml
 
 # Auto cancel previous runs if they were not completed.
 concurrency:

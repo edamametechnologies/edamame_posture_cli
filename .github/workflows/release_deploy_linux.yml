@@ -2,15 +2,6 @@ name: Build and publish for Linux
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - 'dev'
-      - 'main'
-    paths-ignore:
-      - 'macos/**'
-      - 'windows/**'
-      - .github/workflows/release_deploy_windows.yml
-      - .github/workflows/release_deploy_macos.yml
 
 # Auto cancel previous runs if they were not completed.
 concurrency:

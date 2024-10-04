@@ -12,6 +12,7 @@ use edamame_core::api::api_lanscan::*;
 use edamame_core::api::api_score::*;
 use envcrypt::envc;
 use machine_uid;
+use std::process::exit;
 use std::thread::sleep;
 use std::time::Duration;
 
@@ -32,20 +33,25 @@ fn run() {
         // Debug logging
         //std::env::set_var("EDAMAME_LOG_LEVEL", "debug");
 
-        if args.len() == 7 {
+        if args.len() == 8 {
             // Save state within the child for unix
             #[cfg(unix)]
             {
                 let state = State {
                     pid: Some(std::process::id()),
                     handle: None,
-                    is_success: false,
+                    is_connected: false,
                     connected_domain: args[3].clone(),
                     connected_user: args[2].clone(),
                     last_network_activity: "".to_string(),
                     score: ScoreAPI::default(),
                     devices: LANScanAPI::default(),
                     connections: Vec::new(),
+                    whitelist_name: args[7].clone(),
+                    whitelist_conformance: true,
+                    is_outdated_backend: false,
+                    is_outdated_threats: false,
+                    backend_error_code: "".to_string(),
                 };
                 state.save();
             }
@@ -80,6 +86,7 @@ fn run() {
                 args[3].clone(),
                 args[4].clone(),
                 lan_scanning,
+                args[7].clone(),
             );
         } else {
             eprintln!("Invalid arguments for background process: {:?}", args);
@@ -110,6 +117,7 @@ fn run() {
 }
 
 fn run_base() {
+    let mut exit_code = 0;
     let matches = Command::new("edamame_posture")
         .version("1.0")
         .author("Frank Lyonnet")
@@ -144,6 +152,12 @@ fn run_base() {
                 .required(false)
                 .value_parser(clap::value_parser!(u64))
             )
+            // Required whitelist name
+            .arg(
+                arg!(<WHITELIST_NAME> "Whitelist name")
+                    .required(false)
+                    .value_parser(clap::value_parser!(String))
+            )
             // Optional Zeek format
             .arg(
                 arg!(<ZEEK_FORMAT> "Zeek format")
@@ -164,8 +178,12 @@ fn run_base() {
         .subcommand(
             Command::new("request-pin")
                 .about("Request PIN")
-                .arg(arg!(<USER> "User name").required(true))
-                .arg(arg!(<DOMAIN> "Domain name").required(true)),
+                .arg(arg!(<USER> "User name").required(true)                        
+                .value_parser(clap::value_parser!(String))
+            )
+                .arg(arg!(<DOMAIN> "Domain name").required(true)                        
+                .value_parser(clap::value_parser!(String))
+            ),
         )
         .subcommand(Command::new("get-core-version").about("Get core version"))
         .subcommand(Command::new("remediate").about("Remediate threats").arg(
@@ -174,14 +192,26 @@ fn run_base() {
         .subcommand(
             Command::new("start")
                 .about("Start reporting background process")
-                .arg(arg!(<USER> "User name").required(true))
-                .arg(arg!(<DOMAIN> "Domain name").required(true))
-                .arg(arg!(<PIN> "PIN").required(true))
-                .arg(arg!(<DEVICE_ID> "Device ID in the form of a string, this will be used as a suffix to the detected hardware ID").required(true))
+                .arg(arg!(<USER> "User name").required(true)                        
+                .value_parser(clap::value_parser!(String))
+            )
+                .arg(arg!(<DOMAIN> "Domain name").required(true)                        
+                .value_parser(clap::value_parser!(String))
+            )
+                .arg(arg!(<PIN> "PIN").required(true)                        
+                .value_parser(clap::value_parser!(String))
+            )
+                .arg(arg!(<DEVICE_ID> "Device ID in the form of a string, this will be used as a suffix to the detected hardware ID").required(true)                        .value_parser(clap::value_parser!(String))
+            )
                 .arg(
                     arg!(<LAN_SCANNING> "LAN scanning enabled")
                         .required(false)
-                        .value_parser(clap::value_parser!(bool)),
+                        .value_parser(clap::value_parser!(bool))
+                )
+                .arg(
+                    arg!(<WHITELIST_NAME> "Whitelist name")
+                        .required(false)
+                        .value_parser(clap::value_parser!(String))
                 ),
         )
         .subcommand(Command::new("stop").about("Stop reporting background process"))
@@ -249,15 +279,18 @@ fn run_base() {
             let local_traffic = sub_matches
                 .get_one::<bool>("LOCAL_TRAFFIC")
                 .unwrap_or(&false);
-            handle_get_connections(*zeek_format, *local_traffic);
+            exit_code = handle_get_connections(*zeek_format, *local_traffic);
         }
         Some(("capture", sub_matches)) => {
             let seconds = sub_matches.get_one::<u64>("SECONDS").unwrap_or(&600);
+            let whitelist_name = sub_matches
+                .get_one::<String>("WHITELIST_NAME")
+                .map_or("", |v| v);
             let zeek_format = sub_matches.get_one::<bool>("ZEEK_FORMAT").unwrap_or(&false);
             let local_traffic = sub_matches
                 .get_one::<bool>("LOCAL_TRAFFIC")
                 .unwrap_or(&false);
-            handle_capture(*seconds, *zeek_format, *local_traffic);
+            handle_capture(*seconds, whitelist_name, *zeek_format, *local_traffic);
         }
         Some(("get-core-info", _)) => handle_get_core_info(),
         Some(("get-device-info", _)) => handle_get_device_info(),
@@ -298,7 +331,11 @@ fn run_base() {
             let lan_scanning = sub_matches
                 .get_one::<bool>("LAN_SCANNING")
                 .unwrap_or(&false);
-            start_background_process(user, domain, pin, device_id, *lan_scanning);
+            let whitelist_name = sub_matches
+                .get_one::<String>("WHITELIST_NAME")
+                .map_or("", |v| v)
+                .to_string();
+            start_background_process(user, domain, pin, device_id, *lan_scanning, whitelist_name);
         }
         Some(("stop", _)) => stop_background_process(),
         Some(("status", _)) => show_background_process_status(),
@@ -307,6 +344,8 @@ fn run_base() {
 
     // Properly terminate the core
     terminate();
+
+    exit(exit_code);
 }
 
 pub fn main() {
