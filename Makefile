@@ -66,3 +66,4 @@ test:
 		sudo ./target/release/edamame_posture wait-for-connection
 		sudo ./target/release/edamame_posture get-connections false false
 	fi
+	
