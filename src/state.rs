@@ -12,13 +12,18 @@ use std::path::PathBuf;
 pub struct State {
     pub pid: Option<u32>,
     pub handle: Option<u64>,
-    pub is_success: bool,
+    pub is_connected: bool,
     pub connected_domain: String,
     pub connected_user: String,
     pub last_network_activity: String,
     pub score: ScoreAPI,
     pub devices: LANScanAPI,
     pub connections: Vec<ConnectionInfoAPI>,
+    pub whitelist_name: String,
+    pub whitelist_conformance: bool,
+    pub is_outdated_backend: bool,
+    pub is_outdated_threats: bool,
+    pub backend_error_code: String,
 }
 
 impl Default for State {
@@ -26,13 +31,18 @@ impl Default for State {
         State {
             pid: None,
             handle: None,
-            is_success: false,
+            is_connected: false,
             connected_domain: "".to_string(),
             connected_user: "".to_string(),
             last_network_activity: "".to_string(),
             score: ScoreAPI::default(),
             devices: LANScanAPI::default(),
             connections: Vec::new(),
+            whitelist_name: "".to_string(),
+            whitelist_conformance: true,
+            is_outdated_backend: false,
+            is_outdated_threats: false,
+            backend_error_code: "".to_string(),
         }
     }
 }
@@ -60,13 +70,18 @@ impl State {
             State {
                 pid: None,
                 handle: None,
-                is_success: false,
+                is_connected: false,
                 connected_domain: "".to_string(),
                 connected_user: "".to_string(),
                 last_network_activity: "".to_string(),
                 score: ScoreAPI::default(),
                 devices: LANScanAPI::default(),
                 connections: Vec::new(),
+                whitelist_name: "".to_string(),
+                whitelist_conformance: true,
+                is_outdated_backend: false,
+                is_outdated_threats: false,
+                backend_error_code: "".to_string(),
             }
         }
     }

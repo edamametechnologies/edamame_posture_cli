@@ -57,4 +57,12 @@ clean:
 	rm -rf ./target/
 
 test:
+	# Simple test
 	cargo test
+	# On Linux, build and test posture
+	if [ "$(shell uname -s)" = "Linux" ]; then
+		cargo build --release
+		sudo ./target/release/edamame_posture start "$(EDAMAME_POSTURE_USER)" "$(EDAMAME_POSTURE_DOMAIN)" "$(EDAMAME_POSTURE_PIN)" "$(RUN_ID)" 
+        sudo ./target/release/edamame_posture wait-for-connection
+		sudo ./target/release/edamame_posture get-connections false false
+	fi

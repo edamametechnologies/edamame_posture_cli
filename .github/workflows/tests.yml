@@ -22,6 +22,10 @@ env:
   EDAMAME_CLIENT_PEM: ${{ secrets.EDAMAME_CLIENT_PEM }}
   EDAMAME_CLIENT_KEY: ${{ secrets.EDAMAME_CLIENT_KEY }}
   LAMBDA_SIGNATURE: ${{ secrets.LAMBDA_SIGNATURE }}
+  EDAMAME_POSTURE_USER: ${{ secrets.EDAMAME_POSTURE_USER }}
+  EDAMAME_POSTURE_DOMAIN: ${{ secrets.EDAMAME_POSTURE_DOMAIN }}
+  EDAMAME_POSTURE_PIN: ${{ secrets.EDAMAME_POSTURE_PIN }}
+  RUN_ID: ${{ github.run_id }}
 
 jobs:
   build:
@@ -52,14 +56,6 @@ jobs:
           edamame_pin: ${{ secrets.EDAMAME_POSTURE_PIN }}
           edamame_id: ${{ github.run_id }}
           checkout: true
-          wait_for_api: true
-          wait_for_https: true
-
-      - name: Configure Git Authentication to import private crates
-        run: |
-          git config --global user.email "dev@edamame.tech"
-          git config --global user.name "EDAMAME Dev"
-          git config --global url."https://edamamedev:${{ secrets.DEV_GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
 
       - name: Set ignored paths
         id: set-ignored-paths
@@ -150,6 +146,12 @@ jobs:
         uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: latest-stable
+
+      - name: Configure Git Authentication to import private crates
+        run: |
+          git config --global user.email "dev@edamame.tech"
+          git config --global user.name "EDAMAME Dev"
+          git config --global url."https://edamamedev:${{ secrets.DEV_GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
 
       - name: Run tests
         run: |

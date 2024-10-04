@@ -2,16 +2,6 @@ name: Build and publish for macOS
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - 'dev'
-      - 'main'
-    paths-ignore:
-      - 'windows/**'
-      - 'linux/**'
-      - 'snap/**'
-      - .github/workflows/release_deploy_windows.yml
-      - .github/workflows/release_deploy_linux.yml
 
 # Auto cancel previous runs if they were not completed.
 concurrency:
