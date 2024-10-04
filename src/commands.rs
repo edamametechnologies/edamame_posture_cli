@@ -203,7 +203,7 @@ pub fn handle_capture(seconds: u64, whitelist_name: &str, zeek_format: bool, loc
     stop_capture();
 
     // Display the captured connections
-    let connections = get_connections();
+    let connections = get_connections(true);
 
     let connections = if zeek_format {
         format_connections_zeek(&connections, local_traffic)
