@@ -1355,7 +1355,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "0.7.0"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#b80019c74da23038227db028d5411c8751522ac9"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#f8892b717e5dcdc61ddc9851d5e669ddc2778b45"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1421,7 +1421,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "0.3.5"
-source = "git+https://github.com/edamametechnologies/edamame_foundation#63f0bbc1f17886542d3c62d77a30914738b9fa6c"
+source = "git+https://github.com/edamametechnologies/edamame_foundation#c4fc623d0129bc400b88b97c0c911b6d280ee89b"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -4590,9 +4590,9 @@ dependencies = [
 
 [[package]]
 name = "rustls"
-version = "0.23.13"
+version = "0.23.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f2dabaac7466917e566adb06783a81ca48944c6898a1b08b9374106dd671f4c8"
+checksum = "415d9944693cb90382053259f89fbb077ea730ad7273047ec63b19bc9b160ba8"
 dependencies = [
  "log",
  "once_cell",

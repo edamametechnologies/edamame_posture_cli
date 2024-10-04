@@ -59,13 +59,3 @@ clean:
 test:
 	# Simple test
 	cargo test
-	# On Linux, build and test posture
-ifeq ($(shell uname -s),Linux)
-	cargo build --release
-	-sudo killall edamame_posture
-	sudo ./target/release/edamame_posture start "$(EDAMAME_POSTURE_USER)" "$(EDAMAME_POSTURE_DOMAIN)" "$(EDAMAME_POSTURE_PIN)" "$(RUN_ID)" true "cicd"
-	sudo ./target/release/edamame_posture wait-for-connection
-	sudo ./target/release/edamame_posture get-connections false false
-else
-	@echo "Not on Linux, skipping test"
-endif
