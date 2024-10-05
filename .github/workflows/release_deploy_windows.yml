@@ -1,4 +1,4 @@
-name: Build and publish Windows MSIX to Microsoft Store
+name: Build and publish for Windows
 
 on:
   workflow_dispatch:
