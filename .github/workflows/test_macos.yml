@@ -106,7 +106,9 @@ jobs:
         run: |
           make test
           sudo killall edamame_posture || true
-          sudo ./target/release/edamame_posture start ${{ vars.EDAMAME_POSTURE_USER }} ${{ vars.EDAMAME_POSTURE_DOMAIN }} ${{ secrets.EDAMAME_POSTURE_PIN }} ${{ github.run_id }} true "cicd"
-          sudo ./target/release/edamame_posture wait-for-connection
-          sudo ./target/release/edamame_posture get-connections false false
+          cp -f ./target/release/edamame_posture ../edamame_posture
+          sudo ../edamame_posture start ${{ vars.EDAMAME_POSTURE_USER }} ${{ vars.EDAMAME_POSTURE_DOMAIN }} ${{ secrets.EDAMAME_POSTURE_PIN }} ${{ github.run_id }} true "cicd"
+          sudo ../edamame_posture wait-for-connection
+          make macos_release
+          sudo ../edamame_posture get-connections false false
 
