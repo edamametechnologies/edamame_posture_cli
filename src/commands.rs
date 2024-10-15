@@ -50,7 +50,7 @@ pub fn handle_wait_for_connection(timeout: u64) {
         display_lanscan(&state.devices);
 
         // Print the connections stored in the state
-        format_connections_log(&state.connections, false);
+        format_sessions_log(state.sessions);
 
         display_logs();
     }
@@ -169,19 +169,24 @@ pub fn handle_lanscan() {
     display_lanscan(&devices);
 }
 
-pub fn handle_get_connections(local_traffic: bool, zeek_format: bool) -> i32 {
+pub fn handle_get_sessions(local_traffic: bool, zeek_format: bool) -> i32 {
     // Read the connections in the state
     let state = State::load();
-    let connections = state.connections;
+    let sessions = if !local_traffic {
+        // Filter out local traffic
+        filter_global_sessions(state.sessions)
+    } else {
+        state.sessions
+    };
 
     // Format the connections and display them
-    let connections = if zeek_format {
-        format_connections_zeek(&connections, local_traffic)
+    let sessions = if zeek_format {
+        format_sessions_zeek(sessions)
     } else {
-        format_connections_log(&connections, local_traffic)
+        format_sessions_log(sessions)
     };
-    for connection in connections.iter() {
-        println!("{}", connection);
+    for session in sessions.iter() {
+        println!("{}", session);
     }
     // Check whitelist conformance
     if !state.whitelist_conformance {
@@ -194,7 +199,14 @@ pub fn handle_get_connections(local_traffic: bool, zeek_format: bool) -> i32 {
 
 pub fn handle_capture(seconds: u64, whitelist_name: &str, zeek_format: bool, local_traffic: bool) {
     // Start capturing packets
-    start_capture(whitelist_name.to_string());
+    set_whitelist(whitelist_name.to_string());
+    // Filter sessions based on local_traffic
+    set_filter(if local_traffic {
+        SessionFilterAPI::All
+    } else {
+        SessionFilterAPI::GlobalOnly
+    });
+    start_capture();
 
     // Wait for the specified number of seconds
     sleep(Duration::from_secs(seconds));
@@ -203,15 +215,15 @@ pub fn handle_capture(seconds: u64, whitelist_name: &str, zeek_format: bool, loc
     stop_capture();
 
     // Display the captured connections
-    let connections = get_connections(true);
+    let sessions = get_sessions();
 
-    let connections = if zeek_format {
-        format_connections_zeek(&connections, local_traffic)
+    let sessions = if zeek_format {
+        format_sessions_zeek(sessions)
     } else {
-        format_connections_log(&connections, local_traffic)
+        format_sessions_log(sessions)
     };
-    for connection in connections.iter() {
-        println!("{}", connection);
+    for session in sessions.iter() {
+        println!("{}", session);
     }
 }
 
