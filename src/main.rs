@@ -12,9 +12,31 @@ use edamame_core::api::api_lanscan::*;
 use edamame_core::api::api_score::*;
 use envcrypt::envc;
 use machine_uid;
+use regex::Regex;
 use std::process::exit;
 use std::thread::sleep;
 use std::time::Duration;
+
+fn parse_digits_only(s: &str) -> Result<String, String> {
+    if s.chars().all(|c| c.is_ascii_digit()) {
+        Ok(s.to_string())
+    } else {
+        Err(String::from("PIN must contain digits only"))
+    }
+}
+
+fn parse_fqdn(s: &str) -> Result<String, String> {
+    // This regex matches valid FQDNs according to RFC 1035
+    let fqdn_regex =
+        Regex::new(r"^(?:(?:[a-zA-Z0-9](?:[a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)+)(?:[A-Za-z]{2,})$")
+            .unwrap();
+
+    if fqdn_regex.is_match(s) {
+        Ok(s.to_string())
+    } else {
+        Err(String::from("Invalid FQDN"))
+    }
+}
 
 fn run() {
     let mut device = DeviceInfoAPI {
@@ -33,7 +55,7 @@ fn run() {
         // Debug logging
         //std::env::set_var("EDAMAME_LOG_LEVEL", "debug");
 
-        if args.len() == 8 {
+        if args.len() == 9 {
             // Save state within the child for unix
             #[cfg(unix)]
             {
@@ -46,7 +68,7 @@ fn run() {
                     last_network_activity: "".to_string(),
                     score: ScoreAPI::default(),
                     devices: LANScanAPI::default(),
-                    connections: Vec::new(),
+                    sessions: Vec::new(),
                     whitelist_name: args[7].clone(),
                     whitelist_conformance: true,
                     is_outdated_backend: false,
@@ -80,6 +102,7 @@ fn run() {
             }
 
             let lan_scanning = if args[6] == "true" { true } else { false };
+            let local_traffic = if args[8] == "true" { true } else { false };
 
             background_process(
                 args[2].clone(),
@@ -87,6 +110,7 @@ fn run() {
                 args[4].clone(),
                 lan_scanning,
                 args[7].clone(),
+                local_traffic,
             );
         } else {
             eprintln!("Invalid arguments for background process: {:?}", args);
@@ -105,14 +129,16 @@ fn run() {
             false,
         );
 
-        let admin_status = get_admin_status();
-        if !admin_status {
-            eprintln!("This command requires admin privileges, exiting...");
-            // Exit with an error code
-            std::process::exit(1);
-        }
-
+        // Removed admin check from here
         run_base();
+    }
+}
+
+fn ensure_admin() {
+    let admin_status = get_admin_status();
+    if !admin_status {
+        eprintln!("This command requires admin privileges, exiting...");
+        std::process::exit(1);
     }
 }
 
@@ -133,43 +159,47 @@ fn run_base() {
                         .value_parser(clap::value_parser!(u64)),
                 ),
         )
-        .subcommand(Command::new("get-connections")
-            .about("Get connections")
-            .arg(
-                arg!(<ZEEK_FORMAT> "Zeek format")
-                    .required(false)
-                    .value_parser(clap::value_parser!(bool)),
-            )
-            .arg(
-                arg!(<LOCAL_TRAFFIC> "Include local traffic")
-                    .required(false)
-                    .default_value("false")
-                    .value_parser(clap::value_parser!(bool))
-            )
+        .subcommand(
+            Command::new("get-sessions")
+                .about("Get connections")
+                .arg(
+                    arg!(<ZEEK_FORMAT> "Zeek format")
+                        .required(false)
+                        .value_parser(clap::value_parser!(bool)),
+                )
+                .arg(
+                    arg!(<LOCAL_TRAFFIC> "Include local traffic")
+                        .required(false)
+                        .default_value("false")
+                        .value_parser(clap::value_parser!(bool)),
+                ),
         )
-        .subcommand(Command::new("capture").about("Capture packets").arg(
-            arg!(<SECONDS> "Number of seconds to capture")
-                .required(false)
-                .value_parser(clap::value_parser!(u64))
-            )
-            // Required whitelist name
-            .arg(
-                arg!(<WHITELIST_NAME> "Whitelist name")
-                    .required(false)
-                    .value_parser(clap::value_parser!(String))
-            )
-            // Optional Zeek format
-            .arg(
-                arg!(<ZEEK_FORMAT> "Zeek format")
-                    .required(false)
-                    .value_parser(clap::value_parser!(bool)),
-            )
-            .arg(
-                arg!(<LOCAL_TRAFFIC> "Include local traffic")
-                    .required(false)
-                    .default_value("false")
-                    .value_parser(clap::value_parser!(bool))
-            )
+        .subcommand(
+            Command::new("capture")
+                .about("Capture packets")
+                .arg(
+                    arg!(<SECONDS> "Number of seconds to capture")
+                        .required(false)
+                        .value_parser(clap::value_parser!(u64)),
+                )
+                // Required whitelist name
+                .arg(
+                    arg!(<WHITELIST_NAME> "Whitelist name")
+                        .required(false)
+                        .value_parser(clap::value_parser!(String)),
+                )
+                // Optional Zeek format
+                .arg(
+                    arg!(<ZEEK_FORMAT> "Zeek format")
+                        .required(false)
+                        .value_parser(clap::value_parser!(bool)),
+                )
+                .arg(
+                    arg!(<LOCAL_TRAFFIC> "Include local traffic")
+                        .required(false)
+                        .default_value("false")
+                        .value_parser(clap::value_parser!(bool)),
+                ),
         )
         .subcommand(Command::new("get-core-info").about("Get core information"))
         .subcommand(Command::new("get-device-info").about("Get device information"))
@@ -178,40 +208,64 @@ fn run_base() {
         .subcommand(
             Command::new("request-pin")
                 .about("Request PIN")
-                .arg(arg!(<USER> "User name").required(true)                        
-                .value_parser(clap::value_parser!(String))
-            )
-                .arg(arg!(<DOMAIN> "Domain name").required(true)                        
-                .value_parser(clap::value_parser!(String))
-            ),
+                .arg(
+                    arg!(<USER> "User name")
+                        .required(true)
+                        .value_parser(clap::value_parser!(String)),
+                )
+                .arg(
+                    arg!(<DOMAIN> "Domain name")
+                        .required(true)
+                        .value_parser(clap::value_parser!(String)),
+                ),
         )
         .subcommand(Command::new("get-core-version").about("Get core version"))
-        .subcommand(Command::new("remediate").about("Remediate threats").arg(
-            arg!(<REMEDIATIONS> "Remediations to skip (comma separated list)").required(false),
-        ))
+        .subcommand(
+            Command::new("remediate").about("Remediate threats").arg(
+                arg!(<REMEDIATIONS> "Remediations to skip (comma separated list)")
+                    .required(false),
+            ),
+        )
         .subcommand(
             Command::new("start")
                 .about("Start reporting background process")
-                .arg(arg!(<USER> "User name").required(true)                        
-                .value_parser(clap::value_parser!(String))
-            )
-                .arg(arg!(<DOMAIN> "Domain name").required(true)                        
-                .value_parser(clap::value_parser!(String))
-            )
-                .arg(arg!(<PIN> "PIN").required(true)                        
-                .value_parser(clap::value_parser!(String))
-            )
-                .arg(arg!(<DEVICE_ID> "Device ID in the form of a string, this will be used as a suffix to the detected hardware ID").required(true)                        .value_parser(clap::value_parser!(String))
-            )
+                .arg(
+                    arg!(<USER> "User name")
+                        .required(true)
+                        .value_parser(clap::value_parser!(String)),
+                )
+                .arg(
+                    arg!(<DOMAIN> "Domain name")
+                        .required(true)
+                        // FQDN only
+                        .value_parser(parse_fqdn),
+                )
+                .arg(
+                    arg!(<PIN> "PIN")
+                        .required(true)
+                        // String with digits only
+                        .value_parser(parse_digits_only),
+                )
+                .arg(
+                    arg!(<DEVICE_ID> "Device ID in the form of a string, this will be used as a suffix to the detected hardware ID")
+                        .required(true)
+                        .value_parser(clap::value_parser!(String)),
+                )
                 .arg(
                     arg!(<LAN_SCANNING> "LAN scanning enabled")
                         .required(false)
-                        .value_parser(clap::value_parser!(bool))
+                        .value_parser(clap::value_parser!(bool)),
                 )
                 .arg(
                     arg!(<WHITELIST_NAME> "Whitelist name")
                         .required(false)
-                        .value_parser(clap::value_parser!(String))
+                        .value_parser(clap::value_parser!(String)),
+                )
+                .arg(
+                    arg!(<LOCAL_TRAFFIC> "Include local traffic")
+                        .required(false)
+                        .default_value("false")
+                        .value_parser(clap::value_parser!(bool)),
                 ),
         )
         .subcommand(Command::new("stop").about("Stop reporting background process"))
@@ -220,11 +274,13 @@ fn run_base() {
 
     match matches.subcommand() {
         Some(("score", _)) => {
-            // Request a score computation
+            ensure_admin(); // Admin check here
+                            // Request a score computation
             compute_score();
             handle_score(true);
         }
         Some(("lanscan", _)) => {
+            ensure_admin();
             // Initialize network
             set_network(LANScanAPINetwork {
                 interfaces: vec![],
@@ -265,6 +321,7 @@ fn run_base() {
             handle_lanscan();
         }
         Some(("wait-for-connection", sub_matches)) => {
+            ensure_admin();
             let timeout = match sub_matches.get_one::<u64>("TIMEOUT") {
                 Some(timeout) => timeout,
                 None => {
@@ -274,14 +331,18 @@ fn run_base() {
             };
             handle_wait_for_connection(*timeout);
         }
-        Some(("get-connections", sub_matches)) => {
+        Some(("get-sessions", sub_matches)) => {
+            ensure_admin();
+
             let zeek_format = sub_matches.get_one::<bool>("ZEEK_FORMAT").unwrap_or(&false);
             let local_traffic = sub_matches
                 .get_one::<bool>("LOCAL_TRAFFIC")
                 .unwrap_or(&false);
-            exit_code = handle_get_connections(*zeek_format, *local_traffic);
+            exit_code = handle_get_sessions(*zeek_format, *local_traffic);
         }
         Some(("capture", sub_matches)) => {
+            ensure_admin(); // Admin check here
+
             let seconds = sub_matches.get_one::<u64>("SECONDS").unwrap_or(&600);
             let whitelist_name = sub_matches
                 .get_one::<String>("WHITELIST_NAME")
@@ -292,17 +353,39 @@ fn run_base() {
                 .unwrap_or(&false);
             handle_capture(*seconds, whitelist_name, *zeek_format, *local_traffic);
         }
-        Some(("get-core-info", _)) => handle_get_core_info(),
-        Some(("get-device-info", _)) => handle_get_device_info(),
-        Some(("get-threats-info", _)) => handle_get_threats_info(),
-        Some(("get-system-info", _)) => handle_get_system_info(),
+        Some(("get-core-info", _)) => {
+            ensure_admin();
+
+            handle_get_core_info();
+        }
+        Some(("get-device-info", _)) => {
+            ensure_admin();
+
+            handle_get_device_info();
+        }
+        Some(("get-threats-info", _)) => {
+            ensure_admin();
+
+            handle_get_threats_info();
+        }
+        Some(("get-system-info", _)) => {
+            ensure_admin();
+
+            handle_get_system_info();
+        }
         Some(("request-pin", sub_matches)) => {
+            // No admin check needed here
             let user = sub_matches.get_one::<String>("USER").unwrap().to_string();
             let domain = sub_matches.get_one::<String>("DOMAIN").unwrap().to_string();
             handle_request_pin(user, domain);
         }
-        Some(("get-core-version", _)) => handle_get_core_version(),
+        Some(("get-core-version", _)) => {
+            // No admin check needed here
+            handle_get_core_version();
+        }
         Some(("remediate", sub_matches)) => {
+            ensure_admin();
+
             let remediations_to_skip = sub_matches
                 .get_one::<String>("REMEDIATIONS")
                 .unwrap_or(&String::new())
@@ -310,6 +393,8 @@ fn run_base() {
             handle_remediate(&remediations_to_skip)
         }
         Some(("start", sub_matches)) => {
+            ensure_admin();
+
             let user = sub_matches
                 .get_one::<String>("USER")
                 .expect("USER not provided")
@@ -335,10 +420,27 @@ fn run_base() {
                 .get_one::<String>("WHITELIST_NAME")
                 .map_or("", |v| v)
                 .to_string();
-            start_background_process(user, domain, pin, device_id, *lan_scanning, whitelist_name);
+            let local_traffic = sub_matches
+                .get_one::<bool>("LOCAL_TRAFFIC")
+                .unwrap_or(&false);
+            start_background_process(
+                user,
+                domain,
+                pin,
+                device_id,
+                *lan_scanning,
+                whitelist_name,
+                *local_traffic,
+            );
         }
-        Some(("stop", _)) => stop_background_process(),
-        Some(("status", _)) => show_background_process_status(),
+        Some(("stop", _)) => {
+            ensure_admin();
+            stop_background_process();
+        }
+        Some(("status", _)) => {
+            ensure_admin();
+            show_background_process_status();
+        }
         _ => eprintln!("Invalid command, use --help for more information"),
     }
 

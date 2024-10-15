@@ -32,10 +32,11 @@ pub fn background_process(
     pin: String,
     lan_scanning: bool,
     whitelist_name: String,
+    local_traffic: bool,
 ) {
     info!(
-        "Starting background process with user: {}, domain: {}, lan_scanning: {}",
-        user, domain, lan_scanning
+        "Starting background process with user: {}, domain: {}, lan_scanning: {}, local_traffic: {}",
+        user, domain, lan_scanning, local_traffic
     );
 
     // We are using the logger as we are in the background process
@@ -52,7 +53,13 @@ pub fn background_process(
         info!("Scanning network interfaces...");
 
         // Start capture
-        start_capture(whitelist_name.clone());
+        set_whitelist(whitelist_name.clone());
+        set_filter(if local_traffic {
+            SessionFilterAPI::All
+        } else {
+            SessionFilterAPI::GlobalOnly
+        });
+        start_capture();
 
         // Initialize network to autodetect
         set_network(LANScanAPINetwork {
@@ -110,7 +117,7 @@ pub fn background_process(
         let connection_status = get_connection();
         state.devices = get_lan_devices(false, false, false);
         state.score = get_score(true);
-        state.connections = get_connections(true);
+        state.sessions = get_sessions();
         state.whitelist_conformance = get_whitelist_conformance();
         state.connected_user = connection_status.connected_user;
         state.connected_domain = connection_status.connected_domain;
@@ -120,6 +127,11 @@ pub fn background_process(
         state.is_outdated_backend = connection_status.is_outdated_backend;
         state.is_outdated_threats = connection_status.is_outdated_threats;
         state.backend_error_code = connection_status.backend_error_code;
+        // Load the state to detect exit conditions set by posture
+        let current_state = State::load();
+        state.pid = current_state.pid;
+        state.handle = current_state.handle;
+        // Save the state
         state.save();
 
         // Exit if there are no pid/handle anymore
@@ -153,11 +165,11 @@ pub fn show_background_process_status() {
             println!("  - Domain: {}", state.connected_domain);
             println!("  - Connected: {}", state.is_connected);
             println!("  - Last network activity: {}", state.last_network_activity);
+            println!("  - Current sessions: {}", state.sessions.len());
             println!("  - Whitelist conformance: {}", state.whitelist_conformance);
             println!("  - Whitelist name: {}", state.whitelist_name);
             println!("  - Outdated backend: {}", state.is_outdated_backend);
             println!("  - Outdated threats: {}", state.is_outdated_threats);
-            println!("  - Last network activity: {}", state.last_network_activity);
             println!("  - Backend error code: {}", state.backend_error_code);
         } else {
             eprintln!("Background process not found ({})", pid);
@@ -182,6 +194,7 @@ pub fn start_background_process(
     device_id: String,
     lan_scanning: bool,
     whitelist_name: String,
+    local_traffic: bool,
 ) {
     // Show core version
     handle_get_core_version();
@@ -213,6 +226,7 @@ pub fn start_background_process(
                         .arg(&device_id)
                         .arg(&lan_scanning.to_string())
                         .arg(&whitelist_name)
+                        .arg(&local_traffic.to_string())
                         .spawn()
                         .expect("Failed to start background process");
 
@@ -241,7 +255,8 @@ pub fn start_background_process(
             domain,
             pin,
             device_id,
-            lan_scanning.to_string()
+            lan_scanning.to_string(),
+            local_traffic.to_string()
         );
 
         let creation_flags = CREATE_UNICODE_ENVIRONMENT | DETACHED_PROCESS;
@@ -306,7 +321,7 @@ pub fn start_background_process(
                     last_network_activity: "".to_string(),
                     devices: LANScanAPI::default(),
                     score: ScoreAPI::default(),
-                    connections: vec![],
+                    sessions: vec![],
                     whitelist_name: whitelist_name,
                     whitelist_conformance: true,
                     is_outdated_backend: false,
