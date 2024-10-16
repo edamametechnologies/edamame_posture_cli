@@ -107,8 +107,6 @@ jobs:
           make test
           sudo killall edamame_posture || true
           cp -f ./target/release/edamame_posture ../edamame_posture
-          export RUST_BACKTRACE=1
-          export EDAMAME_LOG_LEVEL=debug
           sudo ../edamame_posture start ${{ vars.EDAMAME_POSTURE_USER }} ${{ vars.EDAMAME_POSTURE_DOMAIN }} ${{ secrets.EDAMAME_POSTURE_PIN }} ${{ github.run_id }} true "cicd"
           sudo ../edamame_posture wait-for-connection
           make clean
