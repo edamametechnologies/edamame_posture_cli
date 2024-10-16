@@ -1,4 +1,4 @@
-name: Test for Linux
+name: Test for Windows
 
 on:
   push:
@@ -15,7 +15,7 @@ permissions: read-all
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     timeout-minutes: 90
 
     env:
@@ -44,13 +44,18 @@ jobs:
           auto_remediate: true
           checkout: true
 
-      - name: Install additional packages w/ apt
+      - name: Setup .NET 8.0
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Setup MS Store CLI
+        uses: microsoft/setup-msstore-cli@v1
+
+      - name: Install additional packages w/ Chocolatey
         run: |
-          # Install build dependencies
-          sudo apt-get update
-          sudo apt-get install -y protobuf-compiler
-          # For packet capture
-          sudo apt-get install -y libpcap-dev
+          choco install protoc wget
+          dotnet tool install --global AzureSignTool
 
       - name: Configure Git Authentication to import private crates
         run: |
@@ -59,20 +64,24 @@ jobs:
           git config --global url."https://edamamedev:${{ secrets.DEV_GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
 
       - name: Build application
-        # Main or dev
-        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev'
         shell: bash
         run: |
-          make linux_release
-      
+            make windows_release
+
+      - name: Signing of the Posture
+        # Main or dev
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev'
+        # We can't use bash here, as the AzureSignTool is a .NET tool
+        run: AzureSignTool sign -kvt ${{ secrets.AZURE_SIGN_TENANT_ID }} -kvu ${{ secrets.AZURE_SIGN_KEY_VAULT_URI }} -kvi ${{ secrets.AZURE_SIGN_CLIENT_ID }} -kvs ${{ secrets.AZURE_SIGN_CLIENT_SECRET }} -kvc ${{ secrets.AZURE_SIGN_CERT_NAME }} -tr http://timestamp.digicert.com -v ./target/release/edamame_posture.exe
+
       - name: Run tests
         shell: bash
         run: |
           make test
-          sudo killall edamame_posture || true
-          cp -f ./target/release/edamame_posture ../edamame_posture
+          sudo killall edamame_posture.exe || true
+          cp -f ./target/release/edamame_posture.exe ../edamame_posture.exe
           sudo ../edamame_posture start ${{ vars.EDAMAME_POSTURE_USER }} ${{ vars.EDAMAME_POSTURE_DOMAIN }} ${{ secrets.EDAMAME_POSTURE_PIN }} ${{ github.run_id }} true "cicd"
           sudo ../edamame_posture wait-for-connection
           make clean
-          make linux_release
+          make windows_release
           sudo ../edamame_posture get-connections false false

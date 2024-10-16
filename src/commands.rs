@@ -83,10 +83,6 @@ pub fn handle_get_threats_info() {
     println!("Threats information: {}", threats);
 }
 
-pub fn handle_connect_domain() {
-    connect_domain();
-}
-
 pub fn handle_request_pin(user: String, domain: String) {
     set_credentials(user.clone(), domain.clone(), String::new());
     request_pin();
