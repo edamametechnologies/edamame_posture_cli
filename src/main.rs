@@ -79,10 +79,12 @@ fn run() {
             }
 
             // Set device ID
-            // Prefix it with the machine uid
+            // Prefix is the machine uid
             let machine_uid = machine_uid::get().unwrap_or("".to_string());
-            device.device_id =
-                (machine_uid + "/" + args[5].clone().to_string().as_str()).to_string();
+            let device_id = args[5].clone();
+            if device_id != "" {
+                device.device_id = (machine_uid + "/" + device_id.as_str()).to_string();
+            }
 
             // Reporting is on community is off
             initialize(

@@ -1,7 +1,5 @@
 use crate::commands::handle_get_threats_info;
-use crate::{
-    handle_connect_domain, handle_get_core_info, handle_get_core_version, handle_lanscan, State,
-};
+use crate::{connect_domain, handle_get_core_info, handle_get_core_version, handle_lanscan, State};
 #[cfg(unix)]
 use daemonize::Daemonize;
 use edamame_core::api::api_core::{disconnect_domain, get_connection, set_credentials};
@@ -40,6 +38,9 @@ pub fn background_process(
     );
 
     // We are using the logger as we are in the background process
+
+    // Load the state to get the current PID/handle
+    let mut state = State::load();
 
     // Show threats info
     handle_get_threats_info();
@@ -102,22 +103,21 @@ pub fn background_process(
         handle_lanscan();
     }
 
-    // Request immediate score computation
-    info!("Score computation requested...");
-    compute_score();
+    info!("LAN scan complete, starting connection status loop");
 
     // Connect domain
     info!("Connecting to domain...");
-    handle_connect_domain();
+    connect_domain();
+
+    // Force score computation
+    compute_score();
 
     // Loop forever as background process is running, write the shared state based on the connection status
-    // Load the state to get the current PID/handle
-    let mut state = State::load();
     loop {
         let connection_status = get_connection();
         state.devices = get_lan_devices(false, false, false);
-        state.score = get_score(true);
         state.sessions = get_sessions();
+        state.score = get_score(true);
         state.whitelist_conformance = get_whitelist_conformance();
         state.connected_user = connection_status.connected_user;
         state.connected_domain = connection_status.connected_domain;

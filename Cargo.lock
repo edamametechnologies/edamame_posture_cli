@@ -260,9 +260,9 @@ dependencies = [
 
 [[package]]
 name = "async-compression"
-version = "0.4.15"
+version = "0.4.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e26a9844c659a2a293d239c7910b752f8487fe122c6c8bd1659bf85a6507c302"
+checksum = "103db485efc3e41214fe4fda9f3dbeae2eb9082f48fd236e6095627a9422066e"
 dependencies = [
  "flate2",
  "futures-core",
@@ -1364,7 +1364,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "0.7.0"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#3d68cb530766e2e64f92574675dc0d401f4ec631"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#9cfe0fbbff90c556e189ebeba392e370224233cb"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1375,7 +1375,7 @@ dependencies = [
  "dashmap 6.1.0",
  "dotenv-build",
  "edamame_backend",
- "edamame_foundation 0.7.0 (git+https://github.com/edamametechnologies/edamame_foundation?branch=main)",
+ "edamame_foundation",
  "encoding_rs",
  "envcrypt",
  "eui48",
@@ -1430,7 +1430,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "0.7.0"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#c22ec35e6c32da10131e71c0d522ba10ba38b804"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#3699861e02ff1cb94d6ae089d2894778706b57b3"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1487,59 +1487,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "edamame_foundation"
-version = "0.7.0"
-source = "git+https://github.com/edamametechnologies/edamame_foundation#c22ec35e6c32da10131e71c0d522ba10ba38b804"
-dependencies = [
- "anyhow",
- "arp-toolkit",
- "async-trait",
- "base64 0.22.1",
- "chrono",
- "csv",
- "dashmap 6.1.0",
- "edamame_backend",
- "encoding_rs",
- "eui48",
- "futures",
- "futures-util",
- "humantime",
- "ipnet",
- "lazy_static",
- "libc",
- "network-interface",
- "once_cell",
- "oui",
- "parking_lot",
- "powershell_script",
- "prost",
- "rand",
- "regex",
- "reqwest",
- "run_script 0.11.0",
- "sentry",
- "sentry-tracing",
- "serde",
- "serde_json",
- "serde_with",
- "sorted-vec",
- "strum",
- "strum_macros",
- "thiserror",
- "tokio",
- "tonic",
- "tonic-build",
- "tracing",
- "tracing-android",
- "tracing-appender",
- "tracing-oslog",
- "tracing-subscriber",
- "uuid",
- "wez-mdns",
- "windows 0.58.0",
-]
-
-[[package]]
 name = "edamame_posture"
 version = "0.7.0"
 dependencies = [
@@ -1547,7 +1494,7 @@ dependencies = [
  "daemonize",
  "dirs",
  "edamame_core",
- "edamame_foundation 0.7.0 (git+https://github.com/edamametechnologies/edamame_foundation)",
+ "edamame_foundation",
  "envcrypt",
  "fs2",
  "glob",
@@ -3650,9 +3597,9 @@ checksum = "c08d65885ee38876c4f86fa503fb49d7b507c2b62552df7c70b2fce627e06381"
 
 [[package]]
 name = "openssl"
-version = "0.10.66"
+version = "0.10.67"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9529f4786b70a3e8c61e11179af17ab6188ad8d0ded78c5529441ed39d4bd9c1"
+checksum = "7b8cefcf97f41316955f9294cd61f639bdcfa9f2f230faac6cb896aa8ab64704"
 dependencies = [
  "bitflags 2.6.0",
  "cfg-if",
@@ -3691,9 +3638,9 @@ dependencies = [
 
 [[package]]
 name = "openssl-sys"
-version = "0.9.103"
+version = "0.9.104"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7f9e8deee91df40a943c71b917e5874b951d32a802526c85721ce3b776c929d6"
+checksum = "45abf306cbf99debc8195b66b7346498d7b10c210de50418b5ccd7ceba08c741"
 dependencies = [
  "cc",
  "libc",
@@ -4660,9 +4607,9 @@ dependencies = [
 
 [[package]]
 name = "rustls"
-version = "0.23.14"
+version = "0.23.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "415d9944693cb90382053259f89fbb077ea730ad7273047ec63b19bc9b160ba8"
+checksum = "5fbb44d7acc4e873d613422379f69f237a1b141928c02f6bc6ccfddddc2d7993"
 dependencies = [
  "log",
  "once_cell",
@@ -5930,9 +5877,9 @@ checksum = "06abde3611657adf66d383f00b093d7faecc7fa57071cce2578660c9f1010821"
 
 [[package]]
 name = "uuid"
-version = "1.10.0"
+version = "1.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "81dfa00651efa65069b0b6b651f4aaa31ba9e3c3ce0137aaad053604ee7e0314"
+checksum = "f8c5f0a0af699448548ad1a2fbf920fb4bee257eae39953ba95cb84891a0446a"
 dependencies = [
  "getrandom",
  "rand",
@@ -5943,9 +5890,9 @@ dependencies = [
 
 [[package]]
 name = "uuid-macro-internal"
-version = "1.10.0"
+version = "1.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ee1cd046f83ea2c4e920d6ee9f7c3537ef928d75dce5d84a87c2c5d6b3999a3a"
+checksum = "6b91f57fe13a38d0ce9e28a03463d8d3c2468ed03d75375110ec71d93b449a08"
 dependencies = [
  "proc-macro2",
  "quote",
