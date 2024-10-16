@@ -29,7 +29,6 @@ jobs:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_REGION: ${{ secrets.AWS_REGION }}
-      RUST_BACKTRACE: 1
 
     steps:
 
@@ -69,8 +68,6 @@ jobs:
             make windows_release
 
       - name: Signing of the Posture
-        # Main or dev
-        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev'
         # We can't use bash here, as the AzureSignTool is a .NET tool
         run: AzureSignTool sign -kvt ${{ secrets.AZURE_SIGN_TENANT_ID }} -kvu ${{ secrets.AZURE_SIGN_KEY_VAULT_URI }} -kvi ${{ secrets.AZURE_SIGN_CLIENT_ID }} -kvs ${{ secrets.AZURE_SIGN_CLIENT_SECRET }} -kvc ${{ secrets.AZURE_SIGN_CERT_NAME }} -tr http://timestamp.digicert.com -v ./target/release/edamame_posture.exe
 
@@ -80,6 +77,8 @@ jobs:
           make test
           sudo killall edamame_posture.exe || true
           cp -f ./target/release/edamame_posture.exe ../edamame_posture.exe
+          export RUST_BACKTRACE=1
+          export EDAMAME_LOG_LEVEL=debug
           sudo ../edamame_posture start ${{ vars.EDAMAME_POSTURE_USER }} ${{ vars.EDAMAME_POSTURE_DOMAIN }} ${{ secrets.EDAMAME_POSTURE_PIN }} ${{ github.run_id }} true "cicd"
           sudo ../edamame_posture wait-for-connection
           make clean
