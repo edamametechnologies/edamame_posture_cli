@@ -249,7 +249,7 @@ pub fn start_background_process(
             .to_string();
         // Format the command line string, quoting the executable path if it contains spaces
         let cmd = format!(
-            "{} background-process {} {} {} {} {}",
+            "{} background-process {} {} {} {} {} {}",
             exe,
             user,
             domain,
