@@ -81,4 +81,4 @@ jobs:
           sudo ../edamame_posture wait-for-connection
           make clean
           make windows_release
-          sudo ../edamame_posture get-connections false false
+          sudo ../edamame_posture get-sessions false false
