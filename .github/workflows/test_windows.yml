@@ -75,10 +75,10 @@ jobs:
         shell: bash
         run: |
           make test
-          sudo killall edamame_posture.exe || true
+          killall edamame_posture.exe || true
           cp -f ./target/release/edamame_posture.exe ../edamame_posture.exe
-          sudo ../edamame_posture start ${{ vars.EDAMAME_POSTURE_USER }} ${{ vars.EDAMAME_POSTURE_DOMAIN }} ${{ secrets.EDAMAME_POSTURE_PIN }} ${{ github.run_id }} true "cicd"
-          sudo ../edamame_posture wait-for-connection
+          ../edamame_posture.exe start ${{ vars.EDAMAME_POSTURE_USER }} ${{ vars.EDAMAME_POSTURE_DOMAIN }} ${{ secrets.EDAMAME_POSTURE_PIN }} ${{ github.run_id }} true "cicd"
+          ../edamame_posture.exe wait-for-connection
           make clean
           make windows_release
-          sudo ../edamame_posture get-sessions false false
+          ../edamame_posture.exe get-sessions false false
