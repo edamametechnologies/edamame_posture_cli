@@ -23,7 +23,7 @@ serde = "1.0.204"
 serde_yaml = "0.9.34+deprecated"
 
 # System
-sysinfo = "0.31.3"
+sysinfo = "0.32.0"
 dirs = "5.0.1"
 
 # Machine UID
@@ -45,6 +45,9 @@ daemonize = "0.5.0"
 [target.'cfg(target_os = "windows")'.dependencies]
 windows = { version = "0.58.0", features = [ "Win32_System_Environment",  "Win32_System_Threading", "Win32_Foundation",  "Win32_Security" ] }
 widestring = "1.1.0"
+
+# netstat2 breaks with libc higher than v0.2.159 on Linux
+libc = { git = "https://github.com/rust-lang/libc", version = "0.2.151" }
 
 [build-dependencies]
 

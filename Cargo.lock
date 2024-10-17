@@ -1364,7 +1364,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "0.7.0"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#1cd3d03b579f6ce6ce6a29ea039f0318bf48cab6"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#5b37d44716ded584ca90f106790cb976291e15bf"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1389,7 +1389,7 @@ dependencies = [
  "ipnet",
  "jni",
  "lazy_static",
- "libc 0.2.160",
+ "libc 0.2.151",
  "libp2p",
  "log",
  "mac_address",
@@ -1430,7 +1430,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "0.7.0"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#3a0fe6986180cdec2333263a62d28d8e0b56ccf5"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#e6e62c237492b4cf26acbcf87993e2a3599d6124"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1499,11 +1499,12 @@ dependencies = [
  "fs2",
  "glob",
  "indicatif",
+ "libc 0.2.151",
  "machine-uid",
  "regex",
  "serde",
  "serde_yaml",
- "sysinfo 0.31.4",
+ "sysinfo 0.32.0",
  "tracing",
  "vergen",
  "widestring",
@@ -5260,20 +5261,6 @@ dependencies = [
  "ntapi",
  "once_cell",
  "windows 0.52.0",
-]
-
-[[package]]
-name = "sysinfo"
-version = "0.31.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "355dbe4f8799b304b05e1b0f05fc59b2a18d36645cf169607da45bde2f69a1be"
-dependencies = [
- "core-foundation-sys",
- "libc 0.2.160",
- "memchr",
- "ntapi",
- "rayon",
- "windows 0.57.0",
 ]
 
 [[package]]
