@@ -75,7 +75,7 @@ jobs:
         shell: bash
         run: |
           make test
-          killall edamame_posture.exe || true
+          ../edamame_posture.exe stop
           cp -f ./target/release/edamame_posture.exe ../edamame_posture.exe
           ../edamame_posture.exe start ${{ vars.EDAMAME_POSTURE_USER }} ${{ vars.EDAMAME_POSTURE_DOMAIN }} ${{ secrets.EDAMAME_POSTURE_PIN }} ${{ github.run_id }} true "cicd"
           ../edamame_posture.exe wait-for-connection
