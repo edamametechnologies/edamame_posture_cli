@@ -1375,7 +1375,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "0.7.0"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#f1b2316645e6903253b235d5da17bf4326491b9f"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#b5e2cd45c9b0546e965946e8727ce9a5a1fa974c"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -4932,9 +4932,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.129"
+version = "1.0.131"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6dbcf9b78a125ee667ae19388837dd12294b858d101fdd393cb9d5501ef09eb2"
+checksum = "67d42a0bd4ac281beff598909bb56a86acaf979b84483e1c79c10dcaf98f8cf3"
 dependencies = [
  "itoa",
  "memchr",
