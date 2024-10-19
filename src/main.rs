@@ -150,6 +150,7 @@ fn run_base() {
         .version("1.0")
         .author("Frank Lyonnet")
         .about("CLI interface to edamame_core")
+        .subcommand(Command::new("logs").about("Display logs"))
         .subcommand(Command::new("score").about("Get score information"))
         .subcommand(Command::new("lanscan").about("Performs a LAN scan"))
         .subcommand(
@@ -275,6 +276,9 @@ fn run_base() {
         .get_matches();
 
     match matches.subcommand() {
+        Some(("logs", _)) => {
+            display_logs();
+        }
         Some(("score", _)) => {
             ensure_admin(); // Admin check here
                             // Request a score computation
