@@ -30,8 +30,6 @@ pub fn handle_wait_for_connection(timeout: u64) {
         );
         stop_background_process();
 
-        display_logs();
-
         // Exit with an error code
         std::process::exit(1);
     } else {
@@ -51,8 +49,6 @@ pub fn handle_wait_for_connection(timeout: u64) {
 
         // Print the connections stored in the state
         format_sessions_log(state.sessions);
-
-        display_logs();
     }
 }
 
