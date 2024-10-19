@@ -75,11 +75,12 @@ jobs:
         shell: bash
         run: |
           make test
-          taskkill /F /IM edamame_posture
+          taskkill /IM edamame_posture.exe
           rm -f ~/.edamame_posture.yaml
           cp -f ./target/release/edamame_posture.exe ../edamame_posture.exe
           ../edamame_posture.exe start ${{ vars.EDAMAME_POSTURE_USER }} ${{ vars.EDAMAME_POSTURE_DOMAIN }} ${{ secrets.EDAMAME_POSTURE_PIN }} ${{ github.run_id }} true "cicd"
           ../edamame_posture.exe wait-for-connection
           make clean
           make windows_release
+          ../edamame_posture.exe status
           ../edamame_posture.exe get-sessions false false
