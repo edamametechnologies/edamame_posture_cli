@@ -75,4 +75,5 @@ jobs:
           sudo ../edamame_posture wait-for-connection
           make clean
           make linux_release
+          sudo ../edamame_posture status
           sudo ../edamame_posture get-sessions false false
