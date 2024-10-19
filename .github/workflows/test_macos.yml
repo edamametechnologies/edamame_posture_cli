@@ -114,4 +114,5 @@ jobs:
           make macos_release
           sudo ../edamame_posture status
           sudo ../edamame_posture get-sessions false false
+          sudo ../edamame_posture logs
 
