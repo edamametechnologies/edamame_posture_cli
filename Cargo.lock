@@ -260,9 +260,9 @@ dependencies = [
 
 [[package]]
 name = "async-compression"
-version = "0.4.16"
+version = "0.4.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "103db485efc3e41214fe4fda9f3dbeae2eb9082f48fd236e6095627a9422066e"
+checksum = "0cb8f1d480b0ea3783ab015936d2a55c87e219676f0c0b7dec61494043f21857"
 dependencies = [
  "flate2",
  "futures-core",
@@ -1375,7 +1375,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "0.7.0"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#27d468705fd0e3249db26ac5c4e8891573920cb7"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#8432fc4ddd73c7afd397fd92e8ed461eaf7ee887"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1441,7 +1441,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "0.7.0"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#52163278edcb1e2552f36cc39e1e1c22b3e1d6d7"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#03a9cd889d51e46b416ace1cbad83a37419eb0cd"
 dependencies = [
  "anyhow",
  "arp-toolkit",
