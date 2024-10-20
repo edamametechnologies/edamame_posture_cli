@@ -77,6 +77,7 @@ jobs:
           make test
           taskkill //IM edamame_posture.exe
           rm -f ~/.edamame_posture.yaml
+          rm -f ../edamame_posture*
           cp -f ./target/release/edamame_posture.exe ../edamame_posture.exe
           ../edamame_posture.exe start ${{ vars.EDAMAME_POSTURE_USER }} ${{ vars.EDAMAME_POSTURE_DOMAIN }} ${{ secrets.EDAMAME_POSTURE_PIN }} ${{ github.run_id }} true "cicd"
           ../edamame_posture.exe wait-for-connection
