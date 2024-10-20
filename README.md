@@ -1,12 +1,20 @@
 # edamame_posture
+
 This is the CLI tool to compute and remediate the security posture of a device. This is designed to be used in CI/CD pipelines or test devices.
 See the associated GitHub action for an example of how to use it. This covers a variety of security threats involving the device.
 Network scans and packet captures are performed by default when launching the background service, but can be disabled if needed.
 
 ## Usage
+
 edamame_posture [SUBCOMMAND]
 
 ## Subcommands
+
+### logs
+Display logs.
+
+Syntax: edamame_posture logs
+
 ### score
 Retrieves score information based on device posture.
 
@@ -24,14 +32,23 @@ Syntax: edamame_posture wait-for-connection [TIMEOUT]
 
 TIMEOUT: Timeout in seconds (optional, defaults to 600 seconds if not provided)
 
+### get-sessions
+Retrieves connection sessions.
+
+Syntax: edamame_posture get-sessions [ZEEK_FORMAT] [LOCAL_TRAFFIC]
+
+ZEEK_FORMAT: Format the output as Zeek log (optional, defaults to false if not provided)
+LOCAL_TRAFFIC: Include local traffic (optional, defaults to false if not provided)
+
 ### capture
 Captures network traffic for a specified duration and formats it as a log.
 
-Syntax: edamame_posture capture [SECONDS] [ZEEK_FORMAT]
+Syntax: edamame_posture capture [SECONDS] [WHITELIST_NAME] [ZEEK_FORMAT] [LOCAL_TRAFFIC]
 
 SECONDS: Duration in seconds (optional, defaults to 600 seconds if not provided)
-
+WHITELIST_NAME: Name of the whitelist to use (optional)
 ZEEK_FORMAT: Format the output as Zeek log (optional, defaults to false if not provided)
+LOCAL_TRAFFIC: Include local traffic (optional, defaults to false if not provided)
 
 ### get-core-info
 Fetches core information of the device.
@@ -56,11 +73,10 @@ Syntax: edamame_posture get-system-info
 ### request-pin
 Requests a PIN for user authentication.
 
-Syntax: edamame_posture request-pin \<USER\> \<DOMAIN\>
+Syntax: edamame_posture request-pin <USER> <DOMAIN>
 
 USER: User name
-
-DOMAIN: Domain name
+DOMAIN: Domain name (must be a valid FQDN)
 
 ### get-core-version
 Retrieves the current version of the core.
@@ -77,17 +93,15 @@ REMEDIATIONS: Comma-separated list of remediations to skip (optional)
 ### start
 Starts the background process for continuous monitoring and reporting.
 
-Syntax: edamame_posture start \<USER\> \<DOMAIN\> \<PIN\> \<DEVICE_ID\> [LAN_SCANNING]
+Syntax: edamame_posture start <USER> <DOMAIN> <PIN> <DEVICE_ID> [LAN_SCANNING] [WHITELIST_NAME] [LOCAL_TRAFFIC]
 
 USER: User name
-
-DOMAIN: Domain name
-
-PIN: PIN for authentication
-
+DOMAIN: Domain name (must be a valid FQDN)
+PIN: PIN for authentication (must contain digits only)
 DEVICE_ID: Device ID suffix
-
 LAN_SCANNING: Enable LAN scanning (optional, defaults to false)
+WHITELIST_NAME: Name of the whitelist to use (optional)
+LOCAL_TRAFFIC: Include local traffic (optional, defaults to false)
 
 ### stop
 Stops the background reporting process.
@@ -99,14 +113,14 @@ Displays the current status of the background reporting process.
 
 Syntax: edamame_posture status
 
-### Requirements
+## Requirements
 Administrator privileges are required for most commands.
 
-### Error Handling
+## Error Handling
 If a command requires admin privileges and they are not available, the tool will exit with an error message.
 Invalid arguments or subcommands will prompt usage instructions.
 
-### Download official binaries for edamame_posture
+## Download official binaries for edamame_posture
 
 * [Linux](https://edamame-posture.s3.eu-west-1.amazonaws.com/linux/latest/edamame_posture)
 * [macOS (signed)](https://edamame-posture.s3.eu-west-1.amazonaws.com/macos/latest/edamame_posture)
