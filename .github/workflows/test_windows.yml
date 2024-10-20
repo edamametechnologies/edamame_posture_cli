@@ -75,7 +75,7 @@ jobs:
         shell: bash
         run: |
           make test
-          taskkill /IM edamame_posture.exe
+          taskkill //IM edamame_posture.exe
           rm -f ~/.edamame_posture.yaml
           cp -f ./target/release/edamame_posture.exe ../edamame_posture.exe
           ../edamame_posture.exe start ${{ vars.EDAMAME_POSTURE_USER }} ${{ vars.EDAMAME_POSTURE_DOMAIN }} ${{ secrets.EDAMAME_POSTURE_PIN }} ${{ github.run_id }} true "cicd"

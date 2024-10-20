@@ -1,4 +1,4 @@
-use crate::{display_logs, stop_background_process, State};
+use crate::{stop_background_process, State};
 use edamame_core::api::api_core::*;
 use edamame_core::api::api_lanscan::*;
 use edamame_core::api::api_score::*;
