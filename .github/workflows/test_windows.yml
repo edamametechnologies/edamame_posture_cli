@@ -42,7 +42,9 @@ jobs:
           network_scan: true
           auto_remediate: true
           checkout: true
-
+          # We are using the token of the the private repo to checkout the public repo and properly wait for access to the private repo
+          token: ${{ secrets.DEV_GITHUB_TOKEN }}
+          
       - name: Setup .NET 8.0
         uses: actions/setup-dotnet@v3
         with:
@@ -77,7 +79,7 @@ jobs:
           make test
           taskkill //IM edamame_posture.exe
           rm -f ~/.edamame_posture.yaml
-          rm -f ../edamame_posture*
+          rm -f ../edamame_posture.*
           cp -f ./target/release/edamame_posture.exe ../edamame_posture.exe
           ../edamame_posture.exe start ${{ vars.EDAMAME_POSTURE_USER }} ${{ vars.EDAMAME_POSTURE_DOMAIN }} ${{ secrets.EDAMAME_POSTURE_PIN }} ${{ github.run_id }} true "cicd"
           ../edamame_posture.exe wait-for-connection
