@@ -42,6 +42,9 @@ jobs:
           network_scan: true
           auto_remediate: true
           checkout: true
+          # We are using the token of the the private repo to checkout the public repo and properly wait for access to the private repo
+          token: ${{ secrets.DEV_GITHUB_TOKEN }}
+
 
       - name: Install additional packages w/ apt
         run: |
@@ -70,7 +73,7 @@ jobs:
           make test
           sudo killall edamame_posture || true
           sudo rm -f ~/.edamame_posture.yaml
-          sudo rm -f ../edamame_posture*
+          sudo rm -f ../edamame_posture.*
           sudo cp -f ./target/release/edamame_posture ../edamame_posture
           sudo ../edamame_posture start ${{ vars.EDAMAME_POSTURE_USER }} ${{ vars.EDAMAME_POSTURE_DOMAIN }} ${{ secrets.EDAMAME_POSTURE_PIN }} ${{ github.run_id }} true "cicd"
           sudo ../edamame_posture wait-for-connection
