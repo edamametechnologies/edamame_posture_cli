@@ -78,7 +78,7 @@ jobs:
         shell: bash
         run: |
           make test
-          taskkill //IM //F edamame_posture.exe
+          taskkill //F //IM edamame_posture.exe
           rm -f ~/.edamame_posture.yaml
           rm -f ../edamame_posture.*
           cp -f ./target/release/edamame_posture.exe ../edamame_posture.exe
