@@ -1374,8 +1374,8 @@ dependencies = [
 
 [[package]]
 name = "edamame_core"
-version = "0.7.0"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#037eac6b19bfdc24e5d41c677038374fa5f4dc2f"
+version = "0.7.1"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#2fbcdee18587d2bdbacf585c148885f94300c2ff"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1440,8 +1440,8 @@ dependencies = [
 
 [[package]]
 name = "edamame_foundation"
-version = "0.7.0"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#383fc58562f2909198962542ceef3da3b4596a1f"
+version = "0.7.1"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#5df98356d82227ce0b88fcb13e329ee1ed977ccf"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1500,7 +1500,7 @@ dependencies = [
 
 [[package]]
 name = "edamame_posture"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "clap",
  "daemonize",
