@@ -87,5 +87,5 @@ jobs:
           make clean
           make windows_release
           ../edamame_posture.exe status
-          ../edamame_posture.exe get-sessions false false
           ../edamame_posture.exe logs
+          ../edamame_posture.exe get-sessions false false
