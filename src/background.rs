@@ -10,6 +10,7 @@ use edamame_core::api::api_lanscan::*;
 use edamame_core::api::api_score::ScoreAPI;
 use edamame_core::api::api_score::{compute_score, get_score};
 use std::io;
+use std::io::Write;
 #[cfg(unix)]
 use std::process::Command as ProcessCommand;
 use std::thread::sleep;
