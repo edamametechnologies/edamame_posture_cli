@@ -1,5 +1,6 @@
 use glob::glob;
 use std::fs;
+use std::io;
 use std::path::PathBuf;
 
 fn find_log_files(pattern: &str) -> Result<Vec<PathBuf>, glob::PatternError> {
@@ -27,7 +28,11 @@ pub fn display_logs() {
                         match fs::read_to_string(&log_file) {
                             Ok(contents) => {
                                 println!("{}", contents);
-                                println!();
+                                // Flush the output
+                                match io::stdout().flush() {
+                                    Ok(_) => (),
+                                    Err(e) => eprintln!("Error flushing stdout: {}", e),
+                                }
                             }
                             Err(err) => {
                                 eprintln!("Error reading log file {}: {}", log_file.display(), err)
