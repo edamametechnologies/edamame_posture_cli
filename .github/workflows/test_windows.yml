@@ -89,3 +89,4 @@ jobs:
           ../edamame_posture.exe status
           ../edamame_posture.exe logs
           ../edamame_posture.exe get-sessions false false
+          echo "Test completed"
