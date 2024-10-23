@@ -9,6 +9,7 @@ use edamame_core::api::api_lanscan::*;
 #[cfg(windows)]
 use edamame_core::api::api_score::ScoreAPI;
 use edamame_core::api::api_score::{compute_score, get_score};
+use std::io;
 #[cfg(unix)]
 use std::process::Command as ProcessCommand;
 use std::thread::sleep;
@@ -171,6 +172,11 @@ pub fn show_background_process_status() {
             println!("  - Outdated backend: {}", state.is_outdated_backend);
             println!("  - Outdated threats: {}", state.is_outdated_threats);
             println!("  - Backend error code: {}", state.backend_error_code);
+            // Flush the output
+            match io::stdout().flush() {
+                Ok(_) => (),
+                Err(e) => eprintln!("Error flushing stdout: {}", e),
+            }
         } else {
             eprintln!("Background process not found ({})", pid);
             State::clear();
