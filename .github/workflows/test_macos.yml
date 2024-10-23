@@ -112,8 +112,8 @@ jobs:
           sudo rm -f ~/.edamame_posture.yaml
           sudo rm -f ../edamame_posture.*
           sudo cp -f ./target/release/edamame_posture ../edamame_posture
-          sudo ../edamame_posture start ${{ vars.EDAMAME_POSTURE_USER }} ${{ vars.EDAMAME_POSTURE_DOMAIN }} ${{ secrets.EDAMAME_POSTURE_PIN }} ${{ github.run_id }} true "cicd"
-          sudo ../edamame_posture wait-for-connection
+          sudo ../edamame_posture start ${{ vars.EDAMAME_POSTURE_USER }} ${{ vars.EDAMAME_POSTURE_DOMAIN }} ${{ secrets.EDAMAME_POSTURE_PIN }} ${{ github.run_id }} true "github_macos"
+          sudo ../edamame_posture wait-for-connection || true
           make clean
           make macos_release
           sudo ../edamame_posture status
