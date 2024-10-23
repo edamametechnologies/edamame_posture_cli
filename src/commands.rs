@@ -4,6 +4,7 @@ use edamame_core::api::api_lanscan::*;
 use edamame_core::api::api_score::*;
 use edamame_core::api::api_score_threats::*;
 use indicatif::{ProgressBar, ProgressStyle};
+use std::io;
 use std::thread::sleep;
 use std::time::Duration;
 use sysinfo::{Disks, Networks, System};
@@ -68,6 +69,11 @@ pub fn handle_get_device_info() {
     println!("  - IPv4: {}", device_info.ip4);
     println!("  - IPv6: {}", device_info.ip6);
     println!("  - MAC: {}", device_info.mac);
+    // Flush the output
+    match io::stdout().flush() {
+        Ok(_) => (),
+        Err(e) => eprintln!("Error flushing stdout: {}", e),
+    }
 }
 
 pub fn handle_get_threats_info() {
@@ -136,7 +142,11 @@ pub fn display_lanscan(devices: &LANScanAPI) {
             .filter(|device| device.criticality == "High")
             .count()
     );
-    println!();
+    // Flush the output
+    match io::stdout().flush() {
+        Ok(_) => (),
+        Err(e) => eprintln!("Error flushing stdout: {}", e),
+    }
 }
 
 pub fn handle_lanscan() {
@@ -250,7 +260,11 @@ pub fn display_score(score: &ScoreAPI) {
     for metric in score.unknown.iter() {
         println!("    - {}", metric.name);
     }
-    println!();
+    // Flush the output
+    match io::stdout().flush() {
+        Ok(_) => (),
+        Err(e) => eprintln!("Error flushing stdout: {}", e),
+    }
 }
 
 pub fn handle_score(progress_bar: bool) {
@@ -353,6 +367,11 @@ pub fn handle_get_system_info() {
         println!("  - Computer system model from WMI:");
         println!("{}", String::from_utf8_lossy(&output.stdout));
     }
+    // Flush the output
+    match io::stdout().flush() {
+        Ok(_) => (),
+        Err(e) => eprintln!("Error flushing stdout: {}", e),
+    }
 }
 
 pub fn handle_remediate(remediations_to_skip: &str) {
@@ -390,7 +409,6 @@ pub fn handle_remediate(remediations_to_skip: &str) {
     println!();
     println!("Score after remediation:");
     println!("------------------------");
-    println!();
 
     // Show the score after remediation
     handle_score(false);
