@@ -1,6 +1,7 @@
 use glob::glob;
 use std::fs;
 use std::io;
+use std::io::Write;
 use std::path::PathBuf;
 
 fn find_log_files(pattern: &str) -> Result<Vec<PathBuf>, glob::PatternError> {
