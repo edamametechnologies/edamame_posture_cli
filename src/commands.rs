@@ -5,6 +5,7 @@ use edamame_core::api::api_score::*;
 use edamame_core::api::api_score_threats::*;
 use indicatif::{ProgressBar, ProgressStyle};
 use std::io;
+use std::io::Write;
 use std::thread::sleep;
 use std::time::Duration;
 use sysinfo::{Disks, Networks, System};
