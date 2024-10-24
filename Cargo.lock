@@ -1375,7 +1375,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "0.7.1"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#8555134033617ca67d864620712e7d6e2dbf7c5c"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#c1908339be7a214986fff889152598175572e187"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1441,7 +1441,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "0.7.1"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#62343a3b45fb49a3f48078f73c53f6db64dfdddb"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#a7c18824ffe3390f7055082e572dffc00e46610b"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -3841,18 +3841,18 @@ dependencies = [
 
 [[package]]
 name = "pin-project"
-version = "1.1.6"
+version = "1.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "baf123a161dde1e524adf36f90bc5d8d3462824a9c43553ad07a8183161189ec"
+checksum = "be57f64e946e500c8ee36ef6331845d40a93055567ec57e8fae13efd33759b95"
 dependencies = [
  "pin-project-internal",
 ]
 
 [[package]]
 name = "pin-project-internal"
-version = "1.1.6"
+version = "1.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a4502d8515ca9f32f1fb543d987f63d95a14934883db45bdb48060b6b69257f8"
+checksum = "3c0f5fad0874fc7abcd4d750e76917eaebbecaa2c20bde22e1dbeeba8beb758c"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3861,9 +3861,9 @@ dependencies = [
 
 [[package]]
 name = "pin-project-lite"
-version = "0.2.14"
+version = "0.2.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bda66fc9667c18cb2758a2ac84d1167245054bcf85d5d1aaa6923f45801bdd02"
+checksum = "915a1e146535de9163f3987b8944ed8cf49a18bb0056bcebcdcece385cece4ff"
 
 [[package]]
 name = "pin-utils"
