@@ -79,14 +79,19 @@ jobs:
         run: |
           make test
           ../edamame_posture stop
+          taskkill /IM edamame_posture.exe /F || true
           rm -f ~/.edamame_posture.yaml
+          rm -f ../edamame_posture.exe
           rm -f ../edamame_posture.*
           cp -f ./target/release/edamame_posture.exe ../edamame_posture.exe
           ../edamame_posture.exe start ${{ vars.EDAMAME_POSTURE_USER }} ${{ vars.EDAMAME_POSTURE_DOMAIN }} ${{ secrets.EDAMAME_POSTURE_PIN }} ${{ github.run_id }} true "cicd"
           ../edamame_posture.exe wait-for-connection || true
           make clean
           make windows_release
+          echo "Status:"
           ../edamame_posture.exe status
+          echo "Logs:"
           ../edamame_posture.exe logs
+          echo "Sessions:"
           ../edamame_posture.exe get-sessions false false
           echo "Test completed"
