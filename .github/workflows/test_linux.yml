@@ -73,14 +73,19 @@ jobs:
         run: |
           make test
           sudo ../edamame_posture stop
+          sudo killall edamame_posture || true
           sudo rm -f ~/.edamame_posture.yaml
+          sudo rm -f ../edamame_posture
           sudo rm -f ../edamame_posture.*
           sudo cp -f ./target/release/edamame_posture ../edamame_posture
           sudo ../edamame_posture start ${{ vars.EDAMAME_POSTURE_USER }} ${{ vars.EDAMAME_POSTURE_DOMAIN }} ${{ secrets.EDAMAME_POSTURE_PIN }} ${{ github.run_id }} true "github_ubuntu"
           sudo ../edamame_posture wait-for-connection || true
           make clean
           make linux_release
+          echo "Status:"
           sudo ../edamame_posture status
+          echo "Logs:"
           sudo ../edamame_posture logs
+          echo "Sessions:"
           sudo ../edamame_posture get-sessions false false
           echo "Test completed"
