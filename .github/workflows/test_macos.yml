@@ -108,7 +108,7 @@ jobs:
         shell: bash
         run: |
           make test
-          sudo killall edamame_posture || true
+          sudo ../edamame_posture stop
           sudo rm -f ~/.edamame_posture.yaml
           sudo rm -f ../edamame_posture.*
           sudo cp -f ./target/release/edamame_posture ../edamame_posture
