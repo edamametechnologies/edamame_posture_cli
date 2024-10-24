@@ -1375,7 +1375,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "0.7.1"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#67e4037872032862fb2609b0ac64a83eb440a1a4"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#8555134033617ca67d864620712e7d6e2dbf7c5c"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1441,7 +1441,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "0.7.1"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#df209e5201e31aed0433410e1ece1fab2dbb19d3"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#62343a3b45fb49a3f48078f73c53f6db64dfdddb"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1538,9 +1538,9 @@ checksum = "a357d28ed41a50f9c765dbfe56cbc04a64e53e5fc58ba79fbc34c10ef3df831f"
 
 [[package]]
 name = "encoding_rs"
-version = "0.8.34"
+version = "0.8.35"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b45de904aa0b010bce2ab45264d0631681847fa7b6f2eaa7dab7619943bc4f59"
+checksum = "75030f3c4f45dafd7586dd6780965a8c7e8e285a5ecb86713e63a79c5b2766f3"
 dependencies = [
  "cfg-if",
 ]
