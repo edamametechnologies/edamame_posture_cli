@@ -1375,7 +1375,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "0.7.1"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#9ecf4cb20babaf93d30e07bf81615b3b52854281"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#ec9b1dd04d74b4ffa2b10958a3fe492a07ca3e81"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1441,7 +1441,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "0.7.1"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#5374c456c8f8114592ded5d791b37bcd9fa33074"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#8fb9227ed1a511f4711d4b0ddf4b20ec490ae1a2"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -3287,12 +3287,12 @@ dependencies = [
 
 [[package]]
 name = "multihash"
-version = "0.19.1"
+version = "0.19.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "076d548d76a0e2a0d4ab471d0b1c36c577786dfc4471242035d97a12a735c492"
+checksum = "cc41f430805af9d1cf4adae4ed2149c759b877b01d909a1f40256188d09345d2"
 dependencies = [
  "core2",
- "unsigned-varint 0.7.2",
+ "unsigned-varint 0.8.0",
 ]
 
 [[package]]
