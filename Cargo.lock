@@ -1375,7 +1375,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "0.7.1"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#c2c86a1222bbd473e6f3dd3ff70c275907c02e64"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#554bd982cee2341d813d6eb463ff378492028c4b"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1441,7 +1441,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "0.7.1"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#8b7e3178b38263119ed2257ecbdeb056cd7c7535"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#a9ba9d656b70d3d567dc13adbdac0ec2ff09b735"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -5144,9 +5144,9 @@ dependencies = [
 
 [[package]]
 name = "sorted-vec"
-version = "0.8.4"
+version = "0.8.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2432f7c120a790d329ee1c54c9c09495b163a72eb338b0682742e2c173b15107"
+checksum = "9f64b077cc81ab5f1209bb44c6530a3277261aeaa5405111d48326897306918b"
 
 [[package]]
 name = "spin"
