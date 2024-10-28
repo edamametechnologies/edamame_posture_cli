@@ -1375,7 +1375,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "0.7.1"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#554bd982cee2341d813d6eb463ff378492028c4b"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#65db1937438b326c7743804021a4ca5351fe6d19"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1441,7 +1441,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "0.7.1"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#a9ba9d656b70d3d567dc13adbdac0ec2ff09b735"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#eb069de26b116b0dbe7c135c5e7579d58ad57609"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -4746,9 +4746,9 @@ dependencies = [
 
 [[package]]
 name = "scc"
-version = "2.2.2"
+version = "2.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f2c1f7fc6deb21665a9060dfc7d271be784669295a31babdcd4dd2c79ae8cbfb"
+checksum = "d8d25269dd3a12467afe2e510f69fb0b46b698e5afb296b59f2145259deaf8e8"
 dependencies = [
  "sdd",
 ]
