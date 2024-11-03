@@ -1381,7 +1381,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "0.7.2"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#2c53197de52b1e1dbdd6dbd49e48b31154c66068"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#059437babbb6226a89fb1ff2110c7746bd36bc67"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1447,7 +1447,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "0.7.1"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#4e7a9957e7d7198aa06cb3b1f8c853c90e41cb3a"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#5ae0f081373a501f7a8304a6eb198c73ba54fb76"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -2401,9 +2401,9 @@ dependencies = [
 
 [[package]]
 name = "hyper-timeout"
-version = "0.5.1"
+version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3203a961e5c83b6f5498933e78b6b263e208c197b63e9c6c53cc82ffd3f63793"
+checksum = "2b90d566bffbce6a75bd8b09a05aa8c2cb1fabb6cb348f8840c9e4c90a0d83b0"
 dependencies = [
  "hyper 1.5.0",
  "hyper-util",
