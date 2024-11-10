@@ -13,7 +13,7 @@ use std::io;
 use std::io::Write;
 #[cfg(unix)]
 use std::process::Command as ProcessCommand;
-use std::thread::{sleep, spawn};
+use std::thread::sleep;
 use std::time::Duration;
 use sysinfo::{Pid, System};
 use tracing::info;
@@ -25,15 +25,6 @@ use windows::core::{PCWSTR, PWSTR};
 use windows::Win32::Foundation::{CloseHandle, HANDLE};
 #[cfg(windows)]
 use windows::Win32::System::Threading::*;
-
-#[cfg(unix)]
-use signal_hook::{consts::SIGCHLD, iterator::Signals};
-#[cfg(unix)]
-use nix::sys::wait::{waitpid, WaitPidFlag, WaitStatus};
-#[cfg(unix)]
-use nix::unistd::Pid as NixPid;
-
-// ... [rest of your imports]
 
 pub fn background_process(
     user: String,
@@ -160,7 +151,6 @@ pub fn background_process(
     }
 }
 
-#[cfg(unix)]
 fn pid_exists(pid: u32) -> bool {
     let mut system = System::new_all();
     system.refresh_all();
@@ -229,37 +219,26 @@ pub fn start_background_process(
 
     #[cfg(unix)]
     {
-        // Set up signal handling before daemonizing
-        if let Err(e) = setup_signal_handling() {
-            eprintln!("Failed to set up signal handling: {}", e);
-            std::process::exit(1);
-        }
-
         let daemonize = Daemonize::new()
             .pid_file("/tmp/edamame.pid")
             .chown_pid_file(true)
-            .working_directory("/tmp")
-            .privileged_action(
-                move || -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-                    let child = ProcessCommand::new(std::env::current_exe().unwrap())
-                        .arg("background-process")
-                        .arg(&user)
-                        .arg(&domain)
-                        .arg(&pin)
-                        .arg(&device_id)
-                        .arg(&lan_scanning.to_string())
-                        .arg(&whitelist_name)
-                        .arg(&local_traffic.to_string())
-                        .spawn()
-                        .expect("Failed to start background process");
-
-                    println!("Background process ({}) launched", child.id());
-                    Ok(())
-                },
-            );
+            .working_directory("/tmp");
 
         match daemonize.start() {
-            Ok(_) => println!("Successfully daemonized"),
+            Ok(_) => {
+                let child = ProcessCommand::new(std::env::current_exe().unwrap())
+                    .arg("background-process")
+                    .arg(&user)
+                    .arg(&domain)
+                    .arg(&pin)
+                    .arg(&device_id)
+                    .arg(&lan_scanning.to_string())
+                    .arg(&whitelist_name)
+                    .arg(&local_traffic.to_string())
+                    .spawn()
+                    .expect("Failed to start background process");
+                println!("Background process ({}) launched", child.id());
+            }
             Err(e) => eprintln!("Error daemonizing: {}", e),
         }
     }
@@ -272,7 +251,7 @@ pub fn start_background_process(
             .to_string();
         // Format the command line string, quoting the executable path if it contains spaces
         let cmd = format!(
-            "\"{}\" background-process {} {} {} {} {} {} {}",
+            "{} background-process {} {} {} {} {} {} {}",
             exe,
             user,
             domain,
@@ -368,62 +347,19 @@ pub fn start_background_process(
 }
 
 #[cfg(unix)]
-fn setup_signal_handling() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    // Initialize signal handling for SIGCHLD
-    let mut signals = Signals::new(&[SIGCHLD])?;
-
-    // Spawn a separate thread to handle signals
-    spawn(move || {
-        for signal in signals.forever() {
-            if signal == SIGCHLD {
-                // Reap all terminated child processes
-                loop {
-                    match waitpid(NixPid::from_raw(-1), Some(WaitPidFlag::WNOHANG)) {
-                        Ok(WaitStatus::Exited(pid, status)) => {
-                            info!("Child process {} exited with status {}", pid, status);
-                        }
-                        Ok(WaitStatus::Signaled(pid, signal, _)) => {
-                            info!("Child process {} killed by signal {:?}", pid, signal);
-                        }
-                        Ok(WaitStatus::StillAlive) => break,
-                        Ok(_) => {}
-                        Err(nix::Error::ECHILD) => break,
-                        Err(e) => {
-                            eprintln!("waitpid failed: {}", e);
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-    });
-
-    // It's important to keep the signal handle alive; otherwise, signals won't be delivered.
-    // In this case, since the handle is moved into the thread, it's fine.
-
-    Ok(())
-}
-
-#[cfg(unix)]
 pub fn stop_background_process() {
     let state = State::load();
     if let Some(pid) = state.pid {
         if pid_exists(pid) {
             println!("Stopping background process ({})", pid);
             // Don't kill, rather stop the child loop
-            // Optionally, you can send a signal to gracefully terminate
-            // For example:
-            // nix::sys::signal::kill(NixPid::from_raw(pid as i32), nix::sys::signal::Signal::SIGTERM)
-            //     .expect("Failed to send SIGTERM");
-
-            // Here, we'll just clear the state and let the child process check the state and exit
+            //let _ = ProcessCommand::new("kill").arg(pid.to_string()).status();
             State::clear();
 
             // Disconnect domain
             disconnect_domain();
         } else {
             eprintln!("No background process found ({})", pid);
-            State::clear();
         }
     } else {
         eprintln!("No background process is running.");
