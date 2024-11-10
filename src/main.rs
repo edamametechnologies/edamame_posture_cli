@@ -38,7 +38,11 @@ fn parse_fqdn(s: &str) -> Result<String, String> {
     }
 }
 
-fn run() {
+pub fn initialize_core(device_id: String, reporting: bool, community: bool) {
+    // Set device ID
+    // Prefix is the machine uid
+    let machine_uid = machine_uid::get().unwrap_or("".to_string());
+
     let mut device = DeviceInfoAPI {
         device_id: "".to_string(),
         model: "".to_string(),
@@ -49,70 +53,38 @@ fn run() {
         ip6: "".to_string(),
         mac: "".to_string(),
     };
+    if device_id != "" {
+        device.device_id = (machine_uid + "/" + device_id.as_str()).to_string();
+    }
 
+    // Reporting is on community is off
+    initialize(
+        "posture".to_string(),
+        envc!("VERGEN_GIT_BRANCH").to_string(),
+        "EN".to_string(),
+        device,
+        reporting,
+        community,
+    );
+}
+
+fn run() {
     let args: Vec<String> = std::env::args().collect();
     if args.len() > 1 && args[1] == "background-process" {
         // Debug logging
         //std::env::set_var("EDAMAME_LOG_LEVEL", "debug");
 
+        // Don't call ensure_admin() here, the core is not initialized yet
+
         if args.len() == 9 {
-            // Save state within the child for unix
-            #[cfg(unix)]
-            {
-                let state = State {
-                    pid: Some(std::process::id()),
-                    handle: None,
-                    is_connected: false,
-                    connected_domain: args[3].clone(),
-                    connected_user: args[2].clone(),
-                    last_network_activity: "".to_string(),
-                    score: ScoreAPI::default(),
-                    devices: LANScanAPI::default(),
-                    sessions: Vec::new(),
-                    whitelist_name: args[7].clone(),
-                    whitelist_conformance: true,
-                    is_outdated_backend: false,
-                    is_outdated_threats: false,
-                    backend_error_code: "".to_string(),
-                };
-                state.save();
-            }
-
-            // Set device ID
-            // Prefix is the machine uid
-            let machine_uid = machine_uid::get().unwrap_or("".to_string());
-            let device_id = args[5].clone();
-            if device_id != "" {
-                device.device_id = (machine_uid + "/" + device_id.as_str()).to_string();
-            }
-
-            // Reporting is on community is off
-            initialize(
-                "posture".to_string(),
-                envc!("VERGEN_GIT_BRANCH").to_string(),
-                "EN".to_string(),
-                device,
-                true,
-                false,
-            );
-
-            let admin_status = get_admin_status();
-            if !admin_status {
-                eprintln!("This command requires admin privileges, exiting...");
-                // Exit with an error code
-                std::process::exit(1);
-            }
-
-            let lan_scanning = if args[6] == "true" { true } else { false };
-            let local_traffic = if args[8] == "true" { true } else { false };
-
-            background_process(
-                args[2].clone(),
-                args[3].clone(),
-                args[4].clone(),
-                lan_scanning,
-                args[7].clone(),
-                local_traffic,
+            run_background(
+                args[2].to_string(),
+                args[3].to_string(),
+                args[4].to_string(),
+                args[5].to_string(),
+                args[6].to_string() == "true",
+                args[7].to_string(),
+                args[8].to_string() == "true",
             );
         } else {
             eprintln!("Invalid arguments for background process: {:?}", args);
@@ -120,20 +92,67 @@ fn run() {
             std::process::exit(1);
         }
     } else {
-        // Reporting and community are off
-        initialize(
-            // Use "cli-debug" to show the logs to the user, "cli" otherwise
-            "cli".to_string(),
-            envc!("VERGEN_GIT_BRANCH").to_string(),
-            "EN".to_string(),
-            device,
-            false,
-            false,
-        );
+        // We are not running in background mode
+        let device = DeviceInfoAPI {
+            device_id: "".to_string(),
+            model: "".to_string(),
+            brand: "".to_string(),
+            os_name: "".to_string(),
+            os_version: "".to_string(),
+            ip4: "".to_string(),
+            ip6: "".to_string(),
+            mac: "".to_string(),
+        };
 
-        // Removed admin check from here
+        // Reporting and community are off
+        initialize_core(device.device_id, false, false);
+
         run_base();
     }
+}
+
+pub fn run_background(
+    user: String,
+    domain: String,
+    pin: String,
+    device_id: String,
+    lan_scanning: bool,
+    whitelist_name: String,
+    local_traffic: bool,
+) {
+    // Save state within the child for unix
+    #[cfg(unix)]
+    {
+        let state = State {
+            pid: Some(std::process::id()),
+            handle: None,
+            is_connected: false,
+            connected_domain: domain.clone(),
+            connected_user: user.clone(),
+            last_network_activity: "".to_string(),
+            score: ScoreAPI::default(),
+            devices: LANScanAPI::default(),
+            sessions: Vec::new(),
+            whitelist_name: whitelist_name.clone(),
+            whitelist_conformance: true,
+            is_outdated_backend: false,
+            is_outdated_threats: false,
+            backend_error_code: "".to_string(),
+        };
+        state.save();
+    }
+
+    // Initialize the core with reporting enabled
+    initialize_core(device_id, true, false);
+
+    background_process(
+        user,
+        domain,
+        pin,
+        lan_scanning,
+        whitelist_name,
+        local_traffic,
+    );
 }
 
 fn ensure_admin() {

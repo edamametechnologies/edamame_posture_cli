@@ -11,8 +11,6 @@ use edamame_core::api::api_score::ScoreAPI;
 use edamame_core::api::api_score::{compute_score, get_score};
 use std::io;
 use std::io::Write;
-#[cfg(unix)]
-use std::process::Command as ProcessCommand;
 use std::thread::sleep;
 use std::time::Duration;
 use sysinfo::{Pid, System};
@@ -219,14 +217,20 @@ pub fn start_background_process(
 
     #[cfg(unix)]
     {
+        use std::process::Command;
+
         let daemonize = Daemonize::new()
-            .pid_file("/tmp/edamame.pid")
+            .pid_file("/tmp/edamame_posture.pid")
             .chown_pid_file(true)
             .working_directory("/tmp");
 
         match daemonize.start() {
             Ok(_) => {
-                let child = ProcessCommand::new(std::env::current_exe().unwrap())
+                // We can't launch the background loop directly as the double fork will break the tokio runtime
+                // So we need to fork a new process but make sure it's tied to this one
+                // Otherwise it will go defunct when terminated
+                // So we don't use spawn() but output() here
+                let _ = Command::new(std::env::current_exe().unwrap())
                     .arg("background-process")
                     .arg(&user)
                     .arg(&domain)
@@ -235,9 +239,8 @@ pub fn start_background_process(
                     .arg(&lan_scanning.to_string())
                     .arg(&whitelist_name)
                     .arg(&local_traffic.to_string())
-                    .spawn()
+                    .output()
                     .expect("Failed to start background process");
-                println!("Background process ({}) launched", child.id());
             }
             Err(e) => eprintln!("Error daemonizing: {}", e),
         }
