@@ -241,6 +241,8 @@ pub fn start_background_process(
                     .arg(&local_traffic.to_string())
                     .output()
                     .expect("Failed to start background process");
+                std::process::exit(0);
+                
             }
             Err(e) => eprintln!("Error daemonizing: {}", e),
         }
