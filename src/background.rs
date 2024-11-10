@@ -135,17 +135,11 @@ pub fn background_process(
         state.save();
 
         // Exit if there are no pid/handle anymore
-        #[cfg(unix)]
-        if state.pid.is_none() {
+        if (cfg!(unix) && state.pid.is_none()) || (cfg!(windows) && state.handle.is_none()) {
+            // Disconnect domain
+            disconnect_domain();
             std::process::exit(0);
         }
-
-        #[cfg(windows)]
-        if state.handle.is_none() {
-            std::process::exit(0);
-        }
-
-        sleep(Duration::from_secs(5));
     }
 }
 
@@ -254,9 +248,9 @@ pub fn start_background_process(
             .expect("Failed to get current executable path")
             .display()
             .to_string();
-        // Format the command line string, quoting the executable path if it contains spaces
+        // Format the command line string, we must quote all strings
         let cmd = format!(
-            "{} background-process {} {} {} {} {} {} {}",
+            "\"{}\" background-process \"{}\" \"{}\" \"{}\" \"{}\" {} \"{}\" {}",
             exe,
             user,
             domain,
@@ -289,6 +283,8 @@ pub fn start_background_process(
             hStdOutput: HANDLE::default(),
             hStdError: HANDLE::default(),
         };
+
+        println!("Command: {}", cmd);
 
         let mut cmd = U16CString::from_str(cmd).unwrap();
         let cmd_pwstr = PWSTR::from_raw(cmd.as_mut_ptr());
@@ -360,9 +356,6 @@ pub fn stop_background_process() {
             // Don't kill, rather stop the child loop
             //let _ = ProcessCommand::new("kill").arg(pid.to_string()).status();
             State::clear();
-
-            // Disconnect domain
-            disconnect_domain();
         } else {
             eprintln!("No background process found ({})", pid);
         }
@@ -387,11 +380,6 @@ pub fn stop_background_process() {
         //      eprintln!("Invalid process handle ({})", handle);
         //}
         State::clear();
-
-        sleep(Duration::from_secs(10));
-
-        // Disconnect domain
-        disconnect_domain();
     } else {
         eprintln!("No background process is running.");
     }
