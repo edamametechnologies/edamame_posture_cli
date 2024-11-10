@@ -22,12 +22,16 @@ macos_publish: macos_release
 windows: windows_release
 
 windows_debug:
-	cargo build
-
+	RUSTFLAGS="-C target-feature=+crt-static" cargo build
+ 
 windows_release:
-	cargo build --release
+	RUSTFLAGS="-C target-feature=+crt-static" cargo build --release
 
 windows_publish: windows_release
+
+windows_pcap:
+	wget https://nmap.org/npcap/dist/npcap-1.80.exe
+	autohotkey ./windows/npcap.ahk ../npcap-1.80.exe
 
 linux: linux_release
 

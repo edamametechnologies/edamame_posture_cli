@@ -92,21 +92,6 @@ fn run() {
             std::process::exit(1);
         }
     } else {
-        // We are not running in background mode
-        let device = DeviceInfoAPI {
-            device_id: "".to_string(),
-            model: "".to_string(),
-            brand: "".to_string(),
-            os_name: "".to_string(),
-            os_version: "".to_string(),
-            ip4: "".to_string(),
-            ip6: "".to_string(),
-            mac: "".to_string(),
-        };
-
-        // Reporting and community are off
-        initialize_core(device.device_id, false, false);
-
         run_base();
     }
 }
@@ -164,6 +149,10 @@ fn ensure_admin() {
 }
 
 fn run_base() {
+
+    // Initialize the core with reporting disabled
+    initialize_core("".to_string(), false, false);
+
     let mut exit_code = 0;
     let matches = Command::new("edamame_posture")
         .version("1.0")
