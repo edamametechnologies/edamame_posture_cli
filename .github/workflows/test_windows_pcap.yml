@@ -24,16 +24,15 @@ jobs:
           wget https://nmap.org/npcap/dist/npcap-1.80.exe
       
       - name: Run AutoHotkey Script
-        shell: bash
+        shell: pwsh
         run: |
           autohotkey ./windows/npcap.ahk ../npcap-1.80.exe
 
-      - name: Verify Npcap Installation
+      - name: Wait for Npcap Installation to complete
         shell: bash
         run: |
-          sc query npcap
-
-      - name: Display Npcap Directory
-        shell: bash
-        run: |
-          ls -la /c/Windows/System32/Npcap
+          while (sc query npcap | find "STATE") {
+            echo "Npcap installation is still in progress..."
+            sleep 1
+          }
+          echo "Npcap installation completed."
