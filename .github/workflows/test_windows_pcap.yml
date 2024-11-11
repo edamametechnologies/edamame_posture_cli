@@ -18,7 +18,8 @@ jobs:
 
       - name: Install pcap
         run: |
-          choco install autohotkey
+          choco install wget
+          choco install autohotkey.portable
           wget https://nmap.org/npcap/dist/npcap-1.80.exe
           autohotkey ./windows/npcap.ahk ../npcap-1.80.exe
 
