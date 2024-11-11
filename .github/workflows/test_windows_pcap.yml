@@ -22,8 +22,18 @@ jobs:
           choco install wget
           choco install autohotkey.portable
           wget https://nmap.org/npcap/dist/npcap-1.80.exe
-          autohotkey ./windows/npcap.ahk ../npcap-1.80.exe
-          sleep 20
-          ls -la /c/Windows/System32
-          ls -la /c/Windows/System32/Npcap    
+      
+      - name: Run AutoHotkey Script
+        shell: bash
+        run: |
+          "C:\Program Files\AutoHotkey\AutoHotkey.exe" ./windows/npcap.ahk ../npcap-1.80.exe
 
+      - name: Verify Npcap Installation
+        shell: bash
+        run: |
+          sc query npcap
+
+      - name: Display Npcap Directory
+        shell: bash
+        run: |
+          ls -la /c/Windows/System32/Npcap
