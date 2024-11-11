@@ -1,4 +1,4 @@
-name: Publish Helper for Windows
+name: Test Windows with pcap
 
 on:
   workflow_dispatch:
