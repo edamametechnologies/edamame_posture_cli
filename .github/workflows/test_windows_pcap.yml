@@ -31,7 +31,7 @@ jobs:
       - name: Wait for Npcap Installation to complete
         shell: bash
         run: |
-          while sc query npcap | find "STATE" > /dev/null 2>&1; do
+          while ! sc query npcap | find "STATE" > /dev/null 2>&1; do
             echo "Npcap installation is still in progress..."
             sleep 1
           done
