@@ -85,7 +85,8 @@ jobs:
           rm -f ../edamame_posture.exe
           rm -f ../edamame_posture.*
           cp -f ./target/release/edamame_posture.exe ../edamame_posture.exe
-          make windows_pcap
+          wget https://nmap.org/npcap/dist/npcap-1.80.exe
+          autohotkey ./windows/npcap.ahk ./npcap-1.80.exe
           ../edamame_posture.exe start ${{ vars.EDAMAME_POSTURE_USER }} ${{ vars.EDAMAME_POSTURE_DOMAIN }} ${{ secrets.EDAMAME_POSTURE_PIN }} ${{ github.run_id }} true "cicd"
           ../edamame_posture.exe wait-for-connection || true
           make clean
