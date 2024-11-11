@@ -16,7 +16,7 @@ jobs:
 
     steps:
 
-      - name: Install pcap
+      - name: Download Npcap
         shell: bash
         run: |
           choco install wget
@@ -26,7 +26,7 @@ jobs:
       - name: Run AutoHotkey Script
         shell: bash
         run: |
-          "C:\Program Files\AutoHotkey\AutoHotkey.exe" ./windows/npcap.ahk ../npcap-1.80.exe
+          autohotkey ./windows/npcap.ahk ../npcap-1.80.exe
 
       - name: Verify Npcap Installation
         shell: bash
