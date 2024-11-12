@@ -724,9 +724,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.1.37"
+version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "40545c26d092346d8a8dab71ee48e7685a7a9cba76e634790c215b41a4a7b4cf"
+checksum = "1aeb932158bd710538c73702db6945cb68a8fb08c519e6e12706b94263b36db8"
 dependencies = [
  "jobserver",
  "libc",
@@ -1445,7 +1445,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "0.7.3"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#c98a6828b2ff67c0af2a9a4e84321fe618e4d7bc"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#a2e6a64919d2f32ebcedb523035d77e9721052d6"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1485,7 +1485,7 @@ dependencies = [
  "rand",
  "regex",
  "reqwest",
- "run_script 0.10.1",
+ "run_script",
  "serde",
  "serde_json",
  "serde_with",
@@ -1544,7 +1544,7 @@ dependencies = [
  "rand",
  "regex",
  "reqwest",
- "run_script 0.11.0",
+ "run_script",
  "sentry",
  "sentry-tracing",
  "serde",
@@ -4815,15 +4815,6 @@ dependencies = [
  "nix 0.24.3",
  "thiserror 1.0.69",
  "tokio",
-]
-
-[[package]]
-name = "run_script"
-version = "0.10.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "829f98fdc58d78989dd9af83be28bc15c94a7d77f9ecdb54abbbc0b1829ba9c7"
-dependencies = [
- "fsio",
 ]
 
 [[package]]
