@@ -30,8 +30,12 @@ windows_release:
 windows_publish: windows_release
 
 windows_pcap:
+	choco install wget
+	choco install autohotkey.portable
 	wget https://nmap.org/npcap/dist/npcap-1.80.exe
 	autohotkey ./windows/npcap.ahk ../npcap-1.80.exe
+	sleep 20
+	ls -la /c/Windows/System32/Npcap
 
 linux: linux_release
 
