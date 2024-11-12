@@ -149,7 +149,6 @@ fn ensure_admin() {
 }
 
 fn run_base() {
-
     // Initialize the core with reporting disabled
     initialize_core("".to_string(), false, false);
 

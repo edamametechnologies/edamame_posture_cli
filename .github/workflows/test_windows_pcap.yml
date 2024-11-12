@@ -1,0 +1,38 @@
+name: Test Windows with pcap
+
+on:
+  workflow_dispatch:
+
+# Auto cancel previous runs if they were not completed.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions: write-all
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+
+      - name: Download Npcap
+        shell: bash
+        run: |
+          choco install wget
+          choco install autohotkey.portable
+          wget https://nmap.org/npcap/dist/npcap-1.80.exe
+      
+      - name: Run AutoHotkey Script
+        shell: pwsh
+        run: |
+          autohotkey ./windows/npcap.ahk ../npcap-1.80.exe
+
+      - name: Wait for Npcap Installation to complete
+        shell: bash
+        run: |
+          while ! sc query npcap | find "STATE" > /dev/null 2>&1; do
+            echo "Npcap installation is still in progress..."
+            sleep 1
+          done
+          echo "Npcap installation completed."
