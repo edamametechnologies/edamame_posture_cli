@@ -1,5 +1,8 @@
 use crate::commands::handle_get_threats_info;
-use crate::{connect_domain, handle_get_core_info, handle_get_core_version, handle_lanscan, State};
+use crate::state::*;
+use crate::{
+    connect_domain, handle_get_core_info, handle_get_core_version, handle_lanscan, load_state,
+};
 #[cfg(unix)]
 use daemonize::Daemonize;
 use edamame_core::api::api_core::{disconnect_domain, get_connection, set_credentials};
@@ -40,7 +43,7 @@ pub fn background_process(
     // We are using the logger as we are in the background process
 
     // Load the state to get the current PID/handle
-    let mut state = State::load();
+    let mut state = load_state(false);
 
     // Show threats info
     handle_get_threats_info();
@@ -127,19 +130,30 @@ pub fn background_process(
         state.is_outdated_backend = connection_status.is_outdated_backend;
         state.is_outdated_threats = connection_status.is_outdated_threats;
         state.backend_error_code = connection_status.backend_error_code;
-        // Load the state to detect exit conditions set by posture
-        let current_state = State::load();
-        state.pid = current_state.pid;
-        state.handle = current_state.handle;
-        // Save the state
-        state.save();
+
+        // Load the current state to detect exit conditions set by posture (cleared by the main thread to indicate it's time to exit)
+        // Keep the state locked
+        let current_state = load_state(true);
 
         // Exit if there are no pid/handle anymore
-        if (cfg!(unix) && state.pid.is_none()) || (cfg!(windows) && state.handle.is_none()) {
+        if (cfg!(unix) && current_state.pid.is_none())
+            || (cfg!(windows) && current_state.handle.is_none())
+        {
+            info!("No pid/handle found, disconnecting domain...");
+
             // Disconnect domain
             disconnect_domain();
             std::process::exit(0);
         }
+        // Update the state with the current pid/handle
+        state.pid = current_state.pid;
+        state.handle = current_state.handle;
+
+        // Save the state
+        save_state(&state);
+
+        // Sleep for 5 seconds
+        sleep(Duration::from_secs(5));
     }
 }
 
@@ -150,7 +164,7 @@ fn pid_exists(pid: u32) -> bool {
 }
 
 pub fn show_background_process_status() {
-    let state = State::load();
+    let state = load_state(false);
     if let Some(pid) = state.pid {
         if pid_exists(pid) {
             println!("Background process running ({})", pid);
@@ -172,7 +186,7 @@ pub fn show_background_process_status() {
             }
         } else {
             eprintln!("Background process not found ({})", pid);
-            State::clear();
+            clear_state();
             // Exit with an error code
             std::process::exit(1);
         }
@@ -182,7 +196,7 @@ pub fn show_background_process_status() {
 }
 
 pub fn is_background_process_running() -> bool {
-    let state = State::load();
+    let state = load_state(false);
     state.pid.is_some() || state.handle.is_some()
 }
 
@@ -348,13 +362,13 @@ pub fn start_background_process(
 
 #[cfg(unix)]
 pub fn stop_background_process() {
-    let state = State::load();
+    let state = load_state(false);
     if let Some(pid) = state.pid {
         if pid_exists(pid) {
             println!("Stopping background process ({})", pid);
             // Don't kill, rather stop the child loop
             //let _ = ProcessCommand::new("kill").arg(pid.to_string()).status();
-            State::clear();
+            clear_state();
         } else {
             eprintln!("No background process found ({})", pid);
         }
@@ -378,7 +392,7 @@ pub fn stop_background_process() {
         //} else {
         //      eprintln!("Invalid process handle ({})", handle);
         //}
-        State::clear();
+        clear_state();
     } else {
         eprintln!("No background process is running.");
     }

@@ -13,7 +13,7 @@ macos_release:
 
 macos_debug:
 	cargo build
-	bash -c "export RUST_BACKTRACE=1; export EDAMAME_LOG_LEVEL=info; rust-lldb ./target/debug/edamame_posture"
+	sudo bash -c "export RUST_BACKTRACE=1; export EDAMAME_LOG_LEVEL=info; rust-lldb ./target/debug/edamame_posture"
 
 macos_publish: macos_release
 	# Sign + hardened runtime

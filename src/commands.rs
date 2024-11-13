@@ -1,4 +1,5 @@
-use crate::{stop_background_process, State};
+use crate::state::*;
+use crate::stop_background_process;
 use edamame_core::api::api_core::*;
 use edamame_core::api::api_lanscan::*;
 use edamame_core::api::api_score::*;
@@ -18,11 +19,11 @@ pub fn handle_wait_for_connection(timeout: u64) {
     println!("Waiting for score computation and reporting to complete...");
     let mut timeout = timeout;
     // Read the state and wait until a network activity is detected and the connection is successful
-    let mut state = State::load();
+    let mut state = load_state(false);
     while !(state.is_connected && state.last_network_activity != "") && timeout > 0 {
         sleep(Duration::from_secs(5));
         timeout = timeout - 5;
-        state = State::load();
+        state = load_state(false);
         println!("Waiting for score computation and reporting to complete... (connected: {}, network activity: {})", state.is_connected, state.last_network_activity);
     }
 
@@ -174,7 +175,7 @@ pub fn handle_lanscan() {
 
 pub fn handle_get_sessions(local_traffic: bool, zeek_format: bool) -> i32 {
     // Read the connections in the state
-    let state = State::load();
+    let state = load_state(false);
     let sessions = if !local_traffic {
         // Filter out local traffic
         filter_global_sessions(state.sessions)
