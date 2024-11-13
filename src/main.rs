@@ -124,7 +124,7 @@ pub fn run_background(
             is_outdated_threats: false,
             backend_error_code: "".to_string(),
         };
-        state.save();
+        save_state(&state);
     }
 
     // Initialize the core with reporting enabled
