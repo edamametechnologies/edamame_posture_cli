@@ -345,7 +345,7 @@ pub fn start_background_process(
                     is_outdated_threats: false,
                     backend_error_code: "".to_string(),
                 };
-                state.save();
+                save_state(&state);
 
                 unsafe {
                     CloseHandle(process_information.hProcess).unwrap();
@@ -379,7 +379,7 @@ pub fn stop_background_process() {
 
 #[cfg(windows)]
 pub fn stop_background_process() {
-    let state = State::load();
+    let state = load_state(false);
     if let Some(_handle) = state.handle {
         println!("Stopping background process ({})", state.handle.unwrap());
         // Don't kill, rather stop the child loop
