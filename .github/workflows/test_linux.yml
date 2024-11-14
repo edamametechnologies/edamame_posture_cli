@@ -73,7 +73,8 @@ jobs:
         run: |
           make test
           sudo ../edamame_posture stop
-          sudo killall edamame_posture || true
+          sudo killall -9 edamame_posture || true
+          sleep 10
           sudo rm -f ~/.edamame_posture.yaml
           sudo rm -f ../edamame_posture
           sudo rm -f ../edamame_posture.*

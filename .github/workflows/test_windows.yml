@@ -81,6 +81,7 @@ jobs:
           make test
           ../edamame_posture stop
           taskkill /IM edamame_posture.exe /F || true
+          sleep 10
           rm -f ~/.edamame_posture.yaml
           rm -f ../edamame_posture.exe
           rm -f ../edamame_posture.*
@@ -90,7 +91,7 @@ jobs:
           chmod +x ../Packet.dll
           wget https://github.com/edamametechnologies/edamame_posture_cli/raw/refs/heads/main/windows/wpcap.dll -O ../wpcap.dll
           chmod +x ../wpcap.dll
-          ../edamame_posture.exe start ${{ vars.EDAMAME_POSTURE_USER }} ${{ vars.EDAMAME_POSTURE_DOMAIN }} ${{ secrets.EDAMAME_POSTURE_PIN }} ${{ github.run_id }} true "cicd"
+          ../edamame_posture.exe start ${{ vars.EDAMAME_POSTURE_USER }} ${{ vars.EDAMAME_POSTURE_DOMAIN }} ${{ secrets.EDAMAME_POSTURE_PIN }} ${{ github.run_id }} true "github_windows"
           ../edamame_posture.exe wait-for-connection || true
           make clean
           make windows_release
