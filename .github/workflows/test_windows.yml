@@ -80,7 +80,7 @@ jobs:
         run: |
           make test
           ../edamame_posture stop
-          taskkill /IM edamame_posture.exe /F || true
+          taskkill -IM edamame_posture.exe -F || true
           sleep 10
           rm -f ~/.edamame_posture.yaml
           rm -f ../edamame_posture.exe
