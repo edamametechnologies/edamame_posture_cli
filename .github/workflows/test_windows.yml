@@ -6,6 +6,7 @@ on:
     branches: [ dev, main ]
     paths-ignore:
       - '.github/workflows/**'
+      - 'Makefile'
   pull_request:
 
 # Auto cancel previous runs if they were not completed.
