@@ -50,7 +50,7 @@ linux_publish: linux_release
 # Alpine Linux build
 linux_alpine_release:
 	rustup target add x86_64-unknown-linux-musl
-	apt-get install -y musl-tools
+	sudo apt-get install -y musl-tools
 	cargo build --release --target x86_64-unknown-linux-musl
 
 linux_alpine_publish: linux_alpine_release
