@@ -57,7 +57,7 @@ impl State {
     }
 
     /// Loads the state from the given file.
-    fn load_from_file(file: &mut File, keep_locked: bool) -> Self {
+    fn load_from_file(file: &mut File) -> Self {
         file.lock_shared().expect("Unable to lock file for reading");
         file.seek(SeekFrom::Start(0))
             .expect("Unable to seek to start");
@@ -71,7 +71,7 @@ impl State {
             );
             State::default()
         });
-        if !keep_locked && file.unlock().is_err() {
+        if file.unlock().is_err() {
             eprintln!("Unable to unlock file after loading state");
         }
         state
@@ -130,7 +130,7 @@ impl StateData {
 
         // Clone the file handle to use for loading
         let mut file_clone = file.try_clone().expect("Unable to clone file handle");
-        let state = State::load_from_file(&mut file_clone, false);
+        let state = State::load_from_file(&mut file_clone);
 
         StateData { state, file }
     }
@@ -143,9 +143,9 @@ lazy_static! {
 
 /// Loads the current state from the file and updates the in-memory state.
 /// Returns the loaded state.
-pub fn load_state(keep_locked: bool) -> State {
+pub fn load_state() -> State {
     let mut data = STATE_DATA.lock().unwrap();
-    data.state = State::load_from_file(&mut data.file, keep_locked);
+    data.state = State::load_from_file(&mut data.file);
     data.state.clone()
 }
 
@@ -159,9 +159,8 @@ pub fn save_state(state: &State) {
 
 /// Clears the state by resetting it to default both in memory and in the state file.
 pub fn clear_state() {
-    let mut data = STATE_DATA.lock().unwrap();
     State::clear(); // Reset the file to default state
-    data.state = State::default(); // Update the in-memory state to default
+    STATE_DATA.lock().unwrap().state = State::default(); // Update the in-memory state to default
 }
 
 /// Struct to hold the lock guard for the state file.
@@ -172,9 +171,6 @@ pub struct StateLockGuard<'a> {
 impl<'a> Drop for StateLockGuard<'a> {
     fn drop(&mut self) {
         // The file will be unlocked automatically when the MutexGuard is dropped
-        self.guard
-            .file
-            .unlock()
-            .expect("Unable to unlock file");
+        self.guard.file.unlock().expect("Unable to unlock file");
     }
 }

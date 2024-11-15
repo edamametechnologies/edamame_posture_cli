@@ -43,7 +43,7 @@ pub fn background_process(
     // We are using the logger as we are in the background process
 
     // Load the state to get the current PID/handle
-    let mut state = load_state(false);
+    let mut state = load_state();
 
     // Show threats info
     handle_get_threats_info();
@@ -132,8 +132,7 @@ pub fn background_process(
         state.backend_error_code = connection_status.backend_error_code;
 
         // Load the current state to detect exit conditions set by posture (cleared by the main thread to indicate it's time to exit)
-        // Keep the state locked
-        let current_state = load_state(true);
+        let current_state = load_state();
 
         // Exit if there are no pid/handle anymore
         if (cfg!(unix) && current_state.pid.is_none())
@@ -164,7 +163,7 @@ fn pid_exists(pid: u32) -> bool {
 }
 
 pub fn show_background_process_status() {
-    let state = load_state(false);
+    let state = load_state();
     if let Some(pid) = state.pid {
         if pid_exists(pid) {
             println!("Background process running ({})", pid);
@@ -196,7 +195,7 @@ pub fn show_background_process_status() {
 }
 
 pub fn is_background_process_running() -> bool {
-    let state = load_state(false);
+    let state = load_state();
     state.pid.is_some() || state.handle.is_some()
 }
 
@@ -362,7 +361,7 @@ pub fn start_background_process(
 
 #[cfg(unix)]
 pub fn stop_background_process() {
-    let state = load_state(false);
+    let state = load_state();
     if let Some(pid) = state.pid {
         if pid_exists(pid) {
             println!("Stopping background process ({})", pid);
@@ -379,7 +378,7 @@ pub fn stop_background_process() {
 
 #[cfg(windows)]
 pub fn stop_background_process() {
-    let state = load_state(false);
+    let state = load_state();
     if let Some(_handle) = state.handle {
         println!("Stopping background process ({})", state.handle.unwrap());
         // Don't kill, rather stop the child loop
