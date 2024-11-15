@@ -1,4 +1,4 @@
-name: Build and publish for Linux
+name: Build and publish for Linux Alpine
 
 on:
   workflow_dispatch:
