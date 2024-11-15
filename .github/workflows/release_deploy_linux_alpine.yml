@@ -1,13 +1,7 @@
-name: Test for Linux
+name: Build and publish for Linux
 
 on:
   workflow_dispatch:
-  push:
-    branches: [ dev, main ]
-    paths-ignore:
-      - '.github/workflows/**'
-  pull_request:
-
 
 # Auto cancel previous runs if they were not completed.
 concurrency:
@@ -46,10 +40,6 @@ jobs:
           network_scan: true
           auto_remediate: true
           checkout: true
-          # We are using the token of the the private repo to checkout the public repo and properly wait for access to the private repo
-          token: ${{ secrets.DEV_GITHUB_TOKEN }}
-          wait_for_api: true
-          wait_for_https: true
 
       - name: Install additional packages w/ apt
         run: |
@@ -70,31 +60,26 @@ jobs:
         if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev'
         shell: bash
         run: |
-          make linux_release
-      
-      - name: Run tests
-        shell: bash
-        continue-on-error: true
-        run: |
-          make test
-          sudo ../edamame_posture stop
-          sudo killall -9 edamame_posture || true
-          sleep 20
-          sudo rm -f ~/.edamame_posture.yaml
-          sudo rm -f ../edamame_posture
-          sudo rm -f ../edamame_posture.*
-          sudo cp -f ./target/release/edamame_posture ../edamame_posture
-          sudo ../edamame_posture start ${{ vars.EDAMAME_POSTURE_USER }} ${{ vars.EDAMAME_POSTURE_DOMAIN }} ${{ secrets.EDAMAME_POSTURE_PIN }} ${{ github.run_id }} true "github_ubuntu"
-          sudo ../edamame_posture wait-for-connection || true
-          make clean
-          make linux_release
-          echo "Status:"
-          sudo ../edamame_posture status
-          echo "Sessions:"
-          sudo ../edamame_posture get-sessions false false
-          echo "Test completed"
+          make linux_alpine_publish
 
-      - name: Dump the logs
+      # Dev only (upload to dev folder)
+      - name: Upload posture to AWS
+        if: github.ref == 'refs/heads/dev'
         shell: bash
         run: |
-          sudo ../edamame_posture logs
+          VERSION=$(grep '^version =' ./Cargo.toml | awk '{print $3}' | tr -d '"')
+          aws s3 cp ./target/x86_64-unknown-linux-musl/release/edamame_posture s3://edamame-posture/dev/linux_alpine/${VERSION}/edamame_posture --acl public-read
+
+      # Main only (upload to base folder)
+      - name: Upload posture to AWS
+        if: github.ref == 'refs/heads/main'
+        shell: bash
+        run: |
+          VERSION=$(grep '^version =' ./Cargo.toml | awk '{print $3}' | tr -d '"')
+          aws s3 cp ./target/release/edamame_posture s3://edamame-posture/linux_alpine/${VERSION}/edamame_posture --acl public-read
+          aws s3 cp ./target/release/edamame_posture s3://edamame-posture/linux_alpine/latest/edamame_posture --acl public-read
+
+      - name: Dump EDAMAME Posture sessions
+        uses: edamametechnologies/edamame_posture_action@v0
+        with:
+          dump_sessions_log: true
