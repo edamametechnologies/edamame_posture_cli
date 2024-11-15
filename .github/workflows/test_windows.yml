@@ -1,8 +1,11 @@
 name: Test for Windows
 
 on:
+  workflow_dispatch:
   push:
     branches: [ dev, main ]
+    paths-ignore:
+      - '.github/workflows/**'
   pull_request:
 
 # Auto cancel previous runs if they were not completed.
