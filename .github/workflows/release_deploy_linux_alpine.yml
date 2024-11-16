@@ -60,7 +60,7 @@ jobs:
         if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev'
         shell: bash
         run: |
-          make linux_alpine_publish
+          echo "TODO: Build application"
 
       # Dev only (upload to dev folder)
       - name: Upload posture to AWS
