@@ -16,6 +16,7 @@ use std::io;
 use std::io::Write;
 use std::thread::sleep;
 use std::time::Duration;
+#[cfg(unix)]
 use sysinfo::{Pid, System};
 use tracing::info;
 #[cfg(windows)]
@@ -156,6 +157,7 @@ pub fn background_process(
     }
 }
 
+#[cfg(unix)]
 fn pid_exists(pid: u32) -> bool {
     let mut system = System::new_all();
     system.refresh_all();
@@ -164,30 +166,26 @@ fn pid_exists(pid: u32) -> bool {
 
 pub fn show_background_process_status() {
     let state = load_state();
-    if let Some(pid) = state.pid {
-        if pid_exists(pid) {
-            println!("Background process running ({})", pid);
-            println!("Status:");
-            println!("  - User: {}", state.connected_user);
-            println!("  - Domain: {}", state.connected_domain);
-            println!("  - Connected: {}", state.is_connected);
-            println!("  - Last network activity: {}", state.last_network_activity);
-            println!("  - Current sessions: {}", state.sessions.len());
-            println!("  - Whitelist conformance: {}", state.whitelist_conformance);
-            println!("  - Whitelist name: {}", state.whitelist_name);
-            println!("  - Outdated backend: {}", state.is_outdated_backend);
-            println!("  - Outdated threats: {}", state.is_outdated_threats);
-            println!("  - Backend error code: {}", state.backend_error_code);
-            // Flush the output
-            match io::stdout().flush() {
-                Ok(_) => (),
-                Err(e) => eprintln!("Error flushing stdout: {}", e),
-            }
-        } else {
-            eprintln!("Background process not found ({})", pid);
-            clear_state();
-            // Exit with an error code
-            std::process::exit(1);
+    if state.pid.is_some() || state.handle.is_some() {
+        println!(
+            "Background process running ({:?}/{:?})",
+            state.pid, state.handle
+        );
+        println!("Status:");
+        println!("  - User: {}", state.connected_user);
+        println!("  - Domain: {}", state.connected_domain);
+        println!("  - Connected: {}", state.is_connected);
+        println!("  - Last network activity: {}", state.last_network_activity);
+        println!("  - Current sessions: {}", state.sessions.len());
+        println!("  - Whitelist conformance: {}", state.whitelist_conformance);
+        println!("  - Whitelist name: {}", state.whitelist_name);
+        println!("  - Outdated backend: {}", state.is_outdated_backend);
+        println!("  - Outdated threats: {}", state.is_outdated_threats);
+        println!("  - Backend error code: {}", state.backend_error_code);
+        // Flush the output
+        match io::stdout().flush() {
+            Ok(_) => (),
+            Err(e) => eprintln!("Error flushing stdout: {}", e),
         }
     } else {
         println!("No background process is running.");
