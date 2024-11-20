@@ -48,7 +48,7 @@ jobs:
       - name: Install dependencies with apk
         run: |
           apk update
-          apk add --no-cache build-base protobuf-dev libpcap-dev git curl openssl
+          apk add --no-cache build-base protobuf-dev libpcap-dev git curl openssl libssl-dev pkg-config libudev-dev
         shell: alpine.sh --root {0}
 
       - name: Install Rust
