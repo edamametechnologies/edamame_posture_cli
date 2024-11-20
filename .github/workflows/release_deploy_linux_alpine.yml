@@ -94,9 +94,14 @@ jobs:
 
       - name: Build application
         run: |
+          sudo apt-get update
+          sudo apt-get install -y musl-tools pkg-config
           rustup target add x86_64-unknown-linux-musl
-          sudo apt-get install -y musl-tools
+          export OPENSSL_DIR=/usr/local/musl
+          export OPENSSL_LIB_DIR=$OPENSSL_DIR/lib
+          export OPENSSL_INCLUDE_DIR=$OPENSSL_DIR/include
           cargo build --release --target x86_64-unknown-linux-musl
+
         # Build the application inside the Alpine environment
         # cargo build --release --target x86_64-unknown-linux-musl
         # shell: alpine.sh --root {0}
