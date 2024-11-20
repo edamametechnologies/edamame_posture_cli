@@ -40,64 +40,59 @@ jobs:
           auto_remediate: true
           checkout: true
 
-      # - name: Setup Alpine Linux
-      #   uses: jirutka/setup-alpine@v1
-      #   with:
-      #     branch: v3.15
+      - name: Setup Alpine Linux
+        uses: jirutka/setup-alpine@v1
+        with:
+          branch: v3.15
 
-      # - name: Install dependencies with apk
-      #   run: |
-      #     apk update
-      #     apk add --no-cache build-base protobuf-dev libpcap-dev git curl openssl libssl-dev pkg-config libudev-dev
-      #   shell: alpine.sh --root {0}
-
-      # - name: Install Rust
-      #   run: |
-      #     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-      #     source $HOME/.cargo/env
-      #     rustup --version
-      #   shell: alpine.sh --root {0}
-
-      # - name: Configure Git Authentication to import private crates
-      #   run: |
-      #     git config --global user.email "dev@edamame.tech"
-      #     git config --global user.name "EDAMAME Dev"
-      #     git config --global url."https://edamamedev:${{ secrets.DEV_GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
-      #   shell: alpine.sh {0}
-
-      - name: Install additional packages w/ apt
+      - name: Install dependencies with apk
         run: |
-          sudo apt-get update
-          sudo apt-get install -y protobuf-compiler
-          sudo apt-get install -y libpcap-dev
-          sudo apt-get install -y libssl-dev
-          sudo apt-get install -y pkg-config
-          sudo apt-get install -y libudev-dev musl-tools musl-dev
-          # Install build tools needed for compiling OpenSSL
-          sudo apt-get install -y build-essential make perl
+          apk update
+          apk add --no-cache build-base protobuf-dev libpcap-dev git curl openssl openssl-dev libssl-dev pkg-config libudev-dev
+        shell: alpine.sh --root {0}
+
+      - name: Install Rust
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+          source $HOME/.cargo/env
+          rustup --version
+        shell: alpine.sh --root {0}
 
       - name: Configure Git Authentication to import private crates
         run: |
           git config --global user.email "dev@edamame.tech"
           git config --global user.name "EDAMAME Dev"
           git config --global url."https://edamamedev:${{ secrets.DEV_GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
+        shell: alpine.sh {0}
 
-      - name: Build application
-        # Main or dev
-        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev'
-        shell: bash
-        run: |
-          echo "TODO: Build application"
-
+      # - name: Install additional packages w/ apt
+      #   run: |
+      #     sudo apt-get update
+      #     sudo apt-get install -y protobuf-compiler
+      #     sudo apt-get install -y libpcap-dev
+      #     sudo apt-get install -y libssl-dev
+      #     sudo apt-get install -y pkg-config
+      #     sudo apt-get install -y libudev-dev musl-tools musl-dev
+      #     # Install build tools needed for compiling OpenSSL
+      #     sudo apt-get install -y build-essential make perl
+      # - name: Configure Git Authentication to import private crates
+      #   run: |
+      #     git config --global user.email "dev@edamame.tech"
+      #     git config --global user.name "EDAMAME Dev"
+      #     git config --global url."https://edamamedev:${{ secrets.DEV_GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
+      # - name: Build application
+      #   # Main or dev
+      #   if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev'
+      #   shell: bash
+      #   run: |
+      #     echo "TODO: Build application"
       - name: Build application
         run: |
           rustup target add x86_64-unknown-linux-musl
-          export CC=musl-gcc
-          export AR=ar
           cargo build --release --target x86_64-unknown-linux-musl
         # Build the application inside the Alpine environment
         # cargo build --release --target x86_64-unknown-linux-musl
-        # shell: alpine.sh --root {0}
+        shell: alpine.sh --root {0}
 
       # - name: see application
       #   shell: alpine.sh {0}
