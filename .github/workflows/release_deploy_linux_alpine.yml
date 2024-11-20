@@ -95,7 +95,7 @@ jobs:
       - name: Build application
         run: |
           # Build the application inside the Alpine environment
-          cargo build --release
+          cargo build --release --target x86_64-unknown-linux-musl
         # shell: alpine.sh --root {0}
 
       # - name: see application
