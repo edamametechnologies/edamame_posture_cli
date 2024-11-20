@@ -47,23 +47,25 @@ jobs:
 
       - name: Install dependencies with apk
         run: |
-          alpine apk update
-          alpine apk add --no-cache build-base protobuf-dev libpcap-dev git rust cargo
+          apk update
+          apk add --no-cache build-base protobuf-dev libpcap-dev git rust cargo
+        shell: alpine.sh {0}
 
       - name: Configure Git Authentication to import private crates
         run: |
-          alpine git config --global user.email "dev@edamame.tech"
-          alpine git config --global user.name "EDAMAME Dev"
-          alpine git config --global url."https://edamamedev:${{ secrets.DEV_GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
+          git config --global user.email "dev@edamame.tech"
+          git config --global user.name "EDAMAME Dev"
+          git config --global url."https://edamamedev:${{ secrets.DEV_GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
+        shell: alpine.sh {0}
 
       - name: Build application
-        shell: bash
         run: |
           # Build the application inside the Alpine environment
-          alpine cargo build --release
+          cargo build --release
+        shell: alpine.sh {0}
 
       - name: see application
-        shell: bash
+        shell: alpine.sh {0}
         run: |
           ls -la ./target/release
 
@@ -84,7 +86,7 @@ jobs:
       #     aws s3 cp ./target/release/edamame_posture s3://edamame-posture/linux_alpine/${VERSION}/edamame_posture --acl public-read
       #     aws s3 cp ./target/release/edamame_posture s3://edamame-posture/linux_alpine/latest/edamame_posture --acl public-read
 
-      - name: Dump EDAMAME Posture sessions
-        uses: edamametechnologies/edamame_posture_action@v0
-        with:
-          dump_sessions_log: true
+      # - name: Dump EDAMAME Posture sessions
+      #   uses: edamametechnologies/edamame_posture_action@v0
+      #   with:
+      #     dump_sessions_log: true
