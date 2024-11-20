@@ -67,17 +67,14 @@ jobs:
 
       - name: Install additional packages w/ apt
         run: |
-          # Install build dependencies
           sudo apt-get update
           sudo apt-get install -y protobuf-compiler
-          # For packet capture
           sudo apt-get install -y libpcap-dev
-          # For SSL
           sudo apt-get install -y libssl-dev
-          sudo apt-get install -y openssl
           sudo apt-get install -y pkg-config
-          # For udev
           sudo apt-get install -y libudev-dev musl-tools musl-dev
+          # Install build tools needed for compiling OpenSSL
+          sudo apt-get install -y build-essential make perl
 
       - name: Configure Git Authentication to import private crates
         run: |
@@ -94,14 +91,10 @@ jobs:
 
       - name: Build application
         run: |
-          sudo apt-get update
-          sudo apt-get install -y musl-tools pkg-config
           rustup target add x86_64-unknown-linux-musl
-          export OPENSSL_DIR=/usr/local/musl
-          export OPENSSL_LIB_DIR=$OPENSSL_DIR/lib
-          export OPENSSL_INCLUDE_DIR=$OPENSSL_DIR/include
+          export CC=musl-gcc
+          export AR=ar
           cargo build --release --target x86_64-unknown-linux-musl
-
         # Build the application inside the Alpine environment
         # cargo build --release --target x86_64-unknown-linux-musl
         # shell: alpine.sh --root {0}
