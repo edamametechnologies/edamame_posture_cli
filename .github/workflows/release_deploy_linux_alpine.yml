@@ -69,7 +69,7 @@ jobs:
         run: |
           # Build the application inside the Alpine environment
           cargo build --release
-        shell: alpine.sh {0}
+        shell: alpine.sh --root {0}
 
       - name: see application
         shell: alpine.sh {0}
