@@ -40,41 +40,68 @@ jobs:
           auto_remediate: true
           checkout: true
 
-      - name: Setup Alpine Linux
-        uses: jirutka/setup-alpine@v1
-        with:
-          branch: v3.15
+      # - name: Setup Alpine Linux
+      #   uses: jirutka/setup-alpine@v1
+      #   with:
+      #     branch: v3.15
 
-      - name: Install dependencies with apk
-        run: |
-          apk update
-          apk add --no-cache build-base protobuf-dev libpcap-dev git curl openssl libssl-dev pkg-config libudev-dev
-        shell: alpine.sh --root {0}
+      # - name: Install dependencies with apk
+      #   run: |
+      #     apk update
+      #     apk add --no-cache build-base protobuf-dev libpcap-dev git curl openssl libssl-dev pkg-config libudev-dev
+      #   shell: alpine.sh --root {0}
 
-      - name: Install Rust
+      # - name: Install Rust
+      #   run: |
+      #     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+      #     source $HOME/.cargo/env
+      #     rustup --version
+      #   shell: alpine.sh --root {0}
+
+      # - name: Configure Git Authentication to import private crates
+      #   run: |
+      #     git config --global user.email "dev@edamame.tech"
+      #     git config --global user.name "EDAMAME Dev"
+      #     git config --global url."https://edamamedev:${{ secrets.DEV_GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
+      #   shell: alpine.sh {0}
+
+      - name: Install additional packages w/ apt
         run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-          source $HOME/.cargo/env
-          rustup --version
-        shell: alpine.sh --root {0}
+          # Install build dependencies
+          sudo apt-get update
+          sudo apt-get install -y protobuf-compiler
+          # For packet capture
+          sudo apt-get install -y libpcap-dev
+          # For SSL
+          sudo apt-get install -y libssl-dev
+          sudo apt-get install -y openssl
+          sudo apt-get install -y pkg-config
+          # For udev
+          sudo apt-get install -y libudev-dev
 
       - name: Configure Git Authentication to import private crates
         run: |
           git config --global user.email "dev@edamame.tech"
           git config --global user.name "EDAMAME Dev"
           git config --global url."https://edamamedev:${{ secrets.DEV_GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
-        shell: alpine.sh {0}
+
+      - name: Build application
+        # Main or dev
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev'
+        shell: bash
+        run: |
+          echo "TODO: Build application"
 
       - name: Build application
         run: |
           # Build the application inside the Alpine environment
           cargo build --release
-        shell: alpine.sh --root {0}
+        # shell: alpine.sh --root {0}
 
-      - name: see application
-        shell: alpine.sh {0}
-        run: |
-          ls -la ./target/release
+      # - name: see application
+      #   shell: alpine.sh {0}
+      #   run: |
+      #     ls -la ./target/release
 
       # Dev only (upload to dev folder)
       # - name: Upload posture to AWS
