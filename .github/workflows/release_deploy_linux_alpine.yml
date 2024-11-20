@@ -48,7 +48,14 @@ jobs:
       - name: Install dependencies with apk
         run: |
           apk update
-          apk add --no-cache build-base protobuf-dev libpcap-dev git rust cargo
+          apk add --no-cache build-base protobuf-dev libpcap-dev git
+        shell: alpine.sh --root {0}
+
+      - name: Install Rust
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+          source $HOME/.cargo/env
+          rustup --version
         shell: alpine.sh --root {0}
 
       - name: Configure Git Authentication to import private crates
