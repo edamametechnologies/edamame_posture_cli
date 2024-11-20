@@ -49,7 +49,7 @@ jobs:
         run: |
           apk update
           apk add --no-cache build-base protobuf-dev libpcap-dev git rust cargo
-        shell: alpine.sh {0}
+        shell: alpine.sh --root {0}
 
       - name: Configure Git Authentication to import private crates
         run: |
