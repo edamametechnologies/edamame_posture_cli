@@ -29,7 +29,6 @@ jobs:
       AWS_REGION: ${{ secrets.AWS_REGION }}
 
     steps:
-
       - name: Setup EDAMAME Posture
         uses: edamametechnologies/edamame_posture_action@v0
         with:
@@ -41,43 +40,49 @@ jobs:
           auto_remediate: true
           checkout: true
 
-      - name: Install additional packages w/ apt
+      - name: Setup Alpine Linux
+        uses: jirutka/setup-alpine@v1
+        with:
+          branch: v3.15
+
+      - name: Install dependencies with apk
         run: |
-          # Install build dependencies
-          sudo apt-get update
-          sudo apt-get install -y protobuf-compiler
-          # For packet capture
-          sudo apt-get install -y libpcap-dev
+          alpine apk update
+          alpine apk add --no-cache build-base protobuf-dev libpcap-dev git rust cargo
 
       - name: Configure Git Authentication to import private crates
         run: |
-          git config --global user.email "dev@edamame.tech"
-          git config --global user.name "EDAMAME Dev"
-          git config --global url."https://edamamedev:${{ secrets.DEV_GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
+          alpine git config --global user.email "dev@edamame.tech"
+          alpine git config --global user.name "EDAMAME Dev"
+          alpine git config --global url."https://edamamedev:${{ secrets.DEV_GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
 
       - name: Build application
-        # Main or dev
-        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev'
         shell: bash
         run: |
-          echo "TODO: Build application"
+          # Build the application inside the Alpine environment
+          alpine cargo build --release
+
+      - name: see application
+        shell: bash
+        run: |
+          ls -la ./target/release
 
       # Dev only (upload to dev folder)
-      - name: Upload posture to AWS
-        if: github.ref == 'refs/heads/dev'
-        shell: bash
-        run: |
-          VERSION=$(grep '^version =' ./Cargo.toml | awk '{print $3}' | tr -d '"')
-          aws s3 cp ./target/x86_64-unknown-linux-musl/release/edamame_posture s3://edamame-posture/dev/linux_alpine/${VERSION}/edamame_posture --acl public-read
+      # - name: Upload posture to AWS
+      #   if: github.ref == 'refs/heads/dev'
+      #   shell: bash
+      #   run: |
+      #     VERSION=$(grep '^version =' ./Cargo.toml | awk '{print $3}' | tr -d '"')
+      #     aws s3 cp ./target/x86_64-unknown-linux-musl/release/edamame_posture s3://edamame-posture/dev/linux_alpine/${VERSION}/edamame_posture --acl public-read
 
       # Main only (upload to base folder)
-      - name: Upload posture to AWS
-        if: github.ref == 'refs/heads/main'
-        shell: bash
-        run: |
-          VERSION=$(grep '^version =' ./Cargo.toml | awk '{print $3}' | tr -d '"')
-          aws s3 cp ./target/release/edamame_posture s3://edamame-posture/linux_alpine/${VERSION}/edamame_posture --acl public-read
-          aws s3 cp ./target/release/edamame_posture s3://edamame-posture/linux_alpine/latest/edamame_posture --acl public-read
+      # - name: Upload posture to AWS
+      #   if: github.ref == 'refs/heads/main'
+      #   shell: bash
+      #   run: |
+      #     VERSION=$(grep '^version =' ./Cargo.toml | awk '{print $3}' | tr -d '"')
+      #     aws s3 cp ./target/release/edamame_posture s3://edamame-posture/linux_alpine/${VERSION}/edamame_posture --acl public-read
+      #     aws s3 cp ./target/release/edamame_posture s3://edamame-posture/linux_alpine/latest/edamame_posture --acl public-read
 
       - name: Dump EDAMAME Posture sessions
         uses: edamametechnologies/edamame_posture_action@v0
