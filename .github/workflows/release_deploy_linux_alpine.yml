@@ -82,6 +82,8 @@ jobs:
           export OPENSSL_DIR=/usr
           export OPENSSL_STATIC=1
           cargo build --release --target x86_64-unknown-linux-musl
+          cd target
+          ls
         shell: alpine.sh --root {0}
 
       # Dev only (upload to dev folder)
