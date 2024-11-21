@@ -82,8 +82,6 @@ jobs:
           export OPENSSL_DIR=/usr
           export OPENSSL_STATIC=1
           cargo build --release --target x86_64-unknown-linux-musl
-          cd target
-          ls
         shell: alpine.sh --root {0}
 
       # Dev only (upload to dev folder)
@@ -100,8 +98,8 @@ jobs:
         shell: bash
         run: |
           VERSION=$(grep '^version =' ./Cargo.toml | awk '{print $3}' | tr -d '"')
-          aws s3 cp ./target/release/edamame_posture s3://edamame-posture/linux_alpine/${VERSION}/edamame_posture --acl public-read
-          aws s3 cp ./target/release/edamame_posture s3://edamame-posture/linux_alpine/latest/edamame_posture --acl public-read
+          aws s3 cp ./target/x86_64-unknown-linux-musl/release/edamame_posture s3://edamame-posture/linux_alpine/${VERSION}/edamame_posture --acl public-read
+          aws s3 cp ./target/x86_64-unknown-linux-musl/release/edamame_posture s3://edamame-posture/linux_alpine/latest/edamame_posture --acl public-read
 
       - name: Dump EDAMAME Posture sessions
         uses: edamametechnologies/edamame_posture_action@v0
