@@ -1593,6 +1593,7 @@ dependencies = [
  "libc",
  "machine-uid",
  "mutex",
+ "openssl",
  "regex",
  "serde",
  "serde_yaml",
