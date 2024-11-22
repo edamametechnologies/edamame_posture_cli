@@ -13,7 +13,7 @@ permissions: read-all
 
 jobs:
   build:
-    runs-on: ubuntu-22.04-arm64
+    runs-on: edamame-runner-arm
     timeout-minutes: 90
 
     env:
