@@ -78,10 +78,10 @@ jobs:
       - name: Build application
         if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev'
         run: |
-          rustup target add x86_64-unknown-linux-musl
+          rustup target add aarch64-unknown-linux-musl
           export OPENSSL_DIR=/usr
           export OPENSSL_STATIC=1
-          cargo build --release --target x86_64-unknown-linux-musl
+          cargo build --release --target aarch64-unknown-linux-musl
         shell: alpine.sh --root {0}
 
       # Dev only (upload to dev folder)
@@ -90,7 +90,7 @@ jobs:
         shell: bash
         run: |
           VERSION=$(grep '^version =' ./Cargo.toml | awk '{print $3}' | tr -d '"')
-          aws s3 cp ./target/x86_64-unknown-linux-musl/release/edamame_posture s3://edamame-posture/dev/linux_alpine/${VERSION}/edamame_posture --acl public-read
+          aws s3 cp ./target/aarch64-unknown-linux-musl/release/edamame_posture s3://edamame-posture/dev/linux_alpine/${VERSION}/edamame_posture --acl public-read
 
       # Main only (upload to base folder)
       - name: Upload posture to AWS
@@ -98,8 +98,8 @@ jobs:
         shell: bash
         run: |
           VERSION=$(grep '^version =' ./Cargo.toml | awk '{print $3}' | tr -d '"')
-          aws s3 cp ./target/x86_64-unknown-linux-musl/release/edamame_posture s3://edamame-posture/linux_alpine/${VERSION}/edamame_posture --acl public-read
-          aws s3 cp ./target/x86_64-unknown-linux-musl/release/edamame_posture s3://edamame-posture/linux_alpine/latest/edamame_posture --acl public-read
+          aws s3 cp ./target/aarch64-unknown-linux-musl/release/edamame_posture s3://edamame-posture/linux_alpine/${VERSION}/edamame_posture --acl public-read
+          aws s3 cp ./target/aarch64-unknown-linux-musl/release/edamame_posture s3://edamame-posture/linux_alpine/latest/edamame_posture --acl public-read
 
       - name: Dump EDAMAME Posture sessions
         uses: edamametechnologies/edamame_posture_action@v0
