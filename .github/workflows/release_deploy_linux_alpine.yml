@@ -91,16 +91,14 @@ jobs:
         run: |
           VERSION=$(grep '^version =' ./Cargo.toml | awk '{print $3}' | tr -d '"')
           aws s3 cp ./target/x86_64-unknown-linux-musl/release/edamame_posture s3://edamame-posture/dev/linux_alpine/${VERSION}/edamame_posture --acl public-read
-
       # Main only (upload to base folder)
       - name: Upload posture to AWS
         if: github.ref == 'refs/heads/main'
         shell: bash
         run: |
           VERSION=$(grep '^version =' ./Cargo.toml | awk '{print $3}' | tr -d '"')
-          aws s3 cp ./target/release/edamame_posture s3://edamame-posture/linux_alpine/${VERSION}/edamame_posture --acl public-read
-          aws s3 cp ./target/release/edamame_posture s3://edamame-posture/linux_alpine/latest/edamame_posture --acl public-read
-
+          aws s3 cp ./target/x86_64-unknown-linux-musl/release/edamame_posture s3://edamame-posture/linux_alpine/${VERSION}/edamame_posture --acl public-read
+          aws s3 cp ./target/x86_64-unknown-linux-musl/release/edamame_posture s3://edamame-posture/linux_alpine/latest/edamame_posture --acl public-read
       - name: Dump EDAMAME Posture sessions
         uses: edamametechnologies/edamame_posture_action@v0
         with:
