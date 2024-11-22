@@ -1,4 +1,4 @@
-name: Build and publish for Linux Alpine
+name: Build and publish for Linux Alpine Aarch64
 
 on:
   workflow_dispatch:
@@ -13,7 +13,7 @@ permissions: read-all
 
 jobs:
   build:
-    runs-on: edamame-runner-arm
+    runs-on: ubuntu-latest
     timeout-minutes: 90
 
     env:
@@ -29,33 +29,24 @@ jobs:
       AWS_REGION: ${{ secrets.AWS_REGION }}
 
     steps:
-      - name: Setup EDAMAME Posture
-        uses: edamametechnologies/edamame_posture_action@v0
-        with:
-          edamame_user: ${{ vars.EDAMAME_POSTURE_USER }}
-          edamame_domain: ${{ vars.EDAMAME_POSTURE_DOMAIN }}
-          edamame_pin: ${{ secrets.EDAMAME_POSTURE_PIN }}
-          edamame_id: ${{ github.run_id }}
-          network_scan: true
-          auto_remediate: true
-          checkout: true
+      - name: Checkout code
+        uses: actions/checkout@v3
 
       - name: Setup Alpine Linux
         uses: jirutka/setup-alpine@v1
         with:
           branch: v3.15
 
-      - name: Install dependencies with apk
+      - name: Install cross-compilation tools and dependencies with apk
         run: |
           apk add --no-cache \
             build-base \
+            cross-aarch64-linux-musl \
             protobuf-dev \
             libpcap-dev \
             git \
             curl \
-            openssl \
             openssl-dev \
-            openssl-libs-static \
             pkgconf \
             eudev-dev \
             perl
@@ -63,8 +54,9 @@ jobs:
 
       - name: Install Rust
         run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
           source $HOME/.cargo/env
+          rustup target add aarch64-unknown-linux-musl
           rustup --version
         shell: alpine.sh --root {0}
 
@@ -76,12 +68,13 @@ jobs:
         shell: alpine.sh {0}
 
       - name: Build application
-        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev'
+        env:
+          CC_aarch64_unknown_linux_musl: aarch64-linux-musl-gcc
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER: aarch64-linux-musl-gcc
+          OPENSSL_STATIC: "1"
+          RING_BUILD_STATIC: "1"
         run: |
-          rustup target add x86_64-unknown-linux-musl
-          export OPENSSL_DIR=/usr
-          export OPENSSL_STATIC=1
-          cargo build --release --target x86_64-unknown-linux-musl
+          cargo build --release --target aarch64-unknown-linux-musl
         shell: alpine.sh --root {0}
 
       # Dev only (upload to dev folder)
@@ -90,7 +83,8 @@ jobs:
         shell: bash
         run: |
           VERSION=$(grep '^version =' ./Cargo.toml | awk '{print $3}' | tr -d '"')
-          aws s3 cp ./target/x86_64-unknown-linux-musl/release/edamame_posture s3://edamame-posture/dev/linux_alpine/${VERSION}/edamame_posture --acl public-read
+          aws s3 cp ./target/aarch64-unknown-linux-musl/release/edamame_posture \
+            s3://edamame-posture/dev/linux_alpine/${VERSION}/edamame_posture --acl public-read
 
       # Main only (upload to base folder)
       - name: Upload posture to AWS
@@ -98,8 +92,10 @@ jobs:
         shell: bash
         run: |
           VERSION=$(grep '^version =' ./Cargo.toml | awk '{print $3}' | tr -d '"')
-          aws s3 cp ./target/release/edamame_posture s3://edamame-posture/linux_alpine/${VERSION}/edamame_posture --acl public-read
-          aws s3 cp ./target/release/edamame_posture s3://edamame-posture/linux_alpine/latest/edamame_posture --acl public-read
+          aws s3 cp ./target/aarch64-unknown-linux-musl/release/edamame_posture \
+            s3://edamame-posture/linux_alpine/${VERSION}/edamame_posture --acl public-read
+          aws s3 cp ./target/aarch64-unknown-linux-musl/release/edamame_posture \
+            s3://edamame-posture/linux_alpine/latest/edamame_posture --acl public-read
 
       - name: Dump EDAMAME Posture sessions
         uses: edamametechnologies/edamame_posture_action@v0
