@@ -123,6 +123,7 @@ pub fn run_background(
             is_outdated_backend: false,
             is_outdated_threats: false,
             backend_error_code: "".to_string(),
+            last_report_signature: "".to_string(),
         };
         save_state(&state);
     }
