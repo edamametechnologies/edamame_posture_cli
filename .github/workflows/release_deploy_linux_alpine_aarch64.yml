@@ -32,50 +32,33 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Setup Alpine Linux
-        uses: jirutka/setup-alpine@v1
-        with:
-          branch: v3.17
-
-      - name: Install cross-compilation tools and dependencies with apk
+      - name: Install cross-compilation tools
         run: |
-          apk add --no-cache \
-            build-base \
-            cross-aarch64-linux-musl \
-            protobuf-dev \
-            libpcap-dev \
-            git \
-            curl \
-            openssl-dev \
-            pkgconf \
-            eudev-dev \
-            perl
-        shell: alpine.sh --root {0}
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu musl-tools pkg-config libssl-dev
+          rustup target add aarch64-unknown-linux-musl
 
       - name: Install Rust
-        run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
-          source $HOME/.cargo/env
-          rustup target add aarch64-unknown-linux-musl
-          rustup --version
-        shell: alpine.sh --root {0}
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
 
       - name: Configure Git Authentication to import private crates
         run: |
           git config --global user.email "dev@edamame.tech"
           git config --global user.name "EDAMAME Dev"
           git config --global url."https://edamamedev:${{ secrets.DEV_GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
-        shell: alpine.sh {0}
 
       - name: Build application
         env:
-          CC_aarch64_unknown_linux_musl: aarch64-linux-musl-gcc
-          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER: aarch64-linux-musl-gcc
+          CC_aarch64_unknown_linux_musl: aarch64-linux-gnu-gcc
+          OPENSSL_DIR: /usr
           OPENSSL_STATIC: "1"
-          RING_BUILD_STATIC: "1"
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER: aarch64-linux-gnu-gcc
+          RUSTFLAGS: "-C target-feature=-crt-static"
         run: |
           cargo build --release --target aarch64-unknown-linux-musl
-        shell: alpine.sh --root {0}
 
       # Dev only (upload to dev folder)
       - name: Upload posture to AWS
