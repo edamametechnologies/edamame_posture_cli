@@ -75,6 +75,10 @@ jobs:
           git config --global url."https://edamamedev:${{ secrets.DEV_GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
         shell: alpine.sh {0}
 
+      - name: Set VERGEN_GIT_BRANCH to main
+        run: echo "VERGEN_GIT_BRANCH=main" >> $GITHUB_ENV
+        shell: alpine.sh {0}
+
       - name: Build application
         if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev'
         run: |
