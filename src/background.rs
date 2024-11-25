@@ -11,7 +11,7 @@ use edamame_core::api::api_lanscan::LANScanAPI;
 use edamame_core::api::api_lanscan::*;
 #[cfg(windows)]
 use edamame_core::api::api_score::ScoreAPI;
-use edamame_core::api::api_score::{compute_score, get_score};
+use edamame_core::api::api_score::{compute_score, get_score, get_last_report_signature};
 use std::io;
 use std::io::Write;
 use std::thread::sleep;
@@ -131,6 +131,7 @@ pub fn background_process(
         state.is_outdated_backend = connection_status.is_outdated_backend;
         state.is_outdated_threats = connection_status.is_outdated_threats;
         state.backend_error_code = connection_status.backend_error_code;
+        state.last_report_signature = get_last_report_signature();
 
         // Load the current state to detect exit conditions set by posture (cleared by the main thread to indicate it's time to exit)
         let current_state = load_state();
@@ -341,6 +342,7 @@ pub fn start_background_process(
                     is_outdated_backend: false,
                     is_outdated_threats: false,
                     backend_error_code: "".to_string(),
+                    last_report_signature: "".to_string(),
                 };
                 save_state(&state);
 
