@@ -78,10 +78,7 @@ jobs:
       - name: Build application
         if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev'
         run: |
-          rustup target add x86_64-unknown-linux-musl
-          export OPENSSL_DIR=/usr
-          export OPENSSL_STATIC=1
-          cargo build --release --target x86_64-unknown-linux-musl
+          make linux_alpine_publish
         shell: alpine.sh --root {0}
 
       # Dev only (upload to dev folder)
