@@ -50,10 +50,10 @@ linux_publish: linux_release
 linux_alpine: linux_alpine_release
 
 linux_alpine_debug:
-          rustup target add x86_64-unknown-linux-musl
-          export OPENSSL_DIR=/usr
-          export OPENSSL_STATIC=1
-          cargo build --target x86_64-unknown-linux-musl
+	rustup target add x86_64-unknown-linux-musl
+	export OPENSSL_DIR=/usr
+	export OPENSSL_STATIC=1
+	cargo build --target x86_64-unknown-linux-musl
 
 linux_alpine_release:
 	rustup target add x86_64-unknown-linux-musl
