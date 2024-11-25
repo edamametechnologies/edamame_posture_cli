@@ -25,6 +25,7 @@ pub struct State {
     pub is_outdated_backend: bool,
     pub is_outdated_threats: bool,
     pub backend_error_code: String,
+    pub last_report_signature: String,
 }
 
 impl Default for State {
@@ -44,6 +45,7 @@ impl Default for State {
             is_outdated_backend: false,
             is_outdated_threats: false,
             backend_error_code: "".to_string(),
+            last_report_signature: "".to_string(),
         }
     }
 }
