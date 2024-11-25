@@ -59,6 +59,8 @@ linux_alpine_release:
 	rustup target add x86_64-unknown-linux-musl
 	export OPENSSL_DIR=/usr
 	export OPENSSL_STATIC=1
+	# TEMPORARY:
+	export VERGEN_GIT_BRANCH=main
 	cargo build --release --target x86_64-unknown-linux-musl
 
 linux_alpine_publish: linux_alpine_release
