@@ -1,23 +1,16 @@
-use crate::commands::handle_get_threats_info;
-use crate::state::*;
-use crate::{
-    connect_domain, handle_get_core_info, handle_get_core_version, handle_lanscan, load_state,
-};
+use crate::commands::process_get_threats_info;
+use crate::EDAMAME_CA_PEM;
+use crate::EDAMAME_CLIENT_KEY;
+use crate::EDAMAME_CLIENT_PEM;
+use crate::EDAMAME_TARGET;
+use crate::{connect_domain, process_get_core_info, process_get_core_version, process_lanscan};
 #[cfg(unix)]
 use daemonize::Daemonize;
-use edamame_core::api::api_core::{disconnect_domain, get_connection, set_credentials};
-#[cfg(windows)]
-use edamame_core::api::api_lanscan::LANScanAPI;
+use edamame_core::api::api_core::*;
 use edamame_core::api::api_lanscan::*;
-#[cfg(windows)]
-use edamame_core::api::api_score::ScoreAPI;
-use edamame_core::api::api_score::{compute_score, get_score, get_last_report_signature};
-use std::io;
-use std::io::Write;
+use edamame_core::api::api_score::*;
 use std::thread::sleep;
 use std::time::Duration;
-#[cfg(unix)]
-use sysinfo::{Pid, System};
 use tracing::info;
 #[cfg(windows)]
 use widestring::U16CString;
@@ -43,11 +36,8 @@ pub fn background_process(
 
     // We are using the logger as we are in the background process
 
-    // Load the state to get the current PID/handle
-    let mut state = load_state();
-
     // Show threats info
-    handle_get_threats_info();
+    process_get_threats_info();
 
     // Set credentials
     info!("Setting credentials for user: {}, domain: {}", user, domain);
@@ -104,7 +94,7 @@ pub fn background_process(
         _ = get_lan_devices(true, false, false);
 
         // Wait for the scan to complete
-        handle_lanscan();
+        process_lanscan();
     }
 
     info!("LAN scan complete, starting connection status loop");
@@ -116,86 +106,23 @@ pub fn background_process(
     // Force score computation
     compute_score();
 
-    // Loop forever as background process is running, write the shared state based on the connection status
+    // Loop forever as background process is running
     loop {
-        let connection_status = get_connection();
-        state.devices = get_lan_devices(false, false, false);
-        state.sessions = get_sessions();
-        state.score = get_score(true);
-        state.whitelist_conformance = get_whitelist_conformance();
-        state.connected_user = connection_status.connected_user;
-        state.connected_domain = connection_status.connected_domain;
-        state.is_connected = connection_status.is_success;
-        state.whitelist_name = whitelist_name.clone();
-        state.last_network_activity = connection_status.last_network_activity;
-        state.is_outdated_backend = connection_status.is_outdated_backend;
-        state.is_outdated_threats = connection_status.is_outdated_threats;
-        state.backend_error_code = connection_status.backend_error_code;
-        state.last_report_signature = get_last_report_signature();
-
-        // Load the current state to detect exit conditions set by posture (cleared by the main thread to indicate it's time to exit)
-        let current_state = load_state();
-
-        // Exit if there are no pid/handle anymore
-        if (cfg!(unix) && current_state.pid.is_none())
-            || (cfg!(windows) && current_state.handle.is_none())
-        {
-            info!("No pid/handle found, disconnecting domain...");
-
-            // Disconnect domain
-            disconnect_domain();
-            std::process::exit(0);
-        }
-        // Update the state with the current pid/handle
-        state.pid = current_state.pid;
-        state.handle = current_state.handle;
-
-        // Save the state
-        save_state(&state);
-
         // Sleep for 5 seconds
         sleep(Duration::from_secs(5));
     }
 }
 
-#[cfg(unix)]
-fn pid_exists(pid: u32) -> bool {
-    let mut system = System::new_all();
-    system.refresh_all();
-    system.process(Pid::from_u32(pid)).is_some()
-}
-
-pub fn show_background_process_status() {
-    let state = load_state();
-    if state.pid.is_some() || state.handle.is_some() {
-        println!(
-            "Background process running ({:?}/{:?})",
-            state.pid, state.handle
-        );
-        println!("Status:");
-        println!("  - User: {}", state.connected_user);
-        println!("  - Domain: {}", state.connected_domain);
-        println!("  - Connected: {}", state.is_connected);
-        println!("  - Last network activity: {}", state.last_network_activity);
-        println!("  - Current sessions: {}", state.sessions.len());
-        println!("  - Whitelist conformance: {}", state.whitelist_conformance);
-        println!("  - Whitelist name: {}", state.whitelist_name);
-        println!("  - Outdated backend: {}", state.is_outdated_backend);
-        println!("  - Outdated threats: {}", state.is_outdated_threats);
-        println!("  - Backend error code: {}", state.backend_error_code);
-        // Flush the output
-        match io::stdout().flush() {
-            Ok(_) => (),
-            Err(e) => eprintln!("Error flushing stdout: {}", e),
-        }
-    } else {
-        println!("No background process is running.");
-    }
-}
-
 pub fn is_background_process_running() -> bool {
-    let state = load_state();
-    state.pid.is_some() || state.handle.is_some()
+    match rpc_get_core_info(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(_) => true,
+        Err(_) => false,
+    }
 }
 
 pub fn start_background_process(
@@ -208,10 +135,10 @@ pub fn start_background_process(
     local_traffic: bool,
 ) {
     // Show core version
-    handle_get_core_version();
+    process_get_core_version();
 
     // Show core info
-    handle_get_core_info();
+    process_get_core_info();
 
     // Check if the background process is already running
     if is_background_process_running() {
@@ -359,40 +286,23 @@ pub fn start_background_process(
     }
 }
 
-#[cfg(unix)]
 pub fn stop_background_process() {
-    let state = load_state();
-    if let Some(pid) = state.pid {
-        if pid_exists(pid) {
-            println!("Stopping background process ({})", pid);
-            // Don't kill, rather stop the child loop
-            //let _ = ProcessCommand::new("kill").arg(pid.to_string()).status();
-            clear_state();
-        } else {
-            eprintln!("No background process found ({})", pid);
-        }
-    } else {
-        eprintln!("No background process is running.");
-    }
-}
-
-#[cfg(windows)]
-pub fn stop_background_process() {
-    let state = load_state();
-    if let Some(_handle) = state.handle {
-        println!("Stopping background process ({})", state.handle.unwrap());
-        // Don't kill, rather stop the child loop
-        //let process_handle = HANDLE(handle.as_mut_ptr());
-        //if !process_handle.is_invalid() {
-        //  unsafe {
-        //      TerminateProcess(process_handle, 1);
-        //      CloseHandle(process_handle);
-        //  }
-        //} else {
-        //      eprintln!("Invalid process handle ({})", handle);
-        //}
-        clear_state();
-    } else {
-        eprintln!("No background process is running.");
+    match rpc_disconnect_domain(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(_) => match rpc_terminate(
+            true,
+            &EDAMAME_CA_PEM,
+            &EDAMAME_CLIENT_PEM,
+            &EDAMAME_CLIENT_KEY,
+            &EDAMAME_TARGET,
+        ) {
+            Ok(_) => (),
+            Err(e) => eprintln!("Error terminating background process: {}", e),
+        },
+        Err(e) => eprintln!("Error disconnecting domain: {}", e),
     }
 }
