@@ -1,21 +1,29 @@
-mod state;
-use state::*;
-mod logs;
-use logs::*;
 mod commands;
 use commands::*;
 mod background;
+use anyhow::Result;
 use background::*;
 use clap::{arg, Command};
 use edamame_core::api::api_core::*;
 use edamame_core::api::api_lanscan::*;
 use edamame_core::api::api_score::*;
 use envcrypt::envc;
+use lazy_static::lazy_static;
 use machine_uid;
 use regex::Regex;
 use std::process::exit;
 use std::thread::sleep;
 use std::time::Duration;
+
+lazy_static! {
+    pub static ref EDAMAME_TARGET: String =
+        envc!("EDAMAME_CORE_TARGET").trim_matches('"').to_string();
+    pub static ref EDAMAME_CA_PEM: String = envc!("EDAMAME_CA_PEM").trim_matches('"').to_string();
+    pub static ref EDAMAME_CLIENT_PEM: String =
+        envc!("EDAMAME_CLIENT_PEM").trim_matches('"').to_string();
+    pub static ref EDAMAME_CLIENT_KEY: String =
+        envc!("EDAMAME_CLIENT_KEY").trim_matches('"').to_string();
+}
 
 fn parse_digits_only(s: &str) -> Result<String, String> {
     if s.chars().all(|c| c.is_ascii_digit()) {
@@ -38,7 +46,13 @@ fn parse_fqdn(s: &str) -> Result<String, String> {
     }
 }
 
-pub fn initialize_core(device_id: String, reporting: bool, community: bool) {
+pub fn initialize_core(
+    device_id: String,
+    computing: bool,
+    reporting: bool,
+    community: bool,
+    server: bool,
+) {
     // Set device ID
     // Prefix is the machine uid
     let machine_uid = machine_uid::get().unwrap_or("".to_string());
@@ -57,14 +71,15 @@ pub fn initialize_core(device_id: String, reporting: bool, community: bool) {
         device.device_id = (machine_uid + "/" + device_id.as_str()).to_string();
     }
 
-    // Reporting is on community is off
     initialize(
         "posture".to_string(),
         envc!("VERGEN_GIT_BRANCH").to_string(),
         "EN".to_string(),
         device,
+        computing,
         reporting,
         community,
+        server,
     );
 }
 
@@ -75,7 +90,6 @@ fn run() {
         //std::env::set_var("EDAMAME_LOG_LEVEL", "debug");
 
         // Don't call ensure_admin() here, the core is not initialized yet
-
         if args.len() == 9 {
             run_background(
                 args[2].to_string(),
@@ -105,31 +119,8 @@ pub fn run_background(
     whitelist_name: String,
     local_traffic: bool,
 ) {
-    // Save state within the child for unix
-    #[cfg(unix)]
-    {
-        let state = State {
-            pid: Some(std::process::id()),
-            handle: None,
-            is_connected: false,
-            connected_domain: domain.clone(),
-            connected_user: user.clone(),
-            last_network_activity: "".to_string(),
-            score: ScoreAPI::default(),
-            devices: LANScanAPI::default(),
-            sessions: Vec::new(),
-            whitelist_name: whitelist_name.clone(),
-            whitelist_conformance: true,
-            is_outdated_backend: false,
-            is_outdated_threats: false,
-            backend_error_code: "".to_string(),
-            last_report_signature: "".to_string(),
-        };
-        save_state(&state);
-    }
-
-    // Initialize the core with reporting enabled
-    initialize_core(device_id, true, false);
+    // Initialize the core with reporting and server enabled
+    initialize_core(device_id, true, true, false, true);
 
     background_process(
         user,
@@ -150,9 +141,6 @@ fn ensure_admin() {
 }
 
 fn run_base() {
-    // Initialize the core with reporting disabled
-    initialize_core("".to_string(), false, false);
-
     let mut exit_code = 0;
     let matches = Command::new("edamame_posture")
         .version("1.0")
@@ -281,19 +269,39 @@ fn run_base() {
         )
         .subcommand(Command::new("stop").about("Stop reporting background process"))
         .subcommand(Command::new("status").about("Get status of reporting background process"))
+        .subcommand(Command::new("get-last-report-signature").about("Get last report signature"))
         .get_matches();
 
     match matches.subcommand() {
         Some(("logs", _)) => {
-            display_logs();
+            // Initialize the core with reporting and server disabled
+            initialize_core("".to_string(), false, false, false, false);
+
+            let logs = match rpc_get_all_logs(
+                &EDAMAME_CA_PEM,
+                &EDAMAME_CLIENT_PEM,
+                &EDAMAME_CLIENT_KEY,
+                &EDAMAME_TARGET,
+            ) {
+                Ok(logs) => logs,
+                Err(e) => {
+                    eprintln!("Error getting logs: {:?}", e);
+                    "".to_string()
+                }
+            };
+            println!("{}", logs);
         }
         Some(("score", _)) => {
+            // Initialize the core with computinh enabled and reporting and server disabled
+            initialize_core("".to_string(), true, false, false, false);
             ensure_admin(); // Admin check here
                             // Request a score computation
             compute_score();
-            handle_score(true);
+            process_score(true);
         }
         Some(("lanscan", _)) => {
+            // Initialize the core with reporting and server disabled
+            initialize_core("".to_string(), false, false, false, false);
             ensure_admin();
             // Initialize network
             set_network(LANScanAPINetwork {
@@ -332,10 +340,9 @@ fn run_base() {
             _ = get_lan_devices(true, false, false);
 
             // Wait for the LAN scan to complete
-            handle_lanscan();
+            process_lanscan();
         }
         Some(("wait-for-connection", sub_matches)) => {
-            ensure_admin();
             let timeout = match sub_matches.get_one::<u64>("TIMEOUT") {
                 Some(timeout) => timeout,
                 None => {
@@ -343,18 +350,24 @@ fn run_base() {
                     &600
                 }
             };
-            handle_wait_for_connection(*timeout);
+            // Initialize the core with reporting and server disabled
+            initialize_core("".to_string(), false, false, false, false);
+
+            process_wait_for_connection(*timeout);
         }
         Some(("get-sessions", sub_matches)) => {
-            ensure_admin();
-
             let zeek_format = sub_matches.get_one::<bool>("ZEEK_FORMAT").unwrap_or(&false);
             let local_traffic = sub_matches
                 .get_one::<bool>("LOCAL_TRAFFIC")
                 .unwrap_or(&false);
-            exit_code = handle_get_sessions(*zeek_format, *local_traffic);
+
+            // Initialize the core with reporting and server disabled
+            initialize_core("".to_string(), false, false, false, false);
+            exit_code = process_get_sessions(*zeek_format, *local_traffic);
         }
         Some(("capture", sub_matches)) => {
+            // Initialize the core with reporting and server disabled
+            initialize_core("".to_string(), false, false, false, false);
             ensure_admin(); // Admin check here
 
             let seconds = sub_matches.get_one::<u64>("SECONDS").unwrap_or(&600);
@@ -365,50 +378,56 @@ fn run_base() {
             let local_traffic = sub_matches
                 .get_one::<bool>("LOCAL_TRAFFIC")
                 .unwrap_or(&false);
-            handle_capture(*seconds, whitelist_name, *zeek_format, *local_traffic);
+            process_capture(*seconds, whitelist_name, *zeek_format, *local_traffic);
         }
         Some(("get-core-info", _)) => {
-            ensure_admin();
-
-            handle_get_core_info();
+            // Initialize the core with reporting and server disabled
+            initialize_core("".to_string(), false, false, false, false);
+            process_get_core_info();
         }
         Some(("get-device-info", _)) => {
+            // Initialize the core with reporting and server disabled
+            initialize_core("".to_string(), false, false, false, false);
             ensure_admin();
-
-            handle_get_device_info();
+            process_get_device_info();
         }
         Some(("get-threats-info", _)) => {
+            // Initialize the core with reporting and server disabled
+            initialize_core("".to_string(), false, false, false, false);
             ensure_admin();
-
-            handle_get_threats_info();
+            process_get_threats_info();
         }
         Some(("get-system-info", _)) => {
+            // Initialize the core with reporting and server disabled
+            initialize_core("".to_string(), false, false, false, false);
             ensure_admin();
-
-            handle_get_system_info();
+            process_get_system_info();
         }
         Some(("request-pin", sub_matches)) => {
             // No admin check needed here
             let user = sub_matches.get_one::<String>("USER").unwrap().to_string();
             let domain = sub_matches.get_one::<String>("DOMAIN").unwrap().to_string();
-            handle_request_pin(user, domain);
+            // Initialize the core with reporting and server disabled
+            initialize_core("".to_string(), false, false, false, false);
+            process_request_pin(user, domain);
         }
         Some(("get-core-version", _)) => {
             // No admin check needed here
-            handle_get_core_version();
+            // Initialize the core with reporting and server disabled
+            initialize_core("".to_string(), false, false, false, false);
+            process_get_core_version();
         }
         Some(("remediate", sub_matches)) => {
-            ensure_admin();
-
             let remediations_to_skip = sub_matches
                 .get_one::<String>("REMEDIATIONS")
                 .unwrap_or(&String::new())
                 .to_string();
-            handle_remediate(&remediations_to_skip)
+            // Initialize the core with reporting and server disabled
+            initialize_core("".to_string(), false, false, false, false);
+            ensure_admin();
+            process_remediate(&remediations_to_skip)
         }
         Some(("start", sub_matches)) => {
-            ensure_admin();
-
             let user = sub_matches
                 .get_one::<String>("USER")
                 .expect("USER not provided")
@@ -437,6 +456,9 @@ fn run_base() {
             let local_traffic = sub_matches
                 .get_one::<bool>("LOCAL_TRAFFIC")
                 .unwrap_or(&false);
+            // Initialize the core with reporting and server disabled
+            initialize_core("".to_string(), false, false, false, false);
+            ensure_admin();
             start_background_process(
                 user,
                 domain,
@@ -448,18 +470,25 @@ fn run_base() {
             );
         }
         Some(("stop", _)) => {
-            ensure_admin();
+            // Initialize the core with reporting and server disabled
+            initialize_core("".to_string(), false, false, false, false);
             stop_background_process();
         }
         Some(("status", _)) => {
-            ensure_admin();
-            show_background_process_status();
+            // Initialize the core with reporting and server disabled
+            initialize_core("".to_string(), false, false, false, false);
+            process_get_status();
+        }
+        Some(("get-last-report-signature", _)) => {
+            // Initialize the core with reporting and server disabled
+            initialize_core("".to_string(), false, false, false, false);
+            process_get_last_report_signature();
         }
         _ => eprintln!("Invalid command, use --help for more information"),
     }
 
     // Properly terminate the core
-    terminate();
+    terminate(false);
 
     exit(exit_code);
 }

@@ -1,5 +1,8 @@
-use crate::state::*;
 use crate::stop_background_process;
+use crate::EDAMAME_CA_PEM;
+use crate::EDAMAME_CLIENT_KEY;
+use crate::EDAMAME_CLIENT_PEM;
+use crate::EDAMAME_TARGET;
 use edamame_core::api::api_core::*;
 use edamame_core::api::api_lanscan::*;
 use edamame_core::api::api_score::*;
@@ -11,20 +14,110 @@ use std::thread::sleep;
 use std::time::Duration;
 use sysinfo::{Disks, Networks, System};
 
-pub fn handle_wait_for_connection(timeout: u64) {
-    handle_get_device_info();
+pub fn process_get_status() {
+    let connection_status = match rpc_get_connection(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(status) => status,
+        Err(e) => {
+            eprintln!("Error getting connection status: {}", e);
+            return;
+        }
+    };
+    println!("Connection status:");
+    println!(
+        "  - Connected domain: {}",
+        connection_status.connected_domain
+    );
+    println!("  - Connected user: {}", connection_status.connected_user);
+    println!("  - Is connected: {}", connection_status.is_connected);
+    println!(
+        "  - Last network activity: {}",
+        connection_status.last_network_activity
+    );
+}
 
-    handle_get_system_info();
+pub fn process_get_last_report_signature() {
+    let signature = match rpc_get_last_report_signature(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(signature) => signature,
+        Err(e) => {
+            eprintln!("Error getting last reported signature: {}", e);
+            return;
+        }
+    };
+    println!("{}", signature);
+}
+
+pub fn process_wait_for_connection(timeout: u64) {
+    process_get_device_info();
+
+    process_get_system_info();
 
     println!("Waiting for score computation and reporting to complete...");
     let mut timeout = timeout;
-    // Read the state and wait until a network activity is detected and the connection is successful
-    let mut state = load_state();
-    while !(state.is_connected && state.last_network_activity != "") && timeout > 0 {
+    // Wait until a network activity is detected and the connection is successful
+
+    let mut last_reported_signature = match rpc_get_last_report_signature(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(signature) => signature,
+        Err(e) => {
+            eprintln!("Error getting last reported signature: {}", e);
+            return;
+        }
+    };
+    let mut connection_status = match rpc_get_connection(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(status) => status,
+        Err(e) => {
+            eprintln!("Error getting connection status: {}", e);
+            return;
+        }
+    };
+
+    while !(last_reported_signature != "") && timeout > 0 {
         sleep(Duration::from_secs(5));
         timeout = timeout - 5;
-        state = load_state();
-        println!("Waiting for score computation and reporting to complete... (connected: {}, network activity: {})", state.is_connected, state.last_network_activity);
+        last_reported_signature = match rpc_get_last_report_signature(
+            &EDAMAME_CA_PEM,
+            &EDAMAME_CLIENT_PEM,
+            &EDAMAME_CLIENT_KEY,
+            &EDAMAME_TARGET,
+        ) {
+            Ok(signature) => signature,
+            Err(e) => {
+                eprintln!("Error getting last reported signature: {}", e);
+                return;
+            }
+        };
+        connection_status = match rpc_get_connection(
+            &EDAMAME_CA_PEM,
+            &EDAMAME_CLIENT_PEM,
+            &EDAMAME_CLIENT_KEY,
+            &EDAMAME_TARGET,
+        ) {
+            Ok(status) => status,
+            Err(e) => {
+                eprintln!("Error getting connection status: {}", e);
+                return;
+            }
+        };
+        println!("Waiting for score computation and reporting to complete... (connected: {}, network activity: {})", connection_status.is_connected, connection_status.last_network_activity);
     }
 
     if timeout <= 0 {
@@ -38,29 +131,69 @@ pub fn handle_wait_for_connection(timeout: u64) {
     } else {
         println!(
             "Connection successful with domain {} and user {} (connected: {}, network activity: {})",
-            state.connected_domain,
-            state.connected_user,
-            state.is_connected,
-            state.last_network_activity
+            connection_status.connected_domain,
+            connection_status.connected_user,
+            connection_status.is_connected,
+            connection_status.last_network_activity
         );
 
-        // Print the score results stored in the state
-        display_score(&state.score);
+        // Print the score results
+        let score = match rpc_get_score(
+            false,
+            &EDAMAME_CA_PEM,
+            &EDAMAME_CLIENT_PEM,
+            &EDAMAME_CLIENT_KEY,
+            &EDAMAME_TARGET,
+        ) {
+            Ok(score) => score,
+            Err(e) => {
+                eprintln!("Error getting score: {}", e);
+                return;
+            }
+        };
+        display_score(&score);
 
-        // Print the lanscan results stored in the state
-        display_lanscan(&state.devices);
+        // Print the lanscan results
+        let devices = match rpc_get_lan_devices(
+            false,
+            false,
+            false,
+            &EDAMAME_CA_PEM,
+            &EDAMAME_CLIENT_PEM,
+            &EDAMAME_CLIENT_KEY,
+            &EDAMAME_TARGET,
+        ) {
+            Ok(devices) => devices,
+            Err(e) => {
+                eprintln!("Error getting LAN devices: {}", e);
+                return;
+            }
+        };
+        display_lanscan(&devices);
 
-        // Print the connections stored in the state
-        format_sessions_log(state.sessions);
+        // Print the connections
+        let sessions = match rpc_get_lan_sessions(
+            &EDAMAME_CA_PEM,
+            &EDAMAME_CLIENT_PEM,
+            &EDAMAME_CLIENT_KEY,
+            &EDAMAME_TARGET,
+        ) {
+            Ok(sessions) => sessions,
+            Err(e) => {
+                eprintln!("Error getting LAN sessions: {}", e);
+                return;
+            }
+        };
+        format_sessions_log(sessions.sessions);
     }
 }
 
-pub fn handle_get_core_info() {
+pub fn process_get_core_info() {
     let core_info = get_core_info();
     println!("Core information: {}", core_info);
 }
 
-pub fn handle_get_device_info() {
+pub fn process_get_device_info() {
     let device_info = get_device_info();
     println!("Device information:");
     println!("  - Device ID: {}", device_info.device_id);
@@ -78,7 +211,7 @@ pub fn handle_get_device_info() {
     }
 }
 
-pub fn handle_get_threats_info() {
+pub fn process_get_threats_info() {
     let score = get_score(false);
     let threats = format!(
         "Threat model name: {}, date: {}, signature: {}",
@@ -87,13 +220,13 @@ pub fn handle_get_threats_info() {
     println!("Threats information: {}", threats);
 }
 
-pub fn handle_request_pin(user: String, domain: String) {
+pub fn process_request_pin(user: String, domain: String) {
     set_credentials(user.clone(), domain.clone(), String::new());
     request_pin();
     println!("PIN requested for user: {}, domain: {}", user, domain);
 }
 
-pub fn handle_get_core_version() {
+pub fn process_get_core_version() {
     let version = get_core_version();
     println!("Core version: {}", version);
 }
@@ -151,7 +284,7 @@ pub fn display_lanscan(devices: &LANScanAPI) {
     }
 }
 
-pub fn handle_lanscan() {
+pub fn process_lanscan() {
     // The network, has been set, consent has been granted and a scan has been requested if needed
     let total_steps = 100;
     let pb = ProgressBar::new(total_steps);
@@ -173,14 +306,25 @@ pub fn handle_lanscan() {
     display_lanscan(&devices);
 }
 
-pub fn handle_get_sessions(local_traffic: bool, zeek_format: bool) -> i32 {
-    // Read the connections in the state
-    let state = load_state();
+pub fn process_get_sessions(local_traffic: bool, zeek_format: bool) -> i32 {
+    let sessions = match rpc_get_lan_sessions(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(sessions) => sessions,
+        Err(e) => {
+            eprintln!("Error getting LAN sessions: {}", e);
+            return 1;
+        }
+    };
+
     let sessions = if !local_traffic {
         // Filter out local traffic
-        filter_global_sessions(state.sessions)
+        filter_global_sessions(sessions.sessions)
     } else {
-        state.sessions
+        sessions.sessions
     };
 
     // Format the connections and display them
@@ -193,7 +337,19 @@ pub fn handle_get_sessions(local_traffic: bool, zeek_format: bool) -> i32 {
         println!("{}", session);
     }
     // Check whitelist conformance
-    if !state.whitelist_conformance {
+    let whitelist_conformance = match rpc_get_whitelist_conformance(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(conformance) => conformance,
+        Err(e) => {
+            eprintln!("Error getting whitelist conformance: {}", e);
+            return 1;
+        }
+    };
+    if !whitelist_conformance {
         eprintln!("Some connections failed the whitelist check");
         return 1;
     } else {
@@ -201,7 +357,7 @@ pub fn handle_get_sessions(local_traffic: bool, zeek_format: bool) -> i32 {
     }
 }
 
-pub fn handle_capture(seconds: u64, whitelist_name: &str, zeek_format: bool, local_traffic: bool) {
+pub fn process_capture(seconds: u64, whitelist_name: &str, zeek_format: bool, local_traffic: bool) {
     // Start capturing packets
     set_whitelist(whitelist_name.to_string());
     // Filter sessions based on local_traffic
@@ -269,7 +425,7 @@ pub fn display_score(score: &ScoreAPI) {
     }
 }
 
-pub fn handle_score(progress_bar: bool) {
+pub fn process_score(progress_bar: bool) {
     let total_steps = 100;
     let pb = ProgressBar::new(total_steps);
     pb.set_style(ProgressStyle::default_bar()
@@ -291,7 +447,7 @@ pub fn handle_score(progress_bar: bool) {
     display_score(&score);
 }
 
-pub fn handle_get_system_info() {
+pub fn process_get_system_info() {
     let mut sys = System::new_all();
     sys.refresh_all();
     sysinfo::set_open_files_limit(0);
@@ -376,13 +532,13 @@ pub fn handle_get_system_info() {
     }
 }
 
-pub fn handle_remediate(remediations_to_skip: &str) {
+pub fn process_remediate(remediations_to_skip: &str) {
     println!("Score before remediation:");
     println!("-------------------------");
     println!();
 
     // Show the score before remediation
-    handle_score(false);
+    process_score(false);
 
     // Get the score
     let score = get_score(true);
@@ -413,5 +569,5 @@ pub fn handle_remediate(remediations_to_skip: &str) {
     println!("------------------------");
 
     // Show the score after remediation
-    handle_score(false);
+    process_score(false);
 }
