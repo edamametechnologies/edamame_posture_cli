@@ -253,26 +253,6 @@ pub fn start_background_process(
                 //unsafe { GetExitCodeProcess(process_information.hProcess, &mut exit_code); }
                 //println!("exitcode: {}", exit_code);
 
-                // Save state within the parent for Windows
-                let state = State {
-                    pid: Some(process_information.dwProcessId),
-                    handle: Some(process_information.hProcess.0 as u64),
-                    is_connected: false,
-                    connected_domain: domain,
-                    connected_user: user,
-                    last_network_activity: "".to_string(),
-                    devices: LANScanAPI::default(),
-                    score: ScoreAPI::default(),
-                    sessions: vec![],
-                    whitelist_name: whitelist_name,
-                    whitelist_conformance: true,
-                    is_outdated_backend: false,
-                    is_outdated_threats: false,
-                    backend_error_code: "".to_string(),
-                    last_report_signature: "".to_string(),
-                };
-                save_state(&state);
-
                 unsafe {
                     CloseHandle(process_information.hProcess).unwrap();
                     CloseHandle(process_information.hThread).unwrap();
