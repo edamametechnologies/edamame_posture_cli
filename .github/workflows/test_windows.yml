@@ -27,6 +27,7 @@ jobs:
       PWNED_API_KEY: ${{ secrets.PWNED_API_KEY }}
       EDAMAME_TARGET: ${{ secrets.EDAMAME_TARGET }}
       EDAMAME_CORE_TARGET: ${{ secrets.EDAMAME_CORE_TARGET }}
+      EDAMAME_CORE_SERVER: ${{ secrets.EDAMAME_CORE_SERVER }}
       EDAMAME_CA_PEM: ${{ secrets.EDAMAME_CA_PEM }}
       EDAMAME_CLIENT_PEM: ${{ secrets.EDAMAME_CLIENT_PEM }}
       EDAMAME_CLIENT_KEY: ${{ secrets.EDAMAME_CLIENT_KEY }}
