@@ -1,9 +1,12 @@
-mod commands;
-use commands::*;
 mod background;
+mod base;
+mod daemon;
+mod display;
 use anyhow::Result;
 use background::*;
+use base::*;
 use clap::{arg, Command};
+use daemon::*;
 use edamame_core::api::api_core::*;
 use edamame_core::api::api_lanscan::*;
 use edamame_core::api::api_score::*;
@@ -146,33 +149,11 @@ fn run_base() {
         .version("1.0")
         .author("Frank Lyonnet")
         .about("CLI interface to edamame_core")
-        .subcommand(Command::new("logs").about("Display logs"))
+        ////////////////
+        // Base commands
+        ////////////////
         .subcommand(Command::new("score").about("Get score information"))
         .subcommand(Command::new("lanscan").about("Performs a LAN scan"))
-        .subcommand(
-            Command::new("wait-for-connection")
-                .about("Wait for connection")
-                .arg(
-                    arg!(<TIMEOUT> "Timeout in seconds")
-                        .required(false)
-                        .value_parser(clap::value_parser!(u64)),
-                ),
-        )
-        .subcommand(
-            Command::new("get-sessions")
-                .about("Get connections")
-                .arg(
-                    arg!(<ZEEK_FORMAT> "Zeek format")
-                        .required(false)
-                        .value_parser(clap::value_parser!(bool)),
-                )
-                .arg(
-                    arg!(<LOCAL_TRAFFIC> "Include local traffic")
-                        .required(false)
-                        .default_value("false")
-                        .value_parser(clap::value_parser!(bool)),
-                ),
-        )
         .subcommand(
             Command::new("capture")
                 .about("Capture packets")
@@ -202,7 +183,6 @@ fn run_base() {
         )
         .subcommand(Command::new("get-core-info").about("Get core information"))
         .subcommand(Command::new("get-device-info").about("Get device information"))
-        .subcommand(Command::new("get-threats-info").about("Get threats information"))
         .subcommand(Command::new("get-system-info").about("Get system information"))
         .subcommand(
             Command::new("request-pin")
@@ -225,8 +205,40 @@ fn run_base() {
                     .required(false),
             ),
         )
+        //////////////////////
+        // Background commands
+        //////////////////////
+        .subcommand(Command::new("background-logs").alias("logs").about("Display logs from the background process"))
         .subcommand(
-            Command::new("start")
+            Command::new("background-wait-for-connection")
+                .alias("wait-for-connection")
+                .about("Wait for connection of the background process")
+                .arg(
+                    arg!(<TIMEOUT> "Timeout in seconds")
+                        .required(false)
+                        .value_parser(clap::value_parser!(u64)),
+                ),
+        )
+        .subcommand(
+            Command::new("background-sessions")
+                .alias("get-sessions")
+                .about("Get connections of the background process")
+                .arg(
+                    arg!(<ZEEK_FORMAT> "Zeek format")
+                        .required(false)
+                        .value_parser(clap::value_parser!(bool)),
+                )
+                .arg(
+                    arg!(<LOCAL_TRAFFIC> "Include local traffic")
+                        .required(false)
+                        .default_value("false")
+                        .value_parser(clap::value_parser!(bool)),
+                ),
+        )
+        .subcommand(Command::new("background-threats-info").alias("get-threats-info").about("Get threats information of the background process"))
+        .subcommand(
+            Command::new("background-start")
+                .alias("start")
                 .about("Start reporting background process")
                 .arg(
                     arg!(<USER> "User name")
@@ -267,37 +279,20 @@ fn run_base() {
                         .value_parser(clap::value_parser!(bool)),
                 ),
         )
-        .subcommand(Command::new("stop").about("Stop reporting background process"))
-        .subcommand(Command::new("status").about("Get status of reporting background process"))
-        .subcommand(Command::new("get-last-report-signature").about("Get last report signature"))
+        .subcommand(Command::new("background-stop").alias("stop").about("Stop reporting background process"))
+        .subcommand(Command::new("background-status").alias("status").about("Get status of reporting background process"))
+        .subcommand(Command::new("background-last-report-signature").alias("get-last-report-signature").about("Get last report signature of background process"))
         .get_matches();
 
     match matches.subcommand() {
-        Some(("logs", _)) => {
-            // Initialize the core with reporting and server disabled
-            initialize_core("".to_string(), false, false, false, false);
-
-            let logs = match rpc_get_all_logs(
-                &EDAMAME_CA_PEM,
-                &EDAMAME_CLIENT_PEM,
-                &EDAMAME_CLIENT_KEY,
-                &EDAMAME_TARGET,
-            ) {
-                Ok(logs) => logs,
-                Err(e) => {
-                    eprintln!("Error getting logs: {:?}", e);
-                    "".to_string()
-                }
-            };
-            println!("{}", logs);
-        }
+        ////////////////
+        // Base commands
+        ////////////////
         Some(("score", _)) => {
-            // Initialize the core with computinh enabled and reporting and server disabled
+            // Initialize the core with computin enabled and reporting and server disabled
             initialize_core("".to_string(), true, false, false, false);
             ensure_admin(); // Admin check here
-                            // Request a score computation
-            compute_score();
-            process_score(true);
+            base_score(true);
         }
         Some(("lanscan", _)) => {
             // Initialize the core with reporting and server disabled
@@ -340,30 +335,7 @@ fn run_base() {
             _ = get_lan_devices(true, false, false);
 
             // Wait for the LAN scan to complete
-            process_lanscan();
-        }
-        Some(("wait-for-connection", sub_matches)) => {
-            let timeout = match sub_matches.get_one::<u64>("TIMEOUT") {
-                Some(timeout) => timeout,
-                None => {
-                    println!("Timeout not provided, defaulting to 600 seconds");
-                    &600
-                }
-            };
-            // Initialize the core with reporting and server disabled
-            initialize_core("".to_string(), false, false, false, false);
-
-            process_wait_for_connection(*timeout);
-        }
-        Some(("get-sessions", sub_matches)) => {
-            let zeek_format = sub_matches.get_one::<bool>("ZEEK_FORMAT").unwrap_or(&false);
-            let local_traffic = sub_matches
-                .get_one::<bool>("LOCAL_TRAFFIC")
-                .unwrap_or(&false);
-
-            // Initialize the core with reporting and server disabled
-            initialize_core("".to_string(), false, false, false, false);
-            exit_code = process_get_sessions(*zeek_format, *local_traffic);
+            base_lanscan();
         }
         Some(("capture", sub_matches)) => {
             // Initialize the core with reporting and server disabled
@@ -378,30 +350,18 @@ fn run_base() {
             let local_traffic = sub_matches
                 .get_one::<bool>("LOCAL_TRAFFIC")
                 .unwrap_or(&false);
-            process_capture(*seconds, whitelist_name, *zeek_format, *local_traffic);
+            base_capture(*seconds, whitelist_name, *zeek_format, *local_traffic);
         }
         Some(("get-core-info", _)) => {
             // Initialize the core with reporting and server disabled
             initialize_core("".to_string(), false, false, false, false);
-            process_get_core_info();
+            base_get_core_info();
         }
         Some(("get-device-info", _)) => {
             // Initialize the core with reporting and server disabled
             initialize_core("".to_string(), false, false, false, false);
             ensure_admin();
-            process_get_device_info();
-        }
-        Some(("get-threats-info", _)) => {
-            // Initialize the core with reporting and server disabled
-            initialize_core("".to_string(), false, false, false, false);
-            ensure_admin();
-            process_get_threats_info();
-        }
-        Some(("get-system-info", _)) => {
-            // Initialize the core with reporting and server disabled
-            initialize_core("".to_string(), false, false, false, false);
-            ensure_admin();
-            process_get_system_info();
+            base_get_device_info();
         }
         Some(("request-pin", sub_matches)) => {
             // No admin check needed here
@@ -409,25 +369,81 @@ fn run_base() {
             let domain = sub_matches.get_one::<String>("DOMAIN").unwrap().to_string();
             // Initialize the core with reporting and server disabled
             initialize_core("".to_string(), false, false, false, false);
-            process_request_pin(user, domain);
+            base_request_pin(user, domain);
         }
         Some(("get-core-version", _)) => {
             // No admin check needed here
             // Initialize the core with reporting and server disabled
             initialize_core("".to_string(), false, false, false, false);
-            process_get_core_version();
+            base_get_core_version();
         }
         Some(("remediate", sub_matches)) => {
             let remediations_to_skip = sub_matches
                 .get_one::<String>("REMEDIATIONS")
                 .unwrap_or(&String::new())
                 .to_string();
+            // Initialize the core with computin enabled and reporting and server disabled
+            initialize_core("".to_string(), true, false, false, false);
+            ensure_admin();
+            base_remediate(&remediations_to_skip)
+        }
+        Some(("get-system-info", _)) => {
             // Initialize the core with reporting and server disabled
             initialize_core("".to_string(), false, false, false, false);
             ensure_admin();
-            process_remediate(&remediations_to_skip)
+            base_get_system_info();
         }
-        Some(("start", sub_matches)) => {
+        //////////////////////
+        // Background commands
+        //////////////////////
+        Some(("background-logs", _)) => {
+            // Initialize the core with reporting and server disabled
+            initialize_core("".to_string(), false, false, false, false);
+
+            let logs = match rpc_get_all_logs(
+                &EDAMAME_CA_PEM,
+                &EDAMAME_CLIENT_PEM,
+                &EDAMAME_CLIENT_KEY,
+                &EDAMAME_TARGET,
+            ) {
+                Ok(logs) => logs,
+                Err(e) => {
+                    eprintln!("Error getting logs: {:?}", e);
+                    "".to_string()
+                }
+            };
+            println!("{}", logs);
+        }
+        Some(("background-wait-for-connection", sub_matches)) => {
+            let timeout = match sub_matches.get_one::<u64>("TIMEOUT") {
+                Some(timeout) => timeout,
+                None => {
+                    println!("Timeout not provided, defaulting to 600 seconds");
+                    &600
+                }
+            };
+            // Initialize the core with reporting and server disabled
+            initialize_core("".to_string(), false, false, false, false);
+
+            background_wait_for_connection(*timeout);
+        }
+        Some(("background-sessions", sub_matches)) => {
+            let zeek_format = sub_matches.get_one::<bool>("ZEEK_FORMAT").unwrap_or(&false);
+            let local_traffic = sub_matches
+                .get_one::<bool>("LOCAL_TRAFFIC")
+                .unwrap_or(&false);
+
+            // Initialize the core with reporting and server disabled
+            initialize_core("".to_string(), false, false, false, false);
+            exit_code = background_get_sessions(*zeek_format, *local_traffic);
+        }
+        Some(("background-threats-info", _)) => {
+            // Initialize the core with reporting and server disabled
+            initialize_core("".to_string(), false, false, false, false);
+            ensure_admin();
+            background_get_threats_info();
+        }
+        Some(("background-start", sub_matches)) => {
             let user = sub_matches
                 .get_one::<String>("USER")
                 .expect("USER not provided")
@@ -459,7 +475,7 @@ fn run_base() {
             // Initialize the core with reporting and server disabled
             initialize_core("".to_string(), false, false, false, false);
             ensure_admin();
-            start_background_process(
+            background_start(
                 user,
                 domain,
                 pin,
@@ -469,20 +485,20 @@ fn run_base() {
                 *local_traffic,
             );
         }
-        Some(("stop", _)) => {
+        Some(("background-stop", _)) => {
             // Initialize the core with reporting and server disabled
             initialize_core("".to_string(), false, false, false, false);
-            stop_background_process();
+            background_stop();
         }
-        Some(("status", _)) => {
+        Some(("background-status", _)) => {
             // Initialize the core with reporting and server disabled
             initialize_core("".to_string(), false, false, false, false);
-            process_get_status();
+            background_get_status();
         }
-        Some(("get-last-report-signature", _)) => {
+        Some(("background-last-report-signature", _)) => {
             // Initialize the core with reporting and server disabled
             initialize_core("".to_string(), false, false, false, false);
-            process_get_last_report_signature();
+            background_get_last_report_signature();
         }
         _ => eprintln!("Invalid command, use --help for more information"),
     }
