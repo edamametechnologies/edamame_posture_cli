@@ -83,3 +83,23 @@ clean:
 test:
 	# Simple test
 	cargo test
+
+commands_test:
+	./target/release/edamame_posture score                           	
+	./target/release/edamame_posture lanscan                          
+	./target/release/edamame_posture capture 5                          
+	./target/release/edamame_posture get-core-info                     
+	./target/release/edamame_posture get-device-info                   
+	./target/release/edamame_posture get-system-info                   
+	#./target/release/edamame_posture request-pin                      
+	./target/release/edamame_posture get-core-version                 
+	./target/release/edamame_posture remediate                        
+	./target/release/edamame_posture background-logs                  
+	./target/release/edamame_posture background-wait-for-connection    
+	./target/release/edamame_posture background-sessions               
+	./target/release/edamame_posture background-threats-info          
+	#./target/release/edamame_posture background-start                  
+	#./target/release/edamame_posture background-stop                   
+	./target/release/edamame_posture background-status                 
+	./target/release/edamame_posture background-last-report-signature  
+	./target/release/edamame_posture help                             
