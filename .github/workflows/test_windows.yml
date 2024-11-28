@@ -102,7 +102,7 @@ jobs:
           wget https://github.com/edamametechnologies/edamame_posture_cli/raw/refs/heads/main/windows/wpcap.dll -O ../wpcap.dll
           chmod +x ../wpcap.dll
           ../edamame_posture.exe start ${{ vars.EDAMAME_POSTURE_USER }} ${{ vars.EDAMAME_POSTURE_DOMAIN }} ${{ secrets.EDAMAME_POSTURE_PIN }} ${{ github.run_id }} true "github_windows"
-          ../edamame_posture.exe wait-for-connection || true
+          make commands_test
           make clean
           make windows_release
           echo "Status:"

@@ -9,7 +9,6 @@ use clap::{arg, Command};
 use daemon::*;
 use edamame_core::api::api_core::*;
 use edamame_core::api::api_lanscan::*;
-use edamame_core::api::api_score::*;
 use envcrypt::envc;
 use lazy_static::lazy_static;
 use machine_uid;
