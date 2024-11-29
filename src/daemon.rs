@@ -4,22 +4,12 @@ use crate::EDAMAME_CLIENT_KEY;
 use crate::EDAMAME_CLIENT_PEM;
 use crate::EDAMAME_TARGET;
 use crate::{base_get_core_info, base_get_core_version, base_lanscan, connect_domain};
-#[cfg(unix)]
-use daemonize::Daemonize;
 use edamame_core::api::api_core::*;
 use edamame_core::api::api_lanscan::*;
 use edamame_core::api::api_score::*;
 use std::thread::sleep;
 use std::time::Duration;
 use tracing::info;
-#[cfg(windows)]
-use widestring::U16CString;
-#[cfg(windows)]
-use windows::core::{PCWSTR, PWSTR};
-#[cfg(windows)]
-use windows::Win32::Foundation::{CloseHandle, HANDLE};
-#[cfg(windows)]
-use windows::Win32::System::Threading::*;
 
 pub fn background_process(
     user: String,
@@ -150,6 +140,7 @@ pub fn background_start(
 
     #[cfg(unix)]
     {
+        use daemonize::Daemonize;
         use std::process::Command;
 
         let daemonize = Daemonize::new()
@@ -182,6 +173,14 @@ pub fn background_start(
 
     #[cfg(windows)]
     {
+        use widestring::U16CString;
+        use windows::core::PWSTR;
+        use windows::Win32::Foundation::{CloseHandle, INVALID_HANDLE_VALUE};
+        use windows::Win32::System::Threading::{
+            CreateProcessW, CREATE_UNICODE_ENVIRONMENT, DETACHED_PROCESS, PROCESS_INFORMATION,
+            STARTF_USESTDHANDLES, STARTUPINFOW,
+        };
+
         let exe = std::env::current_exe()
             .expect("Failed to get current executable path")
             .display()
@@ -199,27 +198,16 @@ pub fn background_start(
             local_traffic.to_string()
         );
 
+        // Add CREATE_NEW_CONSOLE and CREATE_NO_WINDOW flags
         let creation_flags = CREATE_UNICODE_ENVIRONMENT | DETACHED_PROCESS;
         let mut process_information = PROCESS_INFORMATION::default();
-        let startup_info: STARTUPINFOW = STARTUPINFOW {
-            cb: u32::try_from(std::mem::size_of::<STARTUPINFOW>()).unwrap(),
-            lpReserved: PWSTR::null(),
-            lpDesktop: PWSTR::null(),
-            lpTitle: PWSTR::null(),
-            dwX: 0,
-            dwY: 0,
-            dwXSize: 0,
-            dwYSize: 0,
-            dwXCountChars: 0,
-            dwYCountChars: 0,
-            dwFillAttribute: 0,
-            dwFlags: STARTUPINFOW_FLAGS(0),
-            wShowWindow: 0,
-            cbReserved2: 0,
-            lpReserved2: std::ptr::null_mut(),
-            hStdInput: HANDLE::default(),
-            hStdOutput: HANDLE::default(),
-            hStdError: HANDLE::default(),
+        let startup_info = STARTUPINFOW {
+            cb: std::mem::size_of::<STARTUPINFOW>() as u32,
+            dwFlags: STARTF_USESTDHANDLES,
+            hStdInput: INVALID_HANDLE_VALUE,
+            hStdOutput: INVALID_HANDLE_VALUE,
+            hStdError: INVALID_HANDLE_VALUE,
+            ..Default::default()
         };
 
         println!("Command: {}", cmd);
@@ -229,16 +217,16 @@ pub fn background_start(
 
         match unsafe {
             CreateProcessW(
-                PCWSTR::null(),
-                cmd_pwstr,
-                None,
-                None,
-                false,
-                creation_flags,
-                None,
-                PCWSTR::null(),
-                &startup_info,
-                &mut process_information,
+                PWSTR::null(),            // lpApplicationName
+                cmd_pwstr,                // lpCommandLine
+                None,                     // lpProcessAttributes
+                None,                     // lpThreadAttributes
+                false,                    // bInheritHandles
+                creation_flags,           // dwCreationFlags
+                None,                     // lpEnvironment
+                PWSTR::null(),            // lpCurrentDirectory
+                &startup_info,            // lpStartupInfo
+                &mut process_information, // lpProcessInformation
             )
         } {
             Ok(_) => {
@@ -254,8 +242,8 @@ pub fn background_start(
                 //println!("exitcode: {}", exit_code);
 
                 unsafe {
-                    CloseHandle(process_information.hProcess).unwrap();
-                    CloseHandle(process_information.hThread).unwrap();
+                    let _ = CloseHandle(process_information.hProcess);
+                    let _ = CloseHandle(process_information.hThread);
                 }
             }
             Err(e) => {
