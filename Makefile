@@ -84,14 +84,15 @@ test:
 	# Simple test
 	cargo test
 
+# Define the binary based on the OS
+ifeq ($(RUNNER_OS),Windows)
+	BINARY = ./target/release/edamame_posture.exe
+else
+	BINARY = ./target/release/edamame_posture
+endif
+
 commands_test:
-	# Define the binary based on the OS
-	ifeq ($(RUNNER_OS),Windows)
-		BINARY = ./target/release/edamame_posture.exe
-	else
-		BINARY = ./target/release/edamame_posture
-	endif
-	$(BINARY) score
+$(BINARY) score
 	$(BINARY) lanscan
 	$(BINARY) capture 5
 	$(BINARY) get-core-info
