@@ -85,7 +85,7 @@ test:
 	cargo test
 
 # Define the binary based on the OS
-BINARY=$(shell if [ "$(RUNNER_OS)" = "Windows" ]; then echo "./target/release/edamame_posture.exe"; else echo "./target/release/edamame_posture"; fi)
+BINARY=$(shell if [ "$(RUNNER_OS)" = "Windows" ]; then echo "../edamame_posture.exe"; else echo "../edamame_posture"; fi)
 
 commands_test:
 	$(BINARY) score
