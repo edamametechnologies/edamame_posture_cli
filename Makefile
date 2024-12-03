@@ -85,14 +85,10 @@ test:
 	cargo test
 
 # Define the binary based on the OS
-ifeq ($(RUNNER_OS),Windows)
-	BINARY = ./target/release/edamame_posture.exe
-else
-	BINARY = ./target/release/edamame_posture
-endif
+BINARY=$(shell if [ "$(RUNNER_OS)" = "Windows" ]; then echo "./target/release/edamame_posture.exe"; else echo "./target/release/edamame_posture"; fi)
 
 commands_test:
-$(BINARY) score
+	$(BINARY) score
 	$(BINARY) lanscan
 	$(BINARY) capture 5
 	$(BINARY) get-core-info
