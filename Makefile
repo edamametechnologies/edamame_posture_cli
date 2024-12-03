@@ -88,7 +88,6 @@ test:
 BINARY=$(shell if [ "$(RUNNER_OS)" = "Windows" ]; then echo "./target/release/edamame_posture.exe"; else echo "./target/release/edamame_posture"; fi)
 
 commands_test:
-	sleep 10
 	$(BINARY) score
 	$(BINARY) lanscan
 	$(BINARY) capture 5
