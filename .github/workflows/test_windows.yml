@@ -101,6 +101,8 @@ jobs:
           wget https://github.com/edamametechnologies/edamame_posture_cli/raw/refs/heads/main/windows/wpcap.dll -O ../wpcap.dll
           chmod +x ../wpcap.dll
           ../edamame_posture.exe start ${{ vars.EDAMAME_POSTURE_USER }} ${{ vars.EDAMAME_POSTURE_DOMAIN }} ${{ secrets.EDAMAME_POSTURE_PIN }} ${{ github.run_id }} true "github_windows"
+          # Pause for 10 seconds to allow the daemon to properly start and release the executable
+          sleep 10
           # Will fail due to dlls not being found
           #make test
           make commands_test
