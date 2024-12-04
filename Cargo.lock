@@ -852,18 +852,18 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.5.21"
+version = "4.5.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fb3b4b9e5a7c7514dfa52869339ee98b3156b0bfb4e8a77c4ff4babb64b1604f"
+checksum = "69371e34337c4c984bbe322360c2547210bf632eb2814bbe78a6e87a2935bd2b"
 dependencies = [
  "clap_builder",
 ]
 
 [[package]]
 name = "clap_builder"
-version = "4.5.21"
+version = "4.5.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b17a95aa67cc7b5ebd32aa5370189aa0d79069ef1c64ce893bd30fb24bff20ec"
+checksum = "6e24c1b4099818523236a8ca881d2b45db98dadfb4625cf6608c12069fcbbde1"
 dependencies = [
  "anstream",
  "anstyle",
@@ -1483,7 +1483,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "0.8.0"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#d75c0d7a0cc7def9fb9f9ab5d6cee98758688e5d"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#059931d1946bac32388c573c3d466dac58cf26ca"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1550,7 +1550,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "0.7.2"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#b7c13c1794db20e15159cd4b3afd64505f502845"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#a38956fce02987b16eda07f245e24028af886aca"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -5875,9 +5875,9 @@ dependencies = [
 
 [[package]]
 name = "tokio-util"
-version = "0.7.12"
+version = "0.7.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "61e7c3654c13bcd040d4a03abee2c75b1d14a37b423cf5a813ceae1cc903ec6a"
+checksum = "d7fcaa8d55a2bdd6b83ace262b016eca0d79ee02818c5c1bcdf0305114081078"
 dependencies = [
  "bytes",
  "futures-core",
@@ -6236,9 +6236,9 @@ checksum = "8ecb6da28b8a351d773b68d5825ac39017e680750f980f3a1a85cd8dd28a47c1"
 
 [[package]]
 name = "ureq"
-version = "2.12.0"
+version = "2.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3193f92e105038f98ae68af40c008e3c94f2f046926e0f95e6c835dc6459bac8"
+checksum = "02d1a66277ed75f640d608235660df48c8e3c19f3b4edb6a263315626cc3c01d"
 dependencies = [
  "base64 0.22.1",
  "log",
