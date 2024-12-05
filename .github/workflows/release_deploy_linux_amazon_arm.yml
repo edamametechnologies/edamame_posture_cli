@@ -1,4 +1,4 @@
-name: Build and publish for Linux Alpine
+name: Build and publish for Linux Amazon ARM
 
 on:
   workflow_dispatch:
