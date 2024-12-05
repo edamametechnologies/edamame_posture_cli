@@ -50,11 +50,6 @@ jobs:
           git config --global user.email "dev@edamame.tech"
           git config --global user.name "EDAMAME Dev"
           git config --global url."https://edamamedev:${{ secrets.DEV_GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
-        shell: alpine.sh {0}
-
-      - name: Set VERGEN_GIT_BRANCH to main
-        run: echo "VERGEN_GIT_BRANCH=main" >> $GITHUB_ENV
-        shell: alpine.sh {0}
 
       - name: Build binary using cross
         uses: houseabsolute/actions-rust-cross@v0
