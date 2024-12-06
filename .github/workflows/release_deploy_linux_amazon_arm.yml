@@ -54,9 +54,10 @@ jobs:
       - name: Install openssl
         run: |
           sudo apt-get update
-          sudo apt-get install -y libssl-dev openssl
-          export OPENSSL_DIR=/usr
-          export OPENSSL_STATIC=1
+          sudo apt-get install -y libssl-dev:arm64 openssl pkg-config
+
+      - name: Set OpenSSL env
+        run: echo "OPENSSL_DIR=/usr/aarch64-linux-gnu" >> $GITHUB_ENV
 
       - name: Build binary using cross
         uses: houseabsolute/actions-rust-cross@v0
