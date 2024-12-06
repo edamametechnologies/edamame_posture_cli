@@ -54,7 +54,7 @@ jobs:
       - name: Install openssl
         run: |
           sudo apt-get update
-          sudo apt-get install -y openssl openssl-dev
+          sudo apt-get install -y libssl-dev openssl
 
       - name: Build binary using cross
         uses: houseabsolute/actions-rust-cross@v0
