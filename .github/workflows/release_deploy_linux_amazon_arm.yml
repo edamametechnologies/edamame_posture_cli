@@ -51,14 +51,6 @@ jobs:
           git config --global user.name "EDAMAME Dev"
           git config --global url."https://edamamedev:${{ secrets.DEV_GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
 
-      - name: Install openssl
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libssl-dev openssl pkg-config
-
-      - name: Set OpenSSL env
-        run: echo "OPENSSL_DIR=/usr/aarch64-linux-gnu" >> $GITHUB_ENV
-
       - name: Build binary using cross
         uses: houseabsolute/actions-rust-cross@v0
         with:
