@@ -1483,7 +1483,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "0.8.0"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#a0159245af90a9710a8e296e3884442ae31a7879"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#03c2f2bcd04f4834beb015c36831ebdcf981a815"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1515,6 +1515,7 @@ dependencies = [
  "machine-uid",
  "once_cell",
  "openssl",
+ "openssl-sys",
  "parking_lot",
  "paste",
  "peak_alloc",
@@ -1550,7 +1551,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "0.7.2"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#d6701efd9ebe1507605e6407f211b3baaa3f510a"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#2eb6b9983eb4f938f44b19153bed9dd2739a9031"
 dependencies = [
  "anyhow",
  "arp-toolkit",
