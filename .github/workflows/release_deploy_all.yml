@@ -56,6 +56,7 @@ jobs:
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_REGION: ${{ secrets.AWS_REGION }}
       KEYCHAIN_PATH: $RUNNER_TEMP/app-signing.keychain-db
+      CROSS_NO_WARNINGS: 0
     
     steps:
       - name: Setup EDAMAME Posture
@@ -78,11 +79,6 @@ jobs:
           git config --global user.email "dev@edamame.tech"
           git config --global user.name "EDAMAME Dev"
           git config --global url."https://edamamedev:${{ secrets.DEV_GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.target }}
 
       # macOS
       - name: Install additional packages w/ Homebrew
@@ -118,7 +114,13 @@ jobs:
            # For packet capture
            sudo apt-get install -y libpcap-dev
 
-      # Linux / Cross
+      # Install Rust
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      # Install Cross for Linux
       - name: Install Cross for Linux
         if: matrix.os == 'ubuntu'
         run: cargo install cross --git https://github.com/cross-rs/cross
