@@ -2,5 +2,5 @@
 pre-build = [
     "dpkg --add-architecture arm64",
     "apt-get update",
-    "apt install -y protobuf-compiler libpcap-dev",
+    "apt install -y protobuf-compiler libpcap-dev:arm64",
 ]
