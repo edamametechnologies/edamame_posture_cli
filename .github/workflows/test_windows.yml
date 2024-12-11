@@ -88,31 +88,31 @@ jobs:
         shell: bash
         continue-on-error: true
         run: |
-          ../edamame_posture stop
+          ./edamame_posture stop
           taskkill -IM edamame_posture.exe -F || true
           sleep 20
           rm -f ~/.edamame_posture.yaml
-          rm -f ../edamame_posture.exe
-          rm -f ../edamame_posture.*
-          cp -f ./target/release/edamame_posture.exe ../edamame_posture.exe
+          rm -f ./edamame_posture.exe
+          rm -f ./edamame_posture.*
+          cp -f ./target/release/edamame_posture.exe ./edamame_posture.exe
           # Capture won't work but posture will still run
-          wget https://github.com/edamametechnologies/edamame_posture_cli/raw/refs/heads/main/windows/Packet.dll -O ../Packet.dll
-          chmod +x ../Packet.dll
-          wget https://github.com/edamametechnologies/edamame_posture_cli/raw/refs/heads/main/windows/wpcap.dll -O ../wpcap.dll
-          chmod +x ../wpcap.dll
-          ../edamame_posture.exe start ${{ vars.EDAMAME_POSTURE_USER }} ${{ vars.EDAMAME_POSTURE_DOMAIN }} ${{ secrets.EDAMAME_POSTURE_PIN }} ${{ github.run_id }} true "github_windows"
+          wget https://github.com/edamametechnologies/edamame_posture_cli/raw/refs/heads/main/windows/Packet.dll -O ./Packet.dll
+          chmod +x ./Packet.dll
+          wget https://github.com/edamametechnologies/edamame_posture_cli/raw/refs/heads/main/windows/wpcap.dll -O ./wpcap.dll
+          chmod +x ./wpcap.dll
+          ./edamame_posture.exe start ${{ vars.EDAMAME_POSTURE_USER }} ${{ vars.EDAMAME_POSTURE_DOMAIN }} ${{ secrets.EDAMAME_POSTURE_PIN }} ${{ github.run_id }} true "github_windows"
           # Will fail due to dlls not being found
           #make test
           make commands_test
           make clean
           make windows_release
           echo "Status:"
-          ../edamame_posture.exe status
+          ./edamame_posture.exe status
           echo "Sessions:"
-          ../edamame_posture.exe get-sessions false false
+          ./edamame_posture.exe get-sessions false false
           echo "Test completed"
 
       - name: Dump the logs
         shell: bash
         run: |
-          ../edamame_posture.exe logs
+          ./edamame_posture.exe logs
