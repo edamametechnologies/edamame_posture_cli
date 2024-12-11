@@ -1,0 +1,178 @@
+name: Build and publish for all platforms
+
+on:
+  workflow_dispatch:
+
+jobs:
+
+  build:
+    runs-on: ${{ matrix.os }}-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - os: ubuntu
+            arch: i386
+            target: i686-unknown-linux-gnu
+          - os: ubuntu
+            arch: armhf
+            target: armv7-unknown-linux-gnueabihf
+          - os: ubuntu
+            arch: amd64
+            target: x86_64-unknown-linux-gnu
+          - os: ubuntu
+            arch: arm64
+            target: aarch64-unknown-linux-gnu
+          - os: macos
+            arch: amd64
+            target: x86_64-apple-darwin
+          - os: macos
+            arch: arm64
+            target: aarch64-apple-darwin
+          - os: windows
+            arch: i386
+            target: i686-pc-windows-msvc
+          - os: windows
+            arch: amd64
+            target: x86_64-pc-windows-msvc
+
+    env:
+      EDAMAME_APP_SENTRY: ${{ secrets.EDAMAME_APP_SENTRY }}
+      PWNED_API_KEY: ${{ secrets.PWNED_API_KEY }}
+      EDAMAME_TARGET: ${{ secrets.EDAMAME_TARGET }}
+      EDAMAME_CORE_TARGET: ${{ secrets.EDAMAME_CORE_TARGET }}
+      EDAMAME_CORE_SERVER: ${{ secrets.EDAMAME_CORE_SERVER }}
+      EDAMAME_CA_PEM: ${{ secrets.EDAMAME_CA_PEM }}
+      EDAMAME_CLIENT_PEM: ${{ secrets.EDAMAME_CLIENT_PEM }}
+      EDAMAME_CLIENT_KEY: ${{ secrets.EDAMAME_CLIENT_KEY }}
+      EDAMAME_SERVER_PEM: ${{ secrets.EDAMAME_SERVER_PEM }}
+      EDAMAME_SERVER_KEY: ${{ secrets.EDAMAME_SERVER_KEY }}
+      EDAMAME_CLIENT_CA_PEM: ${{ secrets.EDAMAME_CLIENT_CA_PEM }}
+      LAMBDA_SIGNATURE: ${{ secrets.LAMBDA_SIGNATURE }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      KEYCHAIN_PATH: $RUNNER_TEMP/app-signing.keychain-db
+    
+    steps:
+
+      - name: Setup EDAMAME Posture
+        uses: edamametechnologies/edamame_posture_action@v0
+        with:
+            edamame_user: ${{ vars.EDAMAME_POSTURE_USER }}
+            edamame_domain: ${{ vars.EDAMAME_POSTURE_DOMAIN }}
+            edamame_pin: ${{ secrets.EDAMAME_POSTURE_PIN }}
+            edamame_id: ${{ github.run_id }}
+            network_scan: true
+            auto_remediate: true
+            checkout: true
+
+      - name: Configure Git Authentication to import private crates
+        run: |
+          git config --global user.email "dev@edamame.tech"
+          git config --global user.name "EDAMAME Dev"
+          git config --global url."https://edamamedev:${{ secrets.DEV_GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      # macOS
+      - name: Install additional packages w/ Homebrew
+        if: matrix.os == 'macos'
+        run: |
+          brew install protobuf
+          brew install wget
+
+      # Windows
+      - name: Setup .NET 8.0 for Windows
+        if: matrix.os == 'windows'
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Setup MS Store CLI for Windows
+        if: matrix.os == 'windows'
+        uses: microsoft/setup-msstore-cli@v1
+
+      - name: Install additional packages w/ Chocolatey for Windows
+        if: matrix.os == 'windows'
+        run: |
+          choco install protoc wget
+          dotnet tool install --global AzureSignTool
+
+      # Linux
+      - name: Install additional packages w/ apt for Linux
+        if: matrix.os == 'ubuntu'
+        run: |
+           # Install build dependencies
+           sudo apt-get update
+           sudo apt-get install -y protobuf-compiler
+           # For packet capture
+           sudo apt-get install -y libpcap-dev
+
+      # Linux / Cross
+      - name: Install Cross for Linux
+        if: matrix.os == 'ubuntu'
+        run: cargo install cross --git https://github.com/cross-rs/cross
+
+      - name: Build application for Linux
+        if: matrix.os == 'ubuntu'
+        run: cross build --release --target ${{ matrix.target }}
+
+      - name: Build application for macOS or Windows
+        if: matrix.os == 'macos' || matrix.os == 'windows'
+        run: cargo build --release --target ${{ matrix.target }}
+
+      # macOS
+      - name: Setup signing for macOS
+        if: matrix.os == 'macos'
+        shell: bash
+        run: |
+          # Create certificate files from secrets base64
+          echo ${{ secrets.APPLE_DEVELOPMENT_CER }} | base64 --decode > certificate_dev.cer
+          echo ${{ secrets.APPLE_DEVELOPMENT_KEY }} | base64 --decode > certificate_dev.key
+          echo ${{ secrets.APPLE_DEVELOPER_ID_INSTALLER_CER }} | base64 --decode > certificate_installer.cer
+          echo ${{ secrets.APPLE_DEVELOPER_ID_INSTALLER_KEY }} | base64 --decode > certificate_installer.key
+          echo ${{ secrets.APPLE_DEVELOPER_ID_APPLICATION_CER }} | base64 --decode > certificate_application.cer
+          echo ${{ secrets.APPLE_DEVELOPER_ID_APPLICATION_KEY }} | base64 --decode > certificate_application.key
+          
+          # Create p12 file
+          openssl pkcs12 -export -name zup -in certificate_dev.cer -inkey certificate_dev.key -passin pass:${{ secrets.APPLE_P12_PASSWORD }} -out certificate_dev.p12 -passout pass:${{ secrets.MACOS_KEYCHAIN_PASSWORD }}
+          openssl pkcs12 -export -name zup -in certificate_installer.cer -inkey certificate_installer.key -passin pass:${{ secrets.APPLE_P12_PASSWORD }} -out certificate_installer.p12 -passout pass:${{ secrets.MACOS_KEYCHAIN_PASSWORD }}
+          openssl pkcs12 -export -name zup -in certificate_application.cer -inkey certificate_application.key -passin pass:${{ secrets.APPLE_P12_PASSWORD }} -out certificate_application.p12 -passout pass:${{ secrets.MACOS_KEYCHAIN_PASSWORD }}
+        
+          # Configure Keychain
+          security create-keychain -p "${{ secrets.MACOS_KEYCHAIN_PASSWORD }}" $KEYCHAIN_PATH
+          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+          security unlock-keychain -p "${{ secrets.MACOS_KEYCHAIN_PASSWORD }}" $KEYCHAIN_PATH
+          
+          # Import certificates on Keychain
+          security import certificate_dev.p12 -P "${{ secrets.APPLE_P12_PASSWORD }}" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+          security import certificate_installer.p12 -P "${{ secrets.APPLE_P12_PASSWORD }}" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+          security import certificate_application.p12 -P "${{ secrets.APPLE_P12_PASSWORD }}" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+
+          # Verify Keychain
+          security list-keychain -d user -s $KEYCHAIN_PATH
+
+          # Store notarization credentials
+          echo ${{ secrets.APPLE_APPSTORE_CONNECT_API_KEY }} | base64 --decode > appstore_connect_api_key.p8
+          xcrun notarytool store-credentials -k appstore_connect_api_key.p8 -d ${{ secrets.APPLE_APPSTORE_CONNECT_API_KEY_ID }} -i ${{ secrets.APPLE_APPSTORE_CONNECT_API_ISSUER_ID }} Edamame
+          
+          # Sign + hardened runtime
+          ./macos/sign.sh ./target/release/edamame_posture
+
+      - name: Signing for Windows
+        if: matrix.os == 'windows'
+        # We can't use bash here, as the AzureSignTool is a .NET tool
+        run: AzureSignTool sign -kvt ${{ secrets.AZURE_SIGN_TENANT_ID }} -kvu ${{ secrets.AZURE_SIGN_KEY_VAULT_URI }} -kvi ${{ secrets.AZURE_SIGN_CLIENT_ID }} -kvs ${{ secrets.AZURE_SIGN_CLIENT_SECRET }} -kvc ${{ secrets.AZURE_SIGN_CERT_NAME }} -tr http://timestamp.digicert.com -v ./target/release/edamame_posture.exe
+        
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ matrix.os }}-${{ matrix.target }}
+          path: |
+            target/*/release/edamame_posture
+            target/*/release/edamame_posture.exe
+          if-no-files-found: error

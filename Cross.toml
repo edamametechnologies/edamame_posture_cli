@@ -1,6 +1,23 @@
+[target.x86_64-unknown-linux-gnu]
+pre-build = [
+    "dpkg --add-architecture amd64",
+    "apt update -y && apt install -y protobuf-compiler libpcap-dev:amd64"
+]
+
+[target.i686-unknown-linux-gnu]
+pre-build = [
+    "dpkg --add-architecture i386",
+    "apt update -y && apt install -y protobuf-compiler libpcap-dev:i386"
+]
+
 [target.aarch64-unknown-linux-gnu]
 pre-build = [
     "dpkg --add-architecture arm64",
-    "apt-get update",
-    "apt install -y protobuf-compiler libpcap-dev:arm64",
+    "apt update -y && apt install -y protobuf-compiler libpcap-dev:arm64"
+]
+
+[target.armv7-unknown-linux-gnueabihf]
+pre-build = [
+    "dpkg --add-architecture armhf",
+    "apt update -y && apt install -y protobuf-compiler libpcap-dev:armhf"
 ]
