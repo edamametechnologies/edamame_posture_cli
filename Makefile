@@ -22,10 +22,10 @@ macos_publish: macos_release
 windows: windows_release
 
 windows_debug:
-	RUSTFLAGS="-C target-feature=+crt-static" cargo build
+	cargo build
  
 windows_release:
-	RUSTFLAGS="-C target-feature=+crt-static" cargo build --release
+	cargo build --release
 
 windows_publish: windows_release
 
@@ -51,14 +51,10 @@ linux_alpine: linux_alpine_release
 
 linux_alpine_debug:
 	rustup target add x86_64-unknown-linux-musl
-	export OPENSSL_DIR=/usr
-	export OPENSSL_STATIC=1
 	cargo build --target x86_64-unknown-linux-musl
 
 linux_alpine_release:
 	rustup target add x86_64-unknown-linux-musl
-	export OPENSSL_DIR=/usr
-	export OPENSSL_STATIC=1
 	cargo build --release --target x86_64-unknown-linux-musl
 
 linux_alpine_publish: linux_alpine_release
@@ -85,7 +81,7 @@ test:
 	cargo test
 
 # Define the binary based on the OS
-BINARY=$(shell if [ "$(RUNNER_OS)" = "Windows" ]; then echo "../edamame_posture.exe"; else echo "../edamame_posture"; fi)
+BINARY=$(shell if [ "$(RUNNER_OS)" = "Windows" ]; then echo "target/release/edamame_posture.exe"; else echo "target/release/edamame_posture"; fi)
 
 commands_test:
 	$(BINARY) score
