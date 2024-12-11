@@ -23,6 +23,12 @@ jobs:
           - os: ubuntu
             arch: arm64
             target: aarch64-unknown-linux-gnu
+          - os: ubuntu
+            arch: amd64
+            target: x86_64-unknown-linux-musl
+          - os: ubuntu
+            arch: arm64
+            target: aarch64-unknown-linux-musl
           - os: macos
             arch: amd64
             target: x86_64-apple-darwin
@@ -118,11 +124,15 @@ jobs:
         if: matrix.os == 'ubuntu'
         run: cargo install cross --git https://github.com/cross-rs/cross
 
-      - name: Build application for Linux
-        if: matrix.os == 'ubuntu'
+      - name: Build application for Linux using cargo
+        if: matrix.os == 'ubuntu' && matrix.target == 'x86_64-unknown-linux-gnu'
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Build application for Linux using cross
+        if: matrix.os == 'ubuntu' 
         run: cross build --release --target ${{ matrix.target }}
 
-      - name: Build application forWindows
+      - name: Build application for Windows
         if: matrix.os == 'windows'
         run: cargo build --release --target ${{ matrix.target }}
 
