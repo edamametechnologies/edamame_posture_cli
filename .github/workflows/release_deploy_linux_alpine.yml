@@ -58,9 +58,6 @@ jobs:
             libpcap-dev \
             git \
             curl \
-            openssl \
-            openssl-dev \
-            openssl-libs-static \
             pkgconf \
             eudev-dev \
             perl
