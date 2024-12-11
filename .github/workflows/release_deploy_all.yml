@@ -26,9 +26,6 @@ jobs:
           - os: macos
             arch: amd64
             target: x86_64-apple-darwin
-          - os: macos
-            arch: arm64
-            target: aarch64-apple-darwin
           - os: windows
             arch: i386
             target: i686-pc-windows-msvc
@@ -125,9 +122,21 @@ jobs:
         if: matrix.os == 'ubuntu'
         run: cross build --release --target ${{ matrix.target }}
 
-      - name: Build application for macOS or Windows
-        if: matrix.os == 'macos' || matrix.os == 'windows'
+      - name: Build application forWindows
+        if: matrix.os == 'windows'
         run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Build application for macOS as universal binary
+        if: matrix.os == 'macos'
+        run: |
+          rustup target add x86_64-apple-darwin
+          rustup target add aarch64-apple-darwin
+          cargo build --release --target x86_64-apple-darwin
+          cargo build --release --target aarch64-apple-darwin
+          mkdir -p target/release
+          lipo -create -output target/release/edamame_posture \
+            target/x86_64-apple-darwin/release/edamame_posture \
+            target/aarch64-apple-darwin/release/edamame_posture
 
       # macOS
       - name: Setup signing for macOS
@@ -160,10 +169,6 @@ jobs:
           # Verify Keychain
           security list-keychain -d user -s $KEYCHAIN_PATH
 
-          # Store notarization credentials
-          echo ${{ secrets.APPLE_APPSTORE_CONNECT_API_KEY }} | base64 --decode > appstore_connect_api_key.p8
-          xcrun notarytool store-credentials -k appstore_connect_api_key.p8 -d ${{ secrets.APPLE_APPSTORE_CONNECT_API_KEY_ID }} -i ${{ secrets.APPLE_APPSTORE_CONNECT_API_ISSUER_ID }} Edamame
-          
           # Sign + hardened runtime
           ./macos/sign.sh ./target/release/edamame_posture
 
