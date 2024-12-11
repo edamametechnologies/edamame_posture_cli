@@ -118,26 +118,26 @@ jobs:
         shell: bash
         continue-on-error: true
         run: |
-          sudo ../edamame_posture stop
+          sudo ./edamame_posture stop
           killall -9 edamame_posture || true
           sleep 20
           sudo rm -f ~/.edamame_posture.yaml
-          sudo rm -f ../edamame_posture
-          sudo rm -f ../edamame_posture.*
-          sudo cp -f ./target/release/edamame_posture ../edamame_posture
+          sudo rm -f ./edamame_posture
+          sudo rm -f ./edamame_posture.*
+          sudo cp -f ./target/release/edamame_posture ./edamame_posture
           make test
-          sudo ../edamame_posture start ${{ vars.EDAMAME_POSTURE_USER }} ${{ vars.EDAMAME_POSTURE_DOMAIN }} ${{ secrets.EDAMAME_POSTURE_PIN }} ${{ github.run_id }} true "github_macos"
+          sudo ./edamame_posture start ${{ vars.EDAMAME_POSTURE_USER }} ${{ vars.EDAMAME_POSTURE_DOMAIN }} ${{ secrets.EDAMAME_POSTURE_PIN }} ${{ github.run_id }} true "github_macos"
           sudo make commands_test
           make clean
           make macos_release
           echo "Status:"
-          sudo ../edamame_posture status
+          sudo ./edamame_posture status
           echo "Sessions:"
-          sudo ../edamame_posture get-sessions false false
+          sudo ./edamame_posture get-sessions false false
           echo "Test completed"
 
       - name: Dump the logs
         shell: bash
         run: |
-          sudo ../edamame_posture logs
+          sudo ./edamame_posture logs
 
