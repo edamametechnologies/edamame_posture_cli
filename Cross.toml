@@ -4,6 +4,12 @@ pre-build = [
     "apt update -y && apt install -y protobuf-compiler libpcap-dev:amd64"
 ]
 
+[target.x86_64-unknown-linux-musl]
+pre-build = [
+    "dpkg --add-architecture amd64",
+    "apt update -y && apt install -y protobuf-compiler libpcap-dev:amd64"
+]
+
 [target.i686-unknown-linux-gnu]
 pre-build = [
     "dpkg --add-architecture i386",
@@ -16,8 +22,30 @@ pre-build = [
     "apt update -y && apt install -y protobuf-compiler libpcap-dev:arm64"
 ]
 
+[target.aarch64-unknown-linux-musl]
+pre-build = [
+    "dpkg --add-architecture arm64",
+    "apt update -y && apt install -y protobuf-compiler libpcap-dev:arm64"
+]
+
 [target.armv7-unknown-linux-gnueabihf]
 pre-build = [
     "dpkg --add-architecture armhf",
     "apt update -y && apt install -y protobuf-compiler libpcap-dev:armhf"
+]
+
+[build.env]
+passthrough = [
+    "EDAMAME_APP_SENTRY",
+    "PWNED_API_KEY",
+    "EDAMAME_TARGET",
+    "EDAMAME_CORE_TARGET",
+    "EDAMAME_CORE_SERVER",
+    "EDAMAME_CA_PEM",
+    "EDAMAME_CLIENT_PEM",
+    "EDAMAME_CLIENT_KEY",
+    "EDAMAME_SERVER_PEM",
+    "EDAMAME_SERVER_KEY",
+    "EDAMAME_CLIENT_CA_PEM",
+    "LAMBDA_SIGNATURE",
 ]
