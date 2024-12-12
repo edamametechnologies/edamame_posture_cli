@@ -40,7 +40,7 @@ jobs:
           edamame_user: ${{ vars.EDAMAME_POSTURE_USER }}
           edamame_domain: ${{ vars.EDAMAME_POSTURE_DOMAIN }}
           edamame_pin: ${{ secrets.EDAMAME_POSTURE_PIN }}
-          edamame_id: ${{ github.run_id }}
+          edamame_id: ${{ github.run_id }}_${{ github.job }}
           network_scan: true
           auto_remediate: true
           checkout: true
@@ -48,7 +48,7 @@ jobs:
           token: ${{ secrets.DEV_GITHUB_TOKEN }}
           wait_for_api: true
           wait_for_https: true
-          
+
       - name: Setup Alpine Linux
         uses: jirutka/setup-alpine@v1
         with:
