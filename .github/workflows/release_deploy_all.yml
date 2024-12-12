@@ -52,24 +52,24 @@ jobs:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_REGION: ${{ secrets.AWS_REGION }}
-      KEYCHAIN_PATH: $RUNNER_TEMP/app-signing.keychain-db
+      KEYCHAIN_PATH: ${{ runner.temp }}/app-signing.keychain-db
       CROSS_NO_WARNINGS: 0
     
     steps:
       - name: Setup EDAMAME Posture
         uses: edamametechnologies/edamame_posture_action@v0
         with:
-            edamame_user: ${{ vars.EDAMAME_POSTURE_USER }}
-            edamame_domain: ${{ vars.EDAMAME_POSTURE_DOMAIN }}
-            edamame_pin: ${{ secrets.EDAMAME_POSTURE_PIN }}
-            edamame_id: ${{ github.run_id }}
-            network_scan: true
-            auto_remediate: true
-            checkout: true
-            # We are using the token of the the private repo to checkout the public repo and properly wait for access to the private repo
-            token: ${{ secrets.DEV_GITHUB_TOKEN }}
-            wait_for_api: true
-            wait_for_https: true
+          edamame_user: ${{ vars.EDAMAME_POSTURE_USER }}
+          edamame_domain: ${{ vars.EDAMAME_POSTURE_DOMAIN }}
+          edamame_pin: ${{ secrets.EDAMAME_POSTURE_PIN }}
+          edamame_id: ${{ github.run_id }}
+          network_scan: true
+          auto_remediate: true
+          checkout: true
+          # We are using the token of the the private repo to checkout the public repo and properly wait for access to the private repo
+          token: ${{ secrets.DEV_GITHUB_TOKEN }}
+          wait_for_api: true
+          wait_for_https: true
 
       - name: Configure Git Authentication to import private crates
         run: |
@@ -137,8 +137,8 @@ jobs:
           rustup target add aarch64-apple-darwin
           cargo build --release --target x86_64-apple-darwin
           cargo build --release --target aarch64-apple-darwin
-          mkdir -p target/release
-          lipo -create -output target/release/edamame_posture \
+          mkdir -p target/release/apple-darwin
+          lipo -create -output target/release/apple-darwin/edamame_posture \
             target/x86_64-apple-darwin/release/edamame_posture \
             target/aarch64-apple-darwin/release/edamame_posture
 
@@ -174,12 +174,12 @@ jobs:
           security list-keychain -d user -s $KEYCHAIN_PATH
 
           # Sign + hardened runtime
-          ./macos/sign.sh ./target/release/edamame_posture
+          ./macos/sign.sh ./target/apple-darwin/release/edamame_posture
 
       - name: Signing for Windows
         if: matrix.os == 'windows'
         # We can't use bash here, as the AzureSignTool is a .NET tool
-        run: AzureSignTool sign -kvt ${{ secrets.AZURE_SIGN_TENANT_ID }} -kvu ${{ secrets.AZURE_SIGN_KEY_VAULT_URI }} -kvi ${{ secrets.AZURE_SIGN_CLIENT_ID }} -kvs ${{ secrets.AZURE_SIGN_CLIENT_SECRET }} -kvc ${{ secrets.AZURE_SIGN_CERT_NAME }} -tr http://timestamp.digicert.com -v ./target/release/edamame_posture.exe
+        run: AzureSignTool sign -kvt ${{ secrets.AZURE_SIGN_TENANT_ID }} -kvu ${{ secrets.AZURE_SIGN_KEY_VAULT_URI }} -kvi ${{ secrets.AZURE_SIGN_CLIENT_ID }} -kvs ${{ secrets.AZURE_SIGN_CLIENT_SECRET }} -kvc ${{ secrets.AZURE_SIGN_CERT_NAME }} -tr http://timestamp.digicert.com -v ./target/x86_64-pc-windows-msvc/release/edamame_posture.exe
         
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
