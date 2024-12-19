@@ -183,6 +183,7 @@ jobs:
         run: AzureSignTool sign -kvt ${{ secrets.AZURE_SIGN_TENANT_ID }} -kvu ${{ secrets.AZURE_SIGN_KEY_VAULT_URI }} -kvi ${{ secrets.AZURE_SIGN_CLIENT_ID }} -kvs ${{ secrets.AZURE_SIGN_CLIENT_SECRET }} -kvc ${{ secrets.AZURE_SIGN_CERT_NAME }} -tr http://timestamp.digicert.com -v ./target/x86_64-pc-windows-msvc/release/edamame_posture.exe
       
       - name: Binary path
+        id: binary_path
         run: |
           # Infer the path based on target/*/release/edamame_posture*
           BINARY_PATH=$(find target -type f -name edamame_posture* | head -n 1)

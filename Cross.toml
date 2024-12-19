@@ -7,11 +7,7 @@ pre-build = [
 [target.x86_64-unknown-linux-musl]
 pre-build = [
     "dpkg --add-architecture amd64",
-    "apt update -y && apt install -y musl-tools musl-dev protobuf-compiler wget flex bison",
-    "wget https://www.tcpdump.org/release/libpcap-1.10.5.tar.gz",
-    "tar xzf libpcap-1.10.5.tar.gz",
-    "cd libpcap-1.10.5 && CC=musl-gcc ./configure --prefix=/usr/local/musl && make && make install",
-    "rm -rf libpcap-1.10.5 libpcap-1.10.5.tar.gz"
+    "apt update -y && apt install -y protobuf-compiler libpcap-dev:amd64"
 ]
 
 [target.i686-unknown-linux-gnu]
@@ -29,11 +25,7 @@ pre-build = [
 [target.aarch64-unknown-linux-musl]
 pre-build = [
     "dpkg --add-architecture arm64",
-    "apt update -y && apt install -y musl-tools musl-dev protobuf-compiler wget flex bison",
-    "wget https://www.tcpdump.org/release/libpcap-1.10.5.tar.gz",
-    "tar xzf libpcap-1.10.5.tar.gz",
-    "cd libpcap-1.10.5 && CC=musl-gcc ./configure --prefix=/usr/local/musl && make && make install",
-    "rm -rf libpcap-1.10.5 libpcap-1.10.5.tar.gz"
+    "apt update -y && apt install -y protobuf-compiler libpcap-dev:arm64"
 ]
 
 [target.armv7-unknown-linux-gnueabihf]
