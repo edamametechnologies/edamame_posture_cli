@@ -3,6 +3,14 @@ name: Build and publish for all platforms
 on:
   workflow_dispatch:
 
+# Auto cancel previous runs if they were not completed.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+# Write permissions are required to upload the release asset.
+permissions: write-all
+    
 jobs:
 
   build:
@@ -184,6 +192,7 @@ jobs:
       
       - name: Binary path
         id: binary_path
+        shell: bash
         run: |
           # Infer the path based on target/*/release/edamame_posture*
           BINARY_PATH=$(find target -type f -name edamame_posture* | head -n 1)
