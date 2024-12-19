@@ -9,6 +9,16 @@ pre-build = [
     "dpkg --add-architecture $CROSS_DEB_ARCH",
     "apt update -y && apt install -y protobuf-compiler wget",
     "mkdir -p /usr/local/musl && cd /usr/local/musl && wget https://dl-cdn.alpinelinux.org/alpine/latest-stable/main/x86_64/libpcap-1.10.5-r0.apk && tar -vxzf libpcap-1.10.5-r0.apk"
+    # Create libpcap.pc for pkg-config
+    "echo 'prefix=/usr/local/musl' > /usr/local/musl/lib/pkgconfig/libpcap.pc",
+    "echo 'exec_prefix=${prefix}' >> /usr/local/musl/lib/pkgconfig/libpcap.pc",
+    "echo 'libdir=${exec_prefix}/lib' >> /usr/local/musl/lib/pkgconfig/libpcap.pc",
+    "echo 'includedir=${prefix}/include' >> /usr/local/musl/lib/pkgconfig/libpcap.pc",
+    "echo 'Name: libpcap' >> /usr/local/musl/lib/pkgconfig/libpcap.pc",
+    "echo 'Description: libpcap capture library' >> /usr/local/musl/lib/pkgconfig/libpcap.pc",
+    "echo 'Version: 1.10.5' >> /usr/local/musl/lib/pkgconfig/libpcap.pc",
+    "echo 'Libs: -L${libdir} -lpcap' >> /usr/local/musl/lib/pkgconfig/libpcap.pc",
+    "echo 'Cflags: -I${includedir}' >> /usr/local/musl/lib/pkgconfig/libpcap.pc"
 ]
 
 [target.i686-unknown-linux-gnu]
@@ -27,7 +37,17 @@ pre-build = [
 pre-build = [
     "dpkg --add-architecture $CROSS_DEB_ARCH",
     "apt update -y && apt install -y protobuf-compiler wget",
-    "mkdir -p /usr/local/musl && cd /usr/local/musl && wget https://dl-cdn.alpinelinux.org/alpine/latest-stable/main/aarch64/libpcap-1.10.5-r0.apk && tar -vxzf libpcap-1.10.5-r0.apk"
+    "mkdir -p /usr/local/musl && cd /usr/local/musl && wget https://dl-cdn.alpinelinux.org/alpine/latest-stable/main/aarch64/libpcap-1.10.5-r0.apk && tar -vxzf libpcap-1.10.5-r0.apk",
+    # Create libpcap.pc for pkg-config
+    "echo 'prefix=/usr/local/musl' > /usr/local/musl/lib/pkgconfig/libpcap.pc",
+    "echo 'exec_prefix=${prefix}' >> /usr/local/musl/lib/pkgconfig/libpcap.pc",
+    "echo 'libdir=${exec_prefix}/lib' >> /usr/local/musl/lib/pkgconfig/libpcap.pc",
+    "echo 'includedir=${prefix}/include' >> /usr/local/musl/lib/pkgconfig/libpcap.pc",
+    "echo 'Name: libpcap' >> /usr/local/musl/lib/pkgconfig/libpcap.pc",
+    "echo 'Description: libpcap capture library' >> /usr/local/musl/lib/pkgconfig/libpcap.pc",
+    "echo 'Version: 1.10.5' >> /usr/local/musl/lib/pkgconfig/libpcap.pc",
+    "echo 'Libs: -L${libdir} -lpcap' >> /usr/local/musl/lib/pkgconfig/libpcap.pc",
+    "echo 'Cflags: -I${includedir}' >> /usr/local/musl/lib/pkgconfig/libpcap.pc"
 ]
 
 [target.armv7-unknown-linux-gnueabihf]
