@@ -190,21 +190,6 @@ jobs:
         # We can't use bash here, as the AzureSignTool is a .NET tool
         run: AzureSignTool sign -kvt ${{ secrets.AZURE_SIGN_TENANT_ID }} -kvu ${{ secrets.AZURE_SIGN_KEY_VAULT_URI }} -kvi ${{ secrets.AZURE_SIGN_CLIENT_ID }} -kvs ${{ secrets.AZURE_SIGN_CLIENT_SECRET }} -kvc ${{ secrets.AZURE_SIGN_CERT_NAME }} -tr http://timestamp.digicert.com -v ./target/x86_64-pc-windows-msvc/release/edamame_posture.exe
       
-      - name: Binary path
-        id: binary_path
-        shell: bash
-        run: |
-          # Infer the path based on target/*/release/edamame_posture*
-          BINARY_PATH=$(find target -type f -name edamame_posture* | head -n 1)
-          echo "::set-output name=binary_path::$BINARY_PATH"
-
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-${{ matrix.os }}-${{ matrix.target }}
-          path: ${{ steps.binary_path.outputs.binary_path }}
-          if-no-files-found: error
-
       # Main only
       - name: Check for existing release
         if: github.ref == 'refs/heads/main'
@@ -246,7 +231,7 @@ jobs:
         with:
           upload_url: ${{ steps.get_release.outputs.exists == 'true' && steps.get_release.outputs.upload_url || steps.create_release.outputs.upload_url }}
           # Path to the release for each target triplet
-          asset_path: ${{ steps.binary_path.outputs.binary_path }}
+          asset_path: target/${{ matrix.target }}/release/edamame_posture${{ matrix.os == 'windows' && '.exe' || '' }}
           asset_name: edamame_posture-${{ steps.get_release.outputs.version }}-${{ matrix.target }}${{ matrix.os == 'windows' && '.exe' || '' }}
           asset_content_type: application/octet-stream
           overwrite: true
