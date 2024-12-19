@@ -231,7 +231,8 @@ jobs:
         uses: shogo82148/actions-upload-release-asset@v1
         with:
           upload_url: ${{ steps.get_release.outputs.exists == 'true' && steps.get_release.outputs.upload_url || steps.create_release.outputs.upload_url }}
-          asset_path: target/*/release/edamame_posture*
+          # Path to the release for each target triplet
+          asset_path: target/${{ matrix.target }}/release/edamame_posture${{ matrix.os == 'windows' && '.exe' || '' }}
           asset_name: edamame_posture-${{ steps.get_release.outputs.version }}-${{ matrix.os }}-${{ matrix.target }}${{ matrix.os == 'windows' && '.exe' || '' }}
           asset_content_type: application/octet-stream
           overwrite: true

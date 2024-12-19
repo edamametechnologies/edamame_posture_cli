@@ -10,7 +10,7 @@ pre-build = [
     "apt update -y && apt install -y protobuf-compiler wget flex bison",
     "wget https://www.tcpdump.org/release/libpcap-1.10.5.tar.gz",
     "tar xzf libpcap-1.10.5.tar.gz",
-    "cd libpcap-1.10.5 && CC=musl-gcc ./configure --prefix=/usr/local/musl && make && make install",
+    "cd libpcap-1.10.5 && ./configure --prefix=/usr/local/musl && make && make install",
     "rm -rf libpcap-1.10.5 libpcap-1.10.5.tar.gz"
 ]
 
@@ -32,7 +32,7 @@ pre-build = [
     "apt update -y && apt install -y protobuf-compiler wget flex bison",
     "wget https://www.tcpdump.org/release/libpcap-1.10.5.tar.gz",
     "tar xzf libpcap-1.10.5.tar.gz",
-    "cd libpcap-1.10.5 && CC=musl-gcc ./configure --prefix=/usr/local/musl && make && make install",
+    "cd libpcap-1.10.5 && ./configure --prefix=/usr/local/musl && make && make install",
     "rm -rf libpcap-1.10.5 libpcap-1.10.5.tar.gz"
 ]
 
