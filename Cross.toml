@@ -9,7 +9,7 @@ pre-build = [
     "dpkg --add-architecture $CROSS_DEB_ARCH",
     "apt update -y && apt install -y protobuf-compiler wget",
     "wget https://dl-cdn.alpinelinux.org/alpine/latest-stable/main/x86_64/libpcap-1.10.5-r0.apk",
-    "tar -xzf libpcap-1.10.5-r0.apk"
+    "cd /usr/local/musl/ && tar -xzf libpcap-1.10.5-r0.apk"
 ]
 
 [target.i686-unknown-linux-gnu]
@@ -29,7 +29,7 @@ pre-build = [
     "dpkg --add-architecture $CROSS_DEB_ARCH",
     "apt update -y && apt install -y protobuf-compiler wget",
     "wget https://dl-cdn.alpinelinux.org/alpine/latest-stable/main/aarch64/libpcap-1.10.5-r0.apk",
-    "tar -xzf libpcap-1.10.5-r0.apk"
+    "cd /usr/local/musl/ && tar -xzf libpcap-1.10.5-r0.apk"
 ]
 
 [target.armv7-unknown-linux-gnueabihf]
