@@ -125,14 +125,15 @@ jobs:
         with:
           targets: ${{ matrix.target }}
 
-      # Install Cross for Linux
-      - name: Install Cross for Linux
-        if: matrix.os == 'ubuntu'
-        run: cargo install cross --git https://github.com/cross-rs/cross
-
-      - name: Build application for Linux using cross
+      - name: Build binary using cross
         if: matrix.os == 'ubuntu' 
-        run: cross build --release --target ${{ matrix.target }}
+        uses: houseabsolute/actions-rust-cross@v0
+        with:
+          command: build
+          target: ${{ matrix.target }}
+          toolchain: stable
+          args: --release
+          strip: true
 
       - name: Build application for Windows
         if: matrix.os == 'windows'
