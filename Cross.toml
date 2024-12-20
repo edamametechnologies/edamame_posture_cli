@@ -10,6 +10,7 @@ pre-build = [
     "apt update -y && apt install -y protobuf-compiler wget",
     "mkdir -p /usr/local/musl && cd /usr/local/musl && wget https://dl-cdn.alpinelinux.org/alpine/latest-stable/main/x86_64/libpcap-1.10.5-r0.apk && tar -vxzf libpcap-1.10.5-r0.apk",
     # Create libpcap.pc for pkg-config
+    "mkdir -p /usr/local/musl/lib/pkgconfig/",
     "echo 'prefix=/usr/local/musl' > /usr/local/musl/lib/pkgconfig/libpcap.pc",
     "echo 'exec_prefix=${prefix}' >> /usr/local/musl/lib/pkgconfig/libpcap.pc",
     "echo 'libdir=${exec_prefix}/lib' >> /usr/local/musl/lib/pkgconfig/libpcap.pc",
@@ -39,6 +40,7 @@ pre-build = [
     "apt update -y && apt install -y protobuf-compiler wget",
     "mkdir -p /usr/local/musl && cd /usr/local/musl && wget https://dl-cdn.alpinelinux.org/alpine/latest-stable/main/aarch64/libpcap-1.10.5-r0.apk && tar -vxzf libpcap-1.10.5-r0.apk",
     # Create libpcap.pc for pkg-config
+    "mkdir -p /usr/local/musl/lib/pkgconfig/",
     "echo 'prefix=/usr/local/musl' > /usr/local/musl/lib/pkgconfig/libpcap.pc",
     "echo 'exec_prefix=${prefix}' >> /usr/local/musl/lib/pkgconfig/libpcap.pc",
     "echo 'libdir=${exec_prefix}/lib' >> /usr/local/musl/lib/pkgconfig/libpcap.pc",
