@@ -15,7 +15,8 @@ jobs:
 
   build:
     runs-on: ${{ matrix.os }}-latest
-    timeout-minutes: 90
+    # We need to wait a long time for musl aarch64 due to the use of qemu
+    timeout-minutes: 180
     strategy:
       fail-fast: false
       matrix:
