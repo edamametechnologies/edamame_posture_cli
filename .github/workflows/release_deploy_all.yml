@@ -15,6 +15,7 @@ jobs:
 
   build:
     runs-on: ${{ matrix.os }}-latest
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
@@ -57,9 +58,12 @@ jobs:
       EDAMAME_SERVER_KEY: ${{ secrets.EDAMAME_SERVER_KEY }}
       EDAMAME_CLIENT_CA_PEM: ${{ secrets.EDAMAME_CLIENT_CA_PEM }}
       LAMBDA_SIGNATURE: ${{ secrets.LAMBDA_SIGNATURE }}
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      AWS_REGION: ${{ secrets.AWS_REGION }}
+      APPLE_APPSTORE_CONNECT_API_ISSUER_ID: ${{ secrets.APPLE_APPSTORE_CONNECT_API_ISSUER_ID }}
+      APPLE_APPSTORE_CONNECT_API_KEY_ID: ${{ secrets.APPLE_APPSTORE_CONNECT_API_KEY_ID }}
+      APPLE_APPSTORE_CONNECT_API_KEY: ${{ secrets.APPLE_APPSTORE_CONNECT_API_KEY }}
+      MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.DEV_GITHUB_TOKEN_B64 }}
+      MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+      # Required for cross to not show warnings and fail
       CROSS_NO_WARNINGS: 0
     
     steps:
@@ -253,6 +257,34 @@ jobs:
         if: matrix.os == 'windows'
         # We can't use bash here, as the AzureSignTool is a .NET tool
         run: AzureSignTool sign -kvt ${{ secrets.AZURE_SIGN_TENANT_ID }} -kvu ${{ secrets.AZURE_SIGN_KEY_VAULT_URI }} -kvi ${{ secrets.AZURE_SIGN_CLIENT_ID }} -kvs ${{ secrets.AZURE_SIGN_CLIENT_SECRET }} -kvc ${{ secrets.AZURE_SIGN_CERT_NAME }} -tr http://timestamp.digicert.com -v ./target/x86_64-pc-windows-msvc/release/edamame_posture.exe
+
+      ############################################################################################
+      # Test
+      ############################################################################################
+
+      - name: Run tests
+        shell: bash
+        continue-on-error: true
+        run: |
+          POSTURE=edamame_posture${{ matrix.os == 'windows' && '.exe' || '' }}
+          SUDO=${{ matrix.os == 'windows' && 'sudo' || '' }}
+          $SUDO ~/$POSTURE stop
+          $SUDO killall -9 $POSTURE || true
+          sleep 20
+          $SUDO rm -f ~/.edamame_posture.yaml
+          $SUDO rm -f ~/$POSTURE
+          $SUDO rm -f ~/$POSTURE.*
+          $SUDO cp -f ${GITHUB_WORKSPACE}/target/release/$POSTURE ~/$POSTURE
+          make test
+          $SUDO ~/$POSTURE start ${{ vars.EDAMAME_POSTURE_USER }} ${{ vars.EDAMAME_POSTURE_DOMAIN }} ${{ secrets.EDAMAME_POSTURE_PIN }} ${{ github.run_id }} true "github_ubuntu"
+          make commands_test
+          make clean
+          make linux_release
+          echo "Status:"
+          $SUDO ~/$POSTURE status
+          echo "Sessions:"
+          $SUDO ~/$POSTURE get-sessions false false
+          echo "Test completed"
 
       ############################################################################################
       # Release
