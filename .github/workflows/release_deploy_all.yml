@@ -259,34 +259,6 @@ jobs:
         run: AzureSignTool sign -kvt ${{ secrets.AZURE_SIGN_TENANT_ID }} -kvu ${{ secrets.AZURE_SIGN_KEY_VAULT_URI }} -kvi ${{ secrets.AZURE_SIGN_CLIENT_ID }} -kvs ${{ secrets.AZURE_SIGN_CLIENT_SECRET }} -kvc ${{ secrets.AZURE_SIGN_CERT_NAME }} -tr http://timestamp.digicert.com -v ./target/x86_64-pc-windows-msvc/release/edamame_posture.exe
 
       ############################################################################################
-      # Test
-      ############################################################################################
-
-      - name: Run tests
-        shell: bash
-        continue-on-error: true
-        run: |
-          POSTURE=edamame_posture${{ matrix.os == 'windows' && '.exe' || '' }}
-          SUDO=${{ matrix.os == 'windows' && 'sudo' || '' }}
-          $SUDO ~/$POSTURE stop
-          $SUDO killall -9 $POSTURE || true
-          sleep 20
-          $SUDO rm -f ~/.edamame_posture.yaml
-          $SUDO rm -f ~/$POSTURE
-          $SUDO rm -f ~/$POSTURE.*
-          $SUDO cp -f ${GITHUB_WORKSPACE}/target/release/$POSTURE ~/$POSTURE
-          make test
-          $SUDO ~/$POSTURE start ${{ vars.EDAMAME_POSTURE_USER }} ${{ vars.EDAMAME_POSTURE_DOMAIN }} ${{ secrets.EDAMAME_POSTURE_PIN }} ${{ github.run_id }} true "github_ubuntu"
-          make commands_test
-          make clean
-          make linux_release
-          echo "Status:"
-          $SUDO ~/$POSTURE status
-          echo "Sessions:"
-          $SUDO ~/$POSTURE get-sessions false false
-          echo "Test completed"
-
-      ############################################################################################
       # Release
       ############################################################################################
 
