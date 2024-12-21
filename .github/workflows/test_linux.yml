@@ -36,9 +36,6 @@ jobs:
       EDAMAME_SERVER_KEY: ${{ secrets.EDAMAME_SERVER_KEY }}
       EDAMAME_CLIENT_CA_PEM: ${{ secrets.EDAMAME_CLIENT_CA_PEM }}
       LAMBDA_SIGNATURE: ${{ secrets.LAMBDA_SIGNATURE }}
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      AWS_REGION: ${{ secrets.AWS_REGION }}
 
     steps:
 
@@ -57,6 +54,12 @@ jobs:
           wait_for_api: true
           wait_for_https: true
 
+      - name: Configure Git Authentication to import private crates
+        run: |
+          git config --global user.email "dev@edamame.tech"
+          git config --global user.name "EDAMAME Dev"
+          git config --global url."https://edamamedev:${{ secrets.DEV_GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
+
       - name: Install additional packages w/ apt
         run: |
           # Install build dependencies
@@ -64,12 +67,6 @@ jobs:
           sudo apt-get install -y protobuf-compiler
           # For packet capture
           sudo apt-get install -y libpcap-dev
-
-      - name: Configure Git Authentication to import private crates
-        run: |
-          git config --global user.email "dev@edamame.tech"
-          git config --global user.name "EDAMAME Dev"
-          git config --global url."https://edamamedev:${{ secrets.DEV_GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
 
       - name: Build application
         # Main or dev
