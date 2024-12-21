@@ -122,9 +122,14 @@ Invalid arguments or subcommands will prompt usage instructions.
 
 ## Download official binaries for edamame_posture
 
-* [Linux](https://edamame-posture.s3.eu-west-1.amazonaws.com/linux/latest/edamame_posture)
-* [macOS (signed)](https://edamame-posture.s3.eu-west-1.amazonaws.com/macos/latest/edamame_posture)
-* [Windows (signed)](https://edamame-posture.s3.eu-west-1.amazonaws.com/windows/latest/edamame_posture.exe)
+* [Gnu Linux x86_64](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.8.0/edamame_posture-0.8.0-x86_64-unknown-linux-gnu)
+* [Gnu Linux i686](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.8.0/edamame_posture-0.8.0-i686-unknown-linux-gnu)
+* [Gnu Linux aarch64](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.8.0/edamame_posture-0.8.0-aarch64-unknown-linux-gnu)
+* [Gnu Linux armv7](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.8.0/edamame_posture-0.8.0-armv7-unknown-linux-gnueabihf)
+* [Alpine Linux x86_64](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.8.0/edamame_posture-0.8.0-x86_64-unknown-linux-musl)
+* [Alpine Linux aarch64](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.8.0/edamame_posture-0.8.0-aarch64-unknown-linux-musl)
+* [macOS universal (signed)](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.8.0/edamame_posture-0.8.0-universal-apple-darwin)
+* [Windows x86_64 (signed)](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.8.0/edamame_posture-0.8.0-x86_64-pc-windows-msvc.exe)
 
 ## Author
 Frank Lyonnet
