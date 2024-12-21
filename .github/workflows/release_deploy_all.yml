@@ -29,17 +29,17 @@ jobs:
             arch: amd64
             target: x86_64-unknown-linux-gnu
           - os: ubuntu
-            arch: arm64
+            arch: aarch64
             target: aarch64-unknown-linux-gnu
           - os: ubuntu
-            arch: amd64
+            arch: arm64
             target: x86_64-unknown-linux-musl
           - os: ubuntu
-            arch: arm64
+            arch: aarch64
             target: aarch64-unknown-linux-musl
           - os: macos
-            arch: amd64
-            target: x86_64-apple-darwin
+            arch: universal
+            target: universal-apple-darwin
           - os: windows
             arch: amd64
             target: x86_64-pc-windows-msvc
@@ -85,6 +85,10 @@ jobs:
           git config --global user.name "EDAMAME Dev"
           git config --global url."https://edamamedev:${{ secrets.DEV_GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
 
+      ############################################################################################
+      # Setup
+      ############################################################################################
+
       # macOS
       - name: Install additional packages w/ Homebrew
         if: matrix.os == 'macos'
@@ -109,36 +113,81 @@ jobs:
           choco install protoc wget
           dotnet tool install --global AzureSignTool
 
-      # Linux
-      - name: Install additional packages w/ apt for Linux
-        if: matrix.os == 'ubuntu'
-        run: |
-           # Install build dependencies
-           sudo apt-get update
-           sudo apt-get install -y protobuf-compiler
-           # For packet capture
-           sudo apt-get install -y libpcap-dev
-
+      # Linux (not musl)
       # Install Rust
       - name: Install Rust
+        if: matrix.os == 'ubuntu' && matrix.target != 'x86_64-unknown-linux-musl' && matrix.target != 'aarch64-unknown-linux-musl'
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
 
-      - name: Build binary using cross
-        if: matrix.os == 'ubuntu' 
-        uses: houseabsolute/actions-rust-cross@v0
-        with:
-          command: build
-          target: ${{ matrix.target }}
-          toolchain: stable
-          args: --release
-          strip: true
+      # Install Cross for Linux
+      - name: Install Cross for Linux
+        if: matrix.os == 'ubuntu' && matrix.target != 'x86_64-unknown-linux-musl' && matrix.target != 'aarch64-unknown-linux-musl'
+        run: cargo install cross --git https://github.com/cross-rs/cross
 
+      # Linux musl (using cross is not possible due to libpcap)
+      # Setup Alpine Linux
+      - name: Setup Alpine Linux
+        if: matrix.os == 'ubuntu' && matrix.target == 'x86_64-unknown-linux-musl' || matrix.target == 'aarch64-unknown-linux-musl'
+        uses: jirutka/setup-alpine@v1
+        with:
+          arch: ${{ matrix.arch }}
+          branch: v3.15
+
+      # Install dependencies with apk
+      - name: Install dependencies with apk
+        if: matrix.os == 'ubuntu' && matrix.target == 'x86_64-unknown-linux-musl' || matrix.target == 'aarch64-unknown-linux-musl'
+        run: |
+          apk add --no-cache \
+            build-base \
+            protobuf-dev \
+            libpcap-dev \
+            git \
+            curl \
+            pkgconf \
+            eudev-dev \
+            perl
+        shell: alpine.sh --root {0}
+
+      # Install Rust
+      - name: Install Rust
+        if: matrix.os == 'ubuntu' && matrix.target == 'x86_64-unknown-linux-musl' || matrix.target == 'aarch64-unknown-linux-musl'
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+          source $HOME/.cargo/env
+          rustup --version
+        shell: alpine.sh --root {0}
+
+      # Set VERGEN_GIT_BRANCH to main
+      - name: Set VERGEN_GIT_BRANCH to main
+        if: matrix.os == 'ubuntu' && matrix.target == 'x86_64-unknown-linux-musl' || matrix.target == 'aarch64-unknown-linux-musl'
+        run: echo "VERGEN_GIT_BRANCH=main" >> $GITHUB_ENV
+        shell: alpine.sh {0}
+
+      ############################################################################################
+      # Build
+      ############################################################################################
+
+      # Build application for Linux using cross (not musl)
+      - name: Build application for Linux using cross
+        if: matrix.os == 'ubuntu' && matrix.target != 'x86_64-unknown-linux-musl' && matrix.target != 'aarch64-unknown-linux-musl'
+        run: cross build --release --target ${{ matrix.target }}
+
+      # Build application for Linux musl
+      - name: Build application for Linux musl
+        if: matrix.os == 'ubuntu' && matrix.target == 'x86_64-unknown-linux-musl' || matrix.target == 'aarch64-unknown-linux-musl'
+        run: |
+          rustup target add ${{ matrix.target }}
+          cargo build --release --target ${{ matrix.target }}
+        shell: alpine.sh --root {0}
+
+      # Build application for Windows
       - name: Build application for Windows
         if: matrix.os == 'windows'
         run: cargo build --release --target ${{ matrix.target }}
 
+      # Build application for macOS as universal binary
       - name: Build application for macOS as universal binary
         if: matrix.os == 'macos'
         run: |
@@ -150,6 +199,10 @@ jobs:
           lipo -create -output target/apple-darwin/release/edamame_posture \
             target/x86_64-apple-darwin/release/edamame_posture \
             target/aarch64-apple-darwin/release/edamame_posture
+
+      ############################################################################################
+      # Signing
+      ############################################################################################
 
       # macOS
       - name: Setup signing for macOS
@@ -186,11 +239,16 @@ jobs:
           # Sign + hardened runtime
           ./macos/sign.sh ./target/apple-darwin/release/edamame_posture
 
+      # Windows
       - name: Signing for Windows
         if: matrix.os == 'windows'
         # We can't use bash here, as the AzureSignTool is a .NET tool
         run: AzureSignTool sign -kvt ${{ secrets.AZURE_SIGN_TENANT_ID }} -kvu ${{ secrets.AZURE_SIGN_KEY_VAULT_URI }} -kvi ${{ secrets.AZURE_SIGN_CLIENT_ID }} -kvs ${{ secrets.AZURE_SIGN_CLIENT_SECRET }} -kvc ${{ secrets.AZURE_SIGN_CERT_NAME }} -tr http://timestamp.digicert.com -v ./target/x86_64-pc-windows-msvc/release/edamame_posture.exe
-      
+
+      ############################################################################################
+      # Release
+      ############################################################################################
+
       # Main only
       - name: Check for existing release
         if: github.ref == 'refs/heads/main'
