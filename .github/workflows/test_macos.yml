@@ -95,7 +95,7 @@ jobs:
           security list-keychain -d user -s $KEYCHAIN_PATH
 
           # Sign + hardened runtime
-          ./macos/sign.sh ./target/apple-darwin/release/edamame_posture
+          ./macos/sign.sh ./target/release/edamame_posture
 
       - name: Build application
         # Main or dev
