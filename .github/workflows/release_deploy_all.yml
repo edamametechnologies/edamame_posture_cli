@@ -74,8 +74,7 @@ jobs:
           edamame_user: ${{ vars.EDAMAME_POSTURE_USER }}
           edamame_domain: ${{ vars.EDAMAME_POSTURE_DOMAIN }}
           edamame_pin: ${{ secrets.EDAMAME_POSTURE_PIN }}
-          # On Windows, we use the powershell -Command "[guid]::NewGuid().ToString()"
-          edamame_id: ${{ github.run_id }}_$(uuidgen || powershell -Command "[guid]::NewGuid().ToString()")
+          edamame_id: ${{ github.run_id }}
           network_scan: true
           auto_remediate: true
           checkout: true
