@@ -45,8 +45,6 @@ jobs:
           edamame_domain: ${{ vars.EDAMAME_POSTURE_DOMAIN }}
           edamame_pin: ${{ secrets.EDAMAME_POSTURE_PIN }}
           edamame_id: ${{ github.run_id }}
-          network_scan: true
-          auto_remediate: true
           checkout: true
             # We are using the token of the the private repo to checkout the public repo and properly wait for access to the private repo
           token: ${{ secrets.DEV_GITHUB_TOKEN }}
@@ -63,6 +61,14 @@ jobs:
         run: |
           brew install protobuf
           brew install wget
+
+      - name: Build application
+        # Main or dev
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev'
+        shell: bash
+        run: |
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+          cargo build --release
 
       - name: Setup signing
         shell: bash
@@ -96,14 +102,6 @@ jobs:
 
           # Sign + hardened runtime
           ./macos/sign.sh ./target/release/edamame_posture
-
-      - name: Build application
-        # Main or dev
-        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev'
-        shell: bash
-        run: |
-          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
-          make macos_release
 
       - name: Run tests
         shell: bash
