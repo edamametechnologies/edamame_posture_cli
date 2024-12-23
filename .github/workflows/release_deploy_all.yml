@@ -262,27 +262,36 @@ jobs:
       # Release
       ############################################################################################
 
-      # Set the release version
-      - name: Set Release Version
+      # Main only
+      - name: Check for existing release
+        if: github.ref == 'refs/heads/main'
+        id: get_release
+        shell: bash
         run: |
           VERSION=$(grep '^version =' ./Cargo.toml | awk '{print $3}' | tr -d '"')
-          echo "VERSION_TAG=${VERSION_TAG}" >> $GITHUB_ENV
-
-      # Check if release exists and delete it if it does
-      - name: Clean up existing release
+          echo "::set-output name=version::$VERSION"
+          VERSION_TAG=v${VERSION}
+          echo "::set-output name=tag::$VERSION_TAG"
+          if [[ -n "$(gh release view $VERSION_TAG --repo ${{ github.repository }} --json id -q .id)" ]]; then
+            echo "::set-output name=exists::true"
+              echo "::set-output name=upload_url::$(gh release view $VERSION_TAG --json uploadUrl -q .uploadUrl )"
+          else
+            echo "::set-output name=exists::false"
+          fi
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh release delete ${VERSION_TAG} --cleanup-tag --repo ${{ github.repository }} --yes
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # Create the release
-      - name: Create Release
+      # Main only
+      - name: Create release if it doesn't exist
+        if: github.ref == 'refs/heads/main' && steps.get_release.outputs.exists != 'true'
+        # This populates steps.get_release.outputs.upload_url with the upload_url of the release
+        id: create_release
         uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ env.VERSION_TAG }}
-          release_name: Release ${{ env.VERSION_TAG }}
+          tag_name: ${{ steps.get_release.outputs.tag }}
+          release_name: Release ${{ steps.get_release.outputs.tag }}
           draft: false
           prerelease: false
 
