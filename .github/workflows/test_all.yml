@@ -1,26 +1,30 @@
-name: Test for macOS
+name: Test
 
 on:
   workflow_dispatch:
   push:
-    branches: [ dev, main ]
+    branches:
+      - 'dev'
+      - 'main'
     paths-ignore:
       - '.github/workflows/**'
       - 'Makefile'
-  pull_request:
 
 # Auto cancel previous runs if they were not completed.
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
-# Write permissions are required to upload the release asset.
-permissions: write-all
+# Declare default permissions as read only.
+permissions: read-all
 
 jobs:
-  build:
-    runs-on: macos-latest
-    timeout-minutes: 120
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
 
     env:
       EDAMAME_APP_SENTRY: ${{ secrets.EDAMAME_APP_SENTRY }}
@@ -37,7 +41,6 @@ jobs:
       LAMBDA_SIGNATURE: ${{ secrets.LAMBDA_SIGNATURE }}
 
     steps:
-
       - name: Setup EDAMAME Posture
         uses: edamametechnologies/edamame_posture_action@v0
         with:
@@ -46,7 +49,7 @@ jobs:
           edamame_pin: ${{ secrets.EDAMAME_POSTURE_PIN }}
           edamame_id: ${{ github.run_id }}
           checkout: true
-            # We are using the token of the the private repo to checkout the public repo and properly wait for access to the private repo
+          # We are using the token of the the private repo to checkout the public repo and properly wait for access to the private repo
           token: ${{ secrets.DEV_GITHUB_TOKEN }}
           wait_for_api: true
           wait_for_https: true
@@ -57,20 +60,46 @@ jobs:
           git config --global user.name "EDAMAME Dev"
           git config --global url."https://edamamedev:${{ secrets.DEV_GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
 
-      - name: Install additional packages w/ Homebrew
+      - name: Install additional packages w/ apt for linux
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          # Install build dependencies
+          sudo apt-get update
+          sudo apt-get install -y protobuf-compiler
+          # For packet capture
+          sudo apt-get install -y libpcap-dev
+
+      - name: Install additional packages w/ Homebrew for macOS
+        if: matrix.os == 'macos-latest'
         run: |
           brew install protobuf
           brew install wget
 
+      - name: Setup .NET 8.0 for Windows
+        if: matrix.os == 'windows-latest'
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Setup MS Store CLI for Windows
+        if: matrix.os == 'windows-latest'
+        uses: microsoft/setup-msstore-cli@v1
+
+      - name: Install additional packages w/ Chocolatey for Windows
+        if: matrix.os == 'windows-latest'
+        run: |
+          choco install protoc wget
+          dotnet tool install --global AzureSignTool
+
       - name: Build application
-        # Main or dev
-        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev'
         shell: bash
         run: |
+          # macOS
           KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
           cargo build --release
-
-      - name: Setup signing
+  
+      - name: Signing for macOS
+        if: matrix.os == 'macos-latest'
         shell: bash
         run: |
           # Create certificate files from secrets base64
@@ -103,30 +132,48 @@ jobs:
           # Sign + hardened runtime
           ./macos/sign.sh ./target/release/edamame_posture
 
+      - name: Signing for Windows
+        if: matrix.os == 'windows-latest'
+        # We can't use bash here, as the AzureSignTool is a .NET tool
+        run: AzureSignTool sign -kvt ${{ secrets.AZURE_SIGN_TENANT_ID }} -kvu ${{ secrets.AZURE_SIGN_KEY_VAULT_URI }} -kvi ${{ secrets.AZURE_SIGN_CLIENT_ID }} -kvs ${{ secrets.AZURE_SIGN_CLIENT_SECRET }} -kvc ${{ secrets.AZURE_SIGN_CERT_NAME }} -tr http://timestamp.digicert.com -v ./target/release/edamame_posture.exe
+
       - name: Run tests
         shell: bash
         continue-on-error: true
         run: |
-          sudo ~/edamame_posture stop
-          killall -9 edamame_posture || true
+          BINARY_PATH=~/edamame_posture${{ matrix.os == 'windows-latest' ? '.exe' : '' }}
+          SUDO_CMD=${{ matrix.os == 'windows-latest' ? '' : 'sudo' }}
+          ${SUDO_CMD} ${BINARY_PATH} stop
+          if [[ ${matrix.os} == 'windows-latest' ]]; then
+            taskkill -IM edamame_posture.exe -F || true
+          else
+            ${SUDO_CMD} killall -9 edamame_posture || true
+          fi
           sleep 20
-          sudo rm -f ~/.edamame_posture.yaml
-          sudo rm -f ~/edamame_posture
-          sudo rm -f ~/edamame_posture.*
-          sudo cp -f ${GITHUB_WORKSPACE}/target/release/edamame_posture ~/edamame_posture
+          ${SUDO_CMD} rm -f ~/.edamame_posture.yaml
+          ${SUDO_CMD} rm -f ${BINARY_PATH}
+          ${SUDO_CMD} rm -f ${BINARY_PATH}.*
+          ${SUDO_CMD} cp -f ${GITHUB_WORKSPACE}/target/release/edamame_posture ${BINARY_PATH}
+          # Capture won't work but posture will still run
+          if [[ ${matrix.os} == 'windows-latest' ]]; then
+            wget https://github.com/edamametechnologies/edamame_posture_cli/raw/refs/heads/main/windows/Packet.dll -O ~/Packet.dll
+            chmod +x ~/Packet.dll
+            wget https://github.com/edamametechnologies/edamame_posture_cli/raw/refs/heads/main/windows/wpcap.dll -O ~/wpcap.dll
+            chmod +x ~/wpcap.dll
+          fi
           make test
-          sudo ~/edamame_posture start ${{ vars.EDAMAME_POSTURE_USER }} ${{ vars.EDAMAME_POSTURE_DOMAIN }} ${{ secrets.EDAMAME_POSTURE_PIN }} ${{ github.run_id }} true "github_macos"
-          sudo make commands_test
+          ${SUDO_CMD} ${BINARY_PATH} start ${{ vars.EDAMAME_POSTURE_USER }} ${{ vars.EDAMAME_POSTURE_DOMAIN }} ${{ secrets.EDAMAME_POSTURE_PIN }} ${{ github.run_id }} true "github_ubuntu"
+          ${SUDO_CMD} make commands_test
           make clean
-          make macos_release
+          cargo build --release
           echo "Status:"
-          sudo ~/edamame_posture status
+          ${SUDO_CMD} ${BINARY_PATH} status
           echo "Sessions:"
-          sudo ~/edamame_posture get-sessions false false
+          ${SUDO_CMD} ${BINARY_PATH} get-sessions false false
           echo "Test completed"
 
       - name: Dump the logs
         shell: bash
         run: |
-          sudo ~/edamame_posture logs
+          sudo ${BINARY_PATH} logs
 
