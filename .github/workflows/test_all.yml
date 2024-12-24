@@ -145,37 +145,38 @@ jobs:
         shell: bash
         continue-on-error: true
         run: |
-          ${SUDO_CMD} ${BINARY_PATH} stop
-          if [[ ${matrix.os} == 'windows-latest' ]]; then
+          $SUDO_CMD $BINARY_PATH stop
+          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
             taskkill -IM edamame_posture.exe -F || true
           else
-            ${SUDO_CMD} killall -9 edamame_posture || true
+            $SUDO_CMD killall -9 edamame_posture || true
           fi
           sleep 20
-          ${SUDO_CMD} rm -f $HOME/.edamame_posture.yaml
-          ${SUDO_CMD} rm -f ${BINARY_PATH}
-          ${SUDO_CMD} rm -f ${BINARY_PATH}.*
-          ${SUDO_CMD} cp -f ${TARGET_PATH} ${BINARY_PATH}
+          $SUDO_CMD rm -f $HOME/.edamame_posture.yaml
+          $SUDO_CMD rm -f ${BINARY_PATH}
+          $SUDO_CMD rm -f ${BINARY_PATH}.*
+          $SUDO_CMD cp -f ${TARGET_PATH} ${BINARY_PATH}
           # Capture won't work but posture will still run
-          if [[ ${matrix.os} == 'windows-latest' ]]; then
+          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
             wget https://github.com/edamametechnologies/edamame_posture_cli/raw/refs/heads/main/windows/Packet.dll -O $HOME/Packet.dll
             chmod +x $HOME/Packet.dll
             wget https://github.com/edamametechnologies/edamame_posture_cli/raw/refs/heads/main/windows/wpcap.dll -O $HOME/wpcap.dll
             chmod +x $HOME/wpcap.dll
           fi
           make test
-          ${SUDO_CMD} ${BINARY_PATH} start ${{ vars.EDAMAME_POSTURE_USER }} ${{ vars.EDAMAME_POSTURE_DOMAIN }} ${{ secrets.EDAMAME_POSTURE_PIN }} ${{ github.run_id }} true "github_ubuntu"
-          ${SUDO_CMD} make commands_test
+          $SUDO_CMD $BINARY_PATH start ${{ vars.EDAMAME_POSTURE_USER }} ${{ vars.EDAMAME_POSTURE_DOMAIN }} ${{ secrets.EDAMAME_POSTURE_PIN }} ${{ github.run_id }} true "github_ubuntu"
+          $SUDO_CMD make commands_test
           make clean
           cargo build --release
           echo "Status:"
-          ${SUDO_CMD} ${BINARY_PATH} status
+          $SUDO_CMD $BINARY_PATH status
           echo "Sessions:"
-          ${SUDO_CMD} ${BINARY_PATH} get-sessions false false
+          $SUDO_CMD $BINARY_PATH get-sessions false false
           echo "Test completed"
 
       - name: Dump the logs
         shell: bash
         run: |
-          ${SUDO_CMD} ${BINARY_PATH} logs
+          $SUDO_CMD $BINARY_PATH logs
+
 
