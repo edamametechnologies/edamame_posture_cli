@@ -39,8 +39,8 @@ jobs:
       EDAMAME_SERVER_KEY: ${{ secrets.EDAMAME_SERVER_KEY }}
       EDAMAME_CLIENT_CA_PEM: ${{ secrets.EDAMAME_CLIENT_CA_PEM }}
       LAMBDA_SIGNATURE: ${{ secrets.LAMBDA_SIGNATURE }}
-      BINARY_PATH: ~/edamame_posture${{ matrix.os == 'windows-latest' && '.exe' || '' }}
-      TARGET_PATH: ~/target/release/edamame_posture${{ matrix.os == 'windows-latest' && '.exe' || '' }}
+      BINARY_PATH: ${{ env.HOME }}/edamame_posture${{ matrix.os == 'windows-latest' && '.exe' || '' }}
+      TARGET_PATH: ${{ env.HOME }}/target/release/edamame_posture${{ matrix.os == 'windows-latest' && '.exe' || '' }}
       SUDO_CMD: ${{ matrix.os == 'windows-latest' && '' || 'sudo' }}
       KEYCHAIN_PATH: $RUNNER_TEMP/app-signing.keychain-db
 
