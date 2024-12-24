@@ -39,10 +39,6 @@ jobs:
       EDAMAME_SERVER_KEY: ${{ secrets.EDAMAME_SERVER_KEY }}
       EDAMAME_CLIENT_CA_PEM: ${{ secrets.EDAMAME_CLIENT_CA_PEM }}
       LAMBDA_SIGNATURE: ${{ secrets.LAMBDA_SIGNATURE }}
-      BINARY_PATH: $HOME/edamame_posture${{ matrix.os == 'windows-latest' && '.exe' || '' }}
-      TARGET_PATH: $HOME/target/release/edamame_posture${{ matrix.os == 'windows-latest' && '.exe' || '' }}
-      SUDO_CMD: ${{ matrix.os == 'windows-latest' && '' || 'sudo' }}
-      KEYCHAIN_PATH: $RUNNER_TEMP/app-signing.keychain-db
 
     steps:
       - name: Setup EDAMAME Posture
@@ -94,7 +90,14 @@ jobs:
         run: |
           choco install protoc wget
           dotnet tool install --global AzureSignTool
-
+   
+      - name: Set environment variables
+        run: |
+          echo "BINARY_PATH=$HOME/edamame_posture${{ matrix.os == 'windows-latest' && '.exe' || '' }}" >> $GITHUB_ENV
+          echo "TARGET_PATH=$HOME/target/release/edamame_posture${{ matrix.os == 'windows-latest' && '.exe' || '' }}" >> $GITHUB_ENV
+          echo "SUDO_CMD=${{ matrix.os == 'windows-latest' && '' || 'sudo' }}" >> $GITHUB_ENV
+          echo "KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db" >> $GITHUB_ENV
+  
       - name: Build application
         shell: bash
         run: |
