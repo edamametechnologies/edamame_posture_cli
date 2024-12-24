@@ -39,6 +39,9 @@ jobs:
       EDAMAME_SERVER_KEY: ${{ secrets.EDAMAME_SERVER_KEY }}
       EDAMAME_CLIENT_CA_PEM: ${{ secrets.EDAMAME_CLIENT_CA_PEM }}
       LAMBDA_SIGNATURE: ${{ secrets.LAMBDA_SIGNATURE }}
+      BINARY_PATH: ~/edamame_posture${{ matrix.os == 'windows-latest' && '.exe' || '' }}
+      SUDO_CMD: ${{ matrix.os == 'windows-latest' && '' || 'sudo' }}
+      KEYCHAIN_PATH: $RUNNER_TEMP/app-signing.keychain-db
 
     steps:
       - name: Setup EDAMAME Posture
@@ -94,8 +97,6 @@ jobs:
       - name: Build application
         shell: bash
         run: |
-          # macOS
-          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
           cargo build --release
   
       - name: Signing for macOS
@@ -116,7 +117,6 @@ jobs:
           openssl pkcs12 -export -name zup -in certificate_application.cer -inkey certificate_application.key -passin pass:${{ secrets.APPLE_P12_PASSWORD }} -out certificate_application.p12 -passout pass:${{ secrets.MACOS_KEYCHAIN_PASSWORD }}
         
           # Configure Keychain
-          export KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
           security create-keychain -p "${{ secrets.MACOS_KEYCHAIN_PASSWORD }}" $KEYCHAIN_PATH
           security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
           security unlock-keychain -p "${{ secrets.MACOS_KEYCHAIN_PASSWORD }}" $KEYCHAIN_PATH
@@ -141,8 +141,6 @@ jobs:
         shell: bash
         continue-on-error: true
         run: |
-          BINARY_PATH=~/edamame_posture${{ matrix.os == 'windows-latest' && '.exe' || '' }}
-          SUDO_CMD=${{ matrix.os == 'windows-latest' && '' || 'sudo' }}
           ${SUDO_CMD} ${BINARY_PATH} stop
           if [[ ${matrix.os} == 'windows-latest' ]]; then
             taskkill -IM edamame_posture.exe -F || true
@@ -175,7 +173,5 @@ jobs:
       - name: Dump the logs
         shell: bash
         run: |
-          BINARY_PATH=~/edamame_posture${{ matrix.os == 'windows-latest' && '.exe' || '' }}
-          SUDO_CMD=${{ matrix.os == 'windows-latest' && '' || 'sudo' }}
           ${SUDO_CMD} ${BINARY_PATH} logs
 
