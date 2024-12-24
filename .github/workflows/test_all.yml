@@ -39,8 +39,8 @@ jobs:
       EDAMAME_SERVER_KEY: ${{ secrets.EDAMAME_SERVER_KEY }}
       EDAMAME_CLIENT_CA_PEM: ${{ secrets.EDAMAME_CLIENT_CA_PEM }}
       LAMBDA_SIGNATURE: ${{ secrets.LAMBDA_SIGNATURE }}
-      BINARY_PATH: ${{ env.HOME }}/edamame_posture${{ matrix.os == 'windows-latest' && '.exe' || '' }}
-      TARGET_PATH: ${{ env.HOME }}/target/release/edamame_posture${{ matrix.os == 'windows-latest' && '.exe' || '' }}
+      BINARY_PATH: $HOME/edamame_posture${{ matrix.os == 'windows-latest' && '.exe' || '' }}
+      TARGET_PATH: $HOME/target/release/edamame_posture${{ matrix.os == 'windows-latest' && '.exe' || '' }}
       SUDO_CMD: ${{ matrix.os == 'windows-latest' && '' || 'sudo' }}
       KEYCHAIN_PATH: $RUNNER_TEMP/app-signing.keychain-db
 
@@ -149,16 +149,16 @@ jobs:
             ${SUDO_CMD} killall -9 edamame_posture || true
           fi
           sleep 20
-          ${SUDO_CMD} rm -f ~/.edamame_posture.yaml
+          ${SUDO_CMD} rm -f $HOME/.edamame_posture.yaml
           ${SUDO_CMD} rm -f ${BINARY_PATH}
           ${SUDO_CMD} rm -f ${BINARY_PATH}.*
           ${SUDO_CMD} cp -f ${TARGET_PATH} ${BINARY_PATH}
           # Capture won't work but posture will still run
           if [[ ${matrix.os} == 'windows-latest' ]]; then
-            wget https://github.com/edamametechnologies/edamame_posture_cli/raw/refs/heads/main/windows/Packet.dll -O ~/Packet.dll
-            chmod +x ~/Packet.dll
-            wget https://github.com/edamametechnologies/edamame_posture_cli/raw/refs/heads/main/windows/wpcap.dll -O ~/wpcap.dll
-            chmod +x ~/wpcap.dll
+            wget https://github.com/edamametechnologies/edamame_posture_cli/raw/refs/heads/main/windows/Packet.dll -O $HOME/Packet.dll
+            chmod +x $HOME/Packet.dll
+            wget https://github.com/edamametechnologies/edamame_posture_cli/raw/refs/heads/main/windows/wpcap.dll -O $HOME/wpcap.dll
+            chmod +x $HOME/wpcap.dll
           fi
           make test
           ${SUDO_CMD} ${BINARY_PATH} start ${{ vars.EDAMAME_POSTURE_USER }} ${{ vars.EDAMAME_POSTURE_DOMAIN }} ${{ secrets.EDAMAME_POSTURE_PIN }} ${{ github.run_id }} true "github_ubuntu"
