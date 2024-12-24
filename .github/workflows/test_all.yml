@@ -40,6 +40,7 @@ jobs:
       EDAMAME_CLIENT_CA_PEM: ${{ secrets.EDAMAME_CLIENT_CA_PEM }}
       LAMBDA_SIGNATURE: ${{ secrets.LAMBDA_SIGNATURE }}
       BINARY_PATH: ~/edamame_posture${{ matrix.os == 'windows-latest' && '.exe' || '' }}
+      TARGET_PATH: ~/target/release/edamame_posture${{ matrix.os == 'windows-latest' && '.exe' || '' }}
       SUDO_CMD: ${{ matrix.os == 'windows-latest' && '' || 'sudo' }}
       KEYCHAIN_PATH: $RUNNER_TEMP/app-signing.keychain-db
 
@@ -130,7 +131,7 @@ jobs:
           security list-keychain -d user -s $KEYCHAIN_PATH
 
           # Sign + hardened runtime
-          ./macos/sign.sh ./target/release/edamame_posture
+          ./macos/sign.sh ${TARGET_PATH}
 
       - name: Signing for Windows
         if: matrix.os == 'windows-latest'
@@ -151,7 +152,7 @@ jobs:
           ${SUDO_CMD} rm -f ~/.edamame_posture.yaml
           ${SUDO_CMD} rm -f ${BINARY_PATH}
           ${SUDO_CMD} rm -f ${BINARY_PATH}.*
-          ${SUDO_CMD} cp -f ${GITHUB_WORKSPACE}/target/release/edamame_posture ${BINARY_PATH}
+          ${SUDO_CMD} cp -f ${TARGET_PATH} ${BINARY_PATH}
           # Capture won't work but posture will still run
           if [[ ${matrix.os} == 'windows-latest' ]]; then
             wget https://github.com/edamametechnologies/edamame_posture_cli/raw/refs/heads/main/windows/Packet.dll -O ~/Packet.dll
