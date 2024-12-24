@@ -175,5 +175,7 @@ jobs:
       - name: Dump the logs
         shell: bash
         run: |
-          sudo ${BINARY_PATH} logs
+          BINARY_PATH=~/edamame_posture${{ matrix.os == 'windows-latest' && '.exe' || '' }}
+          SUDO_CMD=${{ matrix.os == 'windows-latest' && '' || 'sudo' }}
+          ${SUDO_CMD} ${BINARY_PATH} logs
 
