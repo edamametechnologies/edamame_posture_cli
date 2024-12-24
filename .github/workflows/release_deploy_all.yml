@@ -281,6 +281,12 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # Update the tag if it exists and points to a different commit
+      - name: Update the tag if it exists and points to a different commit
+        if: github.ref == 'refs/heads/main' && steps.get_release.outputs.exists == 'true'
+        run: |
+          gh release edit ${{ steps.get_release.outputs.tag }} --repo ${{ github.repository }} --target ${{ github.sha }}
+
       # Main only
       - name: Create release if it doesn't exist
         if: github.ref == 'refs/heads/main' && steps.get_release.outputs.exists != 'true'
