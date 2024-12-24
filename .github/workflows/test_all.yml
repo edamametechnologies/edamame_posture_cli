@@ -141,8 +141,8 @@ jobs:
         shell: bash
         continue-on-error: true
         run: |
-          BINARY_PATH=~/edamame_posture${{ matrix.os == 'windows-latest' ? '.exe' : '' }}
-          SUDO_CMD=${{ matrix.os == 'windows-latest' ? '' : 'sudo' }}
+          BINARY_PATH=~/edamame_posture${{ matrix.os == 'windows-latest' && '.exe' || '' }}
+          SUDO_CMD=${{ matrix.os == 'windows-latest' && '' || 'sudo' }}
           ${SUDO_CMD} ${BINARY_PATH} stop
           if [[ ${matrix.os} == 'windows-latest' ]]; then
             taskkill -IM edamame_posture.exe -F || true
