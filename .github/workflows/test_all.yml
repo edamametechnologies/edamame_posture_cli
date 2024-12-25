@@ -190,10 +190,10 @@ jobs:
           echo "Test completed"
 
       - name: Dump the logs
-        continue-on-error: true
         shell: bash
         run: |
-          # Will fail because of whitelist conformance
-          $SUDO_CMD ~/$BINARY logs
+          # Will fail because of whitelist conformance, ignore it
+          $SUDO_CMD ~/$BINARY logs || true
+          exit 0
 
 
