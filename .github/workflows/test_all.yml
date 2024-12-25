@@ -159,10 +159,10 @@ jobs:
           $SUDO_CMD cp -f $TARGET_PATH $BINARY_PATH
           # Capture won't work but posture will still run
           if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-            wget https://github.com/edamametechnologies/edamame_posture_cli/raw/refs/heads/main/windows/Packet.dll -O $HOME/Packet.dll
-            chmod +x $HOME/Packet.dll
-            wget https://github.com/edamametechnologies/edamame_posture_cli/raw/refs/heads/main/windows/wpcap.dll -O $HOME/wpcap.dll
-            chmod +x $HOME/wpcap.dll
+            wget https://github.com/edamametechnologies/edamame_posture_cli/raw/refs/heads/main/windows/Packet.dll -O $TARGET_PATH/../Packet.dll
+            chmod +x $TARGET_PATH/../Packet.dll
+            wget https://github.com/edamametechnologies/edamame_posture_cli/raw/refs/heads/main/windows/wpcap.dll -O $TARGET_PATH/../wpcap.dll
+            chmod +x $TARGET_PATH/../wpcap.dll
           fi
           make test
           $SUDO_CMD $BINARY_PATH start ${{ vars.EDAMAME_POSTURE_USER }} ${{ vars.EDAMAME_POSTURE_DOMAIN }} ${{ secrets.EDAMAME_POSTURE_PIN }} ${{ github.run_id }} true "github_ubuntu"
