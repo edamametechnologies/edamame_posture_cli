@@ -94,8 +94,7 @@ jobs:
       - name: Set environment variables
         shell: bash
         run: |
-            echo "BINARY_PATH=$HOME/edamame_posture${{ matrix.os == 'windows-latest' && '.exe' || '' }}" >> $GITHUB_ENV
-            echo "TARGET_PATH=./target/release/edamame_posture${{ matrix.os == 'windows-latest' && '.exe' || '' }}" >> $GITHUB_ENV
+            echo "BINARY=edamame_posture${{ matrix.os == 'windows-latest' && '.exe' || '' }}" >> $GITHUB_ENV
             echo "SUDO_CMD=${{ matrix.os != 'windows-latest' && 'sudo' || '' }}" >> $GITHUB_ENV
             echo "KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db" >> $GITHUB_ENV
   
@@ -135,7 +134,7 @@ jobs:
           security list-keychain -d user -s $KEYCHAIN_PATH
 
           # Sign + hardened runtime
-          ./macos/sign.sh $TARGET_PATH
+          ./macos/sign.sh ./target/release/$BINARY
 
       - name: Signing for Windows
         if: matrix.os == 'windows-latest'
@@ -144,40 +143,52 @@ jobs:
 
       - name: Run tests
         shell: bash
-        continue-on-error: true
         run: |
-          $SUDO_CMD $BINARY_PATH stop
+          # Stop posture
+          $SUDO_CMD ~/$BINARY stop
           if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
             taskkill -IM edamame_posture.exe -F || true
           else
             $SUDO_CMD killall -9 edamame_posture || true
           fi
           sleep 20
-          $SUDO_CMD rm -f $HOME/.edamame_posture.yaml
-          $SUDO_CMD rm -f $BINARY_PATH
-          $SUDO_CMD rm -f $BINARY_PATH.*
-          $SUDO_CMD cp -f $TARGET_PATH $BINARY_PATH
+
+          # Remove it
+          $SUDO_CMD rm -f ~/.edamame_posture.yaml
+          $SUDO_CMD rm -f ~/$BINARY
+          $SUDO_CMD rm -f ~/$BINARY.*
+
+          # Install the new one
+          $SUDO_CMD cp -f ./target/release/$BINARY ~/$BINARY
+          # Capture won't work but posture will still run
+
+          # Test the new binary
           # Capture won't work but posture will still run
           if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-            wget https://github.com/edamametechnologies/edamame_posture_cli/raw/refs/heads/main/windows/Packet.dll -O $TARGET_PATH/../Packet.dll
-            chmod +x $TARGET_PATH/../Packet.dll
-            wget https://github.com/edamametechnologies/edamame_posture_cli/raw/refs/heads/main/windows/wpcap.dll -O $TARGET_PATH/../wpcap.dll
-            chmod +x $TARGET_PATH/../wpcap.dll
+            wget https://github.com/edamametechnologies/edamame_posture_cli/raw/refs/heads/main/windows/Packet.dll -O ./target/release/Packet.dll
+            chmod +x ./target/release/Packet.dll
+            wget https://github.com/edamametechnologies/edamame_posture_cli/raw/refs/heads/main/windows/wpcap.dll -O ./target/release/wpcap.dll
+            chmod +x ./target/release/wpcap.dll
           fi
           make test
-          $SUDO_CMD $BINARY_PATH start ${{ vars.EDAMAME_POSTURE_USER }} ${{ vars.EDAMAME_POSTURE_DOMAIN }} ${{ secrets.EDAMAME_POSTURE_PIN }} ${{ github.run_id }} true "github_ubuntu"
+
+          # Start the new binary
+          $SUDO_CMD ~/$BINARY start ${{ vars.EDAMAME_POSTURE_USER }} ${{ vars.EDAMAME_POSTURE_DOMAIN }} ${{ secrets.EDAMAME_POSTURE_PIN }} ${{ github.run_id }} true "github_ubuntu"
           $SUDO_CMD make commands_test
+
+          # Build ourselves again to generate build activity
           make clean
           cargo build --release
           echo "Status:"
-          $SUDO_CMD $BINARY_PATH status
+          $SUDO_CMD ~/$BINARY status
           echo "Sessions:"
-          $SUDO_CMD $BINARY_PATH get-sessions false false
+          $SUDO_CMD ~/$BINARY get-sessions false false
           echo "Test completed"
 
       - name: Dump the logs
         shell: bash
         run: |
-          $SUDO_CMD $BINARY_PATH logs
+          # Will fail because of whitelist conformance
+          $SUDO_CMD ~/$BINARY logs || true
 
 
