@@ -192,8 +192,7 @@ jobs:
       - name: Dump the logs
         shell: bash
         run: |
-          # Will fail because of whitelist conformance, ignore it
-          $SUDO_CMD ~/$BINARY logs || true
+          $SUDO_CMD ~/$BINARY logs
           exit 0
 
 
