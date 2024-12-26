@@ -1480,7 +1480,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "0.8.0"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#9131c4d051d5fd192f411661e706f81b3eb27b76"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#89176cdd722714ca78e41e4468bbccc8b0da343d"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1546,7 +1546,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "0.7.2"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#50dddf84679d9bc91570f5a6a345643730edc8d8"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#2cb0a62fc38a676f9c07ff75373bbb3a8d60227b"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -4482,9 +4482,9 @@ dependencies = [
 
 [[package]]
 name = "quote"
-version = "1.0.37"
+version = "1.0.38"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b5b9d34b8991d19d98081b46eacdd8eb58c6f2b201139f7c5f643cc155a633af"
+checksum = "0e4dccaaaf89514f546c693ddc140f729f958c247918a13380cccc6078391acc"
 dependencies = [
  "proc-macro2",
 ]
@@ -5021,9 +5021,9 @@ dependencies = [
 
 [[package]]
 name = "serde_with"
-version = "3.11.0"
+version = "3.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8e28bdad6db2b8340e449f7108f020b3b092e8583a9e3fb82713e1d4e71fe817"
+checksum = "d6b6f7f2fcb69f747921f79f3926bd1e203fce4fef62c268dd3abfb6d86029aa"
 dependencies = [
  "base64 0.22.1",
  "chrono",
@@ -5039,9 +5039,9 @@ dependencies = [
 
 [[package]]
 name = "serde_with_macros"
-version = "3.11.0"
+version = "3.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9d846214a9854ef724f3da161b426242d8de7c1fc7de2f89bb1efcb154dca79d"
+checksum = "8d00caa5193a3c8362ac2b73be6b9e768aa5a4b2f721d8f4b339600c3cb51f8e"
 dependencies = [
  "darling 0.20.10",
  "proc-macro2",
