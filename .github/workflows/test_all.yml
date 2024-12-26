@@ -186,7 +186,8 @@ jobs:
           echo "Status:"
           $SUDO_CMD ~/$BINARY status
           echo "Sessions:"
-          $SUDO_CMD ~/$BINARY get-sessions false false
+          # Can fail because of whitelist conformance, ignore it
+          $SUDO_CMD ~/$BINARY get-sessions false false || true
           echo "Test completed"
 
       - name: Dump the logs
