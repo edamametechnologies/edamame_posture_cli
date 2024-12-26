@@ -96,7 +96,7 @@ commands_test:
 	$(BINARY) remediate
 	$(BINARY) background-logs
 	$(BINARY) background-wait-for-connection
-	# Can fail because of whitelist conformance
+	# Can fail because of whitelist conformance, ignore it
 	-$(BINARY) background-sessions
 	# Skipped for now
 	#$(BINARY) background-start
