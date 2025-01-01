@@ -163,18 +163,14 @@ jobs:
           # Capture won't work but posture will still run
 
           # Test the new binary
-          # Capture won't work but posture will still run
+          # We need the DLLs for tests to run on Windows
           if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
             wget https://github.com/edamametechnologies/edamame_posture_cli/raw/refs/heads/main/windows/Packet.dll -O ./target/release/Packet.dll
             chmod +x ./target/release/Packet.dll
             wget https://github.com/edamametechnologies/edamame_posture_cli/raw/refs/heads/main/windows/wpcap.dll -O ./target/release/wpcap.dll
             chmod +x ./target/release/wpcap.dll
           fi
-
-          # Run the tests (not on Windows as the DLLs won't be found)
-          if [[ "${{ matrix.os }}" != "windows-latest" ]]; then
-            make test
-          fi
+          export PATH=$PATH:$(pwd)/target/release; make test
 
           # Start the new binary
           $SUDO_CMD ~/$BINARY start ${{ vars.EDAMAME_POSTURE_USER }} ${{ vars.EDAMAME_POSTURE_DOMAIN }} ${{ secrets.EDAMAME_POSTURE_PIN }} ${{ github.run_id }} true "github_ubuntu"
