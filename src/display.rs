@@ -49,7 +49,12 @@ pub fn display_lanscan(devices: &LANScanAPI) {
         .network
         .interfaces
         .iter()
-        .map(|interface| format!("{} ({}/{})", interface.2, interface.0, interface.1))
+        .map(|interface| {
+            format!(
+                "{} ({}/{})",
+                interface.name, interface.ipv4, interface.prefixv4
+            )
+        })
         .collect::<Vec<String>>()
         .join(", ");
     println!("Network interfaces scanned: {}", interfaces);

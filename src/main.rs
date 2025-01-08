@@ -298,7 +298,7 @@ fn run_base() {
             initialize_core("".to_string(), false, false, false, false);
             ensure_admin();
             // Initialize network
-            set_network(LANScanAPINetwork {
+            set_network(LANScanNetworkAPI {
                 interfaces: vec![],
                 scanned_interfaces: vec![],
                 is_ethernet: true,
