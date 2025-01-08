@@ -47,7 +47,7 @@ pub fn background_process(
         start_capture();
 
         // Initialize network to autodetect
-        set_network(LANScanAPINetwork {
+        set_network(LANScanNetworkAPI {
             interfaces: vec![],
             scanned_interfaces: vec![],
             is_ethernet: true,
