@@ -65,7 +65,8 @@ pub fn display_lanscan(devices: &LANScanAPI) {
         println!("  - '{}'", device.hostname);
         println!("    - Type: {}", device.device_type);
         println!("    - Vendor: {}", device.device_vendor);
-        println!("    - IPs: {}", device.ip_addresses.join(", "));
+        println!("    - v4 IPs: {}", device.ip_addresses_v4.join(", "));
+        println!("    - v6 IPs: {}", device.ip_addresses_v6.join(", "));
         println!("    - MACs: {}", device.mac_addresses.join(", "));
         println!("    - Has EDAMAME: {}", device.has_edamame);
         println!("    - Criticality: {}", device.criticality);
