@@ -1469,8 +1469,8 @@ dependencies = [
 
 [[package]]
 name = "edamame_core"
-version = "0.9.1"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#819ce30b3c23292b0c93272c46c3d0d4854f608e"
+version = "0.9.5"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#876312a7e3a0a9d426f05d0daee00ef4da14bbf6"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1537,8 +1537,8 @@ dependencies = [
 
 [[package]]
 name = "edamame_foundation"
-version = "0.9.1"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#90c8ea41405cd4700282ffe17e1795cb9c69b611"
+version = "0.9.5"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#84a21427b377c121cebb262f2b1be99803bc20cc"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1601,7 +1601,7 @@ dependencies = [
 
 [[package]]
 name = "edamame_posture"
-version = "0.9.1"
+version = "0.9.5"
 dependencies = [
  "anyhow",
  "clap",
@@ -6022,9 +6022,9 @@ dependencies = [
 
 [[package]]
 name = "valuable"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "830b7e5d4d90034032940e4ace0d9a9a057e7a45cd94e6c007832e39edb82f6d"
+checksum = "ba73ea9cf16a25df0c8caa16c51acb937d5712a8429db78a3ee29d5dcacd3a65"
 
 [[package]]
 name = "vergen"
