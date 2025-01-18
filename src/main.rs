@@ -5,6 +5,7 @@ mod display;
 use anyhow::Result;
 use background::*;
 use base::*;
+use base64::prelude::*;
 use clap::{arg, Command};
 use daemon::*;
 use edamame_core::api::api_core::*;
@@ -204,6 +205,16 @@ fn run_base() {
                     .required(false),
             ),
         )
+        .subcommand(Command::new("request-signature").about("Report the security posture anonymously and get a signature for later retrieval"))
+        .subcommand(Command::new("request-report").about("Send a report from a signature to an email address").arg(
+            arg!(<EMAIL> "Email address")
+                    .required(true)
+                    .value_parser(clap::value_parser!(String))).arg(
+                arg!(<SIGNATURE> "Signature")
+                    .required(true)
+                    .value_parser(clap::value_parser!(String)),
+            ),
+        )
         //////////////////////
         // Background commands
         //////////////////////
@@ -391,6 +402,44 @@ fn run_base() {
             initialize_core("".to_string(), false, false, false, false);
             ensure_admin();
             base_get_system_info();
+        }
+        Some(("request-signature", _)) => {
+            // Initialize the core with reporting and server disabled
+            initialize_core("".to_string(), true, false, false, false);
+            ensure_admin(); // Admin check here
+            base_score(true);
+            let signature = get_signature_from_score_anonymously();
+            println!("Signature: {}", signature);
+        }
+        Some(("request-report", sub_matches)) => {
+            // Check email format
+            let email = sub_matches.get_one::<String>("EMAIL").unwrap().to_string();
+            if !email.contains('@') || !email.contains('.') {
+                eprintln!("Invalid email format");
+                std::process::exit(1);
+            }
+            // Check signature format (32 bytes in base 64)
+            let signature = sub_matches
+                .get_one::<String>("SIGNATURE")
+                .unwrap()
+                .to_string();
+            // Try decode the base64 string
+            match BASE64_STANDARD.decode(&signature) {
+                Ok(decoded_signature) => {
+                    // Check if 32 bytes
+                    if decoded_signature.len() != 32 {
+                        eprintln!("Invalid signature format");
+                        std::process::exit(1);
+                    }
+                }
+                Err(_) => {
+                    eprintln!("Invalid signature format");
+                    std::process::exit(1);
+                }
+            }
+            // Initialize the core with reporting and server disabled
+            initialize_core("".to_string(), false, false, false, false);
+            request_report_from_signature(email, signature, "JSON".to_string());
         }
         //////////////////////
         // Background commands
