@@ -38,6 +38,7 @@ envcrypt = "0.5.0"
 # Misc
 lazy_static = "1.4.0"
 mutex = "0.1.0"
+base64 = "0.22.1"
 
 # Linux and macOS 
 [target.'cfg(any(target_os = "macos", target_os = "linux"))'.dependencies]
