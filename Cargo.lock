@@ -1191,10 +1191,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "dart-sys-fork"
-version = "4.1.1"
+name = "dart-sys"
+version = "4.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "933dafff26172b719bb9695dd3715a1e7792f62dcdc8a5d4c740db7e0fedee8b"
+checksum = "57967e4b200d767d091b961d6ab42cc7d0cc14fe9e052e75d0d3cf9eb732d895"
 dependencies = [
  "cc",
 ]
@@ -1470,7 +1470,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "0.9.5"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#a756371d9e3cc1e0feb57a23019acdea610decfb"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#60fc64a2b598564bc8ea2918a894de48cab16b4a"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1538,7 +1538,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "0.9.5"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#b1f3579fc91af8f994f2557fa7dbe24e248a0ea5"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#967387b4170b27d4414196a168a365effed6a46e"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1856,9 +1856,9 @@ dependencies = [
 
 [[package]]
 name = "flutter_rust_bridge"
-version = "2.6.0"
+version = "2.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "93b95a1b4f20b8c037535bcda990abf0ae2bd94c93e27ebbbe00633322bc1561"
+checksum = "5419323ff3ae8b63ed20b7cd0fd0e3e73fa9234b3b212b87b5586fe76ae52318"
 dependencies = [
  "allo-isolate",
  "android_logger",
@@ -1867,7 +1867,7 @@ dependencies = [
  "bytemuck",
  "byteorder",
  "console_error_panic_hook",
- "dart-sys-fork",
+ "dart-sys",
  "delegate-attr",
  "flutter_rust_bridge_macros",
  "futures",
@@ -1885,9 +1885,9 @@ dependencies = [
 
 [[package]]
 name = "flutter_rust_bridge_macros"
-version = "2.6.0"
+version = "2.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fafd532ccfcce8ef23e858fe07303ff572e8b302be6ec0b0f38ca6eb319206dc"
+checksum = "9c6fd06cacc0dfe931d00f3acdc5ac6c5dd9382b33dd78d71cce8f0a62e9458b"
 dependencies = [
  "hex",
  "md-5",
@@ -4985,9 +4985,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.135"
+version = "1.0.136"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2b0d7ba2887406110130a978386c4e1befb98c674b4fba677954e4db976630d9"
+checksum = "336a0c23cf42a38d9eaa7cd22c7040d04e1228a19a933890805ffd00a16437d2"
 dependencies = [
  "itoa",
  "memchr",
