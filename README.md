@@ -1,9 +1,81 @@
-# edamame_posture
+# EDAMAME Security (CLI: `edamame_posture`)
 
-This is the CLI tool to compute and remediate the security posture of a device. This is designed to be used in CI/CD pipelines or test devices.
-See the associated GitHub action for an example of how to use it. This covers a variety of security threats involving the device.
+> **What?**: Lightweight, developer-friendly security posture assessment and remediation tool—perfect for those who want a straightforward way to secure their development environment.
 
---------------------------------------------------------------------------------
+## Overview
+
+`edamame_posture` is a cross-platform CLI that helps you quickly:
+- **Assess** the security posture of your device or environment.
+- **Harden** against common misconfigurations at the click of a button.
+- **Generate** compliance or audit reports—giving you proof of a hardened setup.
+
+And if your needs grow, you can seamlessly connect it to [EDAMAME Hub](https://hub.edamame.tech) for more advanced conditional access, centralized reporting, and enterprise-level features.
+
+---
+
+## Targeted Use Cases
+
+1. **Personal Device Hardening**  
+   Quickly validate and remediate workstation security—ensuring it's safe for development work.  
+2. **CI/CD Pipeline Security**  
+   Insert `edamame_posture` checks to ensure ephemeral runners are properly secured before building or deploying code.  
+3. **On-Demand Compliance Demonstrations**  
+   Produce signed posture reports when working with clients or partners who require evidence of strong security practices.  
+4. **Local Network Insights**  
+   Run `lanscan` to see what's on your subnet—no need for bulky network security tools.  
+
+---
+
+## Key Features
+
+1. **Developer-Friendly CLI**  
+   Straightforward commands allow you to quickly get things done with minimal fuss.  
+2. **Cross-Platform Support**  
+   Runs on macOS, Windows, and a variety of Linux environments.  
+3. **Automated Remediation**  
+   Resolve many security risks automatically with a single command.  
+4. **Network & Egress Tracking**  
+   Get clear visibility into local devices and outbound connections.  
+5. **Compliance Reporting**  
+   Generate tamper-proof reports for audits or personal assurance.  
+6. **Optional Hub Integration**  
+   Connect to [EDAMAME Hub](https://hub.edamame.tech) when you're ready for shared visibility and policy enforcement.
+
+---
+
+## How It Works
+
+1. **Install**  
+   Place the `edamame_posture` binary in your `PATH` (e.g., `/usr/local/bin` for Linux/macOS).  
+2. **Run**  
+   Use commands like `score` to check posture or `remediate` to fix common issues automatically.
+3. **Report**  
+   Generate a signed report using `request-signature` and `request-report`
+4. **Workflows**  
+Check out the [associated GitHub action](https://github.com/edamametechnologies/edamame_posture_action) to see how to integrate `edamame_posture` directly in your GitHub CI/CD workflows and [associated GitLab workflow](https://github.com/edamametechnologies/edamame_posture_action_gitlab) to see how to integrate it in your GitLab CI/CD workflows.
+
+---
+
+## Quick Start
+
+1. **Download** the official binary for your platform (links below).  
+2. **Install** by placing the binary in your `PATH`.  
+3. **Run** a quick command like `edamame_posture score` to assess your device.
+
+---
+
+## Download Binaries
+
+• [Gnu Linux x86_64](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.5/edamame_posture-0.9.5-x86_64-unknown-linux-gnu)  
+• [Gnu Linux i686](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.5/edamame_posture-0.9.5-i686-unknown-linux-gnu)  
+• [Gnu Linux aarch64](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.5/edamame_posture-0.9.5-aarch64-unknown-linux-gnu)  
+• [Gnu Linux armv7](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.5/edamame_posture-0.9.5-armv7-unknown-linux-gnueabihf)  
+• [Alpine Linux x86_64](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.5/edamame_posture-0.9.5-x86_64-unknown-linux-musl)  
+• [Alpine Linux aarch64](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.5/edamame_posture-0.9.5-aarch64-unknown-linux-musl)  
+• [macOS universal (signed)](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.5/edamame_posture-0.9.5-universal-apple-darwin)  
+• [Windows x86_64 (signed)](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.5/edamame_posture-0.9.5-x86_64-pc-windows-msvc.exe)
+
+---
 
 ## Usage
 
@@ -220,19 +292,6 @@ Most commands require administrator privileges. If a command requires admin priv
 
 • Invalid arguments or subcommands will prompt usage instructions.
 • Missing arguments required for a subcommand will generate an error.
-
---------------------------------------------------------------------------------
-
-## Download official binaries for edamame_posture
-
-• [Gnu Linux x86_64](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.8.0/edamame_posture-0.8.0-x86_64-unknown-linux-gnu)
-• [Gnu Linux i686](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.8.0/edamame_posture-0.8.0-i686-unknown-linux-gnu)
-• [Gnu Linux aarch64](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.8.0/edamame_posture-0.8.0-aarch64-unknown-linux-gnu)
-• [Gnu Linux armv7](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.8.0/edamame_posture-0.8.0-armv7-unknown-linux-gnueabihf)
-• [Alpine Linux x86_64](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.8.0/edamame_posture-0.8.0-x86_64-unknown-linux-musl)
-• [Alpine Linux aarch64](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.8.0/edamame_posture-0.8.0-aarch64-unknown-linux-musl)
-• [macOS universal (signed)](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.8.0/edamame_posture-0.8.0-universal-apple-darwin)
-• [Windows x86_64 (signed)](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.8.0/edamame_posture-0.8.0-x86_64-pc-windows-msvc.exe)
 
 --------------------------------------------------------------------------------
 
