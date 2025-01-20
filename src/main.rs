@@ -408,7 +408,8 @@ fn run_base() {
             initialize_core("".to_string(), true, false, false, false);
             ensure_admin(); // Admin check here
             base_score(true);
-            let signature = get_signature_from_score_anonymously();
+            let signature =
+                get_signature_from_score_with_email("anonymous@anonymous.eda".to_string());
             println!("Signature: {}", signature);
         }
         Some(("request-report", sub_matches)) => {
@@ -548,7 +549,11 @@ fn run_base() {
             initialize_core("".to_string(), false, false, false, false);
             background_get_last_report_signature();
         }
-        _ => eprintln!("Invalid command, use --help for more information"),
+        _ => {
+            // Initialize the core with reporting and server disabled
+            initialize_core("".to_string(), false, false, false, false);
+            eprintln!("Invalid command, use --help for more information");
+        }
     }
 
     // Properly terminate the core
