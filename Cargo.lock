@@ -1470,7 +1470,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "0.9.5"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#99da4d255127587b1a159f9ea563960b3dea1871"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#be302c0c3b95f1242c7fa758f06de91cde6f3a91"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1501,6 +1501,7 @@ dependencies = [
  "mac_address",
  "macaddr",
  "machine-uid",
+ "netlink-proto",
  "once_cell",
  "parking_lot",
  "paste",
@@ -3601,16 +3602,17 @@ dependencies = [
 
 [[package]]
 name = "netlink-proto"
-version = "0.11.4"
+version = "0.11.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b2741a6c259755922e3ed29ebce3b299cc2160c4acae94b465b5938ab02c2bbe"
+checksum = "86b33524dc0968bfad349684447bfce6db937a9ac3332a1fe60c0c5a5ce63f21"
 dependencies = [
  "bytes",
  "futures",
  "log",
  "netlink-packet-core",
  "netlink-sys",
- "thiserror 2.0.11",
+ "thiserror 1.0.69",
+ "tokio",
 ]
 
 [[package]]
