@@ -48,6 +48,7 @@ edamame_foundation = { git = "https://github.com/edamametechnologies/edamame_fou
 # Process
 daemonize = "0.5.0"
 
+# Windows
 [target.'cfg(target_os = "windows")'.dependencies]
 # Local copy in order to allow rapid development/debug
 #edamame_foundation = { path = "../edamame_foundation" }
