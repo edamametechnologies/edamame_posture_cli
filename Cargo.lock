@@ -339,7 +339,7 @@ dependencies = [
  "futures-lite 2.6.0",
  "parking",
  "polling 3.7.4",
- "rustix 0.38.43",
+ "rustix 0.38.44",
  "slab",
  "tracing",
  "windows-sys 0.59.0",
@@ -389,7 +389,7 @@ dependencies = [
  "cfg-if",
  "event-listener 3.1.0",
  "futures-lite 1.13.0",
- "rustix 0.38.43",
+ "rustix 0.38.44",
  "windows-sys 0.48.0",
 ]
 
@@ -405,7 +405,7 @@ dependencies = [
  "cfg-if",
  "futures-core",
  "futures-io",
- "rustix 0.38.43",
+ "rustix 0.38.44",
  "signal-hook-registry",
  "slab",
  "windows-sys 0.59.0",
@@ -962,9 +962,9 @@ dependencies = [
 
 [[package]]
 name = "cpufeatures"
-version = "0.2.16"
+version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "16b80225097f2e5ae4e7179dd2266824648f3e2f49d9134d584b76389d31c4c3"
+checksum = "59ed5838eebb26a2bb2e58f6d5b5316989ae9d08bab10e0e6d103e656d1b0280"
 dependencies = [
  "libc",
 ]
@@ -1469,8 +1469,8 @@ dependencies = [
 
 [[package]]
 name = "edamame_core"
-version = "0.9.5"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#be302c0c3b95f1242c7fa758f06de91cde6f3a91"
+version = "0.9.7"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#ddd058c279c41bb94f6904b4704b26a47295964e"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1538,8 +1538,8 @@ dependencies = [
 
 [[package]]
 name = "edamame_foundation"
-version = "0.9.5"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#967387b4170b27d4414196a168a365effed6a46e"
+version = "0.9.7"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#57f7b90254c4e4cc9dc5143889ee3c4808d38e76"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1555,6 +1555,7 @@ dependencies = [
  "eui48",
  "futures",
  "futures-util",
+ "hex",
  "hickory-resolver",
  "humantime",
  "ipnet",
@@ -1580,6 +1581,7 @@ dependencies = [
  "serde_json",
  "serde_with",
  "serial_test",
+ "sha2",
  "socket2 0.5.8",
  "sorted-vec",
  "strum",
@@ -1602,7 +1604,7 @@ dependencies = [
 
 [[package]]
 name = "edamame_posture"
-version = "0.9.5"
+version = "0.9.7"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -4194,7 +4196,7 @@ dependencies = [
  "concurrent-queue",
  "hermit-abi 0.4.0",
  "pin-project-lite",
- "rustix 0.38.43",
+ "rustix 0.38.44",
  "tracing",
  "windows-sys 0.59.0",
 ]
@@ -4784,9 +4786,9 @@ dependencies = [
 
 [[package]]
 name = "rustix"
-version = "0.38.43"
+version = "0.38.44"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a78891ee6bf2340288408954ac787aa063d8e8817e9f53abb37c695c6d834ef6"
+checksum = "fdb5bc1ae2baa591800df16c9ca78619bf65c0488b41b96ccec5d11220d8c154"
 dependencies = [
  "bitflags 2.8.0",
  "errno 0.3.10",
@@ -5214,9 +5216,9 @@ dependencies = [
 
 [[package]]
 name = "sorted-vec"
-version = "0.8.5"
+version = "0.8.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9f64b077cc81ab5f1209bb44c6530a3277261aeaa5405111d48326897306918b"
+checksum = "d372029cb5195f9ab4e4b9aef550787dce78b124fcaee8d82519925defcd6f0d"
 
 [[package]]
 name = "spin"
@@ -5428,7 +5430,7 @@ dependencies = [
  "fastrand 2.3.0",
  "getrandom",
  "once_cell",
- "rustix 0.38.43",
+ "rustix 0.38.44",
  "windows-sys 0.59.0",
 ]
 
@@ -5882,9 +5884,9 @@ checksum = "5c1cb5db39152898a79168971543b1cb5020dff7fe43c8dc468b0885f5e29df5"
 
 [[package]]
 name = "unicode-ident"
-version = "1.0.14"
+version = "1.0.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "adb9e6ca4f869e1180728b7950e35922a7fc6397f7b641499e8f3ef06e50dc83"
+checksum = "11cd88e12b17c6494200a9c1b683a04fcac9573ed74cd1b62aeb2727c5592243"
 
 [[package]]
 name = "unicode-normalization"
