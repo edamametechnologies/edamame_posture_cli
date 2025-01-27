@@ -201,4 +201,9 @@ jobs:
         shell: bash
         run: |
           $SUDO_CMD ~/$BINARY logs
-          exit 0
+
+      - name: Fail job if tests failed
+        if: steps.tests.outcome != 'success'
+        run: |
+          echo "Forcing job to fail because tests did not succeed."
+          exit 1
