@@ -1470,7 +1470,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "0.9.7"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#83119905e590ff3d01a8320aae93cc7eb905c2e6"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#9eba77098835faaed13e5d59d408a921d4dd4959"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1539,7 +1539,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "0.9.7"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#57f7b90254c4e4cc9dc5143889ee3c4808d38e76"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#ca914e436a492434588cf1e4ff90a0cd925dc7ab"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -4823,9 +4823,9 @@ dependencies = [
 
 [[package]]
 name = "rustls-pki-types"
-version = "1.10.1"
+version = "1.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d2bf47e6ff922db3825eb750c4e2ff784c6ff8fb9e13046ef6a1d1c5401b0b37"
+checksum = "917ce264624a4b4db1c364dcc35bfca9ded014d0a958cd47ad3e960e988ea51c"
 dependencies = [
  "web-time",
 ]

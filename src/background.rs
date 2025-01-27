@@ -40,6 +40,7 @@ pub fn background_get_sessions(local_traffic: bool, zeek_format: bool) -> i32 {
     for session in sessions.iter() {
         println!("{}", session);
     }
+
     // Check whitelist conformance
     let whitelist_conformance = match rpc_get_whitelist_conformance(
         &EDAMAME_CA_PEM,
@@ -62,6 +63,7 @@ pub fn background_get_sessions(local_traffic: bool, zeek_format: bool) -> i32 {
 }
 
 pub fn background_get_threats_info() {
+    // This function does not call any rpc_ methods, so no error code return is required.
     let score = get_score(false);
     let threats = format!(
         "Threat model name: {}, date: {}, signature: {}",
@@ -70,7 +72,7 @@ pub fn background_get_threats_info() {
     println!("Threats information: {}", threats);
 }
 
-pub fn background_get_status() {
+pub fn background_get_status() -> i32 {
     let connection_status = match rpc_get_connection(
         &EDAMAME_CA_PEM,
         &EDAMAME_CLIENT_PEM,
@@ -80,7 +82,7 @@ pub fn background_get_status() {
         Ok(status) => status,
         Err(e) => {
             eprintln!("Error getting connection status: {}", e);
-            return;
+            return 1;
         }
     };
     println!("Connection status:");
@@ -94,9 +96,11 @@ pub fn background_get_status() {
         "  - Last network activity: {}",
         connection_status.last_network_activity
     );
+
+    0
 }
 
-pub fn background_get_last_report_signature() {
+pub fn background_get_last_report_signature() -> i32 {
     let signature = match rpc_get_last_report_signature(
         &EDAMAME_CA_PEM,
         &EDAMAME_CLIENT_PEM,
@@ -106,21 +110,21 @@ pub fn background_get_last_report_signature() {
         Ok(signature) => signature,
         Err(e) => {
             eprintln!("Error getting last reported signature: {}", e);
-            return;
+            return 1;
         }
     };
     println!("{}", signature);
+    0
 }
 
-pub fn background_wait_for_connection(timeout: u64) {
+pub fn background_wait_for_connection(timeout: u64) -> i32 {
     base_get_device_info();
-
     base_get_system_info();
 
     println!("Waiting for score computation and reporting to complete...");
     let mut timeout = timeout;
-    // Wait until a network activity is detected and the connection is successful
 
+    // Fetch initial last_reported_signature
     let mut last_reported_signature = match rpc_get_last_report_signature(
         &EDAMAME_CA_PEM,
         &EDAMAME_CLIENT_PEM,
@@ -130,9 +134,11 @@ pub fn background_wait_for_connection(timeout: u64) {
         Ok(signature) => signature,
         Err(e) => {
             eprintln!("Error getting last reported signature: {}", e);
-            return;
+            return 1;
         }
     };
+
+    // Fetch initial connection_status
     let mut connection_status = match rpc_get_connection(
         &EDAMAME_CA_PEM,
         &EDAMAME_CLIENT_PEM,
@@ -142,13 +148,15 @@ pub fn background_wait_for_connection(timeout: u64) {
         Ok(status) => status,
         Err(e) => {
             eprintln!("Error getting connection status: {}", e);
-            return;
+            return 1;
         }
     };
 
-    while !(last_reported_signature != "") && timeout > 0 {
+    // Wait for a non-empty signature or until we time out
+    while last_reported_signature.is_empty() && timeout > 0 {
         sleep(Duration::from_secs(5));
         timeout = timeout - 5;
+
         last_reported_signature = match rpc_get_last_report_signature(
             &EDAMAME_CA_PEM,
             &EDAMAME_CLIENT_PEM,
@@ -158,9 +166,10 @@ pub fn background_wait_for_connection(timeout: u64) {
             Ok(signature) => signature,
             Err(e) => {
                 eprintln!("Error getting last reported signature: {}", e);
-                return;
+                return 1;
             }
         };
+
         connection_status = match rpc_get_connection(
             &EDAMAME_CA_PEM,
             &EDAMAME_CLIENT_PEM,
@@ -170,10 +179,14 @@ pub fn background_wait_for_connection(timeout: u64) {
             Ok(status) => status,
             Err(e) => {
                 eprintln!("Error getting connection status: {}", e);
-                return;
+                return 1;
             }
         };
-        println!("Waiting for score computation and reporting to complete... (connected: {}, network activity: {})", connection_status.is_connected, connection_status.last_network_activity);
+
+        println!(
+            "Waiting for score computation and reporting to complete... (connected: {}, network activity: {})",
+            connection_status.is_connected, connection_status.last_network_activity
+        );
     }
 
     if timeout <= 0 {
@@ -204,7 +217,7 @@ pub fn background_wait_for_connection(timeout: u64) {
             Ok(score) => score,
             Err(e) => {
                 eprintln!("Error getting score: {}", e);
-                return;
+                return 1;
             }
         };
         display_score(&score);
@@ -222,7 +235,7 @@ pub fn background_wait_for_connection(timeout: u64) {
             Ok(devices) => devices,
             Err(e) => {
                 eprintln!("Error getting LAN devices: {}", e);
-                return;
+                return 1;
             }
         };
         display_lanscan(&devices);
@@ -237,14 +250,16 @@ pub fn background_wait_for_connection(timeout: u64) {
             Ok(sessions) => sessions,
             Err(e) => {
                 eprintln!("Error getting LAN sessions: {}", e);
-                return;
+                return 1;
             }
         };
         format_sessions_log(sessions.sessions);
     }
+
+    0
 }
 
-pub fn background_stop() {
+pub fn background_stop() -> i32 {
     match rpc_disconnect_domain(
         &EDAMAME_CA_PEM,
         &EDAMAME_CLIENT_PEM,
@@ -259,8 +274,16 @@ pub fn background_stop() {
             &EDAMAME_TARGET,
         ) {
             Ok(_) => (),
-            Err(e) => eprintln!("Error terminating background process: {}", e),
+            Err(e) => {
+                eprintln!("Error terminating background process: {}", e);
+                return 1;
+            }
         },
-        Err(e) => eprintln!("Error disconnecting domain: {}", e),
+        Err(e) => {
+            eprintln!("Error disconnecting domain: {}", e);
+            return 1;
+        }
     }
+
+    0
 }

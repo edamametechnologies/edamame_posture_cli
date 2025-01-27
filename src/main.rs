@@ -88,6 +88,7 @@ pub fn initialize_core(
 
 fn run() {
     let args: Vec<String> = std::env::args().collect();
+
     if args.len() > 1 && args[1] == "background-process" {
         // Debug logging
         //std::env::set_var("EDAMAME_LOG_LEVEL", "debug");
@@ -474,7 +475,7 @@ fn run_base() {
             // Initialize the core with reporting and server disabled
             initialize_core("".to_string(), false, false, false, false);
 
-            background_wait_for_connection(*timeout);
+            exit_code = background_wait_for_connection(*timeout);
         }
         Some(("background-sessions", sub_matches)) => {
             let zeek_format = sub_matches.get_one::<bool>("ZEEK_FORMAT").unwrap_or(&false);
@@ -537,17 +538,17 @@ fn run_base() {
         Some(("background-stop", _)) => {
             // Initialize the core with reporting and server disabled
             initialize_core("".to_string(), false, false, false, false);
-            background_stop();
+            exit_code = background_stop();
         }
         Some(("background-status", _)) => {
             // Initialize the core with reporting and server disabled
             initialize_core("".to_string(), false, false, false, false);
-            background_get_status();
+            exit_code = background_get_status();
         }
         Some(("background-last-report-signature", _)) => {
             // Initialize the core with reporting and server disabled
             initialize_core("".to_string(), false, false, false, false);
-            background_get_last_report_signature();
+            exit_code = background_get_last_report_signature();
         }
         _ => {
             // Initialize the core with reporting and server disabled
