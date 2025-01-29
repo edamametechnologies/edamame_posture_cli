@@ -167,7 +167,10 @@ pub fn background_start(
                     .expect("Failed to start background process");
                 std::process::exit(0);
             }
-            Err(e) => eprintln!("Error daemonizing: {}", e),
+            Err(e) => {
+                eprintln!("Error daemonizing: {}", e);
+                std::process::exit(1);
+            }
         }
     }
 

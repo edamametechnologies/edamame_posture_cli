@@ -190,13 +190,8 @@ pub fn background_wait_for_connection(timeout: u64) -> i32 {
     }
 
     if timeout <= 0 {
-        eprintln!(
-            "Timeout waiting for background process to connect to domain, killing process..."
-        );
-        background_stop();
-
-        // Exit with an error code
-        std::process::exit(1);
+        eprintln!("Timeout waiting for background process to connect to domain...");
+        return 1;
     } else {
         println!(
             "Connection successful with domain {} and user {} (connected: {}, network activity: {})",
