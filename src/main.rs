@@ -145,7 +145,7 @@ fn ensure_admin() {
 }
 
 fn run_base() {
-    let mut exit_code = 0;
+    let mut background_exit_code = 0;
     let matches = Command::new("edamame_posture")
         .version("1.0")
         .author("Frank Lyonnet")
@@ -475,7 +475,7 @@ fn run_base() {
             // Initialize the core with reporting and server disabled
             initialize_core("".to_string(), false, false, false, false);
 
-            exit_code = background_wait_for_connection(*timeout);
+            background_exit_code = background_wait_for_connection(*timeout);
         }
         Some(("background-sessions", sub_matches)) => {
             let zeek_format = sub_matches.get_one::<bool>("ZEEK_FORMAT").unwrap_or(&false);
@@ -485,7 +485,7 @@ fn run_base() {
 
             // Initialize the core with reporting and server disabled
             initialize_core("".to_string(), false, false, false, false);
-            exit_code = background_get_sessions(*zeek_format, *local_traffic);
+            background_exit_code = background_get_sessions(*zeek_format, *local_traffic);
         }
         Some(("background-threats-info", _)) => {
             // Initialize the core with reporting and server disabled
@@ -538,17 +538,17 @@ fn run_base() {
         Some(("background-stop", _)) => {
             // Initialize the core with reporting and server disabled
             initialize_core("".to_string(), false, false, false, false);
-            exit_code = background_stop();
+            background_exit_code = background_stop();
         }
         Some(("background-status", _)) => {
             // Initialize the core with reporting and server disabled
             initialize_core("".to_string(), false, false, false, false);
-            exit_code = background_get_status();
+            background_exit_code = background_get_status();
         }
         Some(("background-last-report-signature", _)) => {
             // Initialize the core with reporting and server disabled
             initialize_core("".to_string(), false, false, false, false);
-            exit_code = background_get_last_report_signature();
+            background_exit_code = background_get_last_report_signature();
         }
         _ => {
             // Initialize the core with reporting and server disabled
@@ -557,10 +557,27 @@ fn run_base() {
         }
     }
 
+    // Dump the logs in case of error
+    if background_exit_code != 0 {
+        let logs = match rpc_get_all_logs(
+            &EDAMAME_CA_PEM,
+            &EDAMAME_CLIENT_PEM,
+            &EDAMAME_CLIENT_KEY,
+            &EDAMAME_TARGET,
+        ) {
+            Ok(logs) => logs,
+            Err(e) => {
+                eprintln!("Error getting logs: {:?}", e);
+                "".to_string()
+            }
+        };
+        println!("{}", logs);
+    }
+
     // Properly terminate the core
     terminate(false);
 
-    exit(exit_code);
+    exit(background_exit_code);
 }
 
 pub fn main() {
