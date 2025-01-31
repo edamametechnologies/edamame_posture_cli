@@ -96,7 +96,7 @@ jobs:
         run: |
             echo "BINARY=edamame_posture${{ matrix.os == 'windows-latest' && '.exe' || '' }}" >> $GITHUB_ENV
             echo "SUDO_CMD=${{ matrix.os != 'windows-latest' && 'sudo' || '' }}" >> $GITHUB_ENV
-            echo "KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db" >> $GITHUB_ENV
+            echo "KEYCHAIN_PATH=/tmp/app-signing.keychain-db" >> $GITHUB_ENV
   
       - name: Build application
         shell: bash
