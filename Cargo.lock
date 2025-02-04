@@ -745,9 +745,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.2.11"
+version = "1.2.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e4730490333d58093109dc02c23174c3f4d490998c3fed3cc8e82d57afedb9cf"
+checksum = "755717a7de9ec452bf7f3f1a3099085deabd7f2962b861dae91ecd7a365903d2"
 dependencies = [
  "jobserver",
  "libc",
@@ -850,9 +850,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.5.27"
+version = "4.5.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "769b0145982b4b48713e01ec42d61614425f27b7058bda7180a3a41f30104796"
+checksum = "3e77c3243bd94243c03672cb5154667347c457ca271254724f9f393aee1c05ff"
 dependencies = [
  "clap_builder",
 ]
@@ -1469,8 +1469,8 @@ dependencies = [
 
 [[package]]
 name = "edamame_core"
-version = "0.9.9"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#eb9cbdcf92c28c77174fc6795e6080403210391d"
+version = "0.9.10"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#3f8e7a2e68a851cddcea38cbd93fad1700f4e0ab"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1539,7 +1539,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "0.9.9"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#101cc40038fa8fe739ac4733811fdc86bf545150"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#da84f1fa349abbf6a30b82a1c2e03d9eb51963ab"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1604,7 +1604,7 @@ dependencies = [
 
 [[package]]
 name = "edamame_posture"
-version = "0.9.9"
+version = "0.9.10"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
