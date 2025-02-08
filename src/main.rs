@@ -76,14 +76,14 @@ pub fn initialize_core(
         device.device_id = (machine_uid + "/" + device_id.as_str()).to_string();
     }
 
-    let service_name = if service {
+    let executable_type = if service {
         "service".to_string()
     } else {
         "posture".to_string()
     };
 
     initialize(
-        service_name,
+        executable_type,
         envc!("VERGEN_GIT_BRANCH").to_string(),
         "EN".to_string(),
         device,
