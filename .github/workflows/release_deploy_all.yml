@@ -227,7 +227,7 @@ jobs:
           echo "Installing cargo-deb..."
           cargo install cargo-deb
           echo "Packaging .deb with cargo deb..."
-          cargo deb
+          cargo deb --no-build --target ${{ matrix.target }}
 
       ############################################################################################
       # Signing
