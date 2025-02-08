@@ -248,6 +248,26 @@ fn run_base() {
                 ),
         )
         .subcommand(Command::new("background-threats-info").alias("get-threats-info").about("Get threats information of the background process"))
+        .subcommand(Command::new("foreground-start")
+            .alias("start")
+            .about("Start reporting in the foreground (used by the systemd service)"))
+            .arg(
+                arg!(<USER> "User name")
+                    .required(true)
+                    .value_parser(clap::value_parser!(String)),
+                )
+                .arg(
+                    arg!(<DOMAIN> "Domain name")
+                        .required(true)
+                        // FQDN only
+                        .value_parser(parse_fqdn),
+                )
+                .arg(
+                    arg!(<PIN> "PIN")
+                        .required(true)
+                        // String with digits only
+                        .value_parser(parse_digits_only),
+                )
         .subcommand(
             Command::new("background-start")
                 .alias("start")
@@ -289,7 +309,7 @@ fn run_base() {
                         .required(false)
                         .default_value("false")
                         .value_parser(clap::value_parser!(bool)),
-                ),
+                )
         )
         .subcommand(Command::new("background-stop").alias("stop").about("Stop reporting background process"))
         .subcommand(Command::new("background-status").alias("status").about("Get status of reporting background process"))
@@ -534,6 +554,22 @@ fn run_base() {
                 whitelist_name,
                 *local_traffic,
             );
+        }
+        Some(("foreground-start", sub_matches)) => {
+            let user = sub_matches
+                .get_one::<String>("USER")
+                .expect("USER not provided")
+                .to_string();
+            let domain = sub_matches
+                .get_one::<String>("DOMAIN")
+                .expect("DOMAIN not provided")
+                .to_string();
+            let pin = sub_matches
+                .get_one::<String>("PIN")
+                .expect("PIN not provided")
+                .to_string();
+            // Directly call the background process
+            background_process(user, domain, pin, false, "".to_string(), false);
         }
         Some(("background-stop", _)) => {
             // Initialize the core with reporting and server disabled

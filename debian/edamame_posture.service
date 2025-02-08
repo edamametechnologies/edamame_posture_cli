@@ -3,13 +3,16 @@ Description=EDAMAME Security posture analysis and remediation
 After=network.target
 
 [Service]
-Type=exec
+Type=simple
+# Launch wrapper script that reads the configuration and starts the binary in foreground
 ExecStart=/usr/bin/edamame_posture_daemon.sh
-ExecStop=/usr/bin/edamame_posture stop
+# No ExecStop in favor of systemd handling graceful shutdown via signals.
 Restart=always
 RestartSec=5
 User=root
 Group=root
+StandardOutput=journal
+StandardError=journal
 
 [Install]
 WantedBy=multi-user.target

@@ -336,7 +336,7 @@ edamame_posture start <USER> <DOMAIN> <PIN> [DEVICE_ID] [LAN_SCANNING] [WHITELIS
 • USER: User name (required)
 • DOMAIN: Domain name (must be a valid FQDN)
 • PIN: PIN for authentication (must contain digits only)
-• DEVICE_ID: Device ID suffix (optional)
+• DEVICE_ID: Device ID suffix (optional, if non empty, it will be used to identify the device in the EDAMAME Hub and will flag it as a CI/CD runner - typically the job or pipeline ID)
 • LAN_SCANNING: Enable LAN scanning (optional, defaults to false)
 • WHITELIST_NAME: Name of the whitelist to use (optional)
 • LOCAL_TRAFFIC: Include local traffic (optional, defaults to false)
