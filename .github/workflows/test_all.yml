@@ -155,7 +155,6 @@ jobs:
           sleep 20
 
           # Remove it
-          $SUDO_CMD rm -f ~/.edamame_posture.yaml
           $SUDO_CMD rm -f ~/$BINARY
           $SUDO_CMD rm -f ~/$BINARY.*
 
