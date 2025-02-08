@@ -270,8 +270,8 @@ fn run_base() {
                         .value_parser(parse_digits_only),
                 )
                 .arg(
-                    arg!(<DEVICE_ID> "Device ID in the form of a string, this will be used as a suffix to the detected hardware ID")
-                        .required(true)
+                    arg!([DEVICE_ID] "Device ID in the form of a string, this will be used as a suffix to the detected hardware ID. When non empty, the endpoint will be flagged as a CI/CD runner.")
+                        .required(false)
                         .value_parser(clap::value_parser!(String)),
                 )
                 .arg(
@@ -507,11 +507,10 @@ fn run_base() {
                 .get_one::<String>("PIN")
                 .expect("PIN not provided")
                 .to_string();
-            // If no device ID is provided, use an empty string to trigger detection
+            // If no device ID is provided, use an empty string
             let device_id = sub_matches
                 .get_one::<String>("DEVICE_ID")
-                .expect("DEVICE_ID not provided")
-                .to_string();
+                .map_or("".to_string(), |v| v.to_string());
             // Default to false if not provided
             let lan_scanning = sub_matches
                 .get_one::<bool>("LAN_SCANNING")
