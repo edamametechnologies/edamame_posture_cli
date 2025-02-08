@@ -1,5 +1,4 @@
 #!/bin/bash
-# File: debian/edamame_posture.sh
 # This script reads /etc/edamame_posture.conf and starts the service using the main binary.
 
 CONF="/etc/edamame_posture.conf"
@@ -32,5 +31,5 @@ echo "  edamame_user: $edamame_user"
 echo "  edamame_domain: $edamame_domain"
 echo "  edamame_pin: $edamame_pin"
 
-# Execute the main binary with the "start" subcommand and pass the parameters.
+# Execute the main binary with the "start" subcommand and pass the parameters
 exec /usr/bin/edamame_posture start "$edamame_user" "$edamame_domain" "$edamame_pin"
