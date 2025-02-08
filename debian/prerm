@@ -1,0 +1,12 @@
+#!/bin/bash
+set -e
+
+# Stop and disable the service upon removal
+if command -v systemctl >/dev/null 2>&1; then
+    systemctl stop edamame_posture.service || true
+    systemctl disable edamame_posture.service || true
+    # Reload systemd so that changes are applied
+    systemctl daemon-reload
+fi
+
+exit 0

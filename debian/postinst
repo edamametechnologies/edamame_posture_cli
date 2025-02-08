@@ -1,0 +1,13 @@
+#!/bin/bash
+set -e
+
+# Reload systemd to make sure our service file is discovered
+if command -v systemctl >/dev/null 2>&1; then
+    systemctl daemon-reload
+    # Enable the service to start at boot
+    systemctl enable edamame_posture.service || true
+    # Start the service immediately
+    systemctl start edamame_posture.service || true
+fi
+
+exit 0
