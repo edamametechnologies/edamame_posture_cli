@@ -56,6 +56,7 @@ pub fn initialize_core(
     reporting: bool,
     community: bool,
     server: bool,
+    service: bool,
 ) {
     // Set device ID
     // Prefix is the machine uid
@@ -75,8 +76,14 @@ pub fn initialize_core(
         device.device_id = (machine_uid + "/" + device_id.as_str()).to_string();
     }
 
+    let service_name = if service {
+        "service".to_string()
+    } else {
+        "posture".to_string()
+    };
+
     initialize(
-        "posture".to_string(),
+        service_name,
         envc!("VERGEN_GIT_BRANCH").to_string(),
         "EN".to_string(),
         device,
@@ -125,7 +132,7 @@ pub fn run_background(
     local_traffic: bool,
 ) {
     // Initialize the core with reporting and server enabled
-    initialize_core(device_id, true, true, false, true);
+    initialize_core(device_id, true, true, false, true, true);
 
     background_process(
         user,
@@ -324,13 +331,13 @@ fn run_base() {
         ////////////////
         Some(("score", _)) => {
             // Initialize the core with computin enabled and reporting and server disabled
-            initialize_core("".to_string(), true, false, false, false);
+            initialize_core("".to_string(), true, false, false, false, false);
             ensure_admin(); // Admin check here
             base_score(true);
         }
         Some(("lanscan", _)) => {
             // Initialize the core with reporting and server disabled
-            initialize_core("".to_string(), false, false, false, false);
+            initialize_core("".to_string(), false, false, false, false, false);
             ensure_admin();
             // Initialize network
             set_network(LANScanNetworkAPI {
@@ -373,7 +380,7 @@ fn run_base() {
         }
         Some(("capture", sub_matches)) => {
             // Initialize the core with reporting and server disabled
-            initialize_core("".to_string(), false, false, false, false);
+            initialize_core("".to_string(), false, false, false, false, false);
             ensure_admin(); // Admin check here
 
             let seconds = sub_matches.get_one::<u64>("SECONDS").unwrap_or(&600);
@@ -388,12 +395,12 @@ fn run_base() {
         }
         Some(("get-core-info", _)) => {
             // Initialize the core with reporting and server disabled
-            initialize_core("".to_string(), false, false, false, false);
+            initialize_core("".to_string(), false, false, false, false, false);
             base_get_core_info();
         }
         Some(("get-device-info", _)) => {
             // Initialize the core with reporting and server disabled
-            initialize_core("".to_string(), false, false, false, false);
+            initialize_core("".to_string(), false, false, false, false, false);
             ensure_admin();
             base_get_device_info();
         }
@@ -402,13 +409,13 @@ fn run_base() {
             let user = sub_matches.get_one::<String>("USER").unwrap().to_string();
             let domain = sub_matches.get_one::<String>("DOMAIN").unwrap().to_string();
             // Initialize the core with reporting and server disabled
-            initialize_core("".to_string(), false, false, false, false);
+            initialize_core("".to_string(), false, false, false, false, false);
             base_request_pin(user, domain);
         }
         Some(("get-core-version", _)) => {
             // No admin check needed here
             // Initialize the core with reporting and server disabled
-            initialize_core("".to_string(), false, false, false, false);
+            initialize_core("".to_string(), false, false, false, false, false);
             base_get_core_version();
         }
         Some(("remediate", sub_matches)) => {
@@ -417,19 +424,19 @@ fn run_base() {
                 .unwrap_or(&String::new())
                 .to_string();
             // Initialize the core with computin enabled and reporting and server disabled
-            initialize_core("".to_string(), true, false, false, false);
+            initialize_core("".to_string(), true, false, false, false, false);
             ensure_admin();
             base_remediate(&remediations_to_skip)
         }
         Some(("get-system-info", _)) => {
             // Initialize the core with reporting and server disabled
-            initialize_core("".to_string(), false, false, false, false);
+            initialize_core("".to_string(), false, false, false, false, false);
             ensure_admin();
             base_get_system_info();
         }
         Some(("request-signature", _)) => {
             // Initialize the core with reporting and server disabled
-            initialize_core("".to_string(), true, false, false, false);
+            initialize_core("".to_string(), true, false, false, false, false);
             ensure_admin(); // Admin check here
             base_score(true);
             let signature =
@@ -463,7 +470,7 @@ fn run_base() {
                 }
             }
             // Initialize the core with reporting and server disabled
-            initialize_core("".to_string(), false, false, false, false);
+            initialize_core("".to_string(), false, false, false, false, false);
             request_report_from_signature(email, signature, "JSON".to_string());
         }
         //////////////////////
@@ -471,7 +478,7 @@ fn run_base() {
         //////////////////////
         Some(("background-logs", _)) => {
             // Initialize the core with reporting and server disabled
-            initialize_core("".to_string(), false, false, false, false);
+            initialize_core("".to_string(), false, false, false, false, false);
 
             let logs = match rpc_get_all_logs(
                 &EDAMAME_CA_PEM,
@@ -496,7 +503,7 @@ fn run_base() {
                 }
             };
             // Initialize the core with reporting and server disabled
-            initialize_core("".to_string(), false, false, false, false);
+            initialize_core("".to_string(), false, false, false, false, false);
 
             background_exit_code = background_wait_for_connection(*timeout);
         }
@@ -507,12 +514,12 @@ fn run_base() {
                 .unwrap_or(&false);
 
             // Initialize the core with reporting and server disabled
-            initialize_core("".to_string(), false, false, false, false);
+            initialize_core("".to_string(), false, false, false, false, false);
             background_exit_code = background_get_sessions(*zeek_format, *local_traffic);
         }
         Some(("background-threats-info", _)) => {
             // Initialize the core with reporting and server disabled
-            initialize_core("".to_string(), false, false, false, false);
+            initialize_core("".to_string(), false, false, false, false, false);
             ensure_admin();
             background_get_threats_info();
         }
@@ -545,7 +552,7 @@ fn run_base() {
                 .get_one::<bool>("LOCAL_TRAFFIC")
                 .unwrap_or(&false);
             // Initialize the core with reporting and server disabled
-            initialize_core("".to_string(), false, false, false, false);
+            initialize_core("".to_string(), false, false, false, false, false);
             ensure_admin();
             background_start(
                 user,
@@ -583,22 +590,22 @@ fn run_base() {
         }
         Some(("background-stop", _)) => {
             // Initialize the core with reporting and server disabled
-            initialize_core("".to_string(), false, false, false, false);
+            initialize_core("".to_string(), false, false, false, false, false);
             background_exit_code = background_stop();
         }
         Some(("background-status", _)) => {
             // Initialize the core with reporting and server disabled
-            initialize_core("".to_string(), false, false, false, false);
+            initialize_core("".to_string(), false, false, false, false, false);
             background_exit_code = background_get_status();
         }
         Some(("background-last-report-signature", _)) => {
             // Initialize the core with reporting and server disabled
-            initialize_core("".to_string(), false, false, false, false);
+            initialize_core("".to_string(), false, false, false, false, false);
             background_exit_code = background_get_last_report_signature();
         }
         _ => {
             // Initialize the core with reporting and server disabled
-            initialize_core("".to_string(), false, false, false, false);
+            initialize_core("".to_string(), false, false, false, false, false);
             eprintln!("Invalid command, use --help for more information");
         }
     }
