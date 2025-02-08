@@ -1,8 +1,0 @@
-[Unit]
-Description=This the CLI application for EDAMAME Security posture analysis and remediation.
-
-[Service]
-ExecStart=/usr/bin/edamame_posture
-
-[Install]
-WantedBy=multi-user.target

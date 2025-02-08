@@ -2,6 +2,7 @@
 name = "edamame_posture"
 version = "0.9.13"
 edition = "2021"
+description = "EDAMAME Security posture analysis and remediation"
 
 [dependencies]
 #edamame_core = { path = "../edamame_core", features = [ "standalone", "swiftrs" ] }
@@ -67,11 +68,10 @@ maintainer = "EDAMAME Technologies"
 license-file = ["LICENSE", "0"]
 maintainer-scripts = "debian/"
 depends = ["systemd"]
-systemd-units = { enable = true }
 assets = [
-    ["debian/edamame_posture.conf", "etc/edamame_posture.conf"],
-    ["debian/edamame_posture.service", "lib/systemd/system/edamame_posture.service"],
-    ["debian/edamame_posture_daemon.sh", "usr/bin/edamame_posture_daemon.sh"],
+    { source = "debian/edamame_posture.conf", dest = "etc/edamame_posture.conf", mode = "0644" },
+    { source = "debian/edamame_posture.service", dest = "lib/systemd/system/edamame_posture.service", mode = "0644" },
+    { source = "debian/edamame_posture_daemon.sh", dest = "usr/bin/edamame_posture_daemon.sh", mode = "0755" },
 ]
 
 [build-dependencies]
