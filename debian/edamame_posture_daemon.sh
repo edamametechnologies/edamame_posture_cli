@@ -1,5 +1,8 @@
 #!/bin/bash
-# This script reads /etc/edamame_posture.conf and starts the service using the main binary.
+# This script reads /etc/edamame_posture.conf and launches edamame_posture
+# in foreground mode. Systemd will manage the lifecycle.
+
+set -euo pipefail
 
 CONF="/etc/edamame_posture.conf"
 
@@ -8,17 +11,15 @@ if [[ ! -f "$CONF" ]]; then
   exit 1
 fi
 
-# Function to extract a configuration value by key from a YAML-formatted file.
+# Extract a configuration value by key from a YAML-formatted file.
 get_config_value() {
   local key="$1"
-  # This regex handles both quoted and unquoted values.
-  local value=$(grep -E "^${key}:" "$CONF" | head -n1 | sed -E "s/^${key}:[[:space:]]*\"?([^\"\n]+)\"?.*/\1/")
-  echo "$value"
+  grep -E "^${key}:" "$CONF" | head -n1 | sed -E "s/^${key}:[[:space:]]*\"?([^\"\n]+)\"?.*/\1/"
 }
 
-edamame_user=$(get_config_value "edamame_user" | xargs)
-edamame_domain=$(get_config_value "edamame_domain" | xargs)
-edamame_pin=$(get_config_value "edamame_pin" | xargs)
+edamame_user="$(get_config_value "edamame_user" | xargs)"
+edamame_domain="$(get_config_value "edamame_domain" | xargs)"
+edamame_pin="$(get_config_value "edamame_pin" | xargs)"
 
 if [[ -z "$edamame_user" || -z "$edamame_domain" || -z "$edamame_pin" ]]; then
   echo "One or more required configuration values are empty:"
@@ -26,10 +27,10 @@ if [[ -z "$edamame_user" || -z "$edamame_domain" || -z "$edamame_pin" ]]; then
   exit 1
 fi
 
-echo "Starting edamame_posture daemon with configuration:"
+echo "Starting edamame_posture service with configuration:"
 echo "  edamame_user: $edamame_user"
 echo "  edamame_domain: $edamame_domain"
 echo "  edamame_pin: $edamame_pin"
 
-# Execute the main binary with the "start" subcommand and pass the parameters
-exec /usr/bin/edamame_posture start "$edamame_user" "$edamame_domain" "$edamame_pin"
+# Execute the main binary in foreground mode (systemd manages daemonization)
+exec /usr/bin/edamame_posture foreground-start "$edamame_user" "$edamame_domain" "$edamame_pin"
