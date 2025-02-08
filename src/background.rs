@@ -7,6 +7,7 @@ use crate::EDAMAME_TARGET;
 use edamame_core::api::api_core::*;
 use edamame_core::api::api_lanscan::*;
 use edamame_core::api::api_score::*;
+use edamame_core::api::api_trust::*;
 use std::thread::sleep;
 use std::time::Duration;
 

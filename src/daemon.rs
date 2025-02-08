@@ -7,6 +7,7 @@ use crate::{base_get_core_info, base_get_core_version, base_lanscan, connect_dom
 use edamame_core::api::api_core::*;
 use edamame_core::api::api_lanscan::*;
 use edamame_core::api::api_score::*;
+use edamame_core::api::api_trust::*;
 use std::thread::sleep;
 use std::time::Duration;
 use tracing::info;

@@ -37,7 +37,7 @@ envcrypt = "0.5.0"
 
 # Misc
 lazy_static = "1.4.0"
-mutex = "0.1.0"
+mutex = "1.0.0"
 base64 = "0.22.1"
 
 # Linux and macOS 
@@ -55,6 +55,16 @@ daemonize = "0.5.0"
 edamame_foundation = { git = "https://github.com/edamametechnologies/edamame_foundation", branch = "main" }
 windows = { version = "0.58.0", features = [ "Win32_System_Environment",  "Win32_System_Threading", "Win32_Foundation",  "Win32_Security" ] }
 widestring = "1.1.0"
+
+# Linux
+[target.'cfg(any(target_os = "linux"))'.dependencies]
+cargo-deb = "2.7.0"
+# See cargo-deb crate for configuration: https://crates.io/crates/cargo-deb
+[package.metadata.deb]
+name = "edamame_posture"
+license-file = ["LICENSE", "0"]
+maintainer-scripts = "debian/"
+systemd-units = { enable = true }
 
 [build-dependencies]
 
