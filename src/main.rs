@@ -248,13 +248,14 @@ fn run_base() {
                 ),
         )
         .subcommand(Command::new("background-threats-info").alias("get-threats-info").about("Get threats information of the background process"))
-        .subcommand(Command::new("foreground-start")
-            .alias("start")
-            .about("Start reporting in the foreground (used by the systemd service)"))
-            .arg(
-                arg!(<USER> "User name")
-                    .required(true)
-                    .value_parser(clap::value_parser!(String)),
+        .subcommand(
+            Command::new("foreground-start")
+                .alias("start")
+                .about("Start reporting in the foreground (used by the systemd service)")
+                .arg(
+                    arg!(<USER> "User name")
+                        .required(true)
+                        .value_parser(clap::value_parser!(String)),
                 )
                 .arg(
                     arg!(<DOMAIN> "Domain name")
@@ -268,6 +269,7 @@ fn run_base() {
                         // String with digits only
                         .value_parser(parse_digits_only),
                 )
+        )
         .subcommand(
             Command::new("background-start")
                 .alias("start")
