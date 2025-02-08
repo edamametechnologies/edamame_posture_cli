@@ -3,6 +3,7 @@ use edamame_core::api::api_core::*;
 use edamame_core::api::api_lanscan::*;
 use edamame_core::api::api_score::*;
 use edamame_core::api::api_score_threats::*;
+use edamame_core::api::api_trust::*;
 use indicatif::{ProgressBar, ProgressStyle};
 use std::io;
 use std::io::Write;
