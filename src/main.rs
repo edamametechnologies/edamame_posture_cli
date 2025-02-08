@@ -571,7 +571,15 @@ fn run_base() {
                 .expect("PIN not provided")
                 .to_string();
             // Directly call the background process
-            background_process(user, domain, pin, false, "".to_string(), false);
+            run_background(
+                user,
+                domain,
+                pin,
+                "".to_string(),
+                false,
+                "".to_string(),
+                false,
+            );
         }
         Some(("background-stop", _)) => {
             // Initialize the core with reporting and server disabled
