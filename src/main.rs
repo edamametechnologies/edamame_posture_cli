@@ -257,7 +257,6 @@ fn run_base() {
         .subcommand(Command::new("background-threats-info").alias("get-threats-info").about("Get threats information of the background process"))
         .subcommand(
             Command::new("foreground-start")
-                .alias("start")
                 .about("Start reporting in the foreground (used by the systemd service)")
                 .arg(
                     arg!(<USER> "User name")
