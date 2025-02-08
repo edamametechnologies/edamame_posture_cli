@@ -225,9 +225,9 @@ jobs:
         if: matrix.os == 'ubuntu' && matrix.deb_arch != ''
         run: |
           echo "Installing cargo-deb..."
-          cargo install cargo-deb --version 1.47.0
+          cargo install cargo-deb
           echo "Packaging .deb with cargo deb..."
-          cargo deb --no-build
+          cargo deb
 
       ############################################################################################
       # Signing
@@ -304,6 +304,7 @@ jobs:
           gh release edit ${{ steps.get_release.outputs.tag }} --repo ${{ github.repository }} --target ${{ github.sha }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
       # Main only
       - name: Create release if it doesn't exist
         if: github.ref == 'refs/heads/main' && steps.get_release.outputs.exists != 'true'
