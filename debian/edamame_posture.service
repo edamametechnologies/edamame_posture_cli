@@ -5,6 +5,7 @@ After=network.target
 [Service]
 Type=exec
 ExecStart=/usr/bin/edamame_posture_daemon.sh
+ExecStop=/usr/bin/edamame_posture stop
 Restart=always
 RestartSec=5
 User=root
