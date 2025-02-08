@@ -64,16 +64,104 @@ Check out the [associated GitHub action](https://github.com/edamametechnologies/
 
 ---
 
-## Download Binaries
+## Installation
 
-• [Gnu Linux x86_64](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.5/edamame_posture-0.9.5-x86_64-unknown-linux-gnu)  
-• [Gnu Linux i686](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.5/edamame_posture-0.9.5-i686-unknown-linux-gnu)  
-• [Gnu Linux aarch64](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.5/edamame_posture-0.9.5-aarch64-unknown-linux-gnu)  
-• [Gnu Linux armv7](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.5/edamame_posture-0.9.5-armv7-unknown-linux-gnueabihf)  
-• [Alpine Linux x86_64](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.5/edamame_posture-0.9.5-x86_64-unknown-linux-musl)  
-• [Alpine Linux aarch64](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.5/edamame_posture-0.9.5-aarch64-unknown-linux-musl)  
-• [macOS universal (signed)](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.5/edamame_posture-0.9.5-universal-apple-darwin)  
-• [Windows x86_64 (signed)](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.5/edamame_posture-0.9.5-x86_64-pc-windows-msvc.exe)
+### Binary Installation
+
+1. **Download** the official binary for your platform (links below).  
+
+- **Gnu Linux x86_64**: [edamame_posture-0.9.5-x86_64-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.5/edamame_posture-0.9.5-x86_64-unknown-linux-gnu)  
+- **Gnu Linux i686**: [edamame_posture-0.9.5-i686-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.5/edamame_posture-0.9.5-i686-unknown-linux-gnu)  
+- **Gnu Linux aarch64**: [edamame_posture-0.9.5-aarch64-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.5/edamame_posture-0.9.5-aarch64-unknown-linux-gnu)  
+- **Gnu Linux armv7**: [edamame_posture-0.9.5-armv7-unknown-linux-gnueabihf](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.5/edamame_posture-0.9.5-armv7-unknown-linux-gnueabihf)  
+- **Alpine Linux x86_64**: [edamame_posture-0.9.5-x86_64-unknown-linux-musl](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.5/edamame_posture-0.9.5-x86_64-unknown-linux-musl)  
+- **Alpine Linux aarch64**: [edamame_posture-0.9.5-aarch64-unknown-linux-musl](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.5/edamame_posture-0.9.5-aarch64-unknown-linux-musl)  
+- **macOS universal (signed)**: [edamame_posture-0.9.5-universal-apple-darwin](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.5/edamame_posture-0.9.5-universal-apple-darwin)  
+- **Windows x86_64 (signed)**: [edamame_posture-0.9.5-x86_64-pc-windows-msvc.exe](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.5/edamame_posture-0.9.5-x86_64-pc-windows-msvc.exe)
+
+2. **Install** by placing the binary in your `PATH`.  
+3. **Run** a quick command like `edamame_posture score` to assess your device.
+
+
+### Debian Package Installation
+
+1. **Download** the Debian package for your platform (links below).  
+
+- **Gnu Linux x86_64:** [edamame_posture_0.9.13-1_amd64.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.13/edamame_posture_0.9.13-1_amd64.deb)
+- **Gnu Linux i686 (32-bit):** [edamame_posture_0.9.13-1_i386.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.13/edamame_posture_0.9.13-1_i386.deb)
+- **Gnu Linux aarch64:** [edamame_posture_0.9.13-1_arm64.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.13/edamame_posture_0.9.13-1_arm64.deb)
+- **Gnu Linux armv7:** [edamame_posture_0.9.13-1_armhf.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.13/edamame_posture_0.9.13-1_armhf.deb)
+
+
+1. **Install** the package using either method:
+
+   ```bash
+   sudo apt install ./edamame_posture_0.9.13_amd64.deb
+   # or
+   sudo dpkg -i edamame_posture_0.9.13_amd64.deb
+   ```
+
+2. **Configure** the service by editing the configuration file:
+
+   ```bash
+   sudo nano /etc/edamame_posture.conf
+   ```
+
+   Set the required values:
+
+   ```yaml
+   edamame_user: "your_username"
+   edamame_domain: "your.domain.com"
+   edamame_pin: "your_pin"
+   ```
+
+3. **Start** the service:
+
+   ```bash
+   sudo systemctl start edamame_posture.service
+   ```
+
+4. **Verify** the service status:
+
+   ```bash
+   sudo systemctl status edamame_posture.service
+   ```
+
+---
+
+## Service Management
+
+- **Stopping the Service**:
+  
+  ```bash
+  sudo systemctl stop edamame_posture.service
+  # or using the CLI command:
+  sudo edamame_posture stop
+  ```
+
+- **Viewing Service Logs**:
+
+  ```bash
+  sudo journalctl -u edamame_posture.service
+  # or using the CLI command:
+  sudo edamame_posture logs
+  ```
+
+---
+
+## Uninstallation
+
+- **Remove the package**:
+
+  ```bash
+  sudo apt remove edamame_posture
+  ```
+
+- **Remove the package along with all configuration files**:
+
+  ```bash
+  sudo apt purge edamame_posture
+  ```
 
 ---
 
@@ -243,12 +331,12 @@ Starts the background process for continuous monitoring and reporting.
 (Requires admin privileges.)
 
 Syntax:
-edamame_posture start <USER> <DOMAIN> <PIN> <DEVICE_ID> [LAN_SCANNING] [WHITELIST_NAME] [LOCAL_TRAFFIC]
+edamame_posture start <USER> <DOMAIN> <PIN> [DEVICE_ID] [LAN_SCANNING] [WHITELIST_NAME] [LOCAL_TRAFFIC]
 
 • USER: User name (required)
 • DOMAIN: Domain name (must be a valid FQDN)
 • PIN: PIN for authentication (must contain digits only)
-• DEVICE_ID: Device ID suffix
+• DEVICE_ID: Device ID suffix (optional)
 • LAN_SCANNING: Enable LAN scanning (optional, defaults to false)
 • WHITELIST_NAME: Name of the whitelist to use (optional)
 • LOCAL_TRAFFIC: Include local traffic (optional, defaults to false)
