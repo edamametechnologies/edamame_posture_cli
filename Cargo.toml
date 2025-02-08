@@ -63,8 +63,8 @@ cargo-deb = "2.7.0"
 # See cargo-deb crate for configuration: https://crates.io/crates/cargo-deb
 [package.metadata.deb]
 name = "edamame_posture"
-description = "EDAMAME Security posture analysis and remediation"
 maintainer = "EDAMAME Technologies"
+copyright = "EDAMAME Technologies"
 license-file = ["LICENSE", "0"]
 maintainer-scripts = "debian/"
 depends = ["systemd"]
