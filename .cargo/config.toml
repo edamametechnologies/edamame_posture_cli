@@ -1,6 +1,16 @@
 [target.'cfg(target_os = "windows")']
 rustflags = ["-C", "target-feature=+crt-static"]
+
 [target.x86_64-unknown-linux-musl]
 rustflags = ["-L/usr/local/musl/usr/lib"]
+
 [target.aarch64-unknown-linux-musl]
 rustflags = ["-L/usr/local/musl/usr/lib"]
+
+[target.aarch64-unknown-linux-gnu]
+objcopy = { path = "aarch64-linux-gnu-objcopy" }
+strip = { path = "aarch64-linux-gnu-strip" }
+
+[target.armv7-unknown-linux-gnueabihf]
+objcopy = { path = "arm-none-eabi-objcopy" }
+strip = { path = "arm-none-eabi-strip" }
