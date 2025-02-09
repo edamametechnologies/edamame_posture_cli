@@ -12,5 +12,5 @@ objcopy = { path = "aarch64-linux-gnu-objcopy" }
 strip = { path = "aarch64-linux-gnu-strip" }
 
 [target.armv7-unknown-linux-gnueabihf]
-objcopy = { path = "arm-none-eabi-objcopy" }
-strip = { path = "arm-none-eabi-strip" }
+objcopy = { path = "arm-linux-gnueabihf-objcopy" }
+strip = { path = "arm-linux-gnueabihf-strip" }
