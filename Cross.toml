@@ -21,6 +21,8 @@ pre-build = [
     "dpkg --add-architecture $CROSS_DEB_ARCH",
     "apt update -y && apt install -y protobuf-compiler libpcap-dev:$CROSS_DEB_ARCH"
 ]
+objcopy = { path = "aarch64-linux-gnu-objcopy" }
+strip = { path = "aarch64-linux-gnu-strip" }
 
 [target.aarch64-unknown-linux-musl]
 pre-build = [
@@ -33,6 +35,8 @@ pre-build = [
     "dpkg --add-architecture $CROSS_DEB_ARCH",
     "apt update -y && apt install -y protobuf-compiler libpcap-dev:$CROSS_DEB_ARCH"
 ]
+objcopy = { path = "arm-none-eabi-objcopy" }
+strip = { path = "arm-none-eabi-strip" }
 
 [build.env]
 passthrough = [
