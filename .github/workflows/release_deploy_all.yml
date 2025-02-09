@@ -227,11 +227,11 @@ jobs:
           # Install binutils for objcopy and strip (configured in .cargo/config.toml)
           if [[ ${{ matrix.target }} == "armv7-unknown-linux-gnueabihf" ]]; then
             echo "Installing arm-linux-gnueabihf-binutils..."
-            sudo apt-get install arm-linux-gnueabihf-binutils
+            sudo apt-get install binutils-arm-linux-gnueabihf
           fi
           if [[ ${{ matrix.target }} == "aarch64-unknown-linux-gnu" ]]; then
             echo "Installing aarch64-linux-gnu-binutils..."
-            sudo apt-get install aarch64-linux-gnu-binutils
+            sudo apt-get install binutils-aarch64-linux-gnu
           fi
           echo "Installing cargo-deb..."
           cargo install cargo-deb
