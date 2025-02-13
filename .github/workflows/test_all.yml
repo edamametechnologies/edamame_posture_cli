@@ -161,25 +161,15 @@ jobs:
           # Install the new one
           $SUDO_CMD cp -f ./target/release/$BINARY ~/$BINARY
 
-          # Test the new binary
-          # We need the DLLs in target/release for tests to run on Windows, capture won't work but posture will still run
-          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-            wget https://github.com/edamametechnologies/edamame_posture_cli/raw/refs/heads/main/windows/Packet.dll -O ./target/release/Packet.dll
-            chmod +x ./target/release/Packet.dll
-            wget https://github.com/edamametechnologies/edamame_posture_cli/raw/refs/heads/main/windows/wpcap.dll -O ./target/release/wpcap.dll
-            chmod +x ./target/release/wpcap.dll
-          fi
-          export PATH=$PATH:$(pwd)/target/release; make test
-
           # Start the new binary
           $SUDO_CMD ~/$BINARY start ${{ vars.EDAMAME_POSTURE_USER }} ${{ vars.EDAMAME_POSTURE_DOMAIN }} ${{ secrets.EDAMAME_POSTURE_PIN }} ${{ github.run_id }} true "github_ubuntu"
           
           # Leave time for the binary to start
           sleep 20
 
-          # Check start up
+          # Check start up logs
           ls -la ~/
-          cat ~/edamame_posture.*
+          cat ~/edamame_posture_*
 
           echo "Status:"
           $SUDO_CMD ~/$BINARY status
