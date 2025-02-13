@@ -157,21 +157,50 @@ jobs:
 
           # Remove it with the logs
           $SUDO_CMD rm -f ~/$BINARY*
-          
+
           # Install the new binary
           cp -f ./target/release/$BINARY ~/$BINARY
 
           # Check if the binary is installed
           ls -la ~/
+          
+          # Get core info
+          echo "Core info:"
+          ~/$BINARY get-core-info
 
+          # Get core version
+          echo "Core version:"
+          ~/$BINARY get-core-version
+
+          # Help
+          echo "Help:"
+          ~/$BINARY help
+          
           # Perform a simple score computation
+          echo "Score:"
           $SUDO_CMD ~/$BINARY score
+          
+          # Perform a lanscan
+          echo "Lanscan:"
+          $SUDO_CMD ~/$BINARY lanscan
+          
+          # Perform a capture
+          echo "Capture:"
+          $SUDO_CMD ~/$BINARY capture 5
+
+          # Get device info
+          echo "Device info:"
+          $SUDO_CMD ~/$BINARY get-device-info
+          
+          # Get system info
+          echo "System info:"
+          $SUDO_CMD ~/$BINARY get-system-info
 
           # Start the new binary in the background
           $SUDO_CMD ~/$BINARY start ${{ vars.EDAMAME_POSTURE_USER }} ${{ vars.EDAMAME_POSTURE_DOMAIN }} ${{ secrets.EDAMAME_POSTURE_PIN }} ${{ github.run_id }} true "github_ubuntu"
           
           # Leave time for the binary to start
-          sleep 20
+          sleep 10
 
           # Check logs
           cat ~/edamame_posture_*
@@ -211,7 +240,7 @@ jobs:
       - name: Dump the logs
         shell: bash
         run: |
-          $SUDO_CMD ~/$BINARY logs
+          ~/$BINARY logs
 
       - name: Fail job if tests failed
         if: steps.tests.outcome != 'success'
