@@ -1,12 +1,12 @@
 [package]
 name = "edamame_posture"
-version = "0.9.14"
+version = "0.9.15"
 edition = "2021"
 description = "EDAMAME Security posture analysis and remediation"
 
 [dependencies]
-#edamame_core = { path = "../edamame_core", features = [ "standalone", "swiftrs" ] }
-edamame_core = { git = "https://github.com/edamametechnologies/edamame_core", branch = "main", features = [ "standalone", "swiftrs" ] }
+#edamame_core = { path = "../edamame_core", features = [ "standalone", "swiftrs", "userdefaults", "lanscan", "trust" ] }
+edamame_core = { git = "https://github.com/edamametechnologies/edamame_core", branch = "main", no-default-features = true, features = [ "standalone", "swiftrs", "userdefaults", "lanscan", "trust" ] }
 
 # Error handling
 anyhow = "1.0.82"
@@ -78,5 +78,5 @@ assets = [
 [build-dependencies]
 
 # Build metadata
-vergen = { version = "8.3.1", features = ["build", "git", "gitcl", "si"] }
+vergen-gitcl = { version = "1.0.5", features = [ "build", "cargo", "rustc", "si" ] }
 

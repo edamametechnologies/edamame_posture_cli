@@ -7,6 +7,7 @@ use crate::EDAMAME_TARGET;
 use edamame_core::api::api_core::*;
 use edamame_core::api::api_lanscan::*;
 use edamame_core::api::api_score::*;
+use edamame_core::api::api_score_history::*;
 use edamame_core::api::api_trust::*;
 use std::thread::sleep;
 use std::time::Duration;
@@ -282,4 +283,14 @@ pub fn background_stop() -> i32 {
     }
 
     0
+}
+
+pub fn background_get_history() {
+    let history = rpc_get_history(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    );
+    println!("History: {:#?}", history);
 }
