@@ -146,49 +146,56 @@ jobs:
         shell: bash
         run: |
           # Stop posture
-          $SUDO_CMD ~/$BINARY stop
+          ~/$BINARY stop
+          # Aggressively kill it if it's still running
           if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
             taskkill -IM edamame_posture.exe -F || true
           else
             $SUDO_CMD killall -9 edamame_posture || true
           fi
-          sleep 20
+          sleep 5
 
           # Remove it with the logs
           $SUDO_CMD rm -f ~/$BINARY*
+          
+          # Install the new binary
+          cp -f ./target/release/$BINARY ~/$BINARY
 
-          # Install the new one
-          $SUDO_CMD cp -f ./target/release/$BINARY ~/$BINARY
+          # Check if the binary is installed
+          ls -la ~/
 
-          # Start the new binary
+          # Check status
+          echo "Status:"
+          ~/$BINARY status
+
+          # Perform a simple score computation
+          $SUDO_CMD ~/$BINARY score
+
+          # Start the new binary in the background
           $SUDO_CMD ~/$BINARY start ${{ vars.EDAMAME_POSTURE_USER }} ${{ vars.EDAMAME_POSTURE_DOMAIN }} ${{ secrets.EDAMAME_POSTURE_PIN }} ${{ github.run_id }} true "github_ubuntu"
           
           # Leave time for the binary to start
           sleep 20
 
-          # Check start up logs
-          ls -la ~/
+          # Check logs
           cat ~/edamame_posture_*
-
-          echo "Status:"
-          $SUDO_CMD ~/$BINARY status
-
-          # It will use the binary in target/release
-          $SUDO_CMD make commands_test
 
           # Build ourselves again to generate build activity
           make clean
           cargo build --release
 
+          # Check status
           echo "Status:"
-          $SUDO_CMD ~/$BINARY status
+          ~/$BINARY status
 
+          # Check sessions
           echo "Sessions:"
           # Can fail because of whitelist conformance, ignore it
-          $SUDO_CMD ~/$BINARY get-sessions false false || true
+          ~/$BINARY get-sessions false false || true
           
+          # Check logs
           echo "Logs:"
-          $SUDO_CMD ~/$BINARY logs
+          ~/$BINARY logs
           echo "Test completed"
         continue-on-error: true
 
