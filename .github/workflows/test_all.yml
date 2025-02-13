@@ -179,11 +179,26 @@ jobs:
           # Build ourselves again to generate build activity
           make clean
           cargo build --release
+          # Logs
+          echo "Logs:"
+          if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
+            timeout 10s $SUDO_CMD ~/$BINARY logs
+          else
+            $SUDO_CMD ~/$BINARY logs
+          fi
           echo "Status:"
-          $SUDO_CMD ~/$BINARY status
+          if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
+            timeout 10s $SUDO_CMD ~/$BINARY status
+          else
+            $SUDO_CMD ~/$BINARY status
+          fi
           echo "Sessions:"
           # Can fail because of whitelist conformance, ignore it
-          $SUDO_CMD ~/$BINARY get-sessions false false || true
+          if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
+            timeout 10s $SUDO_CMD ~/$BINARY get-sessions false false || true
+          else
+            $SUDO_CMD ~/$BINARY get-sessions false false || true
+          fi
           echo "Test completed"
         continue-on-error: true
 
