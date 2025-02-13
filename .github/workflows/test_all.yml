@@ -174,11 +174,15 @@ jobs:
           # Start the new binary
           $SUDO_CMD ~/$BINARY start ${{ vars.EDAMAME_POSTURE_USER }} ${{ vars.EDAMAME_POSTURE_DOMAIN }} ${{ secrets.EDAMAME_POSTURE_PIN }} ${{ github.run_id }} true "github_ubuntu"
           
+          # Leave time for the binary to start
+          sleep 20
+
+          # Check start up
+          ls -la ~/
+          cat ~/edamame_posture.*
+
           echo "Status:"
           $SUDO_CMD ~/$BINARY status
-
-          echo "Logs:"
-          $SUDO_CMD ~/$BINARY logs
 
           # It will use the binary in target/release
           $SUDO_CMD make commands_test
