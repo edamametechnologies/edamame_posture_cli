@@ -154,9 +154,8 @@ jobs:
           fi
           sleep 20
 
-          # Remove it
-          $SUDO_CMD rm -f ~/$BINARY
-          $SUDO_CMD rm -f ~/$BINARY.*
+          # Remove it with the logs
+          $SUDO_CMD rm -f ~/$BINARY*
 
           # Install the new one
           $SUDO_CMD cp -f ./target/release/$BINARY ~/$BINARY
