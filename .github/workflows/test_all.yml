@@ -160,10 +160,9 @@ jobs:
 
           # Install the new one
           $SUDO_CMD cp -f ./target/release/$BINARY ~/$BINARY
-          # Capture won't work but posture will still run
 
           # Test the new binary
-          # We need the DLLs for tests to run on Windows
+          # We need the DLLs in target/release for tests to run on Windows, capture won't work but posture will still run
           if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
             wget https://github.com/edamametechnologies/edamame_posture_cli/raw/refs/heads/main/windows/Packet.dll -O ./target/release/Packet.dll
             chmod +x ./target/release/Packet.dll
@@ -174,16 +173,27 @@ jobs:
 
           # Start the new binary
           $SUDO_CMD ~/$BINARY start ${{ vars.EDAMAME_POSTURE_USER }} ${{ vars.EDAMAME_POSTURE_DOMAIN }} ${{ secrets.EDAMAME_POSTURE_PIN }} ${{ github.run_id }} true "github_ubuntu"
+          
+          echo "Status:"
+          $SUDO_CMD ~/$BINARY status
+
+          echo "Logs:"
+          $SUDO_CMD ~/$BINARY logs
+
+          # It will use the binary in target/release
           $SUDO_CMD make commands_test
 
           # Build ourselves again to generate build activity
           make clean
           cargo build --release
+
           echo "Status:"
           $SUDO_CMD ~/$BINARY status
+
           echo "Sessions:"
           # Can fail because of whitelist conformance, ignore it
           $SUDO_CMD ~/$BINARY get-sessions false false || true
+          
           echo "Logs:"
           $SUDO_CMD ~/$BINARY logs
           echo "Test completed"
