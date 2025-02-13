@@ -70,14 +70,14 @@ Check out the [associated GitHub action](https://github.com/edamametechnologies/
 
 1. **Download** the official binary for your platform (links below).  
 
-- **Gnu Linux x86_64**: [edamame_posture-0.9.15-x86_64-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.15/edamame_posture-0.9.15-x86_64-unknown-linux-gnu)  
-- **Gnu Linux i686**: [edamame_posture-0.9.15-i686-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.15/edamame_posture-0.9.15-i686-unknown-linux-gnu)  
-- **Gnu Linux aarch64**: [edamame_posture-0.9.15-aarch64-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.15/edamame_posture-0.9.15-aarch64-unknown-linux-gnu)  
-- **Gnu Linux armv7**: [edamame_posture-0.9.15-armv7-unknown-linux-gnueabihf](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.15/edamame_posture-0.9.15-armv7-unknown-linux-gnueabihf)  
-- **Alpine Linux x86_64**: [edamame_posture-0.9.15-x86_64-unknown-linux-musl](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.15/edamame_posture-0.9.15-x86_64-unknown-linux-musl)  
-- **Alpine Linux aarch64**: [edamame_posture-0.9.15-aarch64-unknown-linux-musl](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.15/edamame_posture-0.9.15-aarch64-unknown-linux-musl)  
-- **macOS universal (signed)**: [edamame_posture-0.9.15-universal-apple-darwin](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.15/edamame_posture-0.9.15-universal-apple-darwin)  
-- **Windows x86_64 (signed)**: [edamame_posture-0.9.15-x86_64-pc-windows-msvc.exe](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.15/edamame_posture-0.9.15-x86_64-pc-windows-msvc.exe)
+- **Gnu Linux x86_64**: [edamame_posture-0.9.14-x86_64-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.14/edamame_posture-0.9.14-x86_64-unknown-linux-gnu)  
+- **Gnu Linux i686**: [edamame_posture-0.9.14-i686-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.14/edamame_posture-0.9.14-i686-unknown-linux-gnu)  
+- **Gnu Linux aarch64**: [edamame_posture-0.9.14-aarch64-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.14/edamame_posture-0.9.14-aarch64-unknown-linux-gnu)  
+- **Gnu Linux armv7**: [edamame_posture-0.9.14-armv7-unknown-linux-gnueabihf](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.14/edamame_posture-0.9.14-armv7-unknown-linux-gnueabihf)  
+- **Alpine Linux x86_64**: [edamame_posture-0.9.14-x86_64-unknown-linux-musl](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.14/edamame_posture-0.9.14-x86_64-unknown-linux-musl)  
+- **Alpine Linux aarch64**: [edamame_posture-0.9.14-aarch64-unknown-linux-musl](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.14/edamame_posture-0.9.14-aarch64-unknown-linux-musl)  
+- **macOS universal (signed)**: [edamame_posture-0.9.14-universal-apple-darwin](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.14/edamame_posture-0.9.14-universal-apple-darwin)  
+- **Windows x86_64 (signed)**: [edamame_posture-0.9.14-x86_64-pc-windows-msvc.exe](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.14/edamame_posture-0.9.14-x86_64-pc-windows-msvc.exe)
 
 2. **Install** by placing the binary in your `PATH`.  
 3. **Run** a quick command like `edamame_posture score` to assess your device.
@@ -87,18 +87,18 @@ Check out the [associated GitHub action](https://github.com/edamametechnologies/
 
 1. **Download** the Debian package for your platform (links below).  
 
-- **Gnu Linux x86_64:** [edamame_posture_0.9.15-1_amd64.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.15/edamame_posture_0.9.15-1_amd64.deb)
-- **Gnu Linux i686 (32-bit):** [edamame_posture_0.9.15-1_i386.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.15/edamame_posture_0.9.15-1_i386.deb)
-- **Gnu Linux aarch64:** [edamame_posture_0.9.15-1_arm64.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.15/edamame_posture_0.9.15-1_arm64.deb)
-- **Gnu Linux armv7:** [edamame_posture_0.9.15-1_armhf.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.15/edamame_posture_0.9.15-1_armhf.deb)
+- **Gnu Linux x86_64:** [edamame_posture_0.9.14-1_amd64.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.14/edamame_posture_0.9.14-1_amd64.deb)
+- **Gnu Linux i686 (32-bit):** [edamame_posture_0.9.14-1_i386.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.14/edamame_posture_0.9.14-1_i386.deb)
+- **Gnu Linux aarch64:** [edamame_posture_0.9.14-1_arm64.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.14/edamame_posture_0.9.14-1_arm64.deb)
+- **Gnu Linux armv7:** [edamame_posture_0.9.14-1_armhf.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.14/edamame_posture_0.9.14-1_armhf.deb)
 
 
 1. **Install** the package using either method:
 
    ```bash
-   sudo apt install ./edamame_posture_0.9.15-1_amd64.deb
+   sudo apt install ./edamame_posture_0.9.14-1_amd64.deb
    # or
-   sudo dpkg -i edamame_posture_0.9.15-1_amd64.deb
+   sudo dpkg -i edamame_posture_0.9.14-1_amd64.deb
    ```
 
 2. **Configure** the service by editing the configuration file:
@@ -126,6 +126,47 @@ Check out the [associated GitHub action](https://github.com/edamametechnologies/
    ```bash
    sudo systemctl status edamame_posture.service
    ```
+
+### Using the Official GPG-Signed APT Repository
+
+We provide a GPG-signed APT repository for `.deb` packages. This ensures that you can verify the authenticity of the packages before installing. Follow the steps below:
+
+1. **Import the EDAMAME GPG public key**  
+   You can download the EDAMAME repository public key and store it in your system's keyring so that `apt` can validate signed packages:
+
+   ```bash
+   # Example: retrieving the EDAMAME public key from our hosting location.
+   wget -O - https://edamame.s3.eu-west-1.amazonaws.com/edamame_public.key | sudo gpg --dearmor -o /usr/share/keyrings/edamame.gpg
+   ```
+
+2. **Add the EDAMAME repository to your `/etc/apt/sources.list.d`**  
+   Create or edit a `.list` file for the EDAMAME repository. For example:
+   
+   ```bash
+   echo "deb [arch=amd64 signed-by=/usr/share/keyrings/edamame.gpg] https://edamame.s3.eu-west-1.amazonaws.com stable main" | sudo tee /etc/apt/sources.list.d/edamame.list
+   ```
+
+   - Replace `arch=amd64` with the appropriate architecture for your system if needed (e.g., `arm64`, `i386`, etc.).
+   - Adjust the URL to match your bucket or hosting path where the `dists` and `pool` folders are located.
+
+3. **Update and Install**  
+   Now that the repo is configured, simply run:
+   
+   ```bash
+   sudo apt update
+   sudo apt install edamame_posture
+   ```
+
+### Why GPG Signing?
+
+GPG signing ensures that the `.deb` package (and the accompanying metadata) has not been tampered with. When you run `apt update` and `apt install`, the APT system checks the signature against the public key you imported. If the signatures match, the packages are considered valid.
+
+### Troubleshooting
+
+- **Missing GPG Key Error**: Make sure you have downloaded and installed the public key into your keyring (`/usr/share/keyrings/edamame.gpg`) and have the correct `signed-by=...` reference in your `sources.list`.
+- **Bad Signatures**: Verify that the key you imported is the one matching our repository. If you see mismatched fingerprint warnings, re-import the key from a trusted source or contact us for assistance.
+
+Once everything is set up, you can install and upgrade `edamame_posture` from the GPG-signed repository just like any other Debian/Ubuntu package.
 
 ---
 
@@ -367,6 +408,17 @@ Retrieves the most recent report signature from the background process.
 
 Syntax:
 edamame_posture get-last-report-signature
+
+--------------------------------------------------------------------------------
+
+### get-history
+Retrieves the background process's history of score modifications.  
+(Does **NOT** require admin privileges.)
+
+Syntax:
+```
+edamame_posture get-history
+```
 
 --------------------------------------------------------------------------------
 
