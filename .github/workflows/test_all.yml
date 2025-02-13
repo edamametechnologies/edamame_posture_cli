@@ -164,10 +164,6 @@ jobs:
           # Check if the binary is installed
           ls -la ~/
 
-          # Check status
-          echo "Status:"
-          ~/$BINARY status
-
           # Perform a simple score computation
           $SUDO_CMD ~/$BINARY score
 
@@ -179,6 +175,10 @@ jobs:
 
           # Check logs
           cat ~/edamame_posture_*
+
+          # Check status
+          echo "Status:"
+          ~/$BINARY status
 
           # Build ourselves again to generate build activity
           make clean
