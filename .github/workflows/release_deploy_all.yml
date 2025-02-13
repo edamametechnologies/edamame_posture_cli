@@ -72,6 +72,9 @@ jobs:
       APPLE_APPSTORE_CONNECT_API_KEY: ${{ secrets.APPLE_APPSTORE_CONNECT_API_KEY }}
       MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.DEV_GITHUB_TOKEN_B64 }}
       MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
       # Required for cross to not show warnings and fail
       CROSS_NO_WARNINGS: 0
     
@@ -238,6 +241,14 @@ jobs:
           echo "Packaging .deb with cargo deb..."
           cargo deb --no-build --target ${{ matrix.target }}
 
+      # We store the .deb as an artifact
+      - name: Upload .deb artifact
+        if: matrix.deb_arch != ''
+        uses: actions/upload-artifact@v3
+        with:
+          name: deb-files-${{ matrix.deb_arch }}
+          path: target/${{ matrix.target }}/debian/*.deb
+
       ############################################################################################
       # Signing
       ############################################################################################
@@ -359,3 +370,74 @@ jobs:
         uses: edamametechnologies/edamame_posture_action@v0
         with:
           dump_sessions_log: true
+
+  # -----------------------------------------
+  #  Final "combine" job 
+  # -----------------------------------------
+  combine:
+    # This job needs the build job to finish
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v3
+      
+      - name: Download all .deb artifacts
+        uses: actions/download-artifact@v3
+        with:
+          # The artifacts are named deb-files-<ARCH>, so pull them all
+          name: 'deb-files-*'
+          path: repo/pool/main
+
+      - name: Reorganize .deb files by ARCH
+        shell: bash
+        run: |
+          for ARCH in amd64 arm64 armhf i386; do
+            # If artifacts for that arch were downloaded, they'll be under:
+            #   repo/pool/main/deb-files-<ARCH>/
+            if [ -d "repo/pool/main/deb-files-$ARCH" ]; then
+              mkdir -p "repo/pool/main/$ARCH"
+              mv repo/pool/main/deb-files-$ARCH/*.deb "repo/pool/main/$ARCH/" || true
+              rm -rf "repo/pool/main/deb-files-$ARCH"
+            fi
+          done
+
+      - name: Import GPG key
+        run: |
+          echo "${GPG_PRIVATE_KEY_B64}" | base64 -d > private.key
+          gpg --batch --import private.key
+        env:
+          GPG_PRIVATE_KEY_B64: ${{ secrets.GPG_PRIVATE_KEY_B64 }}
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+
+      - name: Generate apt repo metadata
+        shell: bash
+        run: |
+          # For each arch we care about, if the .deb files exist,
+          # we run dpkg-scanpackages on the correct subdirectory.
+          for ARCH in amd64 arm64 armhf i386; do
+            # If there's at least one .deb for that ARCH
+            if [ -d "repo/pool/main/$ARCH" ] && [ -n "$(ls repo/pool/main/$ARCH/*.deb 2>/dev/null)" ]; then
+              mkdir -p repo/dists/stable/main/binary-$ARCH
+              dpkg-scanpackages repo/pool/main/$ARCH /dev/null | gzip -9c > repo/dists/stable/main/binary-$ARCH/Packages.gz
+            else
+              # If no .deb for that ARCH, we can still create an empty folder
+              mkdir -p repo/dists/stable/main/binary-$ARCH
+              touch repo/dists/stable/main/binary-$ARCH/Packages.gz
+            fi
+          done
+
+          # Generate the top-level Release file
+          apt-ftparchive release repo/dists/stable > repo/dists/stable/Release
+
+          # Sign: create InRelease and Release.gpg
+          gpg --batch --yes --passphrase "$GPG_PASSPHRASE" --pinentry-mode loopback \
+            -o repo/dists/stable/InRelease -s --clearsign repo/dists/stable/Release
+
+          gpg --batch --yes --passphrase "$GPG_PASSPHRASE" --pinentry-mode loopback \
+            -abs -o repo/dists/stable/Release.gpg repo/dists/stable/Release
+
+      - name: Upload Debian repo to S3
+        run: |
+          aws s3 sync repo/ s3://edamame/ --acl public-read

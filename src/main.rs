@@ -91,6 +91,8 @@ pub fn initialize_core(
         reporting,
         community,
         server,
+        // Analytics is enabled by default
+        true,
     );
 }
 
@@ -322,6 +324,7 @@ fn run_base() {
         .subcommand(Command::new("background-stop").alias("stop").about("Stop reporting background process"))
         .subcommand(Command::new("background-status").alias("status").about("Get status of reporting background process"))
         .subcommand(Command::new("background-last-report-signature").alias("get-last-report-signature").about("Get last report signature of background process"))
+        .subcommand(Command::new("background-get-history").alias("get-history").about("Get history of score modifications"))
         .get_matches();
 
     match matches.subcommand() {
@@ -521,6 +524,11 @@ fn run_base() {
             initialize_core("".to_string(), false, false, false, false, false);
             ensure_admin();
             background_get_threats_info();
+        }
+        Some(("background-get-history", _)) => {
+            // Initialize the core with reporting and server disabled
+            initialize_core("".to_string(), false, false, false, false, false);
+            background_get_history();
         }
         Some(("background-start", sub_matches)) => {
             let user = sub_matches
