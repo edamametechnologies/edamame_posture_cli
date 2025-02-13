@@ -192,12 +192,24 @@ jobs:
           else
             $SUDO_CMD ~/$BINARY status
           fi
+          echo "Logs:"
+          if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
+            timeout 10s $SUDO_CMD ~/$BINARY logs
+          else
+            $SUDO_CMD ~/$BINARY logs
+          fi
           echo "Sessions:"
           # Can fail because of whitelist conformance, ignore it
           if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
             timeout 10s $SUDO_CMD ~/$BINARY get-sessions false false || true
           else
             $SUDO_CMD ~/$BINARY get-sessions false false || true
+          fi
+          echo "Logs:"
+          if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
+            timeout 10s $SUDO_CMD ~/$BINARY logs
+          else
+            $SUDO_CMD ~/$BINARY logs
           fi
           echo "Test completed"
         continue-on-error: true
