@@ -14,6 +14,7 @@ jobs:
   fmt:
     name: Check Rust
     runs-on: ubuntu-latest
+    
     steps:
 
       - name: Setup EDAMAME Posture

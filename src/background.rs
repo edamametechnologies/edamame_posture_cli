@@ -257,31 +257,19 @@ pub fn background_wait_for_connection(timeout: u64) -> i32 {
 }
 
 pub fn background_stop() -> i32 {
-    match rpc_disconnect_domain(
+    match rpc_terminate(
+        true,
         &EDAMAME_CA_PEM,
         &EDAMAME_CLIENT_PEM,
         &EDAMAME_CLIENT_KEY,
         &EDAMAME_TARGET,
     ) {
-        Ok(_) => match rpc_terminate(
-            true,
-            &EDAMAME_CA_PEM,
-            &EDAMAME_CLIENT_PEM,
-            &EDAMAME_CLIENT_KEY,
-            &EDAMAME_TARGET,
-        ) {
-            Ok(_) => (),
-            Err(e) => {
-                eprintln!("Error terminating background process: {}", e);
-                return 1;
-            }
-        },
+        Ok(_) => (),
         Err(e) => {
-            eprintln!("Error disconnecting domain: {}", e);
+            eprintln!("Error terminating background process: {}", e);
             return 1;
         }
     }
-
     0
 }
 

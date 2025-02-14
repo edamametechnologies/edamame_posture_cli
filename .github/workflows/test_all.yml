@@ -147,6 +147,7 @@ jobs:
         run: |
           # Stop posture
           ~/$BINARY stop
+          sleep 10
           # Aggressively kill it if it's still running
           if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
             taskkill -IM edamame_posture.exe -F || true
@@ -156,7 +157,7 @@ jobs:
           sleep 5
 
           # Remove it with the logs
-          $SUDO_CMD rm -f ~/$BINARY*
+          $SUDO_CMD rm -f ~/edamame_posture*
 
           # Install the new binary
           cp -f ./target/release/$BINARY ~/$BINARY
