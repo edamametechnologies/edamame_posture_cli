@@ -161,7 +161,6 @@ fn ensure_admin() {
 }
 
 fn run_base() {
-
     let core_version_runtime: String = CORE_VERSION.to_string();
     // Turn it into a &'static str by leaking it
     let core_version_static: &'static str = Box::leak(core_version_runtime.into_boxed_str());
