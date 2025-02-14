@@ -71,7 +71,6 @@ pub fn background_process(
         });
         start_capture();
 
-
         // Wait for the gateway detection to complete
         let mut last_gateway_scan = get_last_gateway_scan();
         while last_gateway_scan == "" {

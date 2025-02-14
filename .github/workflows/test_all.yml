@@ -146,9 +146,12 @@ jobs:
         shell: bash
         run: |
           # Stop posture
+          echo "Stopping posture"
           ~/$BINARY stop
           sleep 10
-          # Aggressively kill it if it's still running
+
+          # Aggressively kill in case it's still running
+          echo "Killing posture"
           if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
             taskkill -IM edamame_posture.exe -F || true
           else
@@ -156,49 +159,52 @@ jobs:
           fi
           sleep 5
 
-          # Remove it with the logs
+          # Remove it along with the logs
           $SUDO_CMD rm -f ~/edamame_posture*
 
           # Install the new binary
           cp -f ./target/release/$BINARY ~/$BINARY
 
-          # Check if the binary is installed
+          # Check home directory
           ls -la ~/
-          
+
+          # Check if some zombie processes are running
+          ps aux | grep edamame | grep -v grep
+
           # Get core info
           echo "Core info:"
-          ~/$BINARY get-core-info
+          ~/$BINARY -v get-core-info
 
           # Get core version
           echo "Core version:"
-          ~/$BINARY get-core-version
+          ~/$BINARY -v get-core-version
 
           # Help
           echo "Help:"
-          ~/$BINARY help
+          ~/$BINARY -v help
           
           # Perform a simple score computation
           echo "Score:"
-          $SUDO_CMD ~/$BINARY score
+          $SUDO_CMD ~/$BINARY -v score
           
           # Perform a lanscan
           echo "Lanscan:"
-          $SUDO_CMD ~/$BINARY lanscan
+          $SUDO_CMD ~/$BINARY -v lanscan
           
           # Perform a capture
           echo "Capture:"
-          $SUDO_CMD ~/$BINARY capture 5
+          $SUDO_CMD ~/$BINARY -v capture 5
 
           # Get device info
           echo "Device info:"
-          $SUDO_CMD ~/$BINARY get-device-info
+          $SUDO_CMD ~/$BINARY -v get-device-info
           
           # Get system info
           echo "System info:"
-          $SUDO_CMD ~/$BINARY get-system-info
+          $SUDO_CMD ~/$BINARY -v get-system-info
 
           # Start the new binary in the background
-          $SUDO_CMD ~/$BINARY start ${{ vars.EDAMAME_POSTURE_USER }} ${{ vars.EDAMAME_POSTURE_DOMAIN }} ${{ secrets.EDAMAME_POSTURE_PIN }} ${{ github.run_id }} true "github_ubuntu"
+          $SUDO_CMD ~/$BINARY -v start ${{ vars.EDAMAME_POSTURE_USER }} ${{ vars.EDAMAME_POSTURE_DOMAIN }} ${{ secrets.EDAMAME_POSTURE_PIN }} ${{ github.run_id }} true "github_ubuntu"
           
           # Leave time for the binary to start
           sleep 10
@@ -208,7 +214,7 @@ jobs:
 
           # Check status
           echo "Status:"
-          ~/$BINARY status
+          ~/$BINARY -v status
 
           # Build ourselves again to generate build activity
           make clean
@@ -216,16 +222,16 @@ jobs:
 
           # Check status
           echo "Status:"
-          ~/$BINARY status
+          ~/$BINARY -v status
 
           # Check sessions
           echo "Sessions:"
           # Can fail because of whitelist conformance, ignore it
-          ~/$BINARY get-sessions false false || true
+          ~/$BINARY -v get-sessions false false || true
           
           # Check logs
           echo "Logs:"
-          ~/$BINARY logs
+          ~/$BINARY -v logs
           echo "Test completed"
         continue-on-error: true
 
