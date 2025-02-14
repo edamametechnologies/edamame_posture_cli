@@ -258,6 +258,8 @@ jobs:
 
       - name: Generate apt repo metadata
         shell: bash
+        env:
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
         run: |
           # For each arch we care about, if the .deb files exist,
           # we run dpkg-scanpackages on the correct subdirectory.
