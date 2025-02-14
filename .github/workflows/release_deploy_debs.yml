@@ -60,6 +60,8 @@ jobs:
       AWS_REGION: ${{ secrets.AWS_REGION }}
       # Required for cross to not show warnings and fail
       CROSS_NO_WARNINGS: 0
+      # Debug mode
+      EDAMAME_LOG_LEVEL: debug
     
     steps:
       - name: Setup EDAMAME Posture
@@ -228,14 +230,9 @@ jobs:
           wait_for_api: true
           wait_for_https: true
       
-      - name: Download all .deb artifacts
+      - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
-          name: |
-            deb-files-amd64
-            deb-files-arm64
-            deb-files-armhf
-            deb-files-i386
           path: repo/pool/main
 
       - name: Reorganize .deb files by ARCH
