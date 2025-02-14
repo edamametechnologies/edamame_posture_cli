@@ -206,9 +206,6 @@ jobs:
           # Leave time for the binary to start
           sleep 10
 
-          # Check logs
-          cat ~/edamame_posture_*
-
           # Check status
           echo "Status:"
           ~/$BINARY -v status
