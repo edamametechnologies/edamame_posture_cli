@@ -38,15 +38,6 @@ pub fn background_process(
     if lan_scanning {
         info!("Scanning network interfaces...");
 
-        // Start capture
-        set_whitelist(whitelist_name.clone());
-        set_filter(if local_traffic {
-            SessionFilterAPI::All
-        } else {
-            SessionFilterAPI::GlobalOnly
-        });
-        start_capture();
-
         // Initialize network to autodetect
         set_network(LANScanNetworkAPI {
             interfaces: vec![],
@@ -70,6 +61,16 @@ pub fn background_process(
 
         // Grant consent
         grant_consent();
+
+        // Start capture
+        set_whitelist(whitelist_name.clone());
+        set_filter(if local_traffic {
+            SessionFilterAPI::All
+        } else {
+            SessionFilterAPI::GlobalOnly
+        });
+        start_capture();
+
 
         // Wait for the gateway detection to complete
         let mut last_gateway_scan = get_last_gateway_scan();
