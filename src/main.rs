@@ -133,7 +133,7 @@ pub fn run_background(
     whitelist_name: String,
     local_traffic: bool,
 ) {
-    // Initialize the core with reporting and server enabled
+    // Initialize the core with computing,reporting, server and service enabled and community disabled
     initialize_core(device_id, true, true, false, true, true);
 
     background_process(
@@ -332,13 +332,13 @@ fn run_base() {
         // Base commands
         ////////////////
         Some(("score", _)) => {
-            // Initialize the core with computin enabled and reporting and server disabled
+            // Initialize the core with computing enabled
             initialize_core("".to_string(), true, false, false, false, false);
             ensure_admin(); // Admin check here
             base_score(true);
         }
         Some(("lanscan", _)) => {
-            // Initialize the core with reporting and server disabled
+            // Initialize the core with all options disabled
             initialize_core("".to_string(), false, false, false, false, false);
             ensure_admin();
             // Initialize network
@@ -381,7 +381,7 @@ fn run_base() {
             base_lanscan();
         }
         Some(("capture", sub_matches)) => {
-            // Initialize the core with reporting and server disabled
+            // Initialize the core with all options disabled
             initialize_core("".to_string(), false, false, false, false, false);
             ensure_admin(); // Admin check here
 
@@ -396,12 +396,12 @@ fn run_base() {
             base_capture(*seconds, whitelist_name, *zeek_format, *local_traffic);
         }
         Some(("get-core-info", _)) => {
-            // Initialize the core with reporting and server disabled
+            // Initialize the core with all options disabled
             initialize_core("".to_string(), false, false, false, false, false);
             base_get_core_info();
         }
         Some(("get-device-info", _)) => {
-            // Initialize the core with reporting and server disabled
+            // Initialize the core with all options disabled
             initialize_core("".to_string(), false, false, false, false, false);
             ensure_admin();
             base_get_device_info();
@@ -410,13 +410,13 @@ fn run_base() {
             // No admin check needed here
             let user = sub_matches.get_one::<String>("USER").unwrap().to_string();
             let domain = sub_matches.get_one::<String>("DOMAIN").unwrap().to_string();
-            // Initialize the core with reporting and server disabled
+            // Initialize the core with all options disabled
             initialize_core("".to_string(), false, false, false, false, false);
             base_request_pin(user, domain);
         }
         Some(("get-core-version", _)) => {
             // No admin check needed here
-            // Initialize the core with reporting and server disabled
+            // Initialize the core with all options disabled
             initialize_core("".to_string(), false, false, false, false, false);
             base_get_core_version();
         }
@@ -425,19 +425,19 @@ fn run_base() {
                 .get_one::<String>("REMEDIATIONS")
                 .unwrap_or(&String::new())
                 .to_string();
-            // Initialize the core with computin enabled and reporting and server disabled
+            // Initialize the core with computing enabled
             initialize_core("".to_string(), true, false, false, false, false);
             ensure_admin();
             base_remediate(&remediations_to_skip)
         }
         Some(("get-system-info", _)) => {
-            // Initialize the core with reporting and server disabled
+            // Initialize the core with all options disabled
             initialize_core("".to_string(), false, false, false, false, false);
             ensure_admin();
             base_get_system_info();
         }
         Some(("request-signature", _)) => {
-            // Initialize the core with reporting and server disabled
+            // Initialize the core with computing enabled
             initialize_core("".to_string(), true, false, false, false, false);
             ensure_admin(); // Admin check here
             base_score(true);
@@ -479,7 +479,7 @@ fn run_base() {
         // Background commands
         //////////////////////
         Some(("background-logs", _)) => {
-            // Initialize the core with reporting and server disabled
+            // Initialize the core with all options disabled
             initialize_core("".to_string(), false, false, false, false, false);
 
             let logs = match rpc_get_all_logs(
@@ -504,7 +504,7 @@ fn run_base() {
                     &600
                 }
             };
-            // Initialize the core with reporting and server disabled
+            // Initialize the core with all options disabled
             initialize_core("".to_string(), false, false, false, false, false);
 
             background_exit_code = background_wait_for_connection(*timeout);
@@ -515,18 +515,18 @@ fn run_base() {
                 .get_one::<bool>("LOCAL_TRAFFIC")
                 .unwrap_or(&false);
 
-            // Initialize the core with reporting and server disabled
+            // Initialize the core with all options disabled
             initialize_core("".to_string(), false, false, false, false, false);
             background_exit_code = background_get_sessions(*zeek_format, *local_traffic);
         }
         Some(("background-threats-info", _)) => {
-            // Initialize the core with reporting and server disabled
+            // Initialize the core with all options disabled
             initialize_core("".to_string(), false, false, false, false, false);
             ensure_admin();
             background_get_threats_info();
         }
         Some(("background-get-history", _)) => {
-            // Initialize the core with reporting and server disabled
+            // Initialize the core with all options disabled
             initialize_core("".to_string(), false, false, false, false, false);
             background_get_history();
         }
@@ -558,7 +558,7 @@ fn run_base() {
             let local_traffic = sub_matches
                 .get_one::<bool>("LOCAL_TRAFFIC")
                 .unwrap_or(&false);
-            // Initialize the core with reporting and server disabled
+            // Initialize the core with all options disabled
             initialize_core("".to_string(), false, false, false, false, false);
             ensure_admin();
             background_start(
@@ -596,22 +596,22 @@ fn run_base() {
             );
         }
         Some(("background-stop", _)) => {
-            // Initialize the core with reporting and server disabled
+            // Initialize the core with all options disabled
             initialize_core("".to_string(), false, false, false, false, false);
             background_exit_code = background_stop();
         }
         Some(("background-status", _)) => {
-            // Initialize the core with reporting and server disabled
+            // Initialize the core with all options disabled
             initialize_core("".to_string(), false, false, false, false, false);
             background_exit_code = background_get_status();
         }
         Some(("background-last-report-signature", _)) => {
-            // Initialize the core with reporting and server disabled
+            // Initialize the core with all options disabled
             initialize_core("".to_string(), false, false, false, false, false);
             background_exit_code = background_get_last_report_signature();
         }
         _ => {
-            // Initialize the core with reporting and server disabled
+            // Initialize the core with all options disabled
             initialize_core("".to_string(), false, false, false, false, false);
             eprintln!("Invalid command, use --help for more information");
         }
