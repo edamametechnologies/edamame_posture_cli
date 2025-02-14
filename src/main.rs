@@ -164,7 +164,7 @@ fn run_base() {
     let core_version_runtime: String = CORE_VERSION.to_string();
     // Turn it into a &'static str by leaking it
     let core_version_static: &'static str = Box::leak(core_version_runtime.into_boxed_str());
-    let mut background_exit_code = 0;
+    let mut exit_code = 0;
     let matches = Command::new("edamame_posture")
         .version(core_version_static)
         .author("Frank Lyonnet")
@@ -531,7 +531,7 @@ fn run_base() {
             // Initialize the core with all options disabled
             initialize_core("".to_string(), false, false, false, false, verbose);
 
-            background_exit_code = background_wait_for_connection(*timeout);
+            exit_code = background_wait_for_connection(*timeout);
         }
         Some(("background-sessions", sub_matches)) => {
             let zeek_format = sub_matches.get_one::<bool>("ZEEK_FORMAT").unwrap_or(&false);
@@ -541,7 +541,7 @@ fn run_base() {
 
             // Initialize the core with all options disabled
             initialize_core("".to_string(), false, false, false, false, verbose);
-            background_exit_code = background_get_sessions(*zeek_format, *local_traffic);
+            exit_code = background_get_sessions(*zeek_format, *local_traffic);
         }
         Some(("background-threats-info", _)) => {
             // Initialize the core with all options disabled
@@ -623,17 +623,17 @@ fn run_base() {
         Some(("background-stop", _)) => {
             // Initialize the core with all options disabled
             initialize_core("".to_string(), false, false, false, false, verbose);
-            background_exit_code = background_stop();
+            exit_code = background_stop();
         }
         Some(("background-status", _)) => {
             // Initialize the core with all options disabled
             initialize_core("".to_string(), false, false, false, false, verbose);
-            background_exit_code = background_get_status();
+            exit_code = background_get_status();
         }
         Some(("background-last-report-signature", _)) => {
             // Initialize the core with all options disabled
             initialize_core("".to_string(), false, false, false, false, verbose);
-            background_exit_code = background_get_last_report_signature();
+            exit_code = background_get_last_report_signature();
         }
         _ => {
             // Initialize the core with all options disabled
@@ -643,7 +643,7 @@ fn run_base() {
     }
 
     // Dump the logs in case of error
-    if background_exit_code != 0 {
+    if exit_code != 0 {
         let logs = match rpc_get_all_logs(
             &EDAMAME_CA_PEM,
             &EDAMAME_CLIENT_PEM,
@@ -662,7 +662,7 @@ fn run_base() {
     // Properly terminate the core
     terminate(false);
 
-    exit(background_exit_code);
+    exit(exit_code);
 }
 
 pub fn main() {
