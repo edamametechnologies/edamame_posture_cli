@@ -168,9 +168,6 @@ jobs:
           # Check home directory
           ls -la ~/
 
-          # Check if some zombie processes are running
-          ps aux | grep edamame | grep -v grep
-
           # Get core info
           echo "Core info:"
           ~/$BINARY -v get-core-info
