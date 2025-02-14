@@ -292,4 +292,4 @@ jobs:
 
       - name: Upload Debian repo to S3
         run: |
-          aws s3 sync repo/ s3://edamame/ --acl public-read
+          aws s3 cp repo s3://edamame/ --acl public-read --recursive
