@@ -6,7 +6,7 @@ use anyhow::Result;
 use background::*;
 use base::*;
 use base64::prelude::*;
-use clap::{arg, Command};
+use clap::{arg, ArgAction, Command};
 use daemon::*;
 use edamame_core::api::api_core::*;
 use edamame_core::api::api_lanscan::*;
@@ -56,7 +56,7 @@ pub fn initialize_core(
     reporting: bool,
     community: bool,
     server: bool,
-    service: bool,
+    verbose: bool,
 ) {
     // Set device ID
     // Prefix is the machine uid
@@ -76,8 +76,11 @@ pub fn initialize_core(
         device.device_id = (machine_uid + "/" + device_id.as_str()).to_string();
     }
 
-    let executable_type = if service {
-        "service".to_string()
+    // By changing the executable type, we can have different logging behavior
+    // "posture" is a special case in the logger that logs to file
+    // "posture_verbose" falls into the default case and logs to stdout
+    let executable_type = if verbose {
+        "posture_verbose".to_string()
     } else {
         "posture".to_string()
     };
@@ -113,6 +116,7 @@ fn run() {
                 args[6].to_string() == "true",
                 args[7].to_string(),
                 args[8].to_string() == "true",
+                false,
             );
         } else {
             eprintln!("Invalid arguments for background process: {:?}", args);
@@ -132,9 +136,11 @@ pub fn run_background(
     lan_scanning: bool,
     whitelist_name: String,
     local_traffic: bool,
+    verbose: bool,
 ) {
-    // Initialize the core with computing,reporting, server and service enabled and community disabled
-    initialize_core(device_id, true, true, false, true, true);
+    // Initialize the core with computing,reporting, server and community disabled
+    // Verbose is set by the caller
+    initialize_core(device_id, true, true, false, true, verbose);
 
     background_process(
         user,
@@ -155,11 +161,23 @@ fn ensure_admin() {
 }
 
 fn run_base() {
+
+    let core_version_runtime: String = CORE_VERSION.to_string();
+    // Turn it into a &'static str by leaking it
+    let core_version_static: &'static str = Box::leak(core_version_runtime.into_boxed_str());
     let mut background_exit_code = 0;
     let matches = Command::new("edamame_posture")
-        .version("1.0")
+        .version(core_version_static)
         .author("Frank Lyonnet")
         .about("CLI interface to edamame_core")
+        .arg(
+            arg!(
+                -v --verbose "Enable verbose output"
+            )
+            .required(false)
+            .action(ArgAction::SetTrue)
+            .global(true),
+        )
         ////////////////
         // Base commands
         ////////////////
@@ -327,19 +345,26 @@ fn run_base() {
         .subcommand(Command::new("background-get-history").alias("get-history").about("Get history of score modifications"))
         .get_matches();
 
+    // Check for verbose flag
+    let verbose = matches.get_flag("verbose");
+    if verbose {
+        eprintln!("Verbose mode enabled.");
+        std::env::set_var("EDAMAME_LOG_LEVEL", "debug");
+    }
+
     match matches.subcommand() {
         ////////////////
         // Base commands
         ////////////////
         Some(("score", _)) => {
             // Initialize the core with computing enabled
-            initialize_core("".to_string(), true, false, false, false, false);
+            initialize_core("".to_string(), true, false, false, false, verbose);
             ensure_admin(); // Admin check here
             base_score(true);
         }
         Some(("lanscan", _)) => {
             // Initialize the core with all options disabled
-            initialize_core("".to_string(), false, false, false, false, false);
+            initialize_core("".to_string(), false, false, false, false, verbose);
             ensure_admin();
             // Initialize network
             set_network(LANScanNetworkAPI {
@@ -382,7 +407,7 @@ fn run_base() {
         }
         Some(("capture", sub_matches)) => {
             // Initialize the core with all options disabled
-            initialize_core("".to_string(), false, false, false, false, false);
+            initialize_core("".to_string(), false, false, false, false, verbose);
             ensure_admin(); // Admin check here
 
             let seconds = sub_matches.get_one::<u64>("SECONDS").unwrap_or(&600);
@@ -397,12 +422,12 @@ fn run_base() {
         }
         Some(("get-core-info", _)) => {
             // Initialize the core with all options disabled
-            initialize_core("".to_string(), false, false, false, false, false);
+            initialize_core("".to_string(), false, false, false, false, verbose);
             base_get_core_info();
         }
         Some(("get-device-info", _)) => {
             // Initialize the core with all options disabled
-            initialize_core("".to_string(), false, false, false, false, false);
+            initialize_core("".to_string(), false, false, false, false, verbose);
             ensure_admin();
             base_get_device_info();
         }
@@ -411,13 +436,13 @@ fn run_base() {
             let user = sub_matches.get_one::<String>("USER").unwrap().to_string();
             let domain = sub_matches.get_one::<String>("DOMAIN").unwrap().to_string();
             // Initialize the core with all options disabled
-            initialize_core("".to_string(), false, false, false, false, false);
+            initialize_core("".to_string(), false, false, false, false, verbose);
             base_request_pin(user, domain);
         }
         Some(("get-core-version", _)) => {
             // No admin check needed here
             // Initialize the core with all options disabled
-            initialize_core("".to_string(), false, false, false, false, false);
+            initialize_core("".to_string(), false, false, false, false, verbose);
             base_get_core_version();
         }
         Some(("remediate", sub_matches)) => {
@@ -432,7 +457,7 @@ fn run_base() {
         }
         Some(("get-system-info", _)) => {
             // Initialize the core with all options disabled
-            initialize_core("".to_string(), false, false, false, false, false);
+            initialize_core("".to_string(), false, false, false, false, verbose);
             ensure_admin();
             base_get_system_info();
         }
@@ -472,7 +497,7 @@ fn run_base() {
                 }
             }
             // Initialize the core with reporting and server disabled
-            initialize_core("".to_string(), false, false, false, false, false);
+            initialize_core("".to_string(), false, false, false, false, verbose);
             request_report_from_signature(email, signature, "JSON".to_string());
         }
         //////////////////////
@@ -480,7 +505,7 @@ fn run_base() {
         //////////////////////
         Some(("background-logs", _)) => {
             // Initialize the core with all options disabled
-            initialize_core("".to_string(), false, false, false, false, false);
+            initialize_core("".to_string(), false, false, false, false, verbose);
 
             let logs = match rpc_get_all_logs(
                 &EDAMAME_CA_PEM,
@@ -505,7 +530,7 @@ fn run_base() {
                 }
             };
             // Initialize the core with all options disabled
-            initialize_core("".to_string(), false, false, false, false, false);
+            initialize_core("".to_string(), false, false, false, false, verbose);
 
             background_exit_code = background_wait_for_connection(*timeout);
         }
@@ -516,18 +541,18 @@ fn run_base() {
                 .unwrap_or(&false);
 
             // Initialize the core with all options disabled
-            initialize_core("".to_string(), false, false, false, false, false);
+            initialize_core("".to_string(), false, false, false, false, verbose);
             background_exit_code = background_get_sessions(*zeek_format, *local_traffic);
         }
         Some(("background-threats-info", _)) => {
             // Initialize the core with all options disabled
-            initialize_core("".to_string(), false, false, false, false, false);
+            initialize_core("".to_string(), false, false, false, false, verbose);
             ensure_admin();
             background_get_threats_info();
         }
         Some(("background-get-history", _)) => {
             // Initialize the core with all options disabled
-            initialize_core("".to_string(), false, false, false, false, false);
+            initialize_core("".to_string(), false, false, false, false, verbose);
             background_get_history();
         }
         Some(("background-start", sub_matches)) => {
@@ -559,7 +584,7 @@ fn run_base() {
                 .get_one::<bool>("LOCAL_TRAFFIC")
                 .unwrap_or(&false);
             // Initialize the core with all options disabled
-            initialize_core("".to_string(), false, false, false, false, false);
+            initialize_core("".to_string(), false, false, false, false, verbose);
             ensure_admin();
             background_start(
                 user,
@@ -593,26 +618,27 @@ fn run_base() {
                 false,
                 "".to_string(),
                 false,
+                verbose,
             );
         }
         Some(("background-stop", _)) => {
             // Initialize the core with all options disabled
-            initialize_core("".to_string(), false, false, false, false, false);
+            initialize_core("".to_string(), false, false, false, false, verbose);
             background_exit_code = background_stop();
         }
         Some(("background-status", _)) => {
             // Initialize the core with all options disabled
-            initialize_core("".to_string(), false, false, false, false, false);
+            initialize_core("".to_string(), false, false, false, false, verbose);
             background_exit_code = background_get_status();
         }
         Some(("background-last-report-signature", _)) => {
             // Initialize the core with all options disabled
-            initialize_core("".to_string(), false, false, false, false, false);
+            initialize_core("".to_string(), false, false, false, false, verbose);
             background_exit_code = background_get_last_report_signature();
         }
         _ => {
             // Initialize the core with all options disabled
-            initialize_core("".to_string(), false, false, false, false, false);
+            initialize_core("".to_string(), false, false, false, false, verbose);
             eprintln!("Invalid command, use --help for more information");
         }
     }
