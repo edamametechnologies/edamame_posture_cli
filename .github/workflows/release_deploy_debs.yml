@@ -185,7 +185,7 @@ jobs:
       # We store the .deb as an artifact
       - name: Upload .deb artifact
         if: matrix.deb_arch != ''
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: deb-files-${{ matrix.deb_arch }}
           path: target/${{ matrix.target }}/debian/*.deb
@@ -280,7 +280,7 @@ jobs:
         uses: actions/checkout@v3
       
       - name: Download all .deb artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           # The artifacts are named deb-files-<ARCH>, so pull them all
           name: 'deb-files-*'
