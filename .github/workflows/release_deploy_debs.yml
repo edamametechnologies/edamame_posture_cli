@@ -266,30 +266,61 @@ jobs:
         env:
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
         run: |
+          # Create the required directory structure
+          mkdir -p repo/dists/stable/main
+          
           # For each arch we care about, if the .deb files exist,
           # we run dpkg-scanpackages on the correct subdirectory.
           for ARCH in amd64 arm64 armhf i386; do
+            mkdir -p repo/dists/stable/main/binary-$ARCH
+            
             # If there's at least one .deb for that ARCH
             if [ -d "repo/pool/main/$ARCH" ] && [ -n "$(ls repo/pool/main/$ARCH/*.deb 2>/dev/null)" ]; then
-              mkdir -p repo/dists/stable/main/binary-$ARCH
-              dpkg-scanpackages repo/pool/main/$ARCH /dev/null | gzip -9c > repo/dists/stable/main/binary-$ARCH/Packages.gz
+              # Create both compressed and uncompressed Packages files
+              dpkg-scanpackages --arch $ARCH repo/pool/main/$ARCH /dev/null > repo/dists/stable/main/binary-$ARCH/Packages
+              gzip -9c repo/dists/stable/main/binary-$ARCH/Packages > repo/dists/stable/main/binary-$ARCH/Packages.gz
             else
-              # If no .deb for that ARCH, we can still create an empty folder
-              mkdir -p repo/dists/stable/main/binary-$ARCH
-              touch repo/dists/stable/main/binary-$ARCH/Packages.gz
+              # Create empty Packages files if no .debs exist
+              touch repo/dists/stable/main/binary-$ARCH/Packages
+              gzip -9c repo/dists/stable/main/binary-$ARCH/Packages > repo/dists/stable/main/binary-$ARCH/Packages.gz
             fi
           done
 
-          # Generate the top-level Release file
-          apt-ftparchive release repo/dists/stable > repo/dists/stable/Release
+          # Generate Release file with proper components and architectures
+          cd repo
+          apt-ftparchive \
+            -o APT::FTPArchive::Release::Origin="EDAMAME" \
+            -o APT::FTPArchive::Release::Label="EDAMAME Repository" \
+            -o APT::FTPArchive::Release::Suite="stable" \
+            -o APT::FTPArchive::Release::Codename="stable" \
+            -o APT::FTPArchive::Release::Architectures="amd64 arm64 armhf i386" \
+            -o APT::FTPArchive::Release::Components="main" \
+            release dists/stable > dists/stable/Release
 
-          # Sign: create InRelease and Release.gpg
+          # Sign Release file
           gpg --batch --yes --passphrase "$GPG_PASSPHRASE" --pinentry-mode loopback \
-            -o repo/dists/stable/InRelease -s --clearsign repo/dists/stable/Release
-
+            -abs -o dists/stable/Release.gpg dists/stable/Release
+          
           gpg --batch --yes --passphrase "$GPG_PASSPHRASE" --pinentry-mode loopback \
-            -abs -o repo/dists/stable/Release.gpg repo/dists/stable/Release
+            -a -s --clearsign --output dists/stable/InRelease dists/stable/Release
+          
+      - name: Validate repository
+        run: |
+          # Create a temporary sources.list
+          echo "deb [trusted=yes] file://$(pwd)/repo stable main" > sources.list
+          
+          # Try to update from local repo
+          apt-get -o Dir::Etc::SourceList=./sources.list update
+          
+          # Check if packages are visible
+          apt-get -o Dir::Etc::SourceList=./sources.list -s install edamame_posture
 
       - name: Upload Debian repo to S3
         run: |
           aws s3 cp repo s3://edamame/ --acl public-read --recursive
+
+          # Verify files are accessible
+          for ARCH in amd64 arm64 armhf i386; do
+            echo "Checking $ARCH packages..."
+            curl -I "https://edamame.s3.eu-west-1.amazonaws.com/dists/stable/main/binary-$ARCH/Packages.gz"
+          done
