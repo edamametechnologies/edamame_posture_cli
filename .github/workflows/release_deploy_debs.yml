@@ -310,10 +310,10 @@ jobs:
           echo "deb [trusted=yes] file://$(pwd)/repo stable main" > sources.list
           
           # Try to update from local repo
-          apt-get -o Dir::Etc::SourceList=./sources.list update
+          sudo apt-get -o Dir::Etc::SourceList=./sources.list update
           
           # Check if packages are visible
-          apt-get -o Dir::Etc::SourceList=./sources.list -s install edamame_posture
+          sudo apt-get -o Dir::Etc::SourceList=./sources.list -s install edamame_posture
 
       - name: Upload Debian repo to S3
         run: |
