@@ -133,7 +133,7 @@ pub fn background_start(
 
     // Check if the background process is already running
     if is_background_process_running() {
-        eprintln!("Background process already running.");
+        eprintln!("Core services are already running.");
         std::process::exit(1);
     }
 

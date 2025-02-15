@@ -6,13 +6,12 @@ set -e
 case "$1" in
     configure)
         # Remind about configuration
-        echo "Please configure /etc/edamame_posture.conf before starting the service"
+        echo "Please configure /etc/edamame_posture.conf and restart the service"
         
         # Enable and start the service
         systemctl daemon-reload
         systemctl enable edamame_posture.service
-        # Don't start automatically as it needs configuration first
-        # systemctl start edamame_posture.service
+        systemctl start edamame_posture.service
         ;;
 esac
 

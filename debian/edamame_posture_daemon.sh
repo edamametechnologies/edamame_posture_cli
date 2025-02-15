@@ -22,9 +22,9 @@ edamame_domain="$(get_config_value "edamame_domain" | xargs)"
 edamame_pin="$(get_config_value "edamame_pin" | xargs)"
 
 if [[ -z "$edamame_user" || -z "$edamame_domain" || -z "$edamame_pin" ]]; then
-  echo "One or more required configuration values are empty:"
+  echo "One or required configuration values are empty:"
   echo "  edamame_user='${edamame_user}', edamame_domain='${edamame_domain}', edamame_pin='${edamame_pin}'"
-  exit 1
+  echo "Service will start disconnected."
 fi
 
 echo "Starting edamame_posture service with configuration:"
