@@ -37,7 +37,11 @@ fn parse_digits_only(s: &str) -> Result<String, String> {
     }
 }
 
+// Must be a valid FQDN, allow empty strings
 fn parse_fqdn(s: &str) -> Result<String, String> {
+    if s.is_empty() {
+        return Ok(s.to_string());
+    }
     // This regex matches valid FQDNs according to RFC 1035
     let fqdn_regex =
         Regex::new(r"^(?:(?:[a-zA-Z0-9](?:[a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)+)(?:[A-Za-z]{2,})$")
@@ -48,6 +52,44 @@ fn parse_fqdn(s: &str) -> Result<String, String> {
     } else {
         Err(String::from("Invalid FQDN"))
     }
+}
+
+// Must not be an email address, allow empty strings
+fn parse_username(s: &str) -> Result<String, String> {
+    if s.is_empty() {
+        return Ok(s.to_string());
+    }
+    if s.contains('@') || s.contains('.') {
+        return Err(String::from("Invalid username format"));
+    }
+    Ok(s.to_string())
+}
+
+// Must be an email address, allow empty strings
+fn parse_email(s: &str) -> Result<String, String> {
+    if s.is_empty() {
+        return Ok(s.to_string());
+    }
+    if !s.contains('@') || !s.contains('.') {
+        return Err(String::from("Invalid email format"));
+    }
+    Ok(s.to_string())
+}
+
+fn parse_signature(s: &str) -> Result<String, String> {
+    // Try decode the base64 string
+    match BASE64_STANDARD.decode(&s) {
+        Ok(decoded_signature) => {
+            // Check if 32 bytes
+            if decoded_signature.len() != 32 {
+                return Err(String::from("Invalid signature format"));
+            }
+        }
+        Err(_) => {
+            return Err(String::from("Invalid signature format"));
+        }
+    }
+    Ok(s.to_string())
 }
 
 pub fn initialize_core(
@@ -103,9 +145,6 @@ fn run() {
     let args: Vec<String> = std::env::args().collect();
 
     if args.len() > 1 && args[1] == "background-process" {
-        // Debug logging
-        //std::env::set_var("EDAMAME_LOG_LEVEL", "debug");
-
         // Don't call ensure_admin() here, the core is not initialized yet
         if args.len() == 9 {
             run_background(
@@ -138,9 +177,9 @@ pub fn run_background(
     local_traffic: bool,
     verbose: bool,
 ) {
-    // Initialize the core with computing,reporting, server and community disabled
+    // Initialize the core with all options enabled
     // Verbose is set by the caller
-    initialize_core(device_id, true, true, false, true, verbose);
+    initialize_core(device_id, true, true, true, true, verbose);
 
     background_process(
         user,
@@ -171,10 +210,10 @@ fn run_base() {
         .about("CLI interface to edamame_core")
         .arg(
             arg!(
-                -v --verbose "Enable verbose output"
+                -v --verbose ... "Verbosity level (-v: info, -vv: debug, -vvv: trace)"
             )
             .required(false)
-            .action(ArgAction::SetTrue)
+            .action(ArgAction::Count)
             .global(true),
         )
         ////////////////
@@ -218,12 +257,12 @@ fn run_base() {
                 .arg(
                     arg!(<USER> "User name")
                         .required(true)
-                        .value_parser(clap::value_parser!(String)),
+                        .value_parser(parse_username),
                 )
                 .arg(
                     arg!(<DOMAIN> "Domain name")
                         .required(true)
-                        .value_parser(clap::value_parser!(String)),
+                        .value_parser(parse_fqdn),
                 ),
         )
         .subcommand(Command::new("get-core-version").about("Get core version"))
@@ -237,10 +276,10 @@ fn run_base() {
         .subcommand(Command::new("request-report").about("Send a report from a signature to an email address").arg(
             arg!(<EMAIL> "Email address")
                     .required(true)
-                    .value_parser(clap::value_parser!(String))).arg(
+                    .value_parser(parse_email)).arg(
                 arg!(<SIGNATURE> "Signature")
                     .required(true)
-                    .value_parser(clap::value_parser!(String)),
+                    .value_parser(parse_signature),
             ),
         )
         //////////////////////
@@ -280,7 +319,8 @@ fn run_base() {
                 .arg(
                     arg!(<USER> "User name")
                         .required(true)
-                        .value_parser(clap::value_parser!(String)),
+                        // Throw an error if the string is an email address
+                        .value_parser(parse_username)
                 )
                 .arg(
                     arg!(<DOMAIN> "Domain name")
@@ -302,7 +342,7 @@ fn run_base() {
                 .arg(
                     arg!(<USER> "User name")
                         .required(true)
-                        .value_parser(clap::value_parser!(String)),
+                        .value_parser(parse_username),
                 )
                 .arg(
                     arg!(<DOMAIN> "Domain name")
@@ -344,12 +384,29 @@ fn run_base() {
         .subcommand(Command::new("background-get-history").alias("get-history").about("Get history of score modifications"))
         .get_matches();
 
-    // Check for verbose flag
-    let verbose = matches.get_flag("verbose");
-    if verbose {
-        eprintln!("Verbose mode enabled.");
-        std::env::set_var("EDAMAME_LOG_LEVEL", "debug");
+    // Check for verbose flag count
+    let verbose_level = matches.get_count("verbose");
+    let log_level = match verbose_level {
+        0 => None,
+        1 => {
+            eprintln!("Info logging enabled.");
+            Some("info")
+        }
+        2 => {
+            eprintln!("Debug logging enabled.");
+            Some("debug")
+        }
+        _ => {
+            eprintln!("Trace logging enabled.");
+            Some("trace")
+        }
+    };
+
+    if let Some(level) = log_level {
+        std::env::set_var("EDAMAME_LOG_LEVEL", level);
     }
+
+    let verbose = verbose_level > 0;
 
     match matches.subcommand() {
         ////////////////
@@ -470,31 +527,11 @@ fn run_base() {
             println!("Signature: {}", signature);
         }
         Some(("request-report", sub_matches)) => {
-            // Check email format
             let email = sub_matches.get_one::<String>("EMAIL").unwrap().to_string();
-            if !email.contains('@') || !email.contains('.') {
-                eprintln!("Invalid email format");
-                std::process::exit(1);
-            }
-            // Check signature format (32 bytes in base 64)
             let signature = sub_matches
                 .get_one::<String>("SIGNATURE")
                 .unwrap()
                 .to_string();
-            // Try decode the base64 string
-            match BASE64_STANDARD.decode(&signature) {
-                Ok(decoded_signature) => {
-                    // Check if 32 bytes
-                    if decoded_signature.len() != 32 {
-                        eprintln!("Invalid signature format");
-                        std::process::exit(1);
-                    }
-                }
-                Err(_) => {
-                    eprintln!("Invalid signature format");
-                    std::process::exit(1);
-                }
-            }
             // Initialize the core with reporting and server disabled
             initialize_core("".to_string(), false, false, false, false, verbose);
             request_report_from_signature(email, signature, "JSON".to_string());
