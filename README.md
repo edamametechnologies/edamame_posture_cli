@@ -136,7 +136,7 @@ We provide a GPG-signed APT repository for `.deb` packages. This ensures that yo
 
    ```bash
    # Example: retrieving the EDAMAME public key from our hosting location.
-   wget -O - https://edamame.s3.eu-west-1.amazonaws.com/edamame_public.key | sudo gpg --dearmor -o /usr/share/keyrings/edamame.gpg
+   wget -O - https://edamame.s3.eu-west-1.amazonaws.com/repo/edamame_public.key | sudo gpg --dearmor -o /usr/share/keyrings/edamame.gpg
    ```
 
 2. **Add the EDAMAME repository to your `/etc/apt/sources.list.d`**  
