@@ -143,7 +143,7 @@ We provide a GPG-signed APT repository for `.deb` packages. This ensures that yo
    Create or edit a `.list` file for the EDAMAME repository. For example:
    
    ```bash
-   echo "deb [arch=amd64 signed-by=/usr/share/keyrings/edamame.gpg] https://edamame.s3.eu-west-1.amazonaws.com stable main" | sudo tee /etc/apt/sources.list.d/edamame.list
+   echo "deb [arch=amd64 signed-by=/usr/share/keyrings/edamame.gpg] https://edamame.s3.eu-west-1.amazonaws.com/repo stable main" | sudo tee /etc/apt/sources.list.d/edamame.list
    ```
 
    - Replace `arch=amd64` with the appropriate architecture for your system if needed (e.g., `arm64`, `i386`, etc.).
