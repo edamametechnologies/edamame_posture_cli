@@ -135,7 +135,6 @@ We provide a GPG-signed APT repository for `.deb` packages. This ensures that yo
    You can download the EDAMAME repository public key and store it in your system's keyring so that `apt` can validate signed packages:
 
    ```bash
-   # Example: retrieving the EDAMAME public key from our hosting location.
    wget -O - https://edamame.s3.eu-west-1.amazonaws.com/repo/edamame_public.key | sudo gpg --dearmor -o /usr/share/keyrings/edamame.gpg
    ```
 
