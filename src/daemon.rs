@@ -30,9 +30,11 @@ pub fn background_process(
     // Show threats info
     background_get_threats_info();
 
-    // Set credentials
-    info!("Setting credentials for user: {}, domain: {}", user, domain);
-    set_credentials(user, domain, pin);
+    // Set credentials if not empty, otherwise the core will load saved credentials
+    if user != "" && domain != "" {
+        info!("Setting credentials for user: {}, domain: {}", user, domain);
+        set_credentials(user, domain, pin);
+    }
 
     // Scan the network interfaces
     if lan_scanning {

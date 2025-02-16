@@ -119,12 +119,12 @@ pub fn initialize_core(
     }
 
     // By changing the executable type, we can have different logging behavior
-    // "posture" is a special case in the logger that logs to file
+    // "cli" is a special case in the logger that logs to file
     // "posture_verbose" falls into the default case and logs to stdout
     let executable_type = if verbose {
         "posture_verbose".to_string()
     } else {
-        "posture".to_string()
+        "cli".to_string()
     };
 
     initialize(
