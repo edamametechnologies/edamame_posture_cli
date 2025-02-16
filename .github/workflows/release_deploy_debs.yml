@@ -317,10 +317,11 @@ jobs:
 
       - name: Upload Debian repo to S3
         run: |
-          aws s3 cp repo s3://edamame/ --acl public-read --recursive
+          # Upload to a specific path for this repository
+          aws s3 cp repo s3://edamame/repo/ --acl public-read --recursive
 
           # Verify files are accessible
           for ARCH in amd64 arm64 armhf i386; do
             echo "Checking $ARCH packages..."
-            curl -I "https://edamame.s3.eu-west-1.amazonaws.com/dists/stable/main/binary-$ARCH/Packages.gz"
+            curl -I "https://edamame.s3.eu-west-1.amazonaws.com/repo/dists/stable/main/binary-$ARCH/Packages.gz"
           done
