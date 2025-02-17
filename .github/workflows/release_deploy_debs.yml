@@ -347,23 +347,44 @@ jobs:
           echo "Components: main" >> repo/dists/stable/Release
           echo "Date: $(date -u '+%a, %d %b %Y %H:%M:%S UTC')" >> repo/dists/stable/Release
 
-          # Add checksums
-          cd repo/dists/stable
-          echo "MD5Sum:" >> Release
+          # Add MD5Sum:
+          echo "MD5Sum:" >> repo/dists/stable/Release
           for ARCH in amd64 arm64 armhf i386; do
-            if [ -f "main/binary-$ARCH/Packages.gz" ]; then
-              SIZE=$(stat -c%s "main/binary-$ARCH/Packages.gz")
-              MD5=$(md5sum "main/binary-$ARCH/Packages.gz" | cut -d' ' -f1)
-              echo " $MD5 $SIZE main/binary-$ARCH/Packages.gz" >> Release
+            PKG_GZ="repo/dists/stable/main/binary-$ARCH/Packages.gz"
+            PKG_TXT="repo/dists/stable/main/binary-$ARCH/Packages"
+
+            if [ -f "$PKG_GZ" ]; then
+              SIZE=$(stat -c%s "$PKG_GZ")
+              MD5=$(md5sum "$PKG_GZ" | cut -d' ' -f1)
+              echo " $MD5 $SIZE main/binary-$ARCH/Packages.gz" >> repo/dists/stable/Release
             fi
-            if [ -f "main/binary-$ARCH/Packages" ]; then
-              SIZE=$(stat -c%s "main/binary-$ARCH/Packages")
-              MD5=$(md5sum "main/binary-$ARCH/Packages" | cut -d' ' -f1)
-              echo " $MD5 $SIZE main/binary-$ARCH/Packages" >> Release
+            if [ -f "$PKG_TXT" ]; then
+              SIZE=$(stat -c%s "$PKG_TXT")
+              MD5=$(md5sum "$PKG_TXT" | cut -d' ' -f1)
+              echo " $MD5 $SIZE main/binary-$ARCH/Packages" >> repo/dists/stable/Release
+            fi
+          done
+
+          # Add SHA256:
+          echo "SHA256:" >> repo/dists/stable/Release
+          for ARCH in amd64 arm64 armhf i386; do
+            PKG_GZ="repo/dists/stable/main/binary-$ARCH/Packages.gz"
+            PKG_TXT="repo/dists/stable/main/binary-$ARCH/Packages"
+
+            if [ -f "$PKG_GZ" ]; then
+              SIZE=$(stat -c%s "$PKG_GZ")
+              SHA256=$(sha256sum "$PKG_GZ" | cut -d' ' -f1)
+              echo " $SHA256 $SIZE main/binary-$ARCH/Packages.gz" >> repo/dists/stable/Release
+            fi
+            if [ -f "$PKG_TXT" ]; then
+              SIZE=$(stat -c%s "$PKG_TXT")
+              SHA256=$(sha256sum "$PKG_TXT" | cut -d' ' -f1)
+              echo " $SHA256 $SIZE main/binary-$ARCH/Packages" >> repo/dists/stable/Release
             fi
           done
 
           # Sign Release file
+          cd repo/dists/stable
           rm -f Release.gpg InRelease
           gpg --batch --yes --passphrase "$GPG_PASSPHRASE" --pinentry-mode loopback -abs -o Release.gpg Release
           gpg --batch --yes --passphrase "$GPG_PASSPHRASE" --pinentry-mode loopback -a -s --clearsign --output InRelease Release
