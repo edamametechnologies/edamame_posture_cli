@@ -297,10 +297,12 @@ jobs:
               
               # Generate stanzas for new packages
               echo "Scanning packages in $DEB_DIR"
-              dpkg-scanpackages --multiversion "$DEB_DIR" > "$TEMP_NEW"
+              ls -la
+              # Use a prefix in dpkg-scanpackages so the "Filename:" lines don't include "repo/"
+              dpkg-scanpackages --multiversion "$DEB_DIR" /dev/null "pool/main/$ARCH" > "$TEMP_NEW"
 
-              # Merge the old and new Packages data
-              cat  "$TEMP_NEW" "$PACKAGES_FILE" > "$TEMP_MERGED"
+              # Combine new + old stanzas
+              cat "$TEMP_NEW" "$PACKAGES_FILE" > "$TEMP_MERGED"
                           
               # Remove duplicate packages (newest version wins)
               awk 'BEGIN { RS=""; ORS="\n\n" }
