@@ -347,6 +347,12 @@ jobs:
           GPG_PRIVATE_KEY_B64: ${{ secrets.GPG_PRIVATE_KEY_B64 }}
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
         run: |
+          # Check if VERSION is set
+          if [ -z "$VERSION" ]; then
+            echo "VERSION is not set"
+            exit 1
+          fi
+
           # Import GPG key
           echo "$GPG_PRIVATE_KEY_B64" | base64 -d | gpg --batch --import
 
@@ -354,6 +360,14 @@ jobs:
           mkdir -p repo/dists/stable/main
           for ARCH in amd64 arm64 armhf i386; do
             mkdir -p "repo/dists/stable/main/binary-$ARCH"
+            
+            # Create architecture-specific Release files
+            echo "Archive: stable" > "repo/dists/stable/main/binary-$ARCH/Release"
+            echo "Version: ${VERSION}" >> "repo/dists/stable/main/binary-$ARCH/Release"
+            echo "Component: main" >> "repo/dists/stable/main/binary-$ARCH/Release"
+            echo "Origin: EDAMAME" >> "repo/dists/stable/main/binary-$ARCH/Release"
+            echo "Label: EDAMAME Repository" >> "repo/dists/stable/main/binary-$ARCH/Release"
+            echo "Architecture: $ARCH" >> "repo/dists/stable/main/binary-$ARCH/Release"
           done
 
           # Export public key to both locations
