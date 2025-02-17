@@ -274,6 +274,10 @@ jobs:
 
       - name: Combine .deb stanzas
         run: |
+          # Ensure xz-utils is installed
+          sudo apt-get update
+          sudo apt-get install -y xz-utils
+
           for ARCH in amd64 arm64 armhf i386; do
             DEB_DIR="repo/pool/main/$ARCH"
             PACKAGES_FILE="repo/dists/stable/main/binary-$ARCH/Packages"
@@ -293,25 +297,43 @@ jobs:
               
               # Generate stanzas for new packages
               echo "Scanning packages in $DEB_DIR"
-              ls -la
               dpkg-scanpackages --multiversion "$DEB_DIR" > "$TEMP_NEW"
-              echo "Packages file for $ARCH"
-              cat "$TEMP_NEW"
 
-              # Just merge the two files
+              # Merge the old and new Packages data
               cat "$PACKAGES_FILE" "$TEMP_NEW" > "$TEMP_MERGED"
-              
-              # Replace the old Packages file with merged content
-              mv "$TEMP_MERGED" "$PACKAGES_FILE"
+                          
+              # Remove duplicate packages
+              awk 'BEGIN { RS=""; ORS="\n\n" }
+              {
+                pkg=""; ver="";
+                n = split($0, lines, "\n");
+                for(i=1;i<=n;i++){
+                  if(lines[i] ~ /^Package:[ \t]*/) {
+                    pkg = lines[i];
+                    sub(/^Package:[ \t]*/, "", pkg);
+                  }
+                  if(lines[i] ~ /^Version:[ \t]*/) {
+                    ver = lines[i];
+                    sub(/^Version:[ \t]*/, "", ver);
+                  }
+                }
+                if(pkg != "" && ver != ""){
+                  key = pkg " " ver;
+                  if (!seen[key]++) print $0;
+                } else {
+                  print $0;
+                }
+              }' "$TEMP_MERGED" > "$PACKAGES_FILE"
               
               # Clean up temp files
-              rm -f "$TEMP_NEW"
+              rm -f "$TEMP_NEW" "$TEMP_MERGED"
 
               echo "Final Packages file for $ARCH"
               cat "$PACKAGES_FILE"
               
-              # Compress the updated Packages file
-              gzip -9f "$PACKAGES_FILE"
+              # Compress the updated Packages file to both .gz and .xz
+              gzip --keep -9f "$PACKAGES_FILE"
+              xz -9fk "$PACKAGES_FILE"
             fi
           done
 
@@ -349,16 +371,25 @@ jobs:
           for ARCH in amd64 arm64 armhf i386; do
             PKG_GZ="repo/dists/stable/main/binary-$ARCH/Packages.gz"
             PKG_TXT="repo/dists/stable/main/binary-$ARCH/Packages"
+            PKG_XZ="repo/dists/stable/main/binary-$ARCH/Packages.xz"
 
+            # .gz
             if [ -f "$PKG_GZ" ]; then
               SIZE=$(stat -c%s "$PKG_GZ")
               MD5=$(md5sum "$PKG_GZ" | cut -d' ' -f1)
               echo " $MD5 $SIZE main/binary-$ARCH/Packages.gz" >> repo/dists/stable/Release
             fi
+            # Uncompressed
             if [ -f "$PKG_TXT" ]; then
               SIZE=$(stat -c%s "$PKG_TXT")
               MD5=$(md5sum "$PKG_TXT" | cut -d' ' -f1)
               echo " $MD5 $SIZE main/binary-$ARCH/Packages" >> repo/dists/stable/Release
+            fi
+            # .xz
+            if [ -f "$PKG_XZ" ]; then
+              SIZE=$(stat -c%s "$PKG_XZ")
+              MD5=$(md5sum "$PKG_XZ" | cut -d' ' -f1)
+              echo " $MD5 $SIZE main/binary-$ARCH/Packages.xz" >> repo/dists/stable/Release
             fi
           done
 
@@ -367,16 +398,25 @@ jobs:
           for ARCH in amd64 arm64 armhf i386; do
             PKG_GZ="repo/dists/stable/main/binary-$ARCH/Packages.gz"
             PKG_TXT="repo/dists/stable/main/binary-$ARCH/Packages"
+            PKG_XZ="repo/dists/stable/main/binary-$ARCH/Packages.xz"
 
+            # .gz
             if [ -f "$PKG_GZ" ]; then
               SIZE=$(stat -c%s "$PKG_GZ")
               SHA256=$(sha256sum "$PKG_GZ" | cut -d' ' -f1)
               echo " $SHA256 $SIZE main/binary-$ARCH/Packages.gz" >> repo/dists/stable/Release
             fi
+            # Uncompressed
             if [ -f "$PKG_TXT" ]; then
               SIZE=$(stat -c%s "$PKG_TXT")
               SHA256=$(sha256sum "$PKG_TXT" | cut -d' ' -f1)
               echo " $SHA256 $SIZE main/binary-$ARCH/Packages" >> repo/dists/stable/Release
+            fi
+            # .xz
+            if [ -f "$PKG_XZ" ]; then
+              SIZE=$(stat -c%s "$PKG_XZ")
+              SHA256=$(sha256sum "$PKG_XZ" | cut -d' ' -f1)
+              echo " $SHA256 $SIZE main/binary-$ARCH/Packages.xz" >> repo/dists/stable/Release
             fi
           done
 
