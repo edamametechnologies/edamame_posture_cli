@@ -336,8 +336,9 @@ jobs:
               echo "Final Packages file for $ARCH"
               cat "$PACKAGES_FILE"
               
-              # Compress the updated Packages file
-              gzip -9f "$PACKAGES_FILE"
+              # Create both gz and xz compressed versions
+              gzip -9f -k "$PACKAGES_FILE"
+              xz -9e "$PACKAGES_FILE"
             fi
           done
 
