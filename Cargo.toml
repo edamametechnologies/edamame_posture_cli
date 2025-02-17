@@ -62,7 +62,7 @@ widestring = "1.1.0"
 cargo-deb = "2.7.0"
 # See cargo-deb crate for configuration: https://crates.io/crates/cargo-deb
 [package.metadata.deb]
-name = "edamame_posture"
+name = "edamame-posture"
 maintainer = "EDAMAME Technologies"
 copyright = "EDAMAME Technologies"
 license-file = ["LICENSE", "0"]
