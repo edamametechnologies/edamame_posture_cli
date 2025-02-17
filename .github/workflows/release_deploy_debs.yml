@@ -347,11 +347,22 @@ jobs:
           GPG_PRIVATE_KEY_B64: ${{ secrets.GPG_PRIVATE_KEY_B64 }}
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
         run: |
+          # Get the version from the Cargo.toml file
+          VERSION=$(grep '^version =' ./Cargo.toml | awk '{print $3}' | tr -d '"')
+          if [ -z "${VERSION}" ]; then
+            echo "Failed to get version from Cargo.toml, trying to get it from pubspec.yaml"
+            VERSION=$(grep '^version:' pubspec.yaml | awk '{print $2}')
+            # Remove any trailing + or -
+            VERSION=$(echo "${VERSION}" | sed 's/[-+].*//')
+          fi
+
           # Check if VERSION is set
-          if [ -z "$VERSION" ]; then
+          if [ -z "${VERSION}" ]; then
             echo "VERSION is not set"
             exit 1
           fi
+
+          echo "VERSION: ${VERSION}"
 
           # Import GPG key
           echo "$GPG_PRIVATE_KEY_B64" | base64 -d | gpg --batch --import
