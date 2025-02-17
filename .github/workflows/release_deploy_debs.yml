@@ -278,9 +278,11 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y xz-utils
 
+          # We must change directory to remove the "repo/" prefix from the filenames
+          cd repo
           for ARCH in amd64 arm64 armhf i386; do
-            DEB_DIR="repo/pool/main/$ARCH"
-            PACKAGES_FILE="repo/dists/stable/main/binary-$ARCH/Packages"
+            DEB_DIR="pool/main/$ARCH"
+            PACKAGES_FILE="dists/stable/main/binary-$ARCH/Packages"
             
             # Only proceed if we have .deb files
             if [ -d "$DEB_DIR" ] && [ -n "$(ls "$DEB_DIR"/*.deb 2>/dev/null)" ]; then
@@ -298,11 +300,12 @@ jobs:
               # Generate stanzas for new packages
               echo "Scanning packages in $DEB_DIR"
               ls -la
-              # Use a prefix in dpkg-scanpackages so the "Filename:" lines don't include "repo/"
-              dpkg-scanpackages --multiversion "$DEB_DIR" /dev/null "pool/main/$ARCH" > "$TEMP_NEW"
+              dpkg-scanpackages --multiversion "$DEB_DIR" > "$TEMP_NEW"
+              echo "Packages file for $ARCH"
+              cat "$TEMP_NEW"
 
-              # Combine new + old stanzas
-              cat "$TEMP_NEW" "$PACKAGES_FILE" > "$TEMP_MERGED"
+              # Merge the old and new Packages data
+              cat  "$TEMP_NEW" "$PACKAGES_FILE" > "$TEMP_MERGED"
                           
               # Remove duplicate packages (newest version wins)
               awk 'BEGIN { RS=""; ORS="\n\n" }
@@ -333,9 +336,8 @@ jobs:
               echo "Final Packages file for $ARCH"
               cat "$PACKAGES_FILE"
               
-              # Compress the updated Packages file to both .gz and .xz
-              gzip --keep -9f "$PACKAGES_FILE"
-              xz -9fk "$PACKAGES_FILE"
+              # Compress the updated Packages file
+              gzip -9f "$PACKAGES_FILE"
             fi
           done
 
