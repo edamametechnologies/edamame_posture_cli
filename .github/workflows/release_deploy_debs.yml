@@ -74,7 +74,7 @@ jobs:
           network_scan: true
           auto_remediate: true
           checkout: true
-          # We are using the token of the the private repo to checkout the public repo and properly wait for access to the private repo
+          # We are using the token of the private repo to checkout the public repo and properly wait for access to the private repo
           token: ${{ secrets.DEV_GITHUB_TOKEN }}
           wait_for_api: true
           wait_for_https: true
@@ -146,7 +146,7 @@ jobs:
           echo "::set-output name=tag::$VERSION_TAG"
           if [[ -n "$(gh release view $VERSION_TAG --repo ${{ github.repository }} --json id -q .id)" ]]; then
             echo "::set-output name=exists::true"
-              echo "::set-output name=upload_url::$(gh release view $VERSION_TAG --json uploadUrl -q .uploadUrl )"
+            echo "::set-output name=upload_url::$(gh release view $VERSION_TAG --json uploadUrl -q .uploadUrl )"
           else
             echo "::set-output name=exists::false"
           fi
@@ -230,7 +230,7 @@ jobs:
           network_scan: true
           auto_remediate: true
           checkout: true
-          # We are using the token of the the private repo to checkout the public repo and properly wait for access to the private repo
+          # We are using the token of the private repo to checkout the public repo and properly wait for access to the private repo
           token: ${{ secrets.DEV_GITHUB_TOKEN }}
           wait_for_api: true
           wait_for_https: true
@@ -279,6 +279,8 @@ jobs:
             PACKAGES_FILE="repo/dists/stable/main/binary-$ARCH/Packages"
             if [ -d "$DEB_DIR" ] && [ -n "$(ls $DEB_DIR/*.deb 2>/dev/null)" ]; then
               echo "Processing new packages for $ARCH..."
+              # Create directories if they don't exist
+              mkdir -p "$(dirname "$PACKAGES_FILE")"
               
               # Verify .deb files are valid
               for deb in $DEB_DIR/*.deb; do
@@ -334,8 +336,16 @@ jobs:
           # Import GPG key
           echo "$GPG_PRIVATE_KEY_B64" | base64 -d | gpg --batch --import
 
-          # Export public key
+          # Create all required directories
+          mkdir -p repo/dists/stable/main
+          for ARCH in amd64 arm64 armhf i386; do
+            mkdir -p "repo/dists/stable/main/binary-$ARCH"
+          done
+
+          # Export public key to both locations
           gpg --batch --yes --export --armor > repo/dists/stable/public.key
+          mkdir -p repo/pool
+          gpg --batch --yes --export --armor > repo/pool/public.key
 
           # Create or update Release file
           mkdir -p repo/dists/stable
@@ -391,16 +401,22 @@ jobs:
       
       - name: Upload updated repository
         run: |
+          # Ensure all directories exist before upload
+          for ARCH in amd64 arm64 armhf i386; do
+            mkdir -p "repo/pool/main/$ARCH"
+            mkdir -p "repo/dists/stable/main/binary-$ARCH"
+          done
+
           # Upload new .deb files
           for ARCH in amd64 arm64 armhf i386; do
-            DEB_DIR="repo/dists/stable/main/binary-$ARCH"
+            DEB_DIR="repo/pool/main/$ARCH"
             if [ -d "$DEB_DIR" ]; then
               aws s3 cp "$DEB_DIR/" "s3://edamame/repo/pool/main/$ARCH/" \
                 --acl public-read --recursive
             fi
           done
 
-          # Upload updated metadata and public key
+          # Upload updated metadata (Packages*, Release, Release.gpg, etc.) + public key
           aws s3 cp repo/dists/ s3://edamame/repo/dists/ \
             --acl public-read --recursive
 
@@ -413,6 +429,8 @@ jobs:
           # Verify uploads
           echo "Verifying repository metadata..."
           for ARCH in amd64 arm64 armhf i386; do
-            curl -sI "https://edamame.s3.eu-west-1.amazonaws.com/repo/dists/stable/main/binary-$ARCH/Packages.gz" \
-              | grep "HTTP/"
+            for FILE in Packages.gz Release Release.gpg InRelease; do
+              curl -sI "https://edamame.s3.eu-west-1.amazonaws.com/repo/dists/stable/main/binary-$ARCH/$FILE" \
+                | grep "HTTP/"
+            done
           done
