@@ -300,9 +300,9 @@ jobs:
               dpkg-scanpackages --multiversion "$DEB_DIR" > "$TEMP_NEW"
 
               # Merge the old and new Packages data
-              cat "$PACKAGES_FILE" "$TEMP_NEW" > "$TEMP_MERGED"
+              cat  "$TEMP_NEW" "$PACKAGES_FILE" > "$TEMP_MERGED"
                           
-              # Remove duplicate packages
+              # Remove duplicate packages (newest version wins)
               awk 'BEGIN { RS=""; ORS="\n\n" }
               {
                 pkg=""; ver="";
