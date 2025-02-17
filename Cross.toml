@@ -48,4 +48,5 @@ passthrough = [
     "EDAMAME_SERVER_KEY",
     "EDAMAME_CLIENT_CA_PEM",
     "LAMBDA_SIGNATURE",
+    "MIXPANEL_TOKEN",
 ]
