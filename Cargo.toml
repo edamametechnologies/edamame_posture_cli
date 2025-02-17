@@ -63,6 +63,8 @@ cargo-deb = "2.7.0"
 # See cargo-deb crate for configuration: https://crates.io/crates/cargo-deb
 [package.metadata.deb]
 name = "edamame-posture"
+# Prevent cargo-deb from using the README.md that will contain illegal characters
+extended-description = "EDAMAME Posture service"
 maintainer = "EDAMAME Technologies"
 copyright = "EDAMAME Technologies"
 license-file = ["LICENSE", "0"]
