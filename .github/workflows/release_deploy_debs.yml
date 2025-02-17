@@ -294,7 +294,11 @@ jobs:
               # Generate stanzas for new packages
               # Change directory to where the .deb files live
               pushd "$DEB_DIR"
+              echo "Scanning packages in $DEB_DIR"
+              ls -la
               dpkg-scanpackages --multiversion . > "$TEMP_NEW"
+              echo "Packages file for $ARCH"
+              cat "$TEMP_NEW"
               popd
 
               # Process existing and new packages to remove duplicates
@@ -325,6 +329,9 @@ jobs:
               
               # Clean up temp files
               rm -f "$TEMP_NEW"
+
+              echo "Final Packages file for $ARCH"
+              cat "$PACKAGES_FILE"
               
               # Compress the updated Packages file
               gzip -9f "$PACKAGES_FILE"
@@ -426,12 +433,3 @@ jobs:
           # Create a more friendly URL for the public key
           aws s3 cp repo/dists/stable/public.key s3://edamame/repo/public.key \
             --acl public-read
-
-      - name: Verify uploads
-        run: |
-          # Verify uploads
-            curl -sI "https://edamame.s3.eu-west-1.amazonaws.com/repo/dists/stable/main/binary-$ARCH/Packages.gz" \
-              | grep "HTTP/"
-                | grep "HTTP/"
-            done
-          done
