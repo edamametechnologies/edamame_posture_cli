@@ -292,37 +292,14 @@ jobs:
               TEMP_MERGED=$(mktemp)
               
               # Generate stanzas for new packages
-              # Change directory to where the .deb files live
-              pushd "$DEB_DIR"
               echo "Scanning packages in $DEB_DIR"
               ls -la
-              dpkg-scanpackages --multiversion . > "$TEMP_NEW"
+              dpkg-scanpackages --multiversion "$DEB_DIR" > "$TEMP_NEW"
               echo "Packages file for $ARCH"
               cat "$TEMP_NEW"
-              popd
 
-              # Process existing and new packages to remove duplicates
-              # Using awk to identify package stanzas and keep the latest version
-              awk -v RS='\n\n' -v ORS='\n\n' '
-                {
-                  # Extract package name and version
-                  pkg = version = ""
-                  for (i=1; i<=NF; i++) {
-                    if ($i ~ /^Package:/) pkg = substr($i, 10)
-                    if ($i ~ /^Version:/) version = substr($i, 10)
-                  }
-                  if (pkg && version) {
-                    key = pkg "-" version
-                    if (!(key in seen) || $0 > seen[key]) {
-                      seen[key] = $0
-                    }
-                  }
-                }
-                END {
-                  for (key in seen) {
-                    print seen[key]
-                  }
-                }' "$PACKAGES_FILE" "$TEMP_NEW" > "$TEMP_MERGED"
+              # Just merge the two files
+              cat "$PACKAGES_FILE" "$TEMP_NEW" > "$TEMP_MERGED"
               
               # Replace the old Packages file with merged content
               mv "$TEMP_MERGED" "$PACKAGES_FILE"
