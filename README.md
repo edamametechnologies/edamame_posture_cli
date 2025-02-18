@@ -165,7 +165,7 @@ GPG signing ensures that the `.deb` package (and the accompanying metadata) has 
 - **Missing GPG Key Error**: Make sure you have downloaded and installed the public key into your keyring (`/usr/share/keyrings/edamame.gpg`) and have the correct `signed-by=...` reference in your `sources.list`.
 - **Bad Signatures**: Verify that the key you imported is the one matching our repository. If you see mismatched fingerprint warnings, re-import the key from a trusted source or contact us for assistance.
 
-Once everything is set up, you can install and upgrade `edamame_posture` from the GPG-signed repository just like any other Debian/Ubuntu package.
+Once everything is set up, you can install and upgrade `edamame-posture` from the GPG-signed repository just like any other Debian/Ubuntu package.
 
 ---
 
@@ -194,13 +194,13 @@ Once everything is set up, you can install and upgrade `edamame_posture` from th
 - **Remove the package**:
 
   ```bash
-  sudo apt remove edamame_posture
+  sudo apt remove edamame-posture
   ```
 
 - **Remove the package along with all configuration files**:
 
   ```bash
-  sudo apt purge edamame_posture
+  sudo apt purge edamame-posture
   ```
 
 ---
