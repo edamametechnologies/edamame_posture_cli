@@ -211,7 +211,7 @@ jobs:
           KEY_ID=$(gpg --list-secret-keys --keyid-format LONG | grep sec | awk '{print $2}' | cut -d'/' -f2)
 
           # Install deb-s3
-          gem install deb-s3
+          sudo gem install deb-s3
 
           # Upload .deb files to S3 with explicit GPG signing
           deb-s3 upload --bucket edamame --prefix repo \
