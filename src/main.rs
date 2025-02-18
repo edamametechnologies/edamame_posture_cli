@@ -268,8 +268,9 @@ fn run_base() {
         .subcommand(Command::new("get-core-version").about("Get core version"))
         .subcommand(
             Command::new("remediate").about("Remediate threats").arg(
-                arg!(<REMEDIATIONS> "Remediations to skip (comma separated list)")
-                    .required(false),
+                arg!(<REMEDIATIONS> "Remediations to skip (comma separated list), by default only remote login enabled is skipped")
+                    .required(false)
+                    .default_value("remote login enabled"),
             ),
         )
         .subcommand(Command::new("request-signature").about("Report the security posture anonymously and get a signature for later retrieval"))
