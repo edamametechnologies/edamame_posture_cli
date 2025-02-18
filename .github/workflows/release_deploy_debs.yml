@@ -188,8 +188,8 @@ jobs:
         uses: shogo82148/actions-upload-release-asset@v1
         with:
           upload_url: ${{ steps.get_release.outputs.exists == 'true' && steps.get_release.outputs.upload_url || steps.create_release.outputs.upload_url }}
-          asset_path: target/${{ matrix.target }}/debian/edamame_posture_${{ steps.get_release.outputs.version }}-1_${{ matrix.deb_arch }}.deb
-          asset_name: edamame_posture_${{ steps.get_release.outputs.version }}-1_${{ matrix.deb_arch }}.deb
+          asset_path: target/${{ matrix.target }}/debian/edamame-posture_${{ steps.get_release.outputs.version }}-1_${{ matrix.deb_arch }}.deb
+          asset_name: edamame-posture_${{ steps.get_release.outputs.version }}-1_${{ matrix.deb_arch }}.deb
           asset_content_type: application/vnd.debian.binary-package
           overwrite: true
         env:
@@ -215,7 +215,7 @@ jobs:
 
           # Upload .deb files to S3 with explicit GPG signing
           deb-s3 upload --bucket edamame --prefix repo \
-            target/${{ matrix.target }}/debian/edamame_posture_${{ steps.get_release.outputs.version }}-1_${{ matrix.deb_arch }}.deb \
+            target/${{ matrix.target }}/debian/edamame-posture_${{ steps.get_release.outputs.version }}-1_${{ matrix.deb_arch }}.deb \
             --sign=$KEY_ID \
             --gpg-options="--batch --pinentry-mode loopback --passphrase $GPG_PASSPHRASE" \
             --suite stable \
