@@ -66,6 +66,57 @@ Check out the [associated GitHub action](https://github.com/edamametechnologies/
 
 ## Installation
 
+### Recommended Method: Using the Official GPG-Signed APT Repository
+
+We provide a GPG-signed APT repository for `.deb` packages, ensuring secure and verified installation. Follow these steps:
+
+1. **Import the EDAMAME GPG public key**:
+   ```bash
+   wget -O - https://edamame.s3.eu-west-1.amazonaws.com/repo/public.key | sudo gpg --dearmor -o /usr/share/keyrings/edamame.gpg
+   ```
+
+2. **Add the EDAMAME repository**:
+   ```bash
+   echo "deb [arch=amd64 signed-by=/usr/share/keyrings/edamame.gpg] https://edamame.s3.eu-west-1.amazonaws.com/repo stable main" | sudo tee /etc/apt/sources.list.d/edamame.list
+   ```
+   Note: Replace `arch=amd64` with your system architecture if needed (e.g., `arm64`, `i386`).
+
+3. **Install EDAMAME Posture**:
+   ```bash
+   sudo apt update
+   sudo apt install edamame-posture
+   ```
+
+4. **Optional: Install EDAMAME Security Interface**  
+   For a user-friendly graphical interface and enhanced control:
+   ```bash
+   sudo apt install edamame-security
+   ```
+   The edamame-security package provides:
+   - Rich graphical interface for controlling edamame-posture
+   - Real-time monitoring and alerts
+   - Easy configuration management
+   - Integration with system tray
+   - GRPC-based communication with edamame-posture
+
+### Configuration
+
+1. **Configure** the service:
+   ```bash
+   sudo nano /etc/edamame_posture.conf
+   ```
+   Set required values:
+   ```yaml
+   edamame_user: "your_username"
+   edamame_domain: "your.domain.com"
+   edamame_pin: "your_pin"
+   ```
+
+2. **Start** the service:
+   ```bash
+   sudo systemctl start edamame_posture.service
+   ```
+
 ### Binary Installation
 
 1. **Download** the official binary for your platform (links below).  
@@ -126,46 +177,6 @@ Check out the [associated GitHub action](https://github.com/edamametechnologies/
    ```bash
    sudo systemctl status edamame_posture.service
    ```
-
-### Using the Official GPG-Signed APT Repository
-
-We provide a GPG-signed APT repository for `.deb` packages. This ensures that you can verify the authenticity of the packages before installing. Follow the steps below:
-
-1. **Import the EDAMAME GPG public key**  
-   You can download the EDAMAME repository public key and store it in your system's keyring so that `apt` can validate signed packages:
-
-   ```bash
-   wget -O - https://edamame.s3.eu-west-1.amazonaws.com/repo/public.key | sudo gpg --dearmor -o /usr/share/keyrings/edamame.gpg
-   ```
-
-2. **Add the EDAMAME repository to your `/etc/apt/sources.list.d`**  
-   Create or edit a `.list` file for the EDAMAME repository. For example:
-   
-   ```bash
-   echo "deb [arch=amd64 signed-by=/usr/share/keyrings/edamame.gpg] https://edamame.s3.eu-west-1.amazonaws.com/repo stable main" | sudo tee /etc/apt/sources.list.d/edamame.list
-   ```
-
-   - Replace `arch=amd64` with the appropriate architecture for your system if needed (e.g., `arm64`, `i386`, etc.).
-   - Adjust the URL to match your bucket or hosting path where the `dists` and `pool` folders are located.
-
-3. **Update and Install**  
-   Now that the repo is configured, simply run:
-   
-   ```bash
-   sudo apt update
-   sudo apt install edamame-posture
-   ```
-
-### Why GPG Signing?
-
-GPG signing ensures that the `.deb` package (and the accompanying metadata) has not been tampered with. When you run `apt update` and `apt install`, the APT system checks the signature against the public key you imported. If the signatures match, the packages are considered valid.
-
-### Troubleshooting
-
-- **Missing GPG Key Error**: Make sure you have downloaded and installed the public key into your keyring (`/usr/share/keyrings/edamame.gpg`) and have the correct `signed-by=...` reference in your `sources.list`.
-- **Bad Signatures**: Verify that the key you imported is the one matching our repository. If you see mismatched fingerprint warnings, re-import the key from a trusted source or contact us for assistance.
-
-Once everything is set up, you can install and upgrade `edamame-posture` from the GPG-signed repository just like any other Debian/Ubuntu package.
 
 ---
 
