@@ -124,13 +124,6 @@ jobs:
           echo "Packaging .deb with cargo deb..."
           cargo deb --no-build --target ${{ matrix.target }}
 
-      # We store the .deb as an artifact
-      - name: Upload .deb artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: deb-files-${{ matrix.deb_arch }}
-          path: target/${{ matrix.target }}/debian/*.deb
-
       ############################################################################################
       # Release
       ############################################################################################
@@ -202,282 +195,33 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Dump EDAMAME Posture sessions
-        uses: edamametechnologies/edamame_posture_action@v0
-        with:
-          dump_sessions_log: true
-
-  # -----------------------------------------
-  #  Final "combine" job 
-  # -----------------------------------------
-  combine:
-    # This job needs the build job to finish
-    needs: build
-    runs-on: ubuntu-latest
-
-    env:
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      AWS_REGION: ${{ secrets.AWS_REGION }}
-
-    steps:
-      - name: Setup EDAMAME Posture
-        uses: edamametechnologies/edamame_posture_action@v0
-        with:
-          edamame_user: ${{ vars.EDAMAME_POSTURE_USER }}
-          edamame_domain: ${{ vars.EDAMAME_POSTURE_DOMAIN }}
-          edamame_pin: ${{ secrets.EDAMAME_POSTURE_PIN }}
-          edamame_id: ${{ github.run_id }}
-          network_scan: true
-          auto_remediate: true
-          checkout: true
-          # We are using the token of the private repo to checkout the public repo and properly wait for access to the private repo
-          token: ${{ secrets.DEV_GITHUB_TOKEN }}
-          wait_for_api: true
-          wait_for_https: true
-      
-      - name: Download build artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: repo/pool/main
-
-      - name: Reorganize .deb files by ARCH
-        shell: bash
-        run: |
-          for ARCH in amd64 arm64 armhf i386; do
-            # If artifacts for that arch were downloaded, they'll be under:
-            #   repo/pool/main/deb-files-<ARCH>/
-            if [ -d "repo/pool/main/deb-files-$ARCH" ]; then
-              mkdir -p "repo/pool/main/$ARCH"
-              mv repo/pool/main/deb-files-$ARCH/*.deb "repo/pool/main/$ARCH/" || true
-              rm -rf "repo/pool/main/deb-files-$ARCH"
-            fi
-          done
-
-      - name: Download existing metadata
-        run: |
-          mkdir -p repo/dists/stable/main
-          for ARCH in amd64 arm64 armhf i386; do
-            mkdir -p "repo/dists/stable/main/binary-$ARCH"
-            # Download and decompress existing Packages.gz if it exists
-            if aws s3 cp "s3://edamame/repo/dists/stable/main/binary-$ARCH/Packages.gz" \
-              "repo/dists/stable/main/binary-$ARCH/Packages.gz" 2>/dev/null; then
-              gunzip -f "repo/dists/stable/main/binary-$ARCH/Packages.gz"
-            else
-              touch "repo/dists/stable/main/binary-$ARCH/Packages"
-            fi
-          done
-
-          # Download Release files
-          aws s3 cp s3://edamame/repo/dists/stable/Release repo/dists/stable/Release 2>/dev/null || true
-          aws s3 cp s3://edamame/repo/dists/stable/Release.gpg repo/dists/stable/Release.gpg 2>/dev/null || true
-          aws s3 cp s3://edamame/repo/dists/stable/InRelease repo/dists/stable/InRelease 2>/dev/null || true
-
-      - name: Combine .deb stanzas
-        run: |
-          # Ensure xz-utils is installed
-          sudo apt-get update
-          sudo apt-get install -y xz-utils
-
-          # We must change directory to remove the "repo/" prefix from the filenames
-          cd repo
-          for ARCH in amd64 arm64 armhf i386; do
-            DEB_DIR="pool/main/$ARCH"
-            PACKAGES_FILE="dists/stable/main/binary-$ARCH/Packages"
-            
-            # Only proceed if we have .deb files
-            if [ -d "$DEB_DIR" ] && [ -n "$(ls "$DEB_DIR"/*.deb 2>/dev/null)" ]; then
-              echo "Processing new packages for $ARCH..."
-              
-              # Verify .deb files are valid
-              for deb in $DEB_DIR/*.deb; do
-                dpkg-deb -I "$deb" || echo "Warning: Invalid .deb file: $deb"
-              done
-
-              # Create temporary files
-              TEMP_NEW=$(mktemp)
-              TEMP_MERGED=$(mktemp)
-              
-              # Generate stanzas for new packages
-              echo "Scanning packages in $DEB_DIR"
-              ls -la
-              dpkg-scanpackages --multiversion "$DEB_DIR" > "$TEMP_NEW"
-              echo "Packages file for $ARCH"
-              cat "$TEMP_NEW"
-
-              # Merge the old and new Packages data
-              cat  "$TEMP_NEW" "$PACKAGES_FILE" > "$TEMP_MERGED"
-                          
-              # Remove duplicate packages (newest version wins)
-              awk 'BEGIN { RS=""; ORS="\n\n" }
-              {
-                pkg=""; ver="";
-                n = split($0, lines, "\n");
-                for(i=1;i<=n;i++){
-                  if(lines[i] ~ /^Package:[ \t]*/) {
-                    pkg = lines[i];
-                    sub(/^Package:[ \t]*/, "", pkg);
-                  }
-                  if(lines[i] ~ /^Version:[ \t]*/) {
-                    ver = lines[i];
-                    sub(/^Version:[ \t]*/, "", ver);
-                  }
-                }
-                if(pkg != "" && ver != ""){
-                  key = pkg " " ver;
-                  if (!seen[key]++) print $0;
-                } else {
-                  print $0;
-                }
-              }' "$TEMP_MERGED" > "$PACKAGES_FILE"
-              
-              # Clean up temp files
-              rm -f "$TEMP_NEW" "$TEMP_MERGED"
-
-              echo "Final Packages file for $ARCH"
-              cat "$PACKAGES_FILE"
-              
-              # Create both gz and xz compressed versions
-              gzip -9f -k "$PACKAGES_FILE"
-              xz -9e "$PACKAGES_FILE"
-            fi
-          done
-
-      - name: Update Release file and sign
+      - name: Upload .deb files to S3
         env:
           GPG_PRIVATE_KEY_B64: ${{ secrets.GPG_PRIVATE_KEY_B64 }}
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
         run: |
-          # Get the version from the Cargo.toml file
-          VERSION=$(grep '^version =' ./Cargo.toml | awk '{print $3}' | tr -d '"')
-          if [ -z "${VERSION}" ]; then
-            echo "Failed to get version from Cargo.toml, trying to get it from pubspec.yaml"
-            VERSION=$(grep '^version:' pubspec.yaml | awk '{print $2}')
-            # Remove any trailing + or -
-            VERSION=$(echo "${VERSION}" | sed 's/[-+].*//')
-          fi
-
-          # Check if VERSION is set
-          if [ -z "${VERSION}" ]; then
-            echo "VERSION is not set"
-            exit 1
-          fi
-
-          echo "VERSION: ${VERSION}"
+          # Create GPG directory
+          mkdir -p ~/.gnupg
+          chmod 700 ~/.gnupg
 
           # Import GPG key
-          echo "$GPG_PRIVATE_KEY_B64" | base64 -d | gpg --batch --import
+          echo "$GPG_PRIVATE_KEY_B64" | base64 -d | gpg --batch --yes --passphrase "$GPG_PASSPHRASE" --import
 
-          # Create all required directories
-          mkdir -p repo/dists/stable/main
-          for ARCH in amd64 arm64 armhf i386; do
-            mkdir -p "repo/dists/stable/main/binary-$ARCH"
-            
-            # Create architecture-specific Release files
-            echo "Archive: stable" > "repo/dists/stable/main/binary-$ARCH/Release"
-            echo "Version: ${VERSION}" >> "repo/dists/stable/main/binary-$ARCH/Release"
-            echo "Component: main" >> "repo/dists/stable/main/binary-$ARCH/Release"
-            echo "Origin: EDAMAME" >> "repo/dists/stable/main/binary-$ARCH/Release"
-            echo "Label: EDAMAME Repository" >> "repo/dists/stable/main/binary-$ARCH/Release"
-            echo "Architecture: $ARCH" >> "repo/dists/stable/main/binary-$ARCH/Release"
-          done
+          # Get the key ID (last 16 characters of the fingerprint)
+          KEY_ID=$(gpg --list-secret-keys --keyid-format LONG | grep sec | awk '{print $2}' | cut -d'/' -f2)
 
-          # Export public key to both locations
-          gpg --batch --yes --export --armor > repo/dists/stable/public.key
-          mkdir -p repo/pool
-          gpg --batch --yes --export --armor > repo/pool/public.key
+          # Install deb-s3
+          gem install deb-s3
 
-          # Create or update Release file
-          mkdir -p repo/dists/stable
-          echo "Origin: EDAMAME" > repo/dists/stable/Release
-          echo "Label: EDAMAME Repository" >> repo/dists/stable/Release
-          echo "Suite: stable" >> repo/dists/stable/Release
-          echo "Codename: stable" >> repo/dists/stable/Release
-          echo "Architectures: amd64 arm64 armhf i386" >> repo/dists/stable/Release
-          echo "Components: main" >> repo/dists/stable/Release
-          echo "Date: $(date -u '+%a, %d %b %Y %H:%M:%S UTC')" >> repo/dists/stable/Release
+          # Upload .deb files to S3 with explicit GPG signing
+          deb-s3 upload --bucket edamame --prefix repo \
+            target/${{ matrix.target }}/debian/edamame_posture_${{ steps.get_release.outputs.version }}-1_${{ matrix.deb_arch }}.deb \
+            --sign=$KEY_ID \
+            --gpg-options="--batch --pinentry-mode loopback --passphrase $GPG_PASSPHRASE" \
+            --suite stable \
+            --origin edamame.tech
 
-          # Add MD5Sum:
-          echo "MD5Sum:" >> repo/dists/stable/Release
-          for ARCH in amd64 arm64 armhf i386; do
-            PKG_GZ="repo/dists/stable/main/binary-$ARCH/Packages.gz"
-            PKG_TXT="repo/dists/stable/main/binary-$ARCH/Packages"
-            PKG_XZ="repo/dists/stable/main/binary-$ARCH/Packages.xz"
-
-            # .gz
-            if [ -f "$PKG_GZ" ]; then
-              SIZE=$(stat -c%s "$PKG_GZ")
-              MD5=$(md5sum "$PKG_GZ" | cut -d' ' -f1)
-              echo " $MD5 $SIZE main/binary-$ARCH/Packages.gz" >> repo/dists/stable/Release
-            fi
-            # Uncompressed
-            if [ -f "$PKG_TXT" ]; then
-              SIZE=$(stat -c%s "$PKG_TXT")
-              MD5=$(md5sum "$PKG_TXT" | cut -d' ' -f1)
-              echo " $MD5 $SIZE main/binary-$ARCH/Packages" >> repo/dists/stable/Release
-            fi
-            # .xz
-            if [ -f "$PKG_XZ" ]; then
-              SIZE=$(stat -c%s "$PKG_XZ")
-              MD5=$(md5sum "$PKG_XZ" | cut -d' ' -f1)
-              echo " $MD5 $SIZE main/binary-$ARCH/Packages.xz" >> repo/dists/stable/Release
-            fi
-          done
-
-          # Add SHA256:
-          echo "SHA256:" >> repo/dists/stable/Release
-          for ARCH in amd64 arm64 armhf i386; do
-            PKG_GZ="repo/dists/stable/main/binary-$ARCH/Packages.gz"
-            PKG_TXT="repo/dists/stable/main/binary-$ARCH/Packages"
-            PKG_XZ="repo/dists/stable/main/binary-$ARCH/Packages.xz"
-
-            # .gz
-            if [ -f "$PKG_GZ" ]; then
-              SIZE=$(stat -c%s "$PKG_GZ")
-              SHA256=$(sha256sum "$PKG_GZ" | cut -d' ' -f1)
-              echo " $SHA256 $SIZE main/binary-$ARCH/Packages.gz" >> repo/dists/stable/Release
-            fi
-            # Uncompressed
-            if [ -f "$PKG_TXT" ]; then
-              SIZE=$(stat -c%s "$PKG_TXT")
-              SHA256=$(sha256sum "$PKG_TXT" | cut -d' ' -f1)
-              echo " $SHA256 $SIZE main/binary-$ARCH/Packages" >> repo/dists/stable/Release
-            fi
-            # .xz
-            if [ -f "$PKG_XZ" ]; then
-              SIZE=$(stat -c%s "$PKG_XZ")
-              SHA256=$(sha256sum "$PKG_XZ" | cut -d' ' -f1)
-              echo " $SHA256 $SIZE main/binary-$ARCH/Packages.xz" >> repo/dists/stable/Release
-            fi
-          done
-
-          # Sign Release file
-          cd repo/dists/stable
-          rm -f Release.gpg InRelease
-          gpg --batch --yes --passphrase "$GPG_PASSPHRASE" --pinentry-mode loopback -abs -o Release.gpg Release
-          gpg --batch --yes --passphrase "$GPG_PASSPHRASE" --pinentry-mode loopback -a -s --clearsign --output InRelease Release
-      
-      - name: Upload updated repository
-        run: |
-          # Ensure all directories exist before upload
-          for ARCH in amd64 arm64 armhf i386; do
-            mkdir -p "repo/pool/main/$ARCH"
-            mkdir -p "repo/dists/stable/main/binary-$ARCH"
-          done
-
-          # Upload new .deb files
-          for ARCH in amd64 arm64 armhf i386; do
-            DEB_DIR="repo/pool/main/$ARCH"
-            if [ -d "$DEB_DIR" ]; then
-              aws s3 cp "$DEB_DIR/" "s3://edamame/repo/pool/main/$ARCH/" \
-                --acl public-read --recursive
-            fi
-          done
-
-          # Upload updated metadata (Packages*, Release, Release.gpg, etc.) + public key
-          aws s3 cp repo/dists/ s3://edamame/repo/dists/ \
-            --acl public-read --recursive
-
-          # Create a more friendly URL for the public key
-          aws s3 cp repo/dists/stable/public.key s3://edamame/repo/public.key \
-            --acl public-read
+      - name: Dump EDAMAME Posture sessions
+        uses: edamametechnologies/edamame_posture_action@v0
+        with:
+          dump_sessions_log: true
