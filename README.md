@@ -153,7 +153,7 @@ We provide a GPG-signed APT repository for `.deb` packages. This ensures that yo
    
    ```bash
    sudo apt update
-   sudo apt install edamame_posture
+   sudo apt install edamame-posture
    ```
 
 ### Why GPG Signing?
