@@ -1137,18 +1137,18 @@ dependencies = [
 
 [[package]]
 name = "ctor"
-version = "0.3.4"
+version = "0.3.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "035a5c3c87da8be7a0e5ebd6fbabcccd8651a59c27197096d1dfd74f312aaee5"
+checksum = "cdd538fd2dbf2e5932fad5a4f983ff0458891f5ea40973fa2b7d3460ca378914"
 dependencies = [
  "ctor-proc-macro",
 ]
 
 [[package]]
 name = "ctor-proc-macro"
-version = "0.0.2"
+version = "0.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "107adb396b2d8e7766e79151083ce1cc624b51dfd1c23e0429c50226bba693eb"
+checksum = "c426d2ba3e525b39c1f0a9ba41b9fe61878dee11fa4e4a76b6ab440f46c5db5d"
 
 [[package]]
 name = "ctr"
@@ -1576,7 +1576,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "0.9.15"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#38bd33b4157a7dda0801b8330c708bd1d6305cc0"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#815d243f8c9e8069e0fcee1a9eeaec48e7bfa171"
 dependencies = [
  "anyhow",
  "arp-toolkit",
