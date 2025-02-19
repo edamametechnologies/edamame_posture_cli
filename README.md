@@ -91,6 +91,7 @@ We provide a GPG-signed APT repository for `.deb` packages, ensuring secure and 
    For a user-friendly graphical interface and enhanced control:
    ```bash
    sudo apt install edamame-security
+   /usr/lib/edamame-security/edamame &
    ```
    The edamame-security package provides:
    - Rich graphical interface for controlling edamame-posture
