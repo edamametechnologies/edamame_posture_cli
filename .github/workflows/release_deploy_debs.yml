@@ -106,7 +106,10 @@ jobs:
 
       # Build application for Linux using cross
       - name: Build application for Linux using cross
-        run: cross build --release --target ${{ matrix.target }}
+        run: |
+          cross build --release --target ${{ matrix.target }}
+          # Copy the binary to the release folder which is expected by many tools
+          cp target/${{ matrix.target }}/release/edamame_posture target/release/edamame_posture
 
       - name: Package Debian package with cargo deb
         run: |
@@ -121,9 +124,10 @@ jobs:
           fi
           # Create completions
           echo "Creating completions..."
-          ./target/${{ matrix.target }}/release/edamame_posture completion bash > target/completions/edamame_posture.bash
-          ./target/${{ matrix.target }}/release/edamame_posture completion fish > target/completions/edamame_posture.fish
-          ./target/${{ matrix.target }}/release/edamame_posture completion zsh > target/completions/_edamame_posture
+          mkdir -p ./target/completions
+          ./target/release/edamame_posture completion bash > target/completions/edamame_posture.bash
+          ./target/release/edamame_posture completion fish > target/completions/edamame_posture.fish
+          ./target/release/edamame_posture completion zsh > target/completions/_edamame_posture
           # Install cargo-deb
           echo "Installing cargo-deb..."
           cargo install cargo-deb
