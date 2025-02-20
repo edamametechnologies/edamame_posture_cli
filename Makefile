@@ -43,10 +43,17 @@ linux_debug:
 	cargo build
 
 linux_release:
-	cargo build --release
+	cargo deb --no-build
 
-linux_publish: linux_release
+completions:
+	mkdir -p ./target/completions
+	./target/release/edamame_posture completion bash > ./target/completions/edamame_posture.bash
+	./target/release/edamame_posture completion fish > ./target/completions/edamame_posture.fish
+	./target/release/edamame_posture completion zsh > ./target/completions/_edamame_posture
 
+linux_publish: linux_release completions
+	cargo deb
+:
 linux_alpine: linux_alpine_release
 
 linux_alpine_debug:

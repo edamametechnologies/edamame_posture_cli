@@ -76,16 +76,15 @@ assets = [
     { source = "debian/edamame_posture.conf", dest = "etc/edamame_posture.conf", mode = "0644" },
     { source = "debian/edamame_posture.service", dest = "lib/systemd/system/edamame_posture.service", mode = "0644" },
     # Add completion files for different shells
-    { source = "debian/completions/edamame_posture.bash", dest = "usr/share/bash-completion/completions/edamame_posture", mode = "0644" },
-    { source = "debian/completions/edamame_posture.fish", dest = "usr/share/fish/vendor_completions.d/edamame_posture.fish", mode = "0644" },
-    { source = "debian/completions/edamame_posture.zsh", dest = "usr/share/zsh/vendor-completions/_edamame_posture", mode = "0644" },
+    { source = "target/completions/edamame_posture.bash", dest = "usr/share/bash-completion/completions/edamame_posture", mode = "0644" },
+    { source = "target/completions/edamame_posture.fish", dest = "usr/share/fish/vendor_completions.d/edamame_posture.fish", mode = "0644" },
+    { source = "target/completions/_edamame_posture", dest = "usr/share/zsh/vendor-completions/_edamame_posture", mode = "0644" },
 ]
 
 [build-dependencies]
 
 # Build metadata
 clap = "4.1.1"
-clap_complete = "4.5.1"
+# Easier to generate completions with the cli once it's built
+# clap_complete = "4.5.1"
 vergen-gitcl = { version = "1.0.5", features = [ "build", "cargo", "rustc", "si" ] }
-
-
