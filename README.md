@@ -85,24 +85,36 @@ We provide a GPG-signed APT repository for `.deb` packages, ensuring secure and 
    ```bash
    sudo apt update
    sudo apt install edamame-posture
+   /usr/bin/edamame_posture --help
    ```
 
-4. **Optional: Install EDAMAME Security Interface**  
+4. **Optional: Install EDAMAME Security GRPC GUI**  
    For a user-friendly graphical interface and enhanced control:
    ```bash
    sudo apt install edamame-security
-   /usr/lib/edamame-security/edamame &
+   /usr/lib/edamame-security/edamame_security &
    ```
    The edamame-security package provides:
    - Rich graphical interface for controlling edamame-posture
-   - Real-time monitoring and alerts
+   - Real-time monitoring and alerts through notifications
    - Easy configuration management
-   - Integration with system tray
-   - GRPC-based communication with edamame-posture
+   - GRPC-based bidirectional communication with edamame-posture allowing for hybrid CLI/GUI operation
+   - Integration with the system tray
+   - Follows FreeDesktop standards for integration with the system
+
+5. **Optional: Install EDAMAME Security GRPC CLI**
+   ```bash
+   sudo apt install edamame-cli
+   /usr/bin/edamame_cli --help
+   ```
+   The edamame-cli is aimed at advanced users who want to integrate edamame-posture in their own scripts or workflows. It provides:
+   - GRPC client for edamame-posture
+   - Allows for remote control of all controls of edamame-posture
 
 ### Configuration
 
-1. **Configure** the service:
+1. **Configure** the edamame_posture service:
+   This step is optional if you are using the edamame-security GUI.
    ```bash
    sudo nano /etc/edamame_posture.conf
    ```
@@ -113,9 +125,10 @@ We provide a GPG-signed APT repository for `.deb` packages, ensuring secure and 
    edamame_pin: "your_pin"
    ```
 
-2. **Start** the service:
+2. **Check** the edamame_posture service:
+   The service is automatically started when installing edamame-posture.
    ```bash
-   sudo systemctl start edamame_posture.service
+   sudo systemctl status edamame_posture.service
    ```
 
 ### Binary Installation
