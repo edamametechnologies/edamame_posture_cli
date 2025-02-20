@@ -8,14 +8,14 @@ use clap::{arg, ArgAction, Command};
 use clap_complete::Shell;
 
 pub fn build_cli() -> Command {
+    // Turn it into a &'static str by leaking it
     let core_version_runtime: String = CORE_VERSION.to_string();
     let core_version_static: &'static str = Box::leak(core_version_runtime.into_boxed_str());
 
     Command::new("edamame_posture")
         .version(core_version_static)
-        .author("Frank Lyonnet")
+        .author("EDAMAME Technologies")
         .about("CLI interface to edamame_core")
-    // Add completion subcommand
     .subcommand(
         Command::new("completion")
             .about("Generate shell completion scripts")
