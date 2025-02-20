@@ -170,6 +170,8 @@ We provide a GPG-signed APT repository for `.deb` packages, ensuring secure and 
 
    ```bash
    sudo systemctl start edamame_posture.service
+   # or if you installed the deb package, the service has been automatically started and you need to restart it so that it picks up the new configuration:
+   sudo systemctl restart edamame_posture.service
    ```
 
 4. **Verify** the service status:

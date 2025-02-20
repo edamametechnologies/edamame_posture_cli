@@ -53,7 +53,7 @@ completions:
 
 linux_publish: linux_release completions
 	cargo deb
-:
+
 linux_alpine: linux_alpine_release
 
 linux_alpine_debug:
