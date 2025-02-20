@@ -1,6 +1,6 @@
 [package]
 name = "edamame_posture"
-version = "0.9.15"
+version = "0.9.16"
 edition = "2021"
 description = "EDAMAME Security posture analysis and remediation"
 
@@ -68,7 +68,7 @@ maintainer = "EDAMAME Technologies"
 copyright = "EDAMAME Technologies"
 license-file = ["LICENSE", "0"]
 maintainer-scripts = "debian/"
-depends = ["systemd"]
+depends = ["systemd, libpcap-dev"]
 assets = [
     { source = "target/release/edamame_posture", dest = "usr/bin/edamame_posture", mode = "0755" },
     { source = "debian/edamame_posture_daemon.sh", dest = "usr/bin/edamame_posture_daemon.sh", mode = "0755" },
