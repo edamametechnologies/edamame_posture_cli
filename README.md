@@ -449,4 +449,4 @@ Most commands require administrator privileges. If a command requires admin priv
 
 ## Author
 
-Frank Lyonnet
+EDAMAME Technologies

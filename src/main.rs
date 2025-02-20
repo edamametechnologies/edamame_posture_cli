@@ -208,7 +208,6 @@ fn ensure_admin() {
 }
 
 fn run_base() {
-    // Turn it into a &'static str by leaking it
     let mut exit_code = 0;
 
     let mut cmd = build_cli();
