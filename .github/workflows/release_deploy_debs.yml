@@ -122,12 +122,6 @@ jobs:
             echo "Installing aarch64-linux-gnu-binutils..."
             sudo apt-get install binutils-aarch64-linux-gnu
           fi
-          # Create completions
-          echo "Creating completions..."
-          mkdir -p ./target/completions
-          ./target/release/edamame_posture completion bash > target/completions/edamame_posture.bash
-          ./target/release/edamame_posture completion fish > target/completions/edamame_posture.fish
-          ./target/release/edamame_posture completion zsh > target/completions/_edamame_posture
           # Install cargo-deb
           echo "Installing cargo-deb..."
           cargo install cargo-deb
