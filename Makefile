@@ -43,7 +43,7 @@ linux_debug:
 	cargo build
 
 linux_release:
-	cargo deb --no-build
+	cargo build --release
 
 completions:
 	mkdir -p ./target/completions
