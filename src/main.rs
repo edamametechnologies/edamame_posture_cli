@@ -7,6 +7,7 @@ use background::*;
 use base::*;
 use base64::prelude::*;
 use clap::{arg, ArgAction, Command};
+use clap_complete::{generate, Generator, Shell};
 use daemon::*;
 use edamame_core::api::api_core::*;
 use edamame_core::api::api_lanscan::*;
@@ -15,6 +16,7 @@ use envcrypt::envc;
 use lazy_static::lazy_static;
 use machine_uid;
 use regex::Regex;
+use std::io;
 use std::process::exit;
 use std::thread::sleep;
 use std::time::Duration;
@@ -141,6 +143,10 @@ pub fn initialize_core(
     );
 }
 
+fn print_completions<G: Generator>(gen: G, cmd: &mut Command) {
+    generate(gen, cmd, cmd.get_name().to_string(), &mut io::stdout());
+}
+
 fn run() {
     let args: Vec<String> = std::env::args().collect();
 
@@ -204,10 +210,17 @@ fn run_base() {
     // Turn it into a &'static str by leaking it
     let core_version_static: &'static str = Box::leak(core_version_runtime.into_boxed_str());
     let mut exit_code = 0;
-    let matches = Command::new("edamame_posture")
+    let mut cmd = Command::new("edamame_posture")
         .version(core_version_static)
         .author("Frank Lyonnet")
         .about("CLI interface to edamame_core")
+        // Add completion subcommand
+        .subcommand(
+            Command::new("completion")
+                .about("Generate shell completion scripts")
+                .arg(arg!(<SHELL> "The shell to generate completions for")
+                    .value_parser(clap::value_parser!(Shell)))
+        )
         .arg(
             arg!(
                 -v --verbose ... "Verbosity level (-v: info, -vv: debug, -vvv: trace)"
@@ -383,7 +396,16 @@ fn run_base() {
         .subcommand(Command::new("background-status").alias("status").about("Get status of reporting background process"))
         .subcommand(Command::new("background-last-report-signature").alias("get-last-report-signature").about("Get last report signature of background process"))
         .subcommand(Command::new("background-get-history").alias("get-history").about("Get history of score modifications"))
-        .get_matches();
+        ;
+
+    let matches = cmd.clone().get_matches();
+
+    // Handle completion subcommand before other commands
+    if let Some(("completion", sub_matches)) = matches.subcommand() {
+        let shell = sub_matches.get_one::<Shell>("SHELL").unwrap();
+        print_completions(*shell, &mut cmd);
+        return;
+    }
 
     // Check for verbose flag count
     let verbose_level = matches.get_count("verbose");
