@@ -114,22 +114,8 @@ We provide a GPG-signed APT repository for `.deb` packages, ensuring secure and 
 ### Configuration
 
 1. **Configure** the edamame_posture service:
-   This step is optional if you are using the edamame-security GUI.
-   ```bash
-   sudo nano /etc/edamame_posture.conf
-   ```
-   Set required values:
-   ```yaml
-   edamame_user: "your_username"
-   edamame_domain: "your.domain.com"
-   edamame_pin: "your_pin"
-   ```
-
-2. **Check** the edamame_posture service:
-   The service is automatically started when installing edamame-posture.
-   ```bash
-   sudo systemctl status edamame_posture.service
-   ```
+   - Through the edamame-security GUI.
+   - Through the edamame-posture service configuration file: `/etc/edamame_posture.conf` and edamame_posture commands as seen below.
 
 ### Binary Installation
 
@@ -272,7 +258,7 @@ Waits for a network connection within a specified timeout period.
 Syntax:
 edamame_posture wait-for-connection [TIMEOUT]
 
-• TIMEOUT: Timeout in seconds (optional, defaults to 600 seconds if not provided)
+- TIMEOUT: Timeout in seconds (optional, defaults to 600 seconds if not provided)
 
 --------------------------------------------------------------------------------
 
@@ -283,8 +269,8 @@ Retrieves connection sessions.
 Syntax:
 edamame_posture get-sessions [ZEEK_FORMAT] [LOCAL_TRAFFIC]
 
-• ZEEK_FORMAT: Format the output as Zeek log (optional, defaults to false if not provided)
-• LOCAL_TRAFFIC: Include local traffic (optional, defaults to false if not provided)
+- ZEEK_FORMAT: Format the output as Zeek log (optional, defaults to false if not provided)
+- LOCAL_TRAFFIC: Include local traffic (optional, defaults to false if not provided)
 
 --------------------------------------------------------------------------------
 
@@ -295,10 +281,10 @@ Captures network traffic for a specified duration and formats it as a log.
 Syntax:
 edamame_posture capture [SECONDS] [WHITELIST_NAME] [ZEEK_FORMAT] [LOCAL_TRAFFIC]
 
-• SECONDS: Duration in seconds (optional, defaults to 600 seconds if not provided)
-• WHITELIST_NAME: Name of the whitelist to use (optional)
-• ZEEK_FORMAT: Format the output as Zeek log (optional, defaults to false if not provided)
-• LOCAL_TRAFFIC: Include local traffic (optional, defaults to false if not provided)
+- SECONDS: Duration in seconds (optional, defaults to 600 seconds if not provided)
+- WHITELIST_NAME: Name of the whitelist to use (optional)
+- ZEEK_FORMAT: Format the output as Zeek log (optional, defaults to false if not provided)
+- LOCAL_TRAFFIC: Include local traffic (optional, defaults to false if not provided)
 
 --------------------------------------------------------------------------------
 
@@ -336,8 +322,8 @@ Requests a PIN for user authentication.
 Syntax:
 edamame_posture request-pin <USER> <DOMAIN>
 
-• USER: User name
-• DOMAIN: Domain name (must be a valid FQDN)
+- USER: User name
+- DOMAIN: Domain name (must be a valid FQDN)
 
 --------------------------------------------------------------------------------
 
@@ -357,7 +343,7 @@ Performs threat remediation actions on the device.
 Syntax:
 edamame_posture remediate [REMEDIATIONS]
 
-• REMEDIATIONS: Comma-separated list of remediations to skip (optional)
+- REMEDIATIONS: Comma-separated list of remediations to skip (optional)
 
 --------------------------------------------------------------------------------
 
@@ -377,8 +363,8 @@ Sends a report, based on a previously retrieved signature, to a specified email 
 Syntax:
 edamame_posture request-report <EMAIL> <SIGNATURE>
 
-• EMAIL: Email address (required)
-• SIGNATURE: A signature string previously obtained (required)
+- EMAIL: Email address (required)
+- SIGNATURE: A signature string previously obtained (required)
 
 --------------------------------------------------------------------------------
 
@@ -398,13 +384,13 @@ Starts the background process for continuous monitoring and reporting.
 Syntax:
 edamame_posture start <USER> <DOMAIN> <PIN> [DEVICE_ID] [LAN_SCANNING] [WHITELIST_NAME] [LOCAL_TRAFFIC]
 
-• USER: User name (required)
-• DOMAIN: Domain name (must be a valid FQDN)
-• PIN: PIN for authentication (must contain digits only)
-• DEVICE_ID: Device ID suffix (optional, if non empty, it will be used to identify the device in the EDAMAME Hub and will flag it as a CI/CD runner - typically the job or pipeline ID)
-• LAN_SCANNING: Enable LAN scanning (optional, defaults to false)
-• WHITELIST_NAME: Name of the whitelist to use (optional)
-• LOCAL_TRAFFIC: Include local traffic (optional, defaults to false)
+- USER: User name (required)
+- DOMAIN: Domain name (must be a valid FQDN)
+- PIN: PIN for authentication (must contain digits only)
+- DEVICE_ID: Device ID suffix (optional, if non empty, it will be used to identify the device in the EDAMAME Hub and will flag it as a CI/CD runner - typically the job or pipeline ID)
+- LAN_SCANNING: Enable LAN scanning (optional, defaults to false)
+- WHITELIST_NAME: Name of the whitelist to use (optional)
+- LOCAL_TRAFFIC: Include local traffic (optional, defaults to false)
 
 --------------------------------------------------------------------------------
 
@@ -454,8 +440,8 @@ Most commands require administrator privileges. If a command requires admin priv
 
 ## Error Handling
 
-• Invalid arguments or subcommands will prompt usage instructions.
-• Missing arguments required for a subcommand will generate an error.
+- Invalid arguments or subcommands will prompt usage instructions.
+- Missing arguments required for a subcommand will generate an error.
 
 --------------------------------------------------------------------------------
 
