@@ -76,9 +76,9 @@ assets = [
     { source = "debian/edamame_posture.conf", dest = "etc/edamame_posture.conf", mode = "0644" },
     { source = "debian/edamame_posture.service", dest = "lib/systemd/system/edamame_posture.service", mode = "0644" },
     # Add completion files for different shells
-    { source = "target/completions/edamame_posture.bash", dest = "usr/share/bash-completion/completions/edamame_posture", mode = "0644" },
-    { source = "target/completions/edamame_posture.fish", dest = "usr/share/fish/vendor_completions.d/edamame_posture.fish", mode = "0644" },
-    { source = "target/completions/_edamame_posture", dest = "usr/share/zsh/vendor-completions/_edamame_posture", mode = "0644" },
+    { source = "completions/edamame_posture.bash", dest = "usr/share/bash-completion/completions/edamame_posture", mode = "0644" },
+    { source = "completions/edamame_posture.fish", dest = "usr/share/fish/vendor_completions.d/edamame_posture.fish", mode = "0644" },
+    { source = "completions/_edamame_posture", dest = "usr/share/zsh/vendor-completions/_edamame_posture", mode = "0644" },
 ]
 
 [build-dependencies]

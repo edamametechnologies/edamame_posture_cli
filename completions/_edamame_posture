@@ -1,0 +1,633 @@
+#compdef edamame_posture
+
+autoload -U is-at-least
+
+_edamame_posture() {
+    typeset -A opt_args
+    typeset -a _arguments_options
+    local ret=1
+
+    if is-at-least 5.2; then
+        _arguments_options=(-s -S -C)
+    else
+        _arguments_options=(-s -C)
+    fi
+
+    local context curcontext="$curcontext" state line
+    _arguments "${_arguments_options[@]}" : \
+'*-v[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'*--verbose[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'-h[Print help]' \
+'--help[Print help]' \
+'-V[Print version]' \
+'--version[Print version]' \
+":: :_edamame_posture_commands" \
+"*::: :->edamame_posture" \
+&& ret=0
+    case $state in
+    (edamame_posture)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:edamame_posture-command-$line[1]:"
+        case $line[1] in
+            (completion)
+_arguments "${_arguments_options[@]}" : \
+'*-v[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'*--verbose[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'-h[Print help]' \
+'--help[Print help]' \
+':SHELL -- The shell to generate completions for:(bash elvish fish powershell zsh)' \
+&& ret=0
+;;
+(score)
+_arguments "${_arguments_options[@]}" : \
+'*-v[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'*--verbose[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(lanscan)
+_arguments "${_arguments_options[@]}" : \
+'*-v[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'*--verbose[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(capture)
+_arguments "${_arguments_options[@]}" : \
+'*-v[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'*--verbose[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'-h[Print help]' \
+'--help[Print help]' \
+'::SECONDS -- Number of seconds to capture:_default' \
+'::WHITELIST_NAME -- Whitelist name:_default' \
+'::ZEEK_FORMAT -- Zeek format:(true false)' \
+'::LOCAL_TRAFFIC -- Include local traffic:(true false)' \
+&& ret=0
+;;
+(get-core-info)
+_arguments "${_arguments_options[@]}" : \
+'*-v[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'*--verbose[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(get-device-info)
+_arguments "${_arguments_options[@]}" : \
+'*-v[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'*--verbose[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(get-system-info)
+_arguments "${_arguments_options[@]}" : \
+'*-v[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'*--verbose[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(request-pin)
+_arguments "${_arguments_options[@]}" : \
+'*-v[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'*--verbose[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'-h[Print help]' \
+'--help[Print help]' \
+':USER -- User name:_default' \
+':DOMAIN -- Domain name:_default' \
+&& ret=0
+;;
+(get-core-version)
+_arguments "${_arguments_options[@]}" : \
+'*-v[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'*--verbose[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(remediate)
+_arguments "${_arguments_options[@]}" : \
+'*-v[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'*--verbose[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'-h[Print help]' \
+'--help[Print help]' \
+'::REMEDIATIONS -- Remediations to skip (comma separated list), by default only remote login enabled is skipped:_default' \
+&& ret=0
+;;
+(request-signature)
+_arguments "${_arguments_options[@]}" : \
+'*-v[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'*--verbose[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(request-report)
+_arguments "${_arguments_options[@]}" : \
+'*-v[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'*--verbose[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'-h[Print help]' \
+'--help[Print help]' \
+':EMAIL -- Email address:_default' \
+':SIGNATURE -- Signature:_default' \
+&& ret=0
+;;
+(background-logs)
+_arguments "${_arguments_options[@]}" : \
+'*-v[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'*--verbose[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(background-wait-for-connection)
+_arguments "${_arguments_options[@]}" : \
+'*-v[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'*--verbose[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'-h[Print help]' \
+'--help[Print help]' \
+'::TIMEOUT -- Timeout in seconds:_default' \
+&& ret=0
+;;
+(background-sessions)
+_arguments "${_arguments_options[@]}" : \
+'*-v[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'*--verbose[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'-h[Print help]' \
+'--help[Print help]' \
+'::ZEEK_FORMAT -- Zeek format:(true false)' \
+'::LOCAL_TRAFFIC -- Include local traffic:(true false)' \
+&& ret=0
+;;
+(background-threats-info)
+_arguments "${_arguments_options[@]}" : \
+'*-v[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'*--verbose[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(foreground-start)
+_arguments "${_arguments_options[@]}" : \
+'*-v[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'*--verbose[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'-h[Print help]' \
+'--help[Print help]' \
+':USER -- User name:_default' \
+':DOMAIN -- Domain name:_default' \
+':PIN -- PIN:_default' \
+&& ret=0
+;;
+(background-start)
+_arguments "${_arguments_options[@]}" : \
+'*-v[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'*--verbose[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'-h[Print help]' \
+'--help[Print help]' \
+':USER -- User name:_default' \
+':DOMAIN -- Domain name:_default' \
+':PIN -- PIN:_default' \
+'::DEVICE_ID -- Device ID in the form of a string, this will be used as a suffix to the detected hardware ID. When non empty, the endpoint will be flagged as a CI/CD runner.:_default' \
+'::LAN_SCANNING -- LAN scanning enabled:(true false)' \
+'::WHITELIST_NAME -- Whitelist name:_default' \
+'::LOCAL_TRAFFIC -- Include local traffic:(true false)' \
+&& ret=0
+;;
+(background-stop)
+_arguments "${_arguments_options[@]}" : \
+'*-v[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'*--verbose[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(background-status)
+_arguments "${_arguments_options[@]}" : \
+'*-v[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'*--verbose[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(background-last-report-signature)
+_arguments "${_arguments_options[@]}" : \
+'*-v[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'*--verbose[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(background-get-history)
+_arguments "${_arguments_options[@]}" : \
+'*-v[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'*--verbose[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+":: :_edamame_posture__help_commands" \
+"*::: :->help" \
+&& ret=0
+
+    case $state in
+    (help)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:edamame_posture-help-command-$line[1]:"
+        case $line[1] in
+            (completion)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(score)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(lanscan)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(capture)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(get-core-info)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(get-device-info)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(get-system-info)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(request-pin)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(get-core-version)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(remediate)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(request-signature)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(request-report)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(background-logs)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(background-wait-for-connection)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(background-sessions)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(background-threats-info)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(foreground-start)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(background-start)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(background-stop)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(background-status)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(background-last-report-signature)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(background-get-history)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+        esac
+    ;;
+esac
+;;
+        esac
+    ;;
+esac
+}
+
+(( $+functions[_edamame_posture_commands] )) ||
+_edamame_posture_commands() {
+    local commands; commands=(
+'completion:Generate shell completion scripts' \
+'score:Get score information' \
+'lanscan:Performs a LAN scan' \
+'capture:Capture packets' \
+'get-core-info:Get core information' \
+'get-device-info:Get device information' \
+'get-system-info:Get system information' \
+'request-pin:Request PIN' \
+'get-core-version:Get core version' \
+'remediate:Remediate threats' \
+'request-signature:Report the security posture anonymously and get a signature for later retrieval' \
+'request-report:Send a report from a signature to an email address' \
+'background-logs:Display logs from the background process' \
+'background-wait-for-connection:Wait for connection of the background process' \
+'background-sessions:Get connections of the background process' \
+'background-threats-info:Get threats information of the background process' \
+'foreground-start:Start reporting in the foreground (used by the systemd service)' \
+'background-start:Start reporting background process' \
+'background-stop:Stop reporting background process' \
+'background-status:Get status of reporting background process' \
+'background-last-report-signature:Get last report signature of background process' \
+'background-get-history:Get history of score modifications' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'edamame_posture commands' commands "$@"
+}
+(( $+functions[_edamame_posture__background-get-history_commands] )) ||
+_edamame_posture__background-get-history_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture background-get-history commands' commands "$@"
+}
+(( $+functions[_edamame_posture__background-last-report-signature_commands] )) ||
+_edamame_posture__background-last-report-signature_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture background-last-report-signature commands' commands "$@"
+}
+(( $+functions[_edamame_posture__background-logs_commands] )) ||
+_edamame_posture__background-logs_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture background-logs commands' commands "$@"
+}
+(( $+functions[_edamame_posture__background-sessions_commands] )) ||
+_edamame_posture__background-sessions_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture background-sessions commands' commands "$@"
+}
+(( $+functions[_edamame_posture__background-start_commands] )) ||
+_edamame_posture__background-start_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture background-start commands' commands "$@"
+}
+(( $+functions[_edamame_posture__background-status_commands] )) ||
+_edamame_posture__background-status_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture background-status commands' commands "$@"
+}
+(( $+functions[_edamame_posture__background-stop_commands] )) ||
+_edamame_posture__background-stop_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture background-stop commands' commands "$@"
+}
+(( $+functions[_edamame_posture__background-threats-info_commands] )) ||
+_edamame_posture__background-threats-info_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture background-threats-info commands' commands "$@"
+}
+(( $+functions[_edamame_posture__background-wait-for-connection_commands] )) ||
+_edamame_posture__background-wait-for-connection_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture background-wait-for-connection commands' commands "$@"
+}
+(( $+functions[_edamame_posture__capture_commands] )) ||
+_edamame_posture__capture_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture capture commands' commands "$@"
+}
+(( $+functions[_edamame_posture__completion_commands] )) ||
+_edamame_posture__completion_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture completion commands' commands "$@"
+}
+(( $+functions[_edamame_posture__foreground-start_commands] )) ||
+_edamame_posture__foreground-start_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture foreground-start commands' commands "$@"
+}
+(( $+functions[_edamame_posture__get-core-info_commands] )) ||
+_edamame_posture__get-core-info_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture get-core-info commands' commands "$@"
+}
+(( $+functions[_edamame_posture__get-core-version_commands] )) ||
+_edamame_posture__get-core-version_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture get-core-version commands' commands "$@"
+}
+(( $+functions[_edamame_posture__get-device-info_commands] )) ||
+_edamame_posture__get-device-info_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture get-device-info commands' commands "$@"
+}
+(( $+functions[_edamame_posture__get-system-info_commands] )) ||
+_edamame_posture__get-system-info_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture get-system-info commands' commands "$@"
+}
+(( $+functions[_edamame_posture__help_commands] )) ||
+_edamame_posture__help_commands() {
+    local commands; commands=(
+'completion:Generate shell completion scripts' \
+'score:Get score information' \
+'lanscan:Performs a LAN scan' \
+'capture:Capture packets' \
+'get-core-info:Get core information' \
+'get-device-info:Get device information' \
+'get-system-info:Get system information' \
+'request-pin:Request PIN' \
+'get-core-version:Get core version' \
+'remediate:Remediate threats' \
+'request-signature:Report the security posture anonymously and get a signature for later retrieval' \
+'request-report:Send a report from a signature to an email address' \
+'background-logs:Display logs from the background process' \
+'background-wait-for-connection:Wait for connection of the background process' \
+'background-sessions:Get connections of the background process' \
+'background-threats-info:Get threats information of the background process' \
+'foreground-start:Start reporting in the foreground (used by the systemd service)' \
+'background-start:Start reporting background process' \
+'background-stop:Stop reporting background process' \
+'background-status:Get status of reporting background process' \
+'background-last-report-signature:Get last report signature of background process' \
+'background-get-history:Get history of score modifications' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'edamame_posture help commands' commands "$@"
+}
+(( $+functions[_edamame_posture__help__background-get-history_commands] )) ||
+_edamame_posture__help__background-get-history_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture help background-get-history commands' commands "$@"
+}
+(( $+functions[_edamame_posture__help__background-last-report-signature_commands] )) ||
+_edamame_posture__help__background-last-report-signature_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture help background-last-report-signature commands' commands "$@"
+}
+(( $+functions[_edamame_posture__help__background-logs_commands] )) ||
+_edamame_posture__help__background-logs_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture help background-logs commands' commands "$@"
+}
+(( $+functions[_edamame_posture__help__background-sessions_commands] )) ||
+_edamame_posture__help__background-sessions_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture help background-sessions commands' commands "$@"
+}
+(( $+functions[_edamame_posture__help__background-start_commands] )) ||
+_edamame_posture__help__background-start_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture help background-start commands' commands "$@"
+}
+(( $+functions[_edamame_posture__help__background-status_commands] )) ||
+_edamame_posture__help__background-status_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture help background-status commands' commands "$@"
+}
+(( $+functions[_edamame_posture__help__background-stop_commands] )) ||
+_edamame_posture__help__background-stop_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture help background-stop commands' commands "$@"
+}
+(( $+functions[_edamame_posture__help__background-threats-info_commands] )) ||
+_edamame_posture__help__background-threats-info_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture help background-threats-info commands' commands "$@"
+}
+(( $+functions[_edamame_posture__help__background-wait-for-connection_commands] )) ||
+_edamame_posture__help__background-wait-for-connection_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture help background-wait-for-connection commands' commands "$@"
+}
+(( $+functions[_edamame_posture__help__capture_commands] )) ||
+_edamame_posture__help__capture_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture help capture commands' commands "$@"
+}
+(( $+functions[_edamame_posture__help__completion_commands] )) ||
+_edamame_posture__help__completion_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture help completion commands' commands "$@"
+}
+(( $+functions[_edamame_posture__help__foreground-start_commands] )) ||
+_edamame_posture__help__foreground-start_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture help foreground-start commands' commands "$@"
+}
+(( $+functions[_edamame_posture__help__get-core-info_commands] )) ||
+_edamame_posture__help__get-core-info_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture help get-core-info commands' commands "$@"
+}
+(( $+functions[_edamame_posture__help__get-core-version_commands] )) ||
+_edamame_posture__help__get-core-version_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture help get-core-version commands' commands "$@"
+}
+(( $+functions[_edamame_posture__help__get-device-info_commands] )) ||
+_edamame_posture__help__get-device-info_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture help get-device-info commands' commands "$@"
+}
+(( $+functions[_edamame_posture__help__get-system-info_commands] )) ||
+_edamame_posture__help__get-system-info_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture help get-system-info commands' commands "$@"
+}
+(( $+functions[_edamame_posture__help__help_commands] )) ||
+_edamame_posture__help__help_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture help help commands' commands "$@"
+}
+(( $+functions[_edamame_posture__help__lanscan_commands] )) ||
+_edamame_posture__help__lanscan_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture help lanscan commands' commands "$@"
+}
+(( $+functions[_edamame_posture__help__remediate_commands] )) ||
+_edamame_posture__help__remediate_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture help remediate commands' commands "$@"
+}
+(( $+functions[_edamame_posture__help__request-pin_commands] )) ||
+_edamame_posture__help__request-pin_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture help request-pin commands' commands "$@"
+}
+(( $+functions[_edamame_posture__help__request-report_commands] )) ||
+_edamame_posture__help__request-report_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture help request-report commands' commands "$@"
+}
+(( $+functions[_edamame_posture__help__request-signature_commands] )) ||
+_edamame_posture__help__request-signature_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture help request-signature commands' commands "$@"
+}
+(( $+functions[_edamame_posture__help__score_commands] )) ||
+_edamame_posture__help__score_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture help score commands' commands "$@"
+}
+(( $+functions[_edamame_posture__lanscan_commands] )) ||
+_edamame_posture__lanscan_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture lanscan commands' commands "$@"
+}
+(( $+functions[_edamame_posture__remediate_commands] )) ||
+_edamame_posture__remediate_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture remediate commands' commands "$@"
+}
+(( $+functions[_edamame_posture__request-pin_commands] )) ||
+_edamame_posture__request-pin_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture request-pin commands' commands "$@"
+}
+(( $+functions[_edamame_posture__request-report_commands] )) ||
+_edamame_posture__request-report_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture request-report commands' commands "$@"
+}
+(( $+functions[_edamame_posture__request-signature_commands] )) ||
+_edamame_posture__request-signature_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture request-signature commands' commands "$@"
+}
+(( $+functions[_edamame_posture__score_commands] )) ||
+_edamame_posture__score_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture score commands' commands "$@"
+}
+
+if [ "$funcstack[1]" = "_edamame_posture" ]; then
+    _edamame_posture "$@"
+else
+    compdef _edamame_posture edamame_posture
+fi
