@@ -329,7 +329,7 @@ fn run_base() {
             let domain = sub_matches.get_one::<String>("DOMAIN").unwrap().to_string();
             // Initialize the core with all options disabled
             initialize_core("".to_string(), false, false, false, false, verbose);
-            base_request_pin(user, domain);
+            let _ = base_request_pin(user, domain);
         }
         Some(("get-core-version", _)) => {
             // No admin check needed here
@@ -346,6 +346,26 @@ fn run_base() {
             initialize_core("".to_string(), true, false, false, false, false);
             ensure_admin();
             base_remediate(&remediations_to_skip)
+        }
+        Some(("remediate-threat", sub_matches)) => {
+            let threat_id = sub_matches
+                .get_one::<String>("THREAT_ID")
+                .expect("THREAT_ID not provided")
+                .to_string();
+            // Initialize the core with computing enabled
+            initialize_core("".to_string(), true, false, false, false, false);
+            ensure_admin();
+            let _ = base_remediate_threat(threat_id);
+        }
+        Some(("rollback-threat", sub_matches)) => {
+            let threat_id = sub_matches
+                .get_one::<String>("THREAT_ID")
+                .expect("THREAT_ID not provided")
+                .to_string();
+            // Initialize the core with computing enabled
+            initialize_core("".to_string(), true, false, false, false, false);
+            ensure_admin();
+            let _ = base_rollback_threat(threat_id);
         }
         Some(("get-system-info", _)) => {
             // Initialize the core with all options disabled

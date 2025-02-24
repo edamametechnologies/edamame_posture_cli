@@ -113,7 +113,7 @@ We provide a GPG-signed APT repository for `.deb` packages, ensuring secure and 
 
 ### Configuration
 
-1. **Configure** the edamame_posture service:
+**Configure** the edamame_posture service:
    - Through the edamame-security GUI.
    - Through the edamame-posture service configuration file: `/etc/edamame_posture.conf` and edamame_posture commands as seen below.
 
@@ -138,10 +138,10 @@ We provide a GPG-signed APT repository for `.deb` packages, ensuring secure and 
 
 1. **Download** the Debian package for your platform (links below).  
 
-- **Gnu Linux x86_64:** [edamame-posture_0.9.15-1_amd64.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.16/edamame-posture_0.9.15-1_amd64.deb)
-- **Gnu Linux i686 (32-bit):** [edamame-posture_0.9.15-1_i386.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.16/edamame-posture_0.9.15-1_i386.deb)
-- **Gnu Linux aarch64:** [edamame-posture_0.9.15-1_arm64.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.16/edamame-posture_0.9.15-1_arm64.deb)
-- **Gnu Linux armv7:** [edamame-posture_0.9.15-1_armhf.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.16/edamame-posture_0.9.15-1_armhf.deb)
+- **Gnu Linux x86_64:** [edamame-posture_0.9.16-1_amd64.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.16/edamame-posture_0.9.16-1_amd64.deb)
+- **Gnu Linux i686 (32-bit):** [edamame-posture_0.9.16-1_i386.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.16/edamame-posture_0.9.16-1_i386.deb)
+- **Gnu Linux aarch64:** [edamame-posture_0.9.16-1_arm64.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.16/edamame-posture_0.9.16-1_arm64.deb)
+- **Gnu Linux armv7:** [edamame-posture_0.9.16-1_armhf.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.16/edamame-posture_0.9.16-1_armhf.deb)
 
 
 1. **Install** the package using either method:
@@ -227,212 +227,276 @@ edamame_posture [SUBCOMMAND]
 ## Subcommands
 
 ### logs
-Displays logs from the background process.
-(Does NOT require admin privileges.)
+Displays logs from the background process.  
+(Does **NOT** require admin privileges.)
 
-Syntax:
+**Syntax**:  
+```
 edamame_posture logs
+```
 
---------------------------------------------------------------------------------
+---
 
 ### score
-Retrieves score information based on device posture.
-(Requires admin privileges.)
+Retrieves score information based on device posture.  
+(Requires **admin** privileges.)
 
-Syntax:
+**Syntax**:  
+```
 edamame_posture score
+```
 
---------------------------------------------------------------------------------
+---
 
 ### lanscan
-Performs a Local Area Network (LAN) scan to detect devices on the network.
-(Requires admin privileges.)
+Performs a Local Area Network (LAN) scan to detect devices on the network.  
+(Requires **admin** privileges.)
 
-Syntax:
+**Syntax**:  
+```
 edamame_posture lanscan
+```
 
---------------------------------------------------------------------------------
+---
 
 ### wait-for-connection
-Waits for a network connection within a specified timeout period.
-(Does NOT require admin privileges.)
+Waits for a network connection within a specified timeout period.  
+(Does **NOT** require admin privileges.)
 
-Syntax:
+**Syntax**:  
+```
 edamame_posture wait-for-connection [TIMEOUT]
+```
 
-- TIMEOUT: Timeout in seconds (optional, defaults to 600 seconds if not provided)
+- **TIMEOUT**: Timeout in seconds (optional, defaults to 600 seconds if not provided)
 
---------------------------------------------------------------------------------
+---
 
 ### get-sessions
-Retrieves connection sessions.
-(Does NOT require admin privileges.)
+Retrieves connection sessions.  
+(Does **NOT** require admin privileges.)
 
-Syntax:
+**Syntax**:  
+```
 edamame_posture get-sessions [ZEEK_FORMAT] [LOCAL_TRAFFIC]
+```
 
-- ZEEK_FORMAT: Format the output as Zeek log (optional, defaults to false if not provided)
-- LOCAL_TRAFFIC: Include local traffic (optional, defaults to false if not provided)
+- **ZEEK_FORMAT**: Format the output as Zeek log (optional, defaults to false if not provided)  
+- **LOCAL_TRAFFIC**: Include local traffic (optional, defaults to false if not provided)
 
---------------------------------------------------------------------------------
+---
 
 ### capture
-Captures network traffic for a specified duration and formats it as a log.
-(Requires admin privileges.)
+Captures network traffic for a specified duration and formats it as a log.  
+(Requires **admin** privileges.)
 
-Syntax:
+**Syntax**:  
+```
 edamame_posture capture [SECONDS] [WHITELIST_NAME] [ZEEK_FORMAT] [LOCAL_TRAFFIC]
+```
 
-- SECONDS: Duration in seconds (optional, defaults to 600 seconds if not provided)
-- WHITELIST_NAME: Name of the whitelist to use (optional)
-- ZEEK_FORMAT: Format the output as Zeek log (optional, defaults to false if not provided)
-- LOCAL_TRAFFIC: Include local traffic (optional, defaults to false if not provided)
+- **SECONDS**: Duration in seconds (optional, defaults to 600 seconds if not provided)  
+- **WHITELIST_NAME**: Name of the whitelist to use (optional)  
+- **ZEEK_FORMAT**: Format the output as Zeek log (optional, defaults to false if not provided)  
+- **LOCAL_TRAFFIC**: Include local traffic (optional, defaults to false if not provided)
 
---------------------------------------------------------------------------------
+---
 
 ### get-core-info
-Fetches core information of the device.
-(Does NOT require admin privileges.)
+Fetches core information of the device.  
+(Does **NOT** require admin privileges.)
 
-Syntax:
+**Syntax**:  
+```
 edamame_posture get-core-info
+```
 
---------------------------------------------------------------------------------
+---
 
 ### get-device-info
-Retrieves detailed device information.
-(Requires admin privileges.)
+Retrieves detailed device information.  
+(Requires **admin** privileges.)
 
-Syntax:
+**Syntax**:  
+```
 edamame_posture get-device-info
+```
 
---------------------------------------------------------------------------------
+---
 
 ### get-system-info
-Retrieves system information including OS details and network configuration.
-(Requires admin privileges.)
+Retrieves system information including OS details and network configuration.  
+(Requires **admin** privileges.)
 
-Syntax:
+**Syntax**:  
+```
 edamame_posture get-system-info
+```
 
---------------------------------------------------------------------------------
+---
 
 ### request-pin
-Requests a PIN for user authentication.
-(Does NOT require admin privileges.)
+Requests a PIN for user authentication.  
+(Does **NOT** require admin privileges.)
 
-Syntax:
+**Syntax**:  
+```
 edamame_posture request-pin <USER> <DOMAIN>
+```
 
-- USER: User name
-- DOMAIN: Domain name (must be a valid FQDN)
+- **USER**: User name  
+- **DOMAIN**: Domain name (must be a valid FQDN)
 
---------------------------------------------------------------------------------
+---
 
 ### get-core-version
-Retrieves the current version of the core.
-(Does NOT require admin privileges.)
+Retrieves the current version of the core.  
+(Does **NOT** require admin privileges.)
 
-Syntax:
+**Syntax**:  
+```
 edamame_posture get-core-version
+```
 
---------------------------------------------------------------------------------
+---
 
 ### remediate
-Performs threat remediation actions on the device.
-(Requires admin privileges.)
+Performs remediation actions on the device.  
+(Requires **admin** privileges.)
 
-Syntax:
+**Syntax**:  
+```
 edamame_posture remediate [REMEDIATIONS]
+```
 
-- REMEDIATIONS: Comma-separated list of remediations to skip (optional)
+- **REMEDIATIONS**: Comma-separated list of threat IDs to **skip** (optional)
 
---------------------------------------------------------------------------------
+---
+
+### remediate-threat
+Remediates a single threat by its threat ID.  
+(Requires **admin** privileges.)
+
+**Syntax**:  
+```
+edamame_posture remediate-threat <THREAT_ID>
+```
+
+- **THREAT_ID**: The ID of the threat to be remediated.
+
+---
+
+### rollback-threat
+Rolls back a single threat by its threat ID.  
+(Requires **admin** privileges.)
+
+**Syntax**:  
+```
+edamame_posture rollback-threat <THREAT_ID>
+```
+
+- **THREAT_ID**: The ID of the threat to be rolled back.
+
+---
 
 ### request-signature
-Reports the security posture (anonymously) and returns a signature for later retrieval.
-(Requires admin privileges.)
+Reports the security posture (anonymously) and returns a signature for later retrieval.  
+(Requires **admin** privileges.)
 
-Syntax:
+**Syntax**:  
+```
 edamame_posture request-signature
+```
 
---------------------------------------------------------------------------------
+---
 
 ### request-report
-Sends a report, based on a previously retrieved signature, to a specified email address.
-(Does NOT require admin privileges.)
+Sends a report, based on a previously retrieved signature, to a specified email address.  
+(Does **NOT** require admin privileges.)
 
-Syntax:
+**Syntax**:  
+```
 edamame_posture request-report <EMAIL> <SIGNATURE>
+```
 
-- EMAIL: Email address (required)
-- SIGNATURE: A signature string previously obtained (required)
+- **EMAIL**: Email address (required)  
+- **SIGNATURE**: A signature string previously obtained (required)
 
---------------------------------------------------------------------------------
+---
 
 ### get-threats-info
-Fetches information about the threats detected by the background process.
-(Requires admin privileges.)
+Fetches information about the threats detected by the background process.  
+(Requires **admin** privileges.)
 
-Syntax:
+**Syntax**:  
+```
 edamame_posture get-threats-info
+```
 
---------------------------------------------------------------------------------
+---
 
 ### start
-Starts the background process for continuous monitoring and reporting.
-(Requires admin privileges.)
+Starts the background process for continuous monitoring and reporting.  
+(Requires **admin** privileges.)
 
-Syntax:
+**Syntax**:  
+```
 edamame_posture start <USER> <DOMAIN> <PIN> [DEVICE_ID] [LAN_SCANNING] [WHITELIST_NAME] [LOCAL_TRAFFIC]
+```
 
-- USER: User name (required)
-- DOMAIN: Domain name (must be a valid FQDN)
-- PIN: PIN for authentication (must contain digits only)
-- DEVICE_ID: Device ID suffix (optional, if non empty, it will be used to identify the device in the EDAMAME Hub and will flag it as a CI/CD runner - typically the job or pipeline ID)
-- LAN_SCANNING: Enable LAN scanning (optional, defaults to false)
-- WHITELIST_NAME: Name of the whitelist to use (optional)
-- LOCAL_TRAFFIC: Include local traffic (optional, defaults to false)
+- **USER**: User name (required)  
+- **DOMAIN**: Domain name (must be a valid FQDN)  
+- **PIN**: PIN for authentication (must contain digits only)  
+- **DEVICE_ID**: Device ID suffix (optional, if not empty, it will be used to identify the device in the EDAMAME Hub and will flag it as a CI/CD runner - typically the job or pipeline ID)  
+- **LAN_SCANNING**: Enable LAN scanning (optional, defaults to false)  
+- **WHITELIST_NAME**: Name of the whitelist to use (optional)  
+- **LOCAL_TRAFFIC**: Include local traffic (optional, defaults to false)
 
---------------------------------------------------------------------------------
+---
 
 ### stop
-Stops the background reporting process.
-(Does NOT require admin privileges.)
+Stops the background reporting process.  
+(Does **NOT** require admin privileges.)
 
-Syntax:
+**Syntax**:  
+```
 edamame_posture stop
+```
 
---------------------------------------------------------------------------------
+---
 
 ### status
-Displays the current status of the background reporting process.
-(Does NOT require admin privileges.)
+Displays the current status of the background reporting process.  
+(Does **NOT** require admin privileges.)
 
-Syntax:
+**Syntax**:  
+```
 edamame_posture status
+```
 
---------------------------------------------------------------------------------
+---
 
 ### get-last-report-signature
-Retrieves the most recent report signature from the background process.
-(Does NOT require admin privileges.)
+Retrieves the most recent report signature from the background process.  
+(Does **NOT** require admin privileges.)
 
-Syntax:
+**Syntax**:  
+```
 edamame_posture get-last-report-signature
+```
 
---------------------------------------------------------------------------------
+---
 
 ### get-history
 Retrieves the background process's history of score modifications.  
 (Does **NOT** require admin privileges.)
 
-Syntax:
+**Syntax**:  
 ```
 edamame_posture get-history
 ```
 
---------------------------------------------------------------------------------
+---
 
 ## Requirements
 
