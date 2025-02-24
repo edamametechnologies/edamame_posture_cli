@@ -87,6 +87,16 @@ pub fn build_cli() -> Command {
                 .default_value("remote login enabled"),
         ),
     )
+    .subcommand(Command::new("remediate-threat").about("Remediate a threat").arg(
+        arg!(<THREAT_ID> "Threat ID")
+            .required(true)
+            .value_parser(clap::value_parser!(String)),
+    ))
+    .subcommand(Command::new("rollback-threat").about("Rollback a threat").arg(
+        arg!(<THREAT_ID> "Threat ID")
+            .required(true)
+            .value_parser(clap::value_parser!(String)),
+    ))
     .subcommand(Command::new("request-signature").about("Report the security posture anonymously and get a signature for later retrieval"))
     .subcommand(Command::new("request-report").about("Send a report from a signature to an email address").arg(
         arg!(<EMAIL> "Email address")
