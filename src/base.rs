@@ -121,6 +121,38 @@ pub fn base_get_system_info() {
     }
 }
 
+pub fn base_remediate_threat(threat_id: String) -> i32 {
+    let result = remediate(threat_id.clone(), true);
+    if result.success {
+        if result.validated {
+            println!("Threat {} remediated successfully", threat_id);
+            0
+        } else {
+            eprintln!("Threat {} remediated, but validation failed", threat_id);
+            1
+        }
+    } else {
+        eprintln!("Error remediating threat: {}", threat_id);
+        1
+    }
+}
+
+pub fn base_rollback_threat(threat_id: String) -> i32 {
+    let result = rollback(threat_id.clone(), true);
+    if result.success {
+        if result.validated {
+            eprintln!("Threat {} rolled back, but validation failed", threat_id);
+            1
+        } else {
+            println!("Threat {} rolled back successfully", threat_id);
+            0
+        }
+    } else {
+        eprintln!("Error rolling back threat: {}", threat_id);
+        1
+    }
+}
+
 pub fn base_remediate(remediations_to_skip: &str) {
     println!("Score before remediation:");
     println!("-------------------------");
@@ -139,11 +171,8 @@ pub fn base_remediate(remediations_to_skip: &str) {
     }
 
     // Extract the remediations to skip
-    let mut remediations_to_skip = remediations_to_skip.split(',').collect::<Vec<&str>>();
-    // Add "remote login enabled" to the list of exceptions (to prevent being locked out...)
-    remediations_to_skip.push("remote login enabled");
+    let remediations_to_skip = remediations_to_skip.split(',').collect::<Vec<&str>>();
 
-    // Remediate the threats with "remote login" as an exception
     println!();
     println!("Remediating threats:");
     for metric in score.auto_remediate.iter() {
@@ -213,10 +242,18 @@ pub fn base_lanscan() {
     display_lanscan(&devices);
 }
 
-pub fn base_request_pin(user: String, domain: String) {
+pub fn base_request_pin(user: String, domain: String) -> i32 {
     set_credentials(user.clone(), domain.clone(), String::new());
     request_pin();
+    sleep(Duration::from_secs(5));
     println!("PIN requested for user: {}, domain: {}", user, domain);
+    let connection_status = get_connection();
+    if connection_status.is_success_pin {
+        0
+    } else {
+        eprintln!("Error requesting PIN");
+        1
+    }
 }
 
 pub fn base_get_core_version() {
