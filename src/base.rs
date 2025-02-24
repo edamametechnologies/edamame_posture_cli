@@ -246,12 +246,15 @@ pub fn base_request_pin(user: String, domain: String) -> i32 {
     set_credentials(user.clone(), domain.clone(), String::new());
     request_pin();
     sleep(Duration::from_secs(5));
-    println!("PIN requested for user: {}, domain: {}", user, domain);
     let connection_status = get_connection();
     if connection_status.is_success_pin {
+        println!(
+            "PIN successfully requested for user: {}, domain: {}",
+            user, domain
+        );
         0
     } else {
-        eprintln!("Error requesting PIN");
+        eprintln!("Error requesting PIN for user: {}, domain: {}. Please make sure the domain is correct and enabled in the EDAMAME Hub and try again.", user, domain);
         1
     }
 }
