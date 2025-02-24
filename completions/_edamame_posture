@@ -115,7 +115,33 @@ _arguments "${_arguments_options[@]}" : \
 '*--verbose[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
 '-h[Print help]' \
 '--help[Print help]' \
-'::REMEDIATIONS -- Remediations to skip (comma separated list), by default only remote login enabled is skipped:_default' \
+'::REMEDIATIONS -- Remediations to skip (comma separated list), by default '\''remote login enabled'\'' and '\''local firewall enabled'\'' are skipped in order to avoid lockdown issues:_default' \
+&& ret=0
+;;
+(remediate-all-threats)
+_arguments "${_arguments_options[@]}" : \
+'*-v[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'*--verbose[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(remediate-threat)
+_arguments "${_arguments_options[@]}" : \
+'*-v[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'*--verbose[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'-h[Print help]' \
+'--help[Print help]' \
+':THREAT_ID -- Threat ID:_default' \
+&& ret=0
+;;
+(rollback-threat)
+_arguments "${_arguments_options[@]}" : \
+'*-v[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'*--verbose[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'-h[Print help]' \
+'--help[Print help]' \
+':THREAT_ID -- Threat ID:_default' \
 && ret=0
 ;;
 (request-signature)
@@ -281,6 +307,18 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
+(remediate-all-threats)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(remediate-threat)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(rollback-threat)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
 (request-signature)
 _arguments "${_arguments_options[@]}" : \
 && ret=0
@@ -354,7 +392,10 @@ _edamame_posture_commands() {
 'get-system-info:Get system information' \
 'request-pin:Request PIN' \
 'get-core-version:Get core version' \
-'remediate:Remediate threats' \
+'remediate:Remediate all threats but excluding remote login enabled and local firewall enabled as well as other threats specified in the comma separated list' \
+'remediate-all-threats:Remediate all threats, including threats that could lock you out of the system, use with caution!' \
+'remediate-threat:Remediate a threat' \
+'rollback-threat:Rollback a threat' \
 'request-signature:Report the security posture anonymously and get a signature for later retrieval' \
 'request-report:Send a report from a signature to an email address' \
 'background-logs:Display logs from the background process' \
@@ -463,7 +504,10 @@ _edamame_posture__help_commands() {
 'get-system-info:Get system information' \
 'request-pin:Request PIN' \
 'get-core-version:Get core version' \
-'remediate:Remediate threats' \
+'remediate:Remediate all threats but excluding remote login enabled and local firewall enabled as well as other threats specified in the comma separated list' \
+'remediate-all-threats:Remediate all threats, including threats that could lock you out of the system, use with caution!' \
+'remediate-threat:Remediate a threat' \
+'rollback-threat:Rollback a threat' \
 'request-signature:Report the security posture anonymously and get a signature for later retrieval' \
 'request-report:Send a report from a signature to an email address' \
 'background-logs:Display logs from the background process' \
@@ -575,6 +619,16 @@ _edamame_posture__help__remediate_commands() {
     local commands; commands=()
     _describe -t commands 'edamame_posture help remediate commands' commands "$@"
 }
+(( $+functions[_edamame_posture__help__remediate-all-threats_commands] )) ||
+_edamame_posture__help__remediate-all-threats_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture help remediate-all-threats commands' commands "$@"
+}
+(( $+functions[_edamame_posture__help__remediate-threat_commands] )) ||
+_edamame_posture__help__remediate-threat_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture help remediate-threat commands' commands "$@"
+}
 (( $+functions[_edamame_posture__help__request-pin_commands] )) ||
 _edamame_posture__help__request-pin_commands() {
     local commands; commands=()
@@ -589,6 +643,11 @@ _edamame_posture__help__request-report_commands() {
 _edamame_posture__help__request-signature_commands() {
     local commands; commands=()
     _describe -t commands 'edamame_posture help request-signature commands' commands "$@"
+}
+(( $+functions[_edamame_posture__help__rollback-threat_commands] )) ||
+_edamame_posture__help__rollback-threat_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture help rollback-threat commands' commands "$@"
 }
 (( $+functions[_edamame_posture__help__score_commands] )) ||
 _edamame_posture__help__score_commands() {
@@ -605,6 +664,16 @@ _edamame_posture__remediate_commands() {
     local commands; commands=()
     _describe -t commands 'edamame_posture remediate commands' commands "$@"
 }
+(( $+functions[_edamame_posture__remediate-all-threats_commands] )) ||
+_edamame_posture__remediate-all-threats_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture remediate-all-threats commands' commands "$@"
+}
+(( $+functions[_edamame_posture__remediate-threat_commands] )) ||
+_edamame_posture__remediate-threat_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture remediate-threat commands' commands "$@"
+}
 (( $+functions[_edamame_posture__request-pin_commands] )) ||
 _edamame_posture__request-pin_commands() {
     local commands; commands=()
@@ -619,6 +688,11 @@ _edamame_posture__request-report_commands() {
 _edamame_posture__request-signature_commands() {
     local commands; commands=()
     _describe -t commands 'edamame_posture request-signature commands' commands "$@"
+}
+(( $+functions[_edamame_posture__rollback-threat_commands] )) ||
+_edamame_posture__rollback-threat_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture rollback-threat commands' commands "$@"
 }
 (( $+functions[_edamame_posture__score_commands] )) ||
 _edamame_posture__score_commands() {
