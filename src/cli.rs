@@ -81,10 +81,10 @@ pub fn build_cli() -> Command {
     )
     .subcommand(Command::new("get-core-version").about("Get core version"))
     .subcommand(
-        Command::new("remediate").about("Remediate all threats but excluding remote login enabled and local firewall enabled as well as other threats specified in the comma separated list").arg(
-            arg!(<REMEDIATIONS> "Remediations to skip (comma separated list), by default 'remote login enabled' and 'local firewall enabled' are skipped in order to avoid lockdown issues")
+        Command::new("remediate").about("Remediate all threats but excluding remote login enabled and local firewall disabled as well as other threats specified in the comma separated list").arg(
+            arg!(<REMEDIATIONS> "Remediations to skip (comma separated list), by default 'remote login enabled' and 'local firewall disabled' are skipped in order to avoid lockdown issues")
                 .required(false)
-                .default_value("remote login enabled,local firewall enabled"),
+                .default_value("remote login enabled,local firewall disabled"),
         ),
     )
     .subcommand(Command::new("remediate-all-threats").about("Remediate all threats, including threats that could lock you out of the system, use with caution!"))
