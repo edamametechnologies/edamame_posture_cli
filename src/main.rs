@@ -209,6 +209,7 @@ fn ensure_admin() {
 
 fn run_base() {
     let mut exit_code = 0;
+    let mut is_background = false;
 
     let mut cmd = build_cli();
     let matches = cmd.clone().get_matches();
@@ -329,7 +330,7 @@ fn run_base() {
             let domain = sub_matches.get_one::<String>("DOMAIN").unwrap().to_string();
             // Initialize the core with all options disabled
             initialize_core("".to_string(), false, false, false, false, verbose);
-            let _ = base_request_pin(user, domain);
+            exit_code = base_request_pin(user, domain);
         }
         Some(("get-core-version", _)) => {
             // No admin check needed here
@@ -347,6 +348,12 @@ fn run_base() {
             ensure_admin();
             base_remediate(&remediations_to_skip)
         }
+        Some(("remediate-all-threats", _)) => {
+            // Initialize the core with computing enabled
+            initialize_core("".to_string(), true, false, false, false, false);
+            ensure_admin();
+            base_remediate("");
+        }
         Some(("remediate-threat", sub_matches)) => {
             let threat_id = sub_matches
                 .get_one::<String>("THREAT_ID")
@@ -355,7 +362,7 @@ fn run_base() {
             // Initialize the core with computing enabled
             initialize_core("".to_string(), true, false, false, false, false);
             ensure_admin();
-            let _ = base_remediate_threat(threat_id);
+            exit_code = base_remediate_threat(threat_id);
         }
         Some(("rollback-threat", sub_matches)) => {
             let threat_id = sub_matches
@@ -365,7 +372,7 @@ fn run_base() {
             // Initialize the core with computing enabled
             initialize_core("".to_string(), true, false, false, false, false);
             ensure_admin();
-            let _ = base_rollback_threat(threat_id);
+            exit_code = base_rollback_threat(threat_id);
         }
         Some(("get-system-info", _)) => {
             // Initialize the core with all options disabled
@@ -423,7 +430,7 @@ fn run_base() {
             };
             // Initialize the core with all options disabled
             initialize_core("".to_string(), false, false, false, false, verbose);
-
+            is_background = true;
             exit_code = background_wait_for_connection(*timeout);
         }
         Some(("background-sessions", sub_matches)) => {
@@ -434,6 +441,7 @@ fn run_base() {
 
             // Initialize the core with all options disabled
             initialize_core("".to_string(), false, false, false, false, verbose);
+            is_background = true;
             exit_code = background_get_sessions(*zeek_format, *local_traffic);
         }
         Some(("background-threats-info", _)) => {
@@ -441,11 +449,13 @@ fn run_base() {
             initialize_core("".to_string(), false, false, false, false, verbose);
             ensure_admin();
             background_get_threats_info();
+            is_background = true;
         }
         Some(("background-get-history", _)) => {
             // Initialize the core with all options disabled
             initialize_core("".to_string(), false, false, false, false, verbose);
             background_get_history();
+            is_background = true;
         }
         Some(("background-start", sub_matches)) => {
             let user = sub_matches
@@ -487,6 +497,7 @@ fn run_base() {
                 whitelist_name,
                 *local_traffic,
             );
+            is_background = true;
         }
         Some(("foreground-start", sub_matches)) => {
             let user = sub_matches
@@ -517,16 +528,19 @@ fn run_base() {
             // Initialize the core with all options disabled
             initialize_core("".to_string(), false, false, false, false, verbose);
             exit_code = background_stop();
+            is_background = true;
         }
         Some(("background-status", _)) => {
             // Initialize the core with all options disabled
             initialize_core("".to_string(), false, false, false, false, verbose);
             exit_code = background_get_status();
+            is_background = true;
         }
         Some(("background-last-report-signature", _)) => {
             // Initialize the core with all options disabled
             initialize_core("".to_string(), false, false, false, false, verbose);
             exit_code = background_get_last_report_signature();
+            is_background = true;
         }
         _ => {
             // Initialize the core with all options disabled
@@ -536,7 +550,7 @@ fn run_base() {
     }
 
     // Dump the logs in case of error
-    if exit_code != 0 {
+    if exit_code != 0 && is_background {
         let logs = match rpc_get_all_logs(
             &EDAMAME_CA_PEM,
             &EDAMAME_CLIENT_PEM,
