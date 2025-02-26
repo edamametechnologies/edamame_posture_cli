@@ -57,8 +57,14 @@ _edamame_posture() {
             edamame_posture,get-device-info)
                 cmd="edamame_posture__get__device__info"
                 ;;
+            edamame_posture,get-score)
+                cmd="edamame_posture__get__score"
+                ;;
             edamame_posture,get-system-info)
                 cmd="edamame_posture__get__system__info"
+                ;;
+            edamame_posture,get-threat-info)
+                cmd="edamame_posture__get__threat__info"
                 ;;
             edamame_posture,help)
                 cmd="edamame_posture__help"
@@ -66,11 +72,14 @@ _edamame_posture() {
             edamame_posture,lanscan)
                 cmd="edamame_posture__lanscan"
                 ;;
-            edamame_posture,remediate)
-                cmd="edamame_posture__remediate"
+            edamame_posture,list-threats)
+                cmd="edamame_posture__list__threats"
                 ;;
             edamame_posture,remediate-all-threats)
                 cmd="edamame_posture__remediate__all__threats"
+                ;;
+            edamame_posture,remediate-all-threats-force)
+                cmd="edamame_posture__remediate__all__threats__force"
                 ;;
             edamame_posture,remediate-threat)
                 cmd="edamame_posture__remediate__threat"
@@ -86,9 +95,6 @@ _edamame_posture() {
                 ;;
             edamame_posture,rollback-threat)
                 cmd="edamame_posture__rollback__threat"
-                ;;
-            edamame_posture,score)
-                cmd="edamame_posture__score"
                 ;;
             edamame_posture__help,background-get-history)
                 cmd="edamame_posture__help__background__get__history"
@@ -135,8 +141,14 @@ _edamame_posture() {
             edamame_posture__help,get-device-info)
                 cmd="edamame_posture__help__get__device__info"
                 ;;
+            edamame_posture__help,get-score)
+                cmd="edamame_posture__help__get__score"
+                ;;
             edamame_posture__help,get-system-info)
                 cmd="edamame_posture__help__get__system__info"
+                ;;
+            edamame_posture__help,get-threat-info)
+                cmd="edamame_posture__help__get__threat__info"
                 ;;
             edamame_posture__help,help)
                 cmd="edamame_posture__help__help"
@@ -144,11 +156,14 @@ _edamame_posture() {
             edamame_posture__help,lanscan)
                 cmd="edamame_posture__help__lanscan"
                 ;;
-            edamame_posture__help,remediate)
-                cmd="edamame_posture__help__remediate"
+            edamame_posture__help,list-threats)
+                cmd="edamame_posture__help__list__threats"
                 ;;
             edamame_posture__help,remediate-all-threats)
                 cmd="edamame_posture__help__remediate__all__threats"
+                ;;
+            edamame_posture__help,remediate-all-threats-force)
+                cmd="edamame_posture__help__remediate__all__threats__force"
                 ;;
             edamame_posture__help,remediate-threat)
                 cmd="edamame_posture__help__remediate__threat"
@@ -165,9 +180,6 @@ _edamame_posture() {
             edamame_posture__help,rollback-threat)
                 cmd="edamame_posture__help__rollback__threat"
                 ;;
-            edamame_posture__help,score)
-                cmd="edamame_posture__help__score"
-                ;;
             *)
                 ;;
         esac
@@ -175,7 +187,7 @@ _edamame_posture() {
 
     case "${cmd}" in
         edamame_posture)
-            opts="-v -h -V --verbose --help --version completion score lanscan capture get-core-info get-device-info get-system-info request-pin get-core-version remediate remediate-all-threats remediate-threat rollback-threat request-signature request-report background-logs background-wait-for-connection background-sessions background-threats-info foreground-start background-start background-stop background-status background-last-report-signature background-get-history help"
+            opts="-v -h -V --verbose --help --version completion get-score lanscan capture get-core-info get-device-info get-system-info request-pin get-core-version remediate-all-threats remediate-all-threats-force remediate-threat rollback-threat list-threats get-threat-info request-signature request-report background-logs background-wait-for-connection background-sessions background-threats-info foreground-start background-start background-stop background-status background-last-report-signature background-get-history help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -398,6 +410,20 @@ _edamame_posture() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
+        edamame_posture__get__score)
+            opts="-v -h --verbose --help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
         edamame_posture__get__system__info)
             opts="-v -h --verbose --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
@@ -412,8 +438,22 @@ _edamame_posture() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
+        edamame_posture__get__threat__info)
+            opts="-v -h --verbose --help <THREAT_ID>"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
         edamame_posture__help)
-            opts="completion score lanscan capture get-core-info get-device-info get-system-info request-pin get-core-version remediate remediate-all-threats remediate-threat rollback-threat request-signature request-report background-logs background-wait-for-connection background-sessions background-threats-info foreground-start background-start background-stop background-status background-last-report-signature background-get-history help"
+            opts="completion get-score lanscan capture get-core-info get-device-info get-system-info request-pin get-core-version remediate-all-threats remediate-all-threats-force remediate-threat rollback-threat list-threats get-threat-info request-signature request-report background-logs background-wait-for-connection background-sessions background-threats-info foreground-start background-start background-stop background-status background-last-report-signature background-get-history help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -636,7 +676,35 @@ _edamame_posture() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
+        edamame_posture__help__get__score)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
         edamame_posture__help__get__system__info)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        edamame_posture__help__get__threat__info)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -678,7 +746,7 @@ _edamame_posture() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        edamame_posture__help__remediate)
+        edamame_posture__help__list__threats)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -693,6 +761,20 @@ _edamame_posture() {
             return 0
             ;;
         edamame_posture__help__remediate__all__threats)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        edamame_posture__help__remediate__all__threats__force)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -776,20 +858,6 @@ _edamame_posture() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        edamame_posture__help__score)
-            opts=""
-            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
-                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-                return 0
-            fi
-            case "${prev}" in
-                *)
-                    COMPREPLY=()
-                    ;;
-            esac
-            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-            return 0
-            ;;
         edamame_posture__lanscan)
             opts="-v -h --verbose --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
@@ -804,8 +872,8 @@ _edamame_posture() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        edamame_posture__remediate)
-            opts="-v -h --verbose --help [REMEDIATIONS]"
+        edamame_posture__list__threats)
+            opts="-v -h --verbose --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -819,6 +887,20 @@ _edamame_posture() {
             return 0
             ;;
         edamame_posture__remediate__all__threats)
+            opts="-v -h --verbose --help [REMEDIATIONS]"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        edamame_posture__remediate__all__threats__force)
             opts="-v -h --verbose --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -890,20 +972,6 @@ _edamame_posture() {
             ;;
         edamame_posture__rollback__threat)
             opts="-v -h --verbose --help <THREAT_ID>"
-            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
-                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-                return 0
-            fi
-            case "${prev}" in
-                *)
-                    COMPREPLY=()
-                    ;;
-            esac
-            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-            return 0
-            ;;
-        edamame_posture__score)
-            opts="-v -h --verbose --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0

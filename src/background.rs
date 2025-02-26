@@ -1,5 +1,4 @@
 use crate::base::*;
-use crate::display::*;
 use crate::EDAMAME_CA_PEM;
 use crate::EDAMAME_CLIENT_KEY;
 use crate::EDAMAME_CLIENT_PEM;
@@ -8,6 +7,7 @@ use edamame_core::api::api_core::*;
 use edamame_core::api::api_lanscan::*;
 use edamame_core::api::api_score::*;
 use edamame_core::api::api_score_history::*;
+use edamame_core::api::api_score_threats::*;
 use edamame_core::api::api_trust::*;
 use std::thread::sleep;
 use std::time::Duration;
@@ -64,14 +64,27 @@ pub fn background_get_sessions(local_traffic: bool, zeek_format: bool) -> i32 {
     }
 }
 
-pub fn background_get_threats_info() {
-    // This function does not call any rpc_ methods, so no error code return is required.
-    let score = get_score(false);
-    let threats = format!(
-        "Threat model name: {}, date: {}, signature: {}",
-        score.model_name, score.model_date, score.model_signature
-    );
-    println!("Threats information: {}", threats);
+pub fn background_get_threats_info() -> i32 {
+    match rpc_get_score(
+        false,
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(score) => {
+            let threats = format!(
+                "Threat model name: {}, date: {}, signature: {}",
+                score.model_name, score.model_date, score.model_signature
+            );
+            println!("Threats information: {}", threats);
+            0
+        }
+        Err(e) => {
+            eprintln!("Error getting threats info: {}", e);
+            1
+        }
+    }
 }
 
 pub fn background_get_status() -> i32 {
@@ -217,7 +230,11 @@ pub fn background_wait_for_connection(timeout: u64) -> i32 {
                 return 1;
             }
         };
-        display_score(&score);
+        let url = get_threats_url().to_string();
+        // Pretty print the final score with important details
+        println!("Security Score summary:");
+        println!("{}", score);
+        println!("Model URL: {}", url);
 
         // Print the lanscan results
         let devices = match rpc_get_lan_devices(
@@ -235,7 +252,8 @@ pub fn background_wait_for_connection(timeout: u64) -> i32 {
                 return 1;
             }
         };
-        display_lanscan(&devices);
+        println!("LAN scan completed at: {}", devices.last_scan);
+        println!("{}", devices);
 
         // Print the connections
         let sessions = match rpc_get_lan_sessions(
@@ -273,12 +291,20 @@ pub fn background_stop() -> i32 {
     0
 }
 
-pub fn background_get_history() {
-    let history = rpc_get_history(
+pub fn background_get_history() -> i32 {
+    match rpc_get_history(
         &EDAMAME_CA_PEM,
         &EDAMAME_CLIENT_PEM,
         &EDAMAME_CLIENT_KEY,
         &EDAMAME_TARGET,
-    );
-    println!("History: {:#?}", history);
+    ) {
+        Ok(history) => {
+            println!("History: {:#?}", history);
+            0
+        }
+        Err(e) => {
+            eprintln!("Error getting history: {}", e);
+            1
+        }
+    }
 }
