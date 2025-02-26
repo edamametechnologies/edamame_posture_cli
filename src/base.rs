@@ -1,17 +1,14 @@
-use crate::display::*;
 use edamame_core::api::api_core::*;
 use edamame_core::api::api_lanscan::*;
 use edamame_core::api::api_score::*;
 use edamame_core::api::api_score_threats::*;
 use edamame_core::api::api_trust::*;
 use indicatif::{ProgressBar, ProgressStyle};
-use std::io;
-use std::io::Write;
 use std::thread::sleep;
 use std::time::Duration;
 use sysinfo::{Disks, Networks, System};
 
-pub fn base_score(progress_bar: bool) {
+pub fn base_get_score(progress_bar: bool) {
     // Request a score computation
     compute_score();
 
@@ -33,7 +30,11 @@ pub fn base_score(progress_bar: bool) {
 
     // Make sure we have the final score
     score = get_score(true);
-    display_score(&score);
+    let url = get_threats_url().to_string();
+    // Pretty print the final score with important details
+    println!("Security Score summary:");
+    println!("{}", score);
+    println!("Model URL: {}", url);
 }
 
 pub fn base_get_system_info() {
@@ -114,11 +115,6 @@ pub fn base_get_system_info() {
         println!("  - Computer system model from WMI:");
         println!("{}", String::from_utf8_lossy(&output.stdout));
     }
-    // Flush the output
-    match io::stdout().flush() {
-        Ok(_) => (),
-        Err(e) => eprintln!("Error flushing stdout: {}", e),
-    }
 }
 
 pub fn base_remediate_threat(threat_id: String) -> i32 {
@@ -153,13 +149,39 @@ pub fn base_rollback_threat(threat_id: String) -> i32 {
     }
 }
 
+pub fn base_list_threats() {
+    // Call the score API without computing
+    let score = get_score(false);
+
+    println!("Threats:");
+    for threat in score.threats.iter() {
+        println!("- {}", threat.name);
+    }
+}
+
+pub fn base_get_threat_info(threat_id: String) {
+    // Call the score API without computing
+    let score = get_score(false);
+
+    // Find the threat in the score
+    let threat_info = match score.threats.iter().find(|t| t.name == threat_id) {
+        Some(threat) => threat,
+        None => {
+            eprintln!("Threat {} not found", threat_id);
+            return;
+        }
+    };
+
+    println!("Threat information: {}", threat_info);
+}
+
 pub fn base_remediate(remediations_to_skip: &str) {
     println!("Score before remediation:");
     println!("-------------------------");
     println!();
 
     // Show the score before remediation
-    base_score(false);
+    base_get_score(false);
 
     // Get the score
     let score = get_score(true);
@@ -187,7 +209,7 @@ pub fn base_remediate(remediations_to_skip: &str) {
     println!("------------------------");
 
     // Show the score after remediation
-    base_score(false);
+    base_get_score(false);
 }
 
 pub fn base_capture(seconds: u64, whitelist_name: &str, zeek_format: bool, local_traffic: bool) {
@@ -239,7 +261,8 @@ pub fn base_lanscan() {
     }
 
     // Display the devices
-    display_lanscan(&devices);
+    println!("LAN scan completed at: {}", devices.last_scan);
+    println!("{}", devices);
 }
 
 pub fn base_request_pin(user: String, domain: String) -> i32 {
@@ -272,17 +295,5 @@ pub fn base_get_core_info() {
 pub fn base_get_device_info() {
     let device_info = get_device_info();
     println!("Device information:");
-    println!("  - Device ID: {}", device_info.device_id);
-    println!("  - Model: {}", device_info.model);
-    println!("  - Brand: {}", device_info.brand);
-    println!("  - OS Name: {}", device_info.os_name);
-    println!("  - OS Version: {}", device_info.os_version);
-    println!("  - IPv4: {}", device_info.ip4);
-    println!("  - IPv6: {}", device_info.ip6);
-    println!("  - MAC: {}", device_info.mac);
-    // Flush the output
-    match io::stdout().flush() {
-        Ok(_) => (),
-        Err(e) => eprintln!("Error flushing stdout: {}", e),
-    }
+    println!("{}", device_info);
 }
