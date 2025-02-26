@@ -73,11 +73,10 @@ pub fn background_get_threats_info() -> i32 {
         &EDAMAME_TARGET,
     ) {
         Ok(score) => {
-            let threats = format!(
+            println!(
                 "Threat model name: {}, date: {}, signature: {}",
                 score.model_name, score.model_date, score.model_signature
             );
-            println!("Threats information: {}", threats);
             0
         }
         Err(e) => {
@@ -88,31 +87,22 @@ pub fn background_get_threats_info() -> i32 {
 }
 
 pub fn background_get_status() -> i32 {
-    let connection_status = match rpc_get_connection(
+    match rpc_get_connection(
         &EDAMAME_CA_PEM,
         &EDAMAME_CLIENT_PEM,
         &EDAMAME_CLIENT_KEY,
         &EDAMAME_TARGET,
     ) {
-        Ok(status) => status,
+        Ok(status) => {
+            println!("Connection status:");
+            println!("{}", status);
+            0
+        }
         Err(e) => {
             eprintln!("Error getting connection status: {}", e);
-            return 1;
+            1
         }
-    };
-    println!("Connection status:");
-    println!(
-        "  - Connected domain: {}",
-        connection_status.connected_domain
-    );
-    println!("  - Connected user: {}", connection_status.connected_user);
-    println!("  - Is connected: {}", connection_status.is_connected);
-    println!(
-        "  - Last network activity: {}",
-        connection_status.last_network_activity
-    );
-
-    0
+    }
 }
 
 pub fn background_get_last_report_signature() -> i32 {
