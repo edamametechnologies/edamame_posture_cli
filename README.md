@@ -52,7 +52,7 @@ And if your needs grow, you can seamlessly connect it to [EDAMAME Hub](https://h
 3. **Report**  
    Generate a signed report using `request-signature` and `request-report`
 4. **Workflows**  
-Check out the [associated GitHub action](https://github.com/edamametechnologies/edamame_posture_action) to see how to integrate `edamame_posture` directly in your GitHub CI/CD workflows and [associated GitLab workflow](https://github.com/edamametechnologies/edamame_posture_action_gitlab) to see how to integrate it in your GitLab CI/CD workflows.
+Check out the [associated GitHub action](https://github.com/edamametechnologies/edamame_posture_action) to see how to integrate `edamame_posture` directly in your GitHub CI/CD workflows and [associated GitLab workflow](https://gitlab.com/edamametechnologies/edamame_posture_action) to see how to integrate it in your GitLab CI/CD workflows.
 
 ---
 
