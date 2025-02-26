@@ -2,7 +2,6 @@ mod background;
 mod base;
 mod cli;
 mod daemon;
-mod display;
 use anyhow::Result;
 use background::*;
 use base::*;
@@ -249,11 +248,11 @@ fn run_base() {
         ////////////////
         // Base commands
         ////////////////
-        Some(("score", _)) => {
+        Some(("get-score", _)) => {
             // Initialize the core with computing enabled
             initialize_core("".to_string(), true, false, false, false, verbose);
             ensure_admin(); // Admin check here
-            base_score(true);
+            base_get_score(true);
         }
         Some(("lanscan", _)) => {
             // Initialize the core with all options disabled
@@ -338,7 +337,7 @@ fn run_base() {
             initialize_core("".to_string(), false, false, false, false, verbose);
             base_get_core_version();
         }
-        Some(("remediate", sub_matches)) => {
+        Some(("remediate-all-threats", sub_matches)) => {
             let remediations_to_skip = sub_matches
                 .get_one::<String>("REMEDIATIONS")
                 .unwrap_or(&String::new())
@@ -348,7 +347,7 @@ fn run_base() {
             ensure_admin();
             base_remediate(&remediations_to_skip)
         }
-        Some(("remediate-all-threats", _)) => {
+        Some(("remediate-all-threats-force", _)) => {
             // Initialize the core with computing enabled
             initialize_core("".to_string(), true, false, false, false, false);
             ensure_admin();
@@ -374,6 +373,20 @@ fn run_base() {
             ensure_admin();
             exit_code = base_rollback_threat(threat_id);
         }
+        Some(("get-threat-info", sub_matches)) => {
+            let threat_id = sub_matches
+                .get_one::<String>("THREAT_ID")
+                .expect("THREAT_ID not provided")
+                .to_string();
+            // Initialize the core with computing enabled
+            initialize_core("".to_string(), true, false, false, false, verbose);
+            base_get_threat_info(threat_id);
+        }
+        Some(("list-threats", _)) => {
+            // Initialize the core with computing enabled
+            initialize_core("".to_string(), true, false, false, false, verbose);
+            base_list_threats();
+        }
         Some(("get-system-info", _)) => {
             // Initialize the core with all options disabled
             initialize_core("".to_string(), false, false, false, false, verbose);
@@ -384,7 +397,7 @@ fn run_base() {
             // Initialize the core with computing enabled
             initialize_core("".to_string(), true, false, false, false, false);
             ensure_admin(); // Admin check here
-            base_score(true);
+            base_get_score(true);
             let signature =
                 get_signature_from_score_with_email("anonymous@anonymous.eda".to_string());
             println!("Signature: {}", signature);
@@ -441,20 +454,20 @@ fn run_base() {
 
             // Initialize the core with all options disabled
             initialize_core("".to_string(), false, false, false, false, verbose);
-            is_background = true;
             exit_code = background_get_sessions(*zeek_format, *local_traffic);
+            is_background = true;
         }
         Some(("background-threats-info", _)) => {
             // Initialize the core with all options disabled
             initialize_core("".to_string(), false, false, false, false, verbose);
             ensure_admin();
-            background_get_threats_info();
+            exit_code = background_get_threats_info();
             is_background = true;
         }
         Some(("background-get-history", _)) => {
             // Initialize the core with all options disabled
             initialize_core("".to_string(), false, false, false, false, verbose);
-            background_get_history();
+            exit_code = background_get_history();
             is_background = true;
         }
         Some(("background-start", sub_matches)) => {

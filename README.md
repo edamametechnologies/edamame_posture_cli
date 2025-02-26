@@ -121,14 +121,14 @@ We provide a GPG-signed APT repository for `.deb` packages, ensuring secure and 
 
 1. **Download** the official binary for your platform (links below).  
 
-- **Gnu Linux x86_64**: [edamame_posture-0.9.17-x86_64-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.17/edamame_posture-0.9.17-x86_64-unknown-linux-gnu)  
-- **Gnu Linux i686**: [edamame_posture-0.9.17-i686-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.17/edamame_posture-0.9.17-i686-unknown-linux-gnu)  
-- **Gnu Linux aarch64**: [edamame_posture-0.9.17-aarch64-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.17/edamame_posture-0.9.17-aarch64-unknown-linux-gnu)  
-- **Gnu Linux armv7**: [edamame_posture-0.9.17-armv7-unknown-linux-gnueabihf](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.17/edamame_posture-0.9.17-armv7-unknown-linux-gnueabihf)  
-- **Alpine Linux x86_64**: [edamame_posture-0.9.17-x86_64-unknown-linux-musl](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.17/edamame_posture-0.9.17-x86_64-unknown-linux-musl)  
-- **Alpine Linux aarch64**: [edamame_posture-0.9.17-aarch64-unknown-linux-musl](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.17/edamame_posture-0.9.17-aarch64-unknown-linux-musl)  
-- **macOS universal (signed)**: [edamame_posture-0.9.17-universal-apple-darwin](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.17/edamame_posture-0.9.17-universal-apple-darwin)  
-- **Windows x86_64 (signed)**: [edamame_posture-0.9.17-x86_64-pc-windows-msvc.exe](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.17/edamame_posture-0.9.17-x86_64-pc-windows-msvc.exe)
+- **Gnu Linux x86_64**: [edamame_posture-0.9.18-x86_64-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.18/edamame_posture-0.9.18-x86_64-unknown-linux-gnu)  
+- **Gnu Linux i686**: [edamame_posture-0.9.18-i686-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.18/edamame_posture-0.9.18-i686-unknown-linux-gnu)  
+- **Gnu Linux aarch64**: [edamame_posture-0.9.18-aarch64-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.18/edamame_posture-0.9.18-aarch64-unknown-linux-gnu)  
+- **Gnu Linux armv7**: [edamame_posture-0.9.18-armv7-unknown-linux-gnueabihf](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.18/edamame_posture-0.9.18-armv7-unknown-linux-gnueabihf)  
+- **Alpine Linux x86_64**: [edamame_posture-0.9.18-x86_64-unknown-linux-musl](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.18/edamame_posture-0.9.18-x86_64-unknown-linux-musl)  
+- **Alpine Linux aarch64**: [edamame_posture-0.9.18-aarch64-unknown-linux-musl](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.18/edamame_posture-0.9.18-aarch64-unknown-linux-musl)  
+- **macOS universal (signed)**: [edamame_posture-0.9.18-universal-apple-darwin](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.18/edamame_posture-0.9.18-universal-apple-darwin)  
+- **Windows x86_64 (signed)**: [edamame_posture-0.9.18-x86_64-pc-windows-msvc.exe](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.18/edamame_posture-0.9.18-x86_64-pc-windows-msvc.exe)
 
 2. **Install** by placing the binary in your `PATH`.  
 3. **Run** a quick command like `edamame_posture score` to assess your device.
@@ -138,10 +138,10 @@ We provide a GPG-signed APT repository for `.deb` packages, ensuring secure and 
 
 1. **Download** the Debian package for your platform (links below).  
 
-- **Gnu Linux x86_64:** [edamame-posture_0.9.17-1_amd64.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.17/edamame-posture_0.9.17-1_amd64.deb)
-- **Gnu Linux i686 (32-bit):** [edamame-posture_0.9.17-1_i386.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.17/edamame-posture_0.9.17-1_i386.deb)
-- **Gnu Linux aarch64:** [edamame-posture_0.9.17-1_arm64.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.17/edamame-posture_0.9.17-1_arm64.deb)
-- **Gnu Linux armv7:** [edamame-posture_0.9.17-1_armhf.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.17/edamame-posture_0.9.17-1_armhf.deb)
+- **Gnu Linux x86_64:** [edamame-posture_0.9.17-1_amd64.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.18/edamame-posture_0.9.17-1_amd64.deb)
+- **Gnu Linux i686 (32-bit):** [edamame-posture_0.9.17-1_i386.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.18/edamame-posture_0.9.17-1_i386.deb)
+- **Gnu Linux aarch64:** [edamame-posture_0.9.17-1_arm64.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.18/edamame-posture_0.9.17-1_arm64.deb)
+- **Gnu Linux armv7:** [edamame-posture_0.9.17-1_armhf.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.18/edamame-posture_0.9.17-1_armhf.deb)
 
 
 1. **Install** the package using either method:
@@ -344,8 +344,8 @@ Requests a PIN for user authentication.
 edamame_posture request-pin <USER> <DOMAIN>
 ```
 
-- **USER**: User name  
-- **DOMAIN**: Domain name (must be a valid FQDN)
+- **USER**: User name (required)  
+- **DOMAIN**: Domain name (required, must be a valid FQDN)
 
 ---
 
@@ -382,7 +382,7 @@ Remediates a single threat by its threat ID.
 edamame_posture remediate-threat <THREAT_ID>
 ```
 
-- **THREAT_ID**: The ID of the threat to be remediated.
+- **THREAT_ID**: The ID of the threat to be remediated (required)
 
 ---
 
@@ -395,7 +395,7 @@ Rolls back a single threat by its threat ID.
 edamame_posture rollback-threat <THREAT_ID>
 ```
 
-- **THREAT_ID**: The ID of the threat to be rolled back.
+- **THREAT_ID**: The ID of the threat to be rolled back (required)
 
 ---
 
@@ -445,8 +445,8 @@ edamame_posture start <USER> <DOMAIN> <PIN> [DEVICE_ID] [LAN_SCANNING] [WHITELIS
 ```
 
 - **USER**: User name (required)  
-- **DOMAIN**: Domain name (must be a valid FQDN)  
-- **PIN**: PIN for authentication (must contain digits only)  
+- **DOMAIN**: Domain name (required, must be a valid FQDN)  
+- **PIN**: PIN for authentication (required, must contain digits only)  
 - **DEVICE_ID**: Device ID suffix (optional, if not empty, it will be used to identify the device in the EDAMAME Hub and will flag it as a CI/CD runner - typically the job or pipeline ID)  
 - **LAN_SCANNING**: Enable LAN scanning (optional, defaults to false)  
 - **WHITELIST_NAME**: Name of the whitelist to use (optional)  

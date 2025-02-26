@@ -33,30 +33,28 @@ pub fn build_cli() -> Command {
     ////////////////
     // Base commands
     ////////////////
-    .subcommand(Command::new("score").about("Get score information"))
+    .subcommand(Command::new("get-score").alias("score").about("Get score information"))
     .subcommand(Command::new("lanscan").about("Performs a LAN scan"))
     .subcommand(
         Command::new("capture")
             .about("Capture packets")
             .arg(
-                arg!(<SECONDS> "Number of seconds to capture")
+                arg!([SECONDS] "Number of seconds to capture")
                     .required(false)
                     .value_parser(clap::value_parser!(u64)),
             )
-            // Required whitelist name
             .arg(
-                arg!(<WHITELIST_NAME> "Whitelist name")
+                arg!([WHITELIST_NAME] "Whitelist name")
                     .required(false)
                     .value_parser(clap::value_parser!(String)),
             )
-            // Optional Zeek format
             .arg(
-                arg!(<ZEEK_FORMAT> "Zeek format")
+                arg!([ZEEK_FORMAT] "Zeek format")
                     .required(false)
                     .value_parser(clap::value_parser!(bool)),
             )
             .arg(
-                arg!(<LOCAL_TRAFFIC> "Include local traffic")
+                arg!([LOCAL_TRAFFIC] "Include local traffic")
                     .required(false)
                     .default_value("false")
                     .value_parser(clap::value_parser!(bool)),
@@ -81,19 +79,25 @@ pub fn build_cli() -> Command {
     )
     .subcommand(Command::new("get-core-version").about("Get core version"))
     .subcommand(
-        Command::new("remediate").about("Remediate all threats but excluding remote login enabled and local firewall disabled as well as other threats specified in the comma separated list").arg(
+        Command::new("remediate-all-threats").alias("remediate").about("Remediate all threats but excluding remote login enabled and local firewall disabled as well as other threats specified in the comma separated list").arg(
             arg!(<REMEDIATIONS> "Remediations to skip (comma separated list), by default 'remote login enabled' and 'local firewall disabled' are skipped in order to avoid lockdown issues")
                 .required(false)
                 .default_value("remote login enabled,local firewall disabled"),
         ),
     )
-    .subcommand(Command::new("remediate-all-threats").about("Remediate all threats, including threats that could lock you out of the system, use with caution!"))
+    .subcommand(Command::new("remediate-all-threats-force").alias("remediate-all-threats-force").about("Remediate all threats, including threats that could lock you out of the system, use with caution!"))
     .subcommand(Command::new("remediate-threat").about("Remediate a threat").arg(
         arg!(<THREAT_ID> "Threat ID")
             .required(true)
             .value_parser(clap::value_parser!(String)),
     ))
     .subcommand(Command::new("rollback-threat").about("Rollback a threat").arg(
+        arg!(<THREAT_ID> "Threat ID")
+            .required(true)
+            .value_parser(clap::value_parser!(String)),
+    ))
+    .subcommand(Command::new("list-threats").about("List all threat names"))
+    .subcommand(Command::new("get-threat-info").about("Get threat information").arg(
         arg!(<THREAT_ID> "Threat ID")
             .required(true)
             .value_parser(clap::value_parser!(String)),
@@ -117,7 +121,7 @@ pub fn build_cli() -> Command {
             .alias("wait-for-connection")
             .about("Wait for connection of the background process")
             .arg(
-                arg!(<TIMEOUT> "Timeout in seconds")
+                arg!([TIMEOUT] "Timeout in seconds")
                     .required(false)
                     .value_parser(clap::value_parser!(u64)),
             ),
@@ -127,12 +131,12 @@ pub fn build_cli() -> Command {
             .alias("get-sessions")
             .about("Get connections of the background process")
             .arg(
-                arg!(<ZEEK_FORMAT> "Zeek format")
+                arg!([ZEEK_FORMAT] "Zeek format")
                     .required(false)
                     .value_parser(clap::value_parser!(bool)),
             )
             .arg(
-                arg!(<LOCAL_TRAFFIC> "Include local traffic")
+                arg!([LOCAL_TRAFFIC] "Include local traffic")
                     .required(false)
                     .default_value("false")
                     .value_parser(clap::value_parser!(bool)),
@@ -188,17 +192,17 @@ pub fn build_cli() -> Command {
                     .value_parser(clap::value_parser!(String)),
             )
             .arg(
-                arg!(<LAN_SCANNING> "LAN scanning enabled")
+                arg!([LAN_SCANNING] "LAN scanning enabled")
                     .required(false)
                     .value_parser(clap::value_parser!(bool)),
             )
             .arg(
-                arg!(<WHITELIST_NAME> "Whitelist name")
+                arg!([WHITELIST_NAME] "Whitelist name")
                     .required(false)
                     .value_parser(clap::value_parser!(String)),
             )
             .arg(
-                arg!(<LOCAL_TRAFFIC> "Include local traffic")
+                arg!([LOCAL_TRAFFIC] "Include local traffic")
                     .required(false)
                     .default_value("false")
                     .value_parser(clap::value_parser!(bool)),
