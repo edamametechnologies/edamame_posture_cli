@@ -401,11 +401,11 @@ fn run_base() {
         Some(("request-signature", _)) => {
             // Initialize the core with computing enabled
             initialize_core("".to_string(), true, false, false, false, false);
-            ensure_admin(); // Admin check here
+            ensure_admin();
+            // Display the score
             base_get_score(true);
-            let signature =
-                get_signature_from_score_with_email("anonymous@anonymous.eda".to_string());
-            println!("Signature: {}", signature);
+            // Request the signature
+            exit_code = base_request_signature();
         }
         Some(("request-report", sub_matches)) => {
             let email = sub_matches.get_one::<String>("EMAIL").unwrap().to_string();
@@ -413,9 +413,9 @@ fn run_base() {
                 .get_one::<String>("SIGNATURE")
                 .unwrap()
                 .to_string();
-            // Initialize the core with reporting and server disabled
+            // Initialize the core with all options disabled
             initialize_core("".to_string(), false, false, false, false, verbose);
-            request_report_from_signature(email, signature, "JSON".to_string());
+            exit_code = base_request_report(email, signature);
         }
         //////////////////////
         // Background commands

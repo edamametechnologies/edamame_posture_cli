@@ -181,9 +181,10 @@ pub fn background_wait_for_connection(timeout: u64) -> i32 {
             }
         };
 
-        if connection_status.backend_error_code != "None" {
+        // The backend error code won't reflect an actual error until communication with the backend occur, i.e. the connection is established
+        if connection_status.is_connected && connection_status.backend_error_code != "None" {
             eprintln!(
-                "Error connecting to domain: {}",
+                "Error attempting to connect to domain: {}",
                 connection_status.backend_error_code
             );
             return ERROR_CODE_PARAM;

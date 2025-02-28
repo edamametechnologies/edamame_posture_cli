@@ -85,7 +85,7 @@ clean:
 
 test:
 	# Simple test
-	cargo test
+	cargo test -- --nocapture
 
 # Define the binary based on the OS
 BINARY=$(shell if [ "$(RUNNER_OS)" = "Windows" ]; then echo "target/release/edamame_posture.exe"; else echo "target/release/edamame_posture"; fi)
