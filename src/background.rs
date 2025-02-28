@@ -3,6 +3,10 @@ use crate::EDAMAME_CA_PEM;
 use crate::EDAMAME_CLIENT_KEY;
 use crate::EDAMAME_CLIENT_PEM;
 use crate::EDAMAME_TARGET;
+use crate::ERROR_CODE_MISMATCH;
+use crate::ERROR_CODE_PARAM;
+use crate::ERROR_CODE_SERVER_ERROR;
+use crate::ERROR_CODE_TIMEOUT;
 use edamame_core::api::api_core::*;
 use edamame_core::api::api_lanscan::*;
 use edamame_core::api::api_score::*;
@@ -22,7 +26,7 @@ pub fn background_get_sessions(local_traffic: bool, zeek_format: bool) -> i32 {
         Ok(sessions) => sessions,
         Err(e) => {
             eprintln!("Error getting LAN sessions: {}", e);
-            return 1;
+            return ERROR_CODE_SERVER_ERROR;
         }
     };
 
@@ -53,12 +57,12 @@ pub fn background_get_sessions(local_traffic: bool, zeek_format: bool) -> i32 {
         Ok(conformance) => conformance,
         Err(e) => {
             eprintln!("Error getting whitelist conformance: {}", e);
-            return 1;
+            return ERROR_CODE_SERVER_ERROR;
         }
     };
     if !whitelist_conformance {
         eprintln!("Some connections failed the whitelist check");
-        return 1;
+        return ERROR_CODE_MISMATCH;
     } else {
         return 0;
     }
@@ -81,7 +85,7 @@ pub fn background_get_threats_info() -> i32 {
         }
         Err(e) => {
             eprintln!("Error getting threats info: {}", e);
-            1
+            return ERROR_CODE_SERVER_ERROR;
         }
     }
 }
@@ -100,7 +104,7 @@ pub fn background_get_status() -> i32 {
         }
         Err(e) => {
             eprintln!("Error getting connection status: {}", e);
-            1
+            return ERROR_CODE_SERVER_ERROR;
         }
     }
 }
@@ -115,7 +119,7 @@ pub fn background_get_last_report_signature() -> i32 {
         Ok(signature) => signature,
         Err(e) => {
             eprintln!("Error getting last reported signature: {}", e);
-            return 1;
+            return ERROR_CODE_SERVER_ERROR;
         }
     };
     println!("{}", signature);
@@ -123,38 +127,27 @@ pub fn background_get_last_report_signature() -> i32 {
 }
 
 pub fn background_wait_for_connection(timeout: u64) -> i32 {
+    // Display device and system info
     base_get_device_info();
     base_get_system_info();
 
     println!("Waiting for score computation and reporting to complete...");
     let mut timeout = timeout;
 
-    // Fetch initial last_reported_signature
-    let mut last_reported_signature = match rpc_get_last_report_signature(
-        &EDAMAME_CA_PEM,
-        &EDAMAME_CLIENT_PEM,
-        &EDAMAME_CLIENT_KEY,
-        &EDAMAME_TARGET,
-    ) {
-        Ok(signature) => signature,
-        Err(e) => {
-            eprintln!("Error getting last reported signature: {}", e);
-            return 1;
-        }
-    };
-
-    // Fetch initial connection_status
-    let mut connection_status = match rpc_get_connection(
-        &EDAMAME_CA_PEM,
-        &EDAMAME_CLIENT_PEM,
-        &EDAMAME_CLIENT_KEY,
-        &EDAMAME_TARGET,
-    ) {
-        Ok(status) => status,
-        Err(e) => {
-            eprintln!("Error getting connection status: {}", e);
-            return 1;
-        }
+    let mut last_reported_signature = "".to_string();
+    let mut connection_status = ConnectionStatusAPI {
+        connected_domain: "".to_string(),
+        connected_user: "".to_string(),
+        pin: "".to_string(),
+        is_success: false,
+        is_connected: false,
+        is_success_pin: false,
+        is_outdated_backend: false,
+        is_outdated_threats: false,
+        last_network_activity: "".to_string(),
+        last_report_time: "".to_string(),
+        last_report_signature: "".to_string(),
+        backend_error_code: "".to_string(),
     };
 
     // Wait for a non-empty signature or until we time out
@@ -184,19 +177,29 @@ pub fn background_wait_for_connection(timeout: u64) -> i32 {
             Ok(status) => status,
             Err(e) => {
                 eprintln!("Error getting connection status: {}", e);
-                return 1;
+                return ERROR_CODE_SERVER_ERROR;
             }
         };
 
+        if connection_status.backend_error_code != "None" {
+            eprintln!(
+                "Error connecting to domain: {}",
+                connection_status.backend_error_code
+            );
+            return ERROR_CODE_PARAM;
+        }
+
         println!(
-            "Waiting for score computation and reporting to complete... (connected: {}, network activity: {})",
-            connection_status.is_connected, connection_status.last_network_activity
+            "Waiting for score computation and reporting to complete... (connected: {}, network activity: {}, report signature: {})",
+            connection_status.is_connected,
+            connection_status.last_network_activity,
+            last_reported_signature
         );
     }
 
     if timeout <= 0 {
         eprintln!("Timeout waiting for background process to connect to domain...");
-        return 1;
+        return ERROR_CODE_TIMEOUT;
     } else {
         println!(
             "Connection successful with domain {} and user {} (connected: {}, network activity: {})",
@@ -217,7 +220,7 @@ pub fn background_wait_for_connection(timeout: u64) -> i32 {
             Ok(score) => score,
             Err(e) => {
                 eprintln!("Error getting score: {}", e);
-                return 1;
+                return ERROR_CODE_SERVER_ERROR;
             }
         };
         let url = get_threats_url().to_string();
@@ -239,7 +242,7 @@ pub fn background_wait_for_connection(timeout: u64) -> i32 {
             Ok(devices) => devices,
             Err(e) => {
                 eprintln!("Error getting LAN devices: {}", e);
-                return 1;
+                return ERROR_CODE_SERVER_ERROR;
             }
         };
         println!("LAN scan completed at: {}", devices.last_scan);
@@ -255,12 +258,11 @@ pub fn background_wait_for_connection(timeout: u64) -> i32 {
             Ok(sessions) => sessions,
             Err(e) => {
                 eprintln!("Error getting LAN sessions: {}", e);
-                return 1;
+                return ERROR_CODE_SERVER_ERROR;
             }
         };
         format_sessions_log(sessions.sessions);
     }
-
     0
 }
 
@@ -275,7 +277,7 @@ pub fn background_stop() -> i32 {
         Ok(_) => (),
         Err(e) => {
             eprintln!("Error terminating background process: {}", e);
-            return 1;
+            return ERROR_CODE_SERVER_ERROR;
         }
     }
     0
@@ -294,7 +296,7 @@ pub fn background_get_history() -> i32 {
         }
         Err(e) => {
             eprintln!("Error getting history: {}", e);
-            1
+            return ERROR_CODE_SERVER_ERROR;
         }
     }
 }
