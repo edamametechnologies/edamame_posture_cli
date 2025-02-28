@@ -22,6 +22,11 @@ use std::process::exit;
 use std::thread::sleep;
 use std::time::Duration;
 
+const ERROR_CODE_MISMATCH: i32 = 1;
+const ERROR_CODE_SERVER_ERROR: i32 = 2;
+const ERROR_CODE_PARAM: i32 = 3;
+const ERROR_CODE_TIMEOUT: i32 = 4;
+
 lazy_static! {
     pub static ref EDAMAME_TARGET: String =
         envc!("EDAMAME_CORE_TARGET").trim_matches('"').to_string();
@@ -562,8 +567,8 @@ fn run_base() {
         }
     }
 
-    // Dump the logs in case of error
-    if exit_code != 0 && is_background {
+    // Dump the logs in case of server or timeout error when calling the background process
+    if is_background && (exit_code == ERROR_CODE_SERVER_ERROR || exit_code == ERROR_CODE_TIMEOUT) {
         let logs = match rpc_get_all_logs(
             &EDAMAME_CA_PEM,
             &EDAMAME_CLIENT_PEM,
