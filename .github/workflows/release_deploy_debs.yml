@@ -72,7 +72,8 @@ jobs:
           edamame_domain: ${{ vars.EDAMAME_POSTURE_DOMAIN }}
           edamame_pin: ${{ secrets.EDAMAME_POSTURE_PIN }}
           edamame_id: ${{ github.run_id }}
-          network_scan: true
+          # Disabled as GitHub managed Windows runners configuratioon makes this too slow
+          network_scan: false
           auto_remediate: true
           checkout: true
           # We are using the token of the private repo to checkout the public repo and properly wait for access to the private repo
