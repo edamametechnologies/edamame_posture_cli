@@ -1,3 +1,5 @@
+use crate::ERROR_CODE_MISMATCH;
+use crate::ERROR_CODE_PARAM;
 use edamame_core::api::api_core::*;
 use edamame_core::api::api_lanscan::*;
 use edamame_core::api::api_score::*;
@@ -125,7 +127,7 @@ pub fn base_remediate_threat(threat_id: String) -> i32 {
             0
         } else {
             eprintln!("Threat {} remediated, but validation failed", threat_id);
-            1
+            return ERROR_CODE_MISMATCH;
         }
     } else {
         eprintln!("Error remediating threat: {}", threat_id);
@@ -138,14 +140,14 @@ pub fn base_rollback_threat(threat_id: String) -> i32 {
     if result.success {
         if result.validated {
             eprintln!("Threat {} rolled back, but validation failed", threat_id);
-            1
+            return ERROR_CODE_MISMATCH;
         } else {
             println!("Threat {} rolled back successfully", threat_id);
-            0
+            return 0;
         }
     } else {
         eprintln!("Error rolling back threat: {}", threat_id);
-        1
+        return ERROR_CODE_PARAM;
     }
 }
 
@@ -278,7 +280,7 @@ pub fn base_request_pin(user: String, domain: String) -> i32 {
         0
     } else {
         eprintln!("Error requesting PIN for user: {}, domain: {}. Please make sure the domain is correct and enabled in the EDAMAME Hub and try again.", user, domain);
-        1
+        ERROR_CODE_PARAM
     }
 }
 
