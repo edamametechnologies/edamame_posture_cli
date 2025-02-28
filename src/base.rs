@@ -1,5 +1,7 @@
+use crate::initialize_core;
 use crate::ERROR_CODE_MISMATCH;
 use crate::ERROR_CODE_PARAM;
+use crate::ERROR_CODE_SERVER_ERROR;
 use edamame_core::api::api_core::*;
 use edamame_core::api::api_lanscan::*;
 use edamame_core::api::api_score::*;
@@ -284,6 +286,63 @@ pub fn base_request_pin(user: String, domain: String) -> i32 {
     }
 }
 
+pub fn base_request_signature() -> i32 {
+    let signature = get_signature_from_score_with_email("anonymous@anonymous.eda".to_string());
+    // Check potential backend error
+    if signature == "" {
+        let connection_status = get_connection();
+        if connection_status.backend_error_code != "None" {
+            eprintln!(
+                "Error getting signature: {:?}",
+                connection_status.backend_error_code
+            );
+            ERROR_CODE_SERVER_ERROR
+        } else {
+            eprintln!("Unknown error getting signature");
+            ERROR_CODE_SERVER_ERROR
+        }
+    } else {
+        println!("Signature: {}", signature);
+        0
+    }
+}
+
+pub fn base_request_report(email: String, signature: String) -> i32 {
+    // Set up timeout variables
+    let timeout_duration = Duration::from_secs(20);
+    let retry_interval = Duration::from_secs(2);
+    let start_time = std::time::Instant::now();
+
+    loop {
+        request_report_from_signature(email.clone(), signature.clone(), "JSON".to_string());
+
+        // Check potential backend error
+        let connection_status = get_connection();
+
+        if connection_status.backend_error_code != "None" {
+            if connection_status.backend_error_code == "InvalidSignature" {
+                // Check if we've exceeded our timeout
+                if start_time.elapsed() >= timeout_duration {
+                    eprintln!("Timeout exceeded waiting for valid signature");
+                    return ERROR_CODE_PARAM;
+                }
+
+                // Wait before trying again
+                sleep(retry_interval);
+                continue;
+            } else {
+                eprintln!(
+                    "Error getting signature: {:?}",
+                    connection_status.backend_error_code
+                );
+                return ERROR_CODE_SERVER_ERROR;
+            }
+        } else {
+            return 0;
+        }
+    }
+}
+
 pub fn base_get_core_version() {
     let version = get_core_version();
     println!("Core version: {}", version);
@@ -298,4 +357,29 @@ pub fn base_get_device_info() {
     let device_info = get_device_info();
     println!("Device information:");
     println!("{}", device_info);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_signature() {
+        // Initialize the core with compute enabled
+        initialize_core("".to_string(), true, false, false, false, true);
+        println!("Core initialized");
+
+        let score = get_score(true);
+        println!("Score: {}", score);
+
+        let signature = get_signature_from_score_with_email("anonymous@anonymous.eda".to_string());
+        println!("Signature: {}", signature);
+
+        sleep(Duration::from_secs(10));
+
+        let exit_code = base_request_report("dev@edamame.tech".to_string(), signature);
+        println!("Exit code: {}", exit_code);
+
+        assert_eq!(exit_code, 0);
+    }
 }
