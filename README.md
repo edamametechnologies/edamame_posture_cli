@@ -214,7 +214,7 @@ We provide a GPG-signed APT repository for `.deb` packages, ensuring secure and 
 
 ### macOS
 
-#### macOS Standard Installation
+#### macOS Installation
 
 1. **Download** the macOS universal binary:
    - [edamame_posture-0.9.18-universal-apple-darwin](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.18/edamame_posture-0.9.18-universal-apple-darwin)  
@@ -229,22 +229,7 @@ We provide a GPG-signed APT repository for `.deb` packages, ensuring secure and 
 
 #### macOS CI/CD Installation
 
-For use with GitHub or GitLab actions with self-hosted runners:
-
-1. **Download** the macOS universal binary to the home directory of the user of the self-hosted runner:
-   ```bash
-   curl -o ~/edamame_posture https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.18/edamame_posture-0.9.18-universal-apple-darwin
-   ```
-
-2. **Make the binary executable**:
-   ```bash
-   chmod +x ~/edamame_posture
-   ```
-
-3. **Run** a quick command to verify installation:
-   ```bash
-   ~/edamame_posture get-core-version
-   ```
+Proceed with installation as stated above but make sure the binary is located within the home directory of the user used by the runner. 
 
 ### Windows
 
@@ -265,23 +250,11 @@ For use with GitHub or GitLab actions with self-hosted runners:
    ```cmd
    edamame_posture get-core-version
    ```
+Note: Some commands require administrator privileges. Right-click on Command Prompt and select "Run as administrator" when needed or install Git Bash and use the provided sudo in an Administrator elevated terminal.
 
 #### Windows CI/CD Installation
 
-For use with GitHub or GitLab actions with self-hosted runners:
-
-1. **Download** the Windows binary to the home directory of the user of the self-hosted runner:
-   - Download [edamame_posture-0.9.18-x86_64-pc-windows-msvc.exe](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.18/edamame_posture-0.9.18-x86_64-pc-windows-msvc.exe) to your home folder (`C:\Users\YourUsername\`)
-
-2. **Install Npcap**:
-   - Install [Npcap](https://npcap.com/#download), the packet capture library from the Nmap team, to unlock the traffic capture feature
-
-3. **Run** a quick command to verify installation:
-   ```cmd
-   edamame_posture get-core-version
-   ```
-   
-   Note: Some commands require administrator privileges. Right-click on Command Prompt and select "Run as administrator" when needed or install Git Bash and use the provided sudo in an Administrator elevated terminal.
+Proceed with installation as stated above but make sure the binary is located within the home directory of the user used by the runner.
 
 ## Usage
 
