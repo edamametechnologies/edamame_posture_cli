@@ -2,6 +2,31 @@
 
 > **What?**: Lightweight, developer-friendly security posture assessment and remediation tool—perfect for those who want a straightforward way to secure their development environment.
 
+## Table of Contents
+
+1. [Overview](#overview)
+2. [Key Features](#key-features)
+3. [Targeted Use Cases](#targeted-use-cases)
+4. [How It Works](#how-it-works)
+5. [Installation](#installation)
+   - [Linux (Debian/Ubuntu)](#linux-debianubuntu)
+     - [APT Repository Method (Recommended)](#apt-repository-method-recommended)
+     - [Debian Package Installation](#debian-package-installation)
+     - [Debian Service Management](#debian-service-management)
+     - [Debian Uninstallation](#debian-uninstallation)
+     - [Manual Linux Binary Installation](#manual-linux-binary-installation)
+   - [macOS](#macos)
+     - [macOS Standard Installation](#macos-standard-installation)
+     - [macOS CI/CD Installation](#macos-cicd-installation)
+   - [Windows](#windows)
+     - [Windows Standard Installation](#windows-standard-installation)
+     - [Windows CI/CD Installation](#windows-cicd-installation)
+6. [Usage](#usage)
+   - [Common Commands](#common-commands)
+   - [All Available Commands](#all-available-commands)
+7. [Requirements](#requirements)
+8. [Error Handling](#error-handling)
+
 ## Overview
 
 `edamame_posture` is a cross-platform CLI that helps you quickly:
@@ -10,21 +35,6 @@
 - **Generate** compliance or audit reports—giving you proof of a hardened setup.
 
 And if your needs grow, you can seamlessly connect it to [EDAMAME Hub](https://hub.edamame.tech) for more advanced conditional access, centralized reporting, and enterprise-level features.
-
----
-
-## Targeted Use Cases
-
-1. **Personal Device Hardening**  
-   Quickly validate and remediate workstation security—ensuring it's safe for development work.  
-2. **CI/CD Pipeline Security**  
-   Insert `edamame_posture` checks to ensure ephemeral runners are properly secured before building or deploying code.  
-3. **On-Demand Compliance Demonstrations**  
-   Produce signed posture reports when working with clients or partners who require evidence of strong security practices.  
-4. **Local Network Insights**  
-   Run `lanscan` to see what's on your subnet—no need for bulky network security tools.  
-
----
 
 ## Key Features
 
@@ -41,7 +51,16 @@ And if your needs grow, you can seamlessly connect it to [EDAMAME Hub](https://h
 6. **Optional Hub Integration**  
    Connect to [EDAMAME Hub](https://hub.edamame.tech) when you're ready for shared visibility and policy enforcement.
 
----
+## Targeted Use Cases
+
+1. **Personal Device Hardening**  
+   Quickly validate and remediate workstation security—ensuring it's safe for development work.  
+2. **CI/CD Pipeline Security**  
+   Insert `edamame_posture` checks to ensure ephemeral runners are properly secured before building or deploying code.  
+3. **On-Demand Compliance Demonstrations**  
+   Produce signed posture reports when working with clients or partners who require evidence of strong security practices.  
+4. **Local Network Insights**  
+   Run `lanscan` to see what's on your subnet—no need for bulky network security tools.  
 
 ## How It Works
 
@@ -52,21 +71,13 @@ And if your needs grow, you can seamlessly connect it to [EDAMAME Hub](https://h
 3. **Report**  
    Generate a signed report using `request-signature` and `request-report`
 4. **Workflows**  
-Check out the [associated GitHub action](https://github.com/edamametechnologies/edamame_posture_action) to see how to integrate `edamame_posture` directly in your GitHub CI/CD workflows and [associated GitLab workflow](https://gitlab.com/edamametechnologies/edamame_posture_action) to see how to integrate it in your GitLab CI/CD workflows.
-
----
-
-## Quick Start
-
-1. **Download** the official binary for your platform (links below).  
-2. **Install** by placing the binary in your `PATH`.  
-3. **Run** a quick command like `edamame_posture score` to assess your device.
-
----
+   Check out the [associated GitHub action](https://github.com/edamametechnologies/edamame_posture_action) to see how to integrate `edamame_posture` directly in your GitHub CI/CD workflows and [associated GitLab workflow](https://gitlab.com/edamametechnologies/edamame_posture_action) to see how to integrate it in your GitLab CI/CD workflows.
 
 ## Installation
 
-### Recommended Method: Using the Official GPG-Signed APT Repository
+### Linux (Debian/Ubuntu)
+
+#### APT Repository Method (Recommended)
 
 We provide a GPG-signed APT repository for `.deb` packages, ensuring secure and verified installation. Follow these steps:
 
@@ -111,40 +122,16 @@ We provide a GPG-signed APT repository for `.deb` packages, ensuring secure and 
    - GRPC client for edamame-posture
    - Allows for remote control of all controls of edamame-posture
 
-### Configuration
+#### Debian Package Installation
 
-**Configure** the edamame_posture service:
-   - Through the edamame-security GUI.
-   - Through the edamame-posture service configuration file: `/etc/edamame_posture.conf` and edamame_posture commands as seen below.
+1. **Download** the Debian package for your platform:
 
-### Binary Installation
-
-1. **Download** the official binary for your platform (links below).  
-
-- **Gnu Linux x86_64**: [edamame_posture-0.9.18-x86_64-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.18/edamame_posture-0.9.18-x86_64-unknown-linux-gnu)  
-- **Gnu Linux i686**: [edamame_posture-0.9.18-i686-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.18/edamame_posture-0.9.18-i686-unknown-linux-gnu)  
-- **Gnu Linux aarch64**: [edamame_posture-0.9.18-aarch64-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.18/edamame_posture-0.9.18-aarch64-unknown-linux-gnu)  
-- **Gnu Linux armv7**: [edamame_posture-0.9.18-armv7-unknown-linux-gnueabihf](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.18/edamame_posture-0.9.18-armv7-unknown-linux-gnueabihf)  
-- **Alpine Linux x86_64**: [edamame_posture-0.9.18-x86_64-unknown-linux-musl](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.18/edamame_posture-0.9.18-x86_64-unknown-linux-musl)  
-- **Alpine Linux aarch64**: [edamame_posture-0.9.18-aarch64-unknown-linux-musl](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.18/edamame_posture-0.9.18-aarch64-unknown-linux-musl)  
-- **macOS universal (signed)**: [edamame_posture-0.9.18-universal-apple-darwin](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.18/edamame_posture-0.9.18-universal-apple-darwin)  
-- **Windows x86_64 (signed)**: [edamame_posture-0.9.18-x86_64-pc-windows-msvc.exe](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.18/edamame_posture-0.9.18-x86_64-pc-windows-msvc.exe)
-
-2. **Install** by placing the binary in your `PATH`.  
-3. **Run** a quick command like `edamame_posture score` to assess your device.
-
-### Debian Package Installation
-
-1. **Download** the Debian package for your platform (links below).  
-
-- **Gnu Linux x86_64:** [edamame-posture_0.9.18-1_amd64.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.18/edamame-posture_0.9.18-1_amd64.deb)
-- **Gnu Linux i686 (32-bit):** [edamame-posture_0.9.18-1_i386.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.18/edamame-posture_0.9.18-1_i386.deb)
-- **Gnu Linux aarch64:** [edamame-posture_0.9.18-1_arm64.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.18/edamame-posture_0.9.18-1_arm64.deb)
-- **Gnu Linux armv7:** [edamame-posture_0.9.18-1_armhf.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.18/edamame-posture_0.9.18-1_armhf.deb)
-
+   - **x86_64 (64-bit):** [edamame-posture_0.9.18-1_amd64.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.18/edamame-posture_0.9.18-1_amd64.deb)
+   - **i686 (32-bit):** [edamame-posture_0.9.18-1_i386.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.18/edamame-posture_0.9.18-1_i386.deb)
+   - **aarch64 (ARM 64-bit):** [edamame-posture_0.9.18-1_arm64.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.18/edamame-posture_0.9.18-1_arm64.deb)
+   - **armv7 (ARM 32-bit):** [edamame-posture_0.9.18-1_armhf.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.18/edamame-posture_0.9.18-1_armhf.deb)
 
 2. **Install** the package using either method:
-
    ```bash
    sudo apt install ./edamame-posture_0.9.18-1_amd64.deb
    # or
@@ -152,13 +139,11 @@ We provide a GPG-signed APT repository for `.deb` packages, ensuring secure and 
    ```
 
 3. **Configure** the service by editing the configuration file:
-
    ```bash
    sudo nano /etc/edamame_posture.conf
    ```
 
    Set the required values:
-
    ```yaml
    edamame_user: "your_username"
    edamame_domain: "your.domain.com"
@@ -166,25 +151,20 @@ We provide a GPG-signed APT repository for `.deb` packages, ensuring secure and 
    ```
 
 4. **Start** the service:
-
    ```bash
    sudo systemctl start edamame_posture.service
-   # or if you installed the deb package, the service has been automatically started and you need to restart it so that it picks up the new configuration:
+   # or if you installed the deb package, the service has been automatically started and you need to restart it:
    sudo systemctl restart edamame_posture.service
    ```
 
 5. **Verify** the service status:
-
    ```bash
    sudo systemctl status edamame_posture.service
    ```
 
----
-
-## Service Management
+#### Debian Service Management
 
 - **Stopping the Service**:
-  
   ```bash
   sudo systemctl stop edamame_posture.service
   # or using the CLI command:
@@ -192,32 +172,64 @@ We provide a GPG-signed APT repository for `.deb` packages, ensuring secure and 
   ```
 
 - **Viewing Service Logs**:
-
   ```bash
   sudo journalctl -u edamame_posture.service
   # or using the CLI command:
   sudo edamame_posture logs
   ```
 
----
+- **Configure** the edamame_posture service:
+  - Through the edamame-security GUI.
+  - Through the edamame-posture service configuration file: `/etc/edamame_posture.conf`
 
-## Uninstallation
+#### Debian Uninstallation
 
 - **Remove the package**:
-
   ```bash
   sudo apt remove edamame-posture
   ```
 
 - **Remove the package along with all configuration files**:
-
   ```bash
   sudo apt purge edamame-posture
   ```
 
----
+#### Manual Linux Binary Installation
 
-### macOS Installation for use with GitHub or GitLab actions with self-hosted runners
+1. **Download** the Linux binary for your architecture:
+   - **x86_64 (64-bit)**: [edamame_posture-0.9.18-x86_64-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.18/edamame_posture-0.9.18-x86_64-unknown-linux-gnu)  
+   - **i686 (32-bit)**: [edamame_posture-0.9.18-i686-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.18/edamame_posture-0.9.18-i686-unknown-linux-gnu)  
+   - **aarch64 (ARM 64-bit)**: [edamame_posture-0.9.18-aarch64-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.18/edamame_posture-0.9.18-aarch64-unknown-linux-gnu)  
+   - **armv7 (ARM 32-bit)**: [edamame_posture-0.9.18-armv7-unknown-linux-gnueabihf](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.18/edamame_posture-0.9.18-armv7-unknown-linux-gnueabihf)
+   - **x86_64 (64-bit) for Alpine Linux (musl)**: [edamame_posture-0.9.18-x86_64-unknown-linux-musl](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.18/edamame_posture-0.9.18-x86_64-unknown-linux-musl) 
+   - **aarch64 (ARM 64-bit) for Alpine Linux (musl)**: [edamame_posture-0.9.18-aarch64-unknown-linux-musl](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.18/edamame_posture-0.9.18-aarch64-unknown-linux-musl)
+
+2. **Install** by placing the binary in your `PATH` and making it executable:
+   ```bash
+   sudo mv edamame_posture-* /usr/local/bin/edamame_posture
+   sudo chmod +x /usr/local/bin/edamame_posture
+   ```
+
+3. **Run** a quick command like `edamame_posture score` to assess your device.
+
+### macOS
+
+#### macOS Standard Installation
+
+1. **Download** the macOS universal binary:
+   - [edamame_posture-0.9.18-universal-apple-darwin](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.18/edamame_posture-0.9.18-universal-apple-darwin)  
+
+2. **Install** by placing the binary in your `PATH` and making it executable:
+   ```bash
+   sudo mv edamame_posture-* /usr/local/bin/edamame_posture
+   sudo chmod +x /usr/local/bin/edamame_posture
+   ```
+
+3. **Run** a quick command like `edamame_posture score` to assess your device.
+
+#### macOS CI/CD Installation
+
+For use with GitHub or GitLab actions with self-hosted runners:
 
 1. **Download** the macOS universal binary to the home directory of the user of the self-hosted runner:
    ```bash
@@ -229,14 +241,34 @@ We provide a GPG-signed APT repository for `.deb` packages, ensuring secure and 
    chmod +x ~/edamame_posture
    ```
 
-4. **Run** a quick command to verify installation:
+3. **Run** a quick command to verify installation:
    ```bash
+   ~/edamame_posture get-core-version
+   ```
+
+### Windows
+
+#### Windows Standard Installation
+
+1. **Download** the Windows binary:
+   - [edamame_posture-0.9.18-x86_64-pc-windows-msvc.exe](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.18/edamame_posture-0.9.18-x86_64-pc-windows-msvc.exe)
+
+2. **Install Npcap** (Required for traffic capture feature):
+   - Install [Npcap](https://npcap.com/#download), the packet capture library from the Nmap team
+
+3. **Add to PATH** (Optional but recommended):
+   - Rename the downloaded file to `edamame_posture.exe`
+   - Move it to a permanent location (e.g., `C:\Program Files\EDAMAME\`)
+   - Add that location to your system PATH
+
+4. **Run** a quick command to verify installation:
+   ```cmd
    edamame_posture get-core-version
    ```
 
----
+#### Windows CI/CD Installation
 
-### Windows Installation for use with GitHub or GitLab actions with self-hosted runners
+For use with GitHub or GitLab actions with self-hosted runners:
 
 1. **Download** the Windows binary to the home directory of the user of the self-hosted runner:
    - Download [edamame_posture-0.9.18-x86_64-pc-windows-msvc.exe](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.18/edamame_posture-0.9.18-x86_64-pc-windows-msvc.exe) to your home folder (`C:\Users\YourUsername\`)
@@ -244,24 +276,28 @@ We provide a GPG-signed APT repository for `.deb` packages, ensuring secure and 
 2. **Install Npcap**:
    - Install [Npcap](https://npcap.com/#download), the packet capture library from the Nmap team, to unlock the traffic capture feature
 
-4. **Run** a quick command to verify installation:
+3. **Run** a quick command to verify installation:
    ```cmd
    edamame_posture get-core-version
    ```
    
    Note: Some commands require administrator privileges. Right-click on Command Prompt and select "Run as administrator" when needed or install Git Bash and use the provided sudo in an Administrator elevated terminal.
 
----
-
 ## Usage
+
+### Common Commands
+
+- **Check your security posture**: `edamame_posture score`
+- **Scan local network**: `edamame_posture lanscan`
+- **Fix security issues**: `edamame_posture remediate`
+- **Get system info**: `edamame_posture get-system-info`
+- **Monitor network traffic**: `edamame_posture capture`
+
+### All Available Commands
 
 edamame_posture [SUBCOMMAND]
 
---------------------------------------------------------------------------------
-
-## Subcommands
-
-### logs
+#### logs
 Displays logs from the background process.  
 (Does **NOT** require admin privileges.)
 
@@ -270,9 +306,7 @@ Displays logs from the background process.
 edamame_posture logs
 ```
 
----
-
-### score
+#### score
 Retrieves score information based on device posture.  
 (Requires **admin** privileges.)
 
@@ -281,9 +315,7 @@ Retrieves score information based on device posture.
 edamame_posture score
 ```
 
----
-
-### lanscan
+#### lanscan
 Performs a Local Area Network (LAN) scan to detect devices on the network.  
 (Requires **admin** privileges.)
 
@@ -292,9 +324,7 @@ Performs a Local Area Network (LAN) scan to detect devices on the network.
 edamame_posture lanscan
 ```
 
----
-
-### wait-for-connection
+#### wait-for-connection
 Waits for a network connection within a specified timeout period.  
 (Does **NOT** require admin privileges.)
 
@@ -303,11 +333,7 @@ Waits for a network connection within a specified timeout period.
 edamame_posture wait-for-connection [TIMEOUT]
 ```
 
-- **TIMEOUT**: Timeout in seconds (optional, defaults to 600 seconds if not provided)
-
----
-
-### get-sessions
+#### get-sessions
 Retrieves connection sessions.  
 (Does **NOT** require admin privileges.)
 
@@ -316,12 +342,7 @@ Retrieves connection sessions.
 edamame_posture get-sessions [ZEEK_FORMAT] [LOCAL_TRAFFIC]
 ```
 
-- **ZEEK_FORMAT**: Format the output as Zeek log (optional, defaults to false if not provided)  
-- **LOCAL_TRAFFIC**: Include local traffic (optional, defaults to false if not provided)
-
----
-
-### capture
+#### capture
 Captures network traffic for a specified duration and formats it as a log.  
 (Requires **admin** privileges.)
 
@@ -330,14 +351,7 @@ Captures network traffic for a specified duration and formats it as a log.
 edamame_posture capture [SECONDS] [WHITELIST_NAME] [ZEEK_FORMAT] [LOCAL_TRAFFIC]
 ```
 
-- **SECONDS**: Duration in seconds (optional, defaults to 600 seconds if not provided)  
-- **WHITELIST_NAME**: Name of the whitelist to use (optional)  
-- **ZEEK_FORMAT**: Format the output as Zeek log (optional, defaults to false if not provided)  
-- **LOCAL_TRAFFIC**: Include local traffic (optional, defaults to false if not provided)
-
----
-
-### get-core-info
+#### get-core-info
 Fetches core information of the device.  
 (Does **NOT** require admin privileges.)
 
@@ -346,9 +360,7 @@ Fetches core information of the device.
 edamame_posture get-core-info
 ```
 
----
-
-### get-device-info
+#### get-device-info
 Retrieves detailed device information.  
 (Requires **admin** privileges.)
 
@@ -357,9 +369,7 @@ Retrieves detailed device information.
 edamame_posture get-device-info
 ```
 
----
-
-### get-system-info
+#### get-system-info
 Retrieves system information including OS details and network configuration.  
 (Requires **admin** privileges.)
 
@@ -368,9 +378,7 @@ Retrieves system information including OS details and network configuration.
 edamame_posture get-system-info
 ```
 
----
-
-### request-pin
+#### request-pin
 Requests a PIN for user authentication.  
 (Does **NOT** require admin privileges.)
 
@@ -379,12 +387,7 @@ Requests a PIN for user authentication.
 edamame_posture request-pin <USER> <DOMAIN>
 ```
 
-- **USER**: User name (required)  
-- **DOMAIN**: Domain name (required, must be a valid FQDN)
-
----
-
-### get-core-version
+#### get-core-version
 Retrieves the current version of the core.  
 (Does **NOT** require admin privileges.)
 
@@ -393,9 +396,7 @@ Retrieves the current version of the core.
 edamame_posture get-core-version
 ```
 
----
-
-### remediate
+#### remediate
 Performs remediation actions on the device.  
 (Requires **admin** privileges.)
 
@@ -404,11 +405,7 @@ Performs remediation actions on the device.
 edamame_posture remediate [REMEDIATIONS]
 ```
 
-- **REMEDIATIONS**: Comma-separated list of threat IDs to **skip** (optional)
-
----
-
-### remediate-threat
+#### remediate-threat
 Remediates a single threat by its threat ID.  
 (Requires **admin** privileges.)
 
@@ -417,11 +414,7 @@ Remediates a single threat by its threat ID.
 edamame_posture remediate-threat <THREAT_ID>
 ```
 
-- **THREAT_ID**: The ID of the threat to be remediated (required)
-
----
-
-### rollback-threat
+#### rollback-threat
 Rolls back a single threat by its threat ID.  
 (Requires **admin** privileges.)
 
@@ -430,11 +423,7 @@ Rolls back a single threat by its threat ID.
 edamame_posture rollback-threat <THREAT_ID>
 ```
 
-- **THREAT_ID**: The ID of the threat to be rolled back (required)
-
----
-
-### request-signature
+#### request-signature
 Reports the security posture (anonymously) and returns a signature for later retrieval.  
 (Requires **admin** privileges.)
 
@@ -443,9 +432,7 @@ Reports the security posture (anonymously) and returns a signature for later ret
 edamame_posture request-signature
 ```
 
----
-
-### request-report
+#### request-report
 Sends a report, based on a previously retrieved signature, to a specified email address.  
 (Does **NOT** require admin privileges.)
 
@@ -454,12 +441,7 @@ Sends a report, based on a previously retrieved signature, to a specified email 
 edamame_posture request-report <EMAIL> <SIGNATURE>
 ```
 
-- **EMAIL**: Email address (required)  
-- **SIGNATURE**: A signature string previously obtained (required)
-
----
-
-### get-threats-info
+#### get-threats-info
 Fetches information about the threats detected by the background process.  
 (Requires **admin** privileges.)
 
@@ -468,9 +450,7 @@ Fetches information about the threats detected by the background process.
 edamame_posture get-threats-info
 ```
 
----
-
-### start
+#### start
 Starts the background process for continuous monitoring and reporting.  
 (Requires **admin** privileges.)
 
@@ -479,17 +459,7 @@ Starts the background process for continuous monitoring and reporting.
 edamame_posture start <USER> <DOMAIN> <PIN> [DEVICE_ID] [LAN_SCANNING] [WHITELIST_NAME] [LOCAL_TRAFFIC]
 ```
 
-- **USER**: User name (required)  
-- **DOMAIN**: Domain name (required, must be a valid FQDN)  
-- **PIN**: PIN for authentication (required, must contain digits only)  
-- **DEVICE_ID**: Device ID suffix (optional, if not empty, it will be used to identify the device in the EDAMAME Hub and will flag it as a CI/CD runner - typically the job or pipeline ID)  
-- **LAN_SCANNING**: Enable LAN scanning (optional, defaults to false)  
-- **WHITELIST_NAME**: Name of the whitelist to use (optional)  
-- **LOCAL_TRAFFIC**: Include local traffic (optional, defaults to false)
-
----
-
-### stop
+#### stop
 Stops the background reporting process.  
 (Does **NOT** require admin privileges.)
 
@@ -498,9 +468,7 @@ Stops the background reporting process.
 edamame_posture stop
 ```
 
----
-
-### status
+#### status
 Displays the current status of the background reporting process.  
 (Does **NOT** require admin privileges.)
 
@@ -509,9 +477,7 @@ Displays the current status of the background reporting process.
 edamame_posture status
 ```
 
----
-
-### get-last-report-signature
+#### get-last-report-signature
 Retrieves the most recent report signature from the background process.  
 (Does **NOT** require admin privileges.)
 
@@ -520,9 +486,7 @@ Retrieves the most recent report signature from the background process.
 edamame_posture get-last-report-signature
 ```
 
----
-
-### get-history
+#### get-history
 Retrieves the background process's history of score modifications.  
 (Does **NOT** require admin privileges.)
 
@@ -531,13 +495,9 @@ Retrieves the background process's history of score modifications.
 edamame_posture get-history
 ```
 
----
-
 ## Requirements
 
 Most commands require administrator privileges. If a command requires admin privileges and they are not available, the tool will exit with an error message.
-
---------------------------------------------------------------------------------
 
 ## Error Handling
 
