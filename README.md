@@ -46,7 +46,7 @@ And if your needs grow, you can seamlessly connect it to [EDAMAME Hub](https://h
 ## How It Works
 
 1. **Install**  
-   Place the `edamame_posture` binary in your `PATH` (e.g., `/usr/local/bin` for Linux/macOS).  
+   Place the `edamame_posture` binary in your `PATH` (e.g., `/usr/local/bin` for Linux/macOS) and make it executable. 
 2. **Run**  
    Use commands like `score` to check posture or `remediate` to fix common issues automatically.
 3. **Report**  
@@ -133,7 +133,6 @@ We provide a GPG-signed APT repository for `.deb` packages, ensuring secure and 
 2. **Install** by placing the binary in your `PATH`.  
 3. **Run** a quick command like `edamame_posture score` to assess your device.
 
-
 ### Debian Package Installation
 
 1. **Download** the Debian package for your platform (links below).  
@@ -144,7 +143,7 @@ We provide a GPG-signed APT repository for `.deb` packages, ensuring secure and 
 - **Gnu Linux armv7:** [edamame-posture_0.9.18-1_armhf.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.18/edamame-posture_0.9.18-1_armhf.deb)
 
 
-1. **Install** the package using either method:
+2. **Install** the package using either method:
 
    ```bash
    sudo apt install ./edamame-posture_0.9.18-1_amd64.deb
@@ -152,7 +151,7 @@ We provide a GPG-signed APT repository for `.deb` packages, ensuring secure and 
    sudo dpkg -i edamame-posture_0.9.18-1_amd64.deb
    ```
 
-2. **Configure** the service by editing the configuration file:
+3. **Configure** the service by editing the configuration file:
 
    ```bash
    sudo nano /etc/edamame_posture.conf
@@ -166,7 +165,7 @@ We provide a GPG-signed APT repository for `.deb` packages, ensuring secure and 
    edamame_pin: "your_pin"
    ```
 
-3. **Start** the service:
+4. **Start** the service:
 
    ```bash
    sudo systemctl start edamame_posture.service
@@ -174,7 +173,7 @@ We provide a GPG-signed APT repository for `.deb` packages, ensuring secure and 
    sudo systemctl restart edamame_posture.service
    ```
 
-4. **Verify** the service status:
+5. **Verify** the service status:
 
    ```bash
    sudo systemctl status edamame_posture.service
@@ -215,6 +214,42 @@ We provide a GPG-signed APT repository for `.deb` packages, ensuring secure and 
   ```bash
   sudo apt purge edamame-posture
   ```
+
+---
+
+### macOS Installation for use with GitHub or GitLab actions with self-hosted runners
+
+1. **Download** the macOS universal binary to the home directory of the user of the self-hosted runner:
+   ```bash
+   curl -o ~/edamame_posture https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.18/edamame_posture-0.9.18-universal-apple-darwin
+   ```
+
+2. **Make the binary executable**:
+   ```bash
+   chmod +x ~/edamame_posture
+   ```
+
+4. **Run** a quick command to verify installation:
+   ```bash
+   edamame_posture get-core-version
+   ```
+
+---
+
+### Windows Installation for use with GitHub or GitLab actions with self-hosted runners
+
+1. **Download** the Windows binary to the home directory of the user of the self-hosted runner:
+   - Download [edamame_posture-0.9.18-x86_64-pc-windows-msvc.exe](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.18/edamame_posture-0.9.18-x86_64-pc-windows-msvc.exe) to your home folder (`C:\Users\YourUsername\`)
+
+2. **Install Npcap**:
+   - Install [Npcap](https://npcap.com/#download), the packet capture library from the Nmap team, to unlock the traffic capture feature
+
+4. **Run** a quick command to verify installation:
+   ```cmd
+   edamame_posture get-core-version
+   ```
+   
+   Note: Some commands require administrator privileges. Right-click on Command Prompt and select "Run as administrator" when needed or install Git Bash and use the provided sudo in an Administrator elevated terminal.
 
 ---
 
