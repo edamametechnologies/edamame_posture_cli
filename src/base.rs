@@ -286,24 +286,12 @@ pub fn base_request_pin(user: String, domain: String) -> i32 {
 }
 
 pub fn base_request_signature() -> i32 {
-    let signature = get_signature_from_score_with_email("anonymous@anonymous.eda".to_string());
-    // Check potential backend error
-    if signature == "" {
-        let connection_status = get_connection();
-        if connection_status.backend_error_code != "None" {
-            eprintln!(
-                "Error getting signature: {:?}",
-                connection_status.backend_error_code
-            );
-            ERROR_CODE_SERVER_ERROR
-        } else {
-            eprintln!("Unknown error getting signature");
-            ERROR_CODE_SERVER_ERROR
-        }
-    } else {
-        println!("Signature: {}", signature);
-        0
+    let (signature, exit_code) = get_signature();
+    if exit_code != 0 {
+        return exit_code;
     }
+    println!("Signature: {}", signature);
+    0
 }
 
 pub fn base_request_report(email: String, signature: String) -> i32 {
@@ -357,30 +345,52 @@ pub fn base_get_device_info() {
     println!("{}", info);
 }
 
+fn get_signature() -> (String, i32) {
+    let signature = get_signature_from_score_with_email("anonymous@anonymous.eda".to_string());
+    // Check potential backend error
+    if signature == "" {
+        let connection_status = get_connection();
+        if connection_status.backend_error_code != "None" {
+            eprintln!(
+                "Error getting signature: {:?}",
+                connection_status.backend_error_code
+            );
+            return (String::new(), ERROR_CODE_SERVER_ERROR);
+        } else {
+            eprintln!("Unknown error getting signature");
+            return (String::new(), ERROR_CODE_SERVER_ERROR);
+        }
+    } else {
+        (signature, 0)
+    }
+}
+
 pub fn base_check_policy_for_domain(domain: String, policy_name: String) -> i32 {
     println!(
         "Checking policy '{}' for domain '{}'...",
         policy_name, domain
     );
 
-    // Request a score computation
-    compute_score();
-
-    // Wait for score computation to complete
-    let mut score = get_score(false);
-    while score.compute_in_progress {
-        sleep(Duration::from_millis(100));
-        score = get_score(false);
+    let (signature, exit_code) = get_signature();
+    if exit_code != 0 {
+        return exit_code;
     }
 
-    // Make sure we have the final score
-    score = get_score(true);
+    base_check_policy_for_domain_with_signature(signature, domain, policy_name)
+}
 
-    println!("Current score: {:.1}", score.stars);
-    println!("Checking domain policy requirements...");
+pub fn base_check_policy_for_domain_with_signature(
+    signature: String,
+    domain: String,
+    policy_name: String,
+) -> i32 {
+    println!(
+        "Checking policy '{}' for domain '{}'...",
+        policy_name, domain
+    );
 
-    // Call the new API function to check the policy
-    let policy_check_result = check_policy_for_domain(domain.clone(), policy_name.clone());
+    let policy_check_result =
+        check_policy_for_domain(signature.clone(), domain.clone(), policy_name.clone());
 
     if policy_check_result {
         println!(
@@ -393,7 +403,6 @@ pub fn base_check_policy_for_domain(domain: String, policy_name: String) -> i32 
             "The system does not meet the policy requirements for domain '{}'",
             domain
         );
-        println!("Please fix the threats and try again.");
         return 1;
     }
 }
@@ -433,10 +442,12 @@ pub fn base_check_policy(minimum_score: f32, threat_ids: String, tag_prefixes: S
     let threat_ids = threat_ids
         .split(',')
         .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
         .collect();
     let tag_prefixes = tag_prefixes
         .split(',')
         .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
         .collect();
 
     // Call the direct policy check API
@@ -450,14 +461,20 @@ pub fn base_check_policy(minimum_score: f32, threat_ids: String, tag_prefixes: S
         println!("The system does not meet all policy requirements");
 
         // Additional details about what requirements were not met
-        if score.stars < minimum_score as f64 {
+        if (score.stars - minimum_score as f64).abs() < 0.000001 {
+            // Handle exact equality (accounting for floating point precision)
+            println!(
+                "Score requirement met: {:.1} = {:.1}",
+                score.stars, minimum_score
+            );
+        } else if score.stars < minimum_score as f64 {
             println!(
                 "Score requirement not met: {:.1} < {:.1}",
                 score.stars, minimum_score
             );
         } else {
             println!(
-                "Score requirement met: {:.1} >= {:.1}",
+                "Score requirement met: {:.1} > {:.1}",
                 score.stars, minimum_score
             );
         }
