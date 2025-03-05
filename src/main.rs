@@ -375,7 +375,8 @@ fn run_base() {
                 .unwrap()
                 .to_string();
             // Initialize the core with computing enabled
-            initialize_core("".to_string(), false, false, false, false, verbose);
+            initialize_core("".to_string(), true, false, false, false, verbose);
+            // Needed as we will compute the score
             ensure_admin();
             exit_code = base_check_policy_for_domain(domain, policy_name);
         }
@@ -389,6 +390,8 @@ fn run_base() {
                 .get_one::<String>("POLICY_NAME")
                 .unwrap()
                 .to_string();
+            // Initialize the core with all options disabled (we will not compute the score not rely on local score but rather call the backend)
+            initialize_core("".to_string(), false, false, false, false, verbose);
             exit_code = base_check_policy_for_domain_with_signature(signature, domain, policy_name);
         }
         Some(("check-policy", sub_matches)) => {
