@@ -176,7 +176,7 @@ _arguments "${_arguments_options[@]}" : \
 '-h[Print help]' \
 '--help[Print help]' \
 ':EMAIL -- Email address:_default' \
-':SIGNATURE -- Signature:_default' \
+':SIGNATURE -- SignaturCe:_default' \
 && ret=0
 ;;
 (check-policy-for-domain)
@@ -185,6 +185,17 @@ _arguments "${_arguments_options[@]}" : \
 '*--verbose[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
 '-h[Print help]' \
 '--help[Print help]' \
+':DOMAIN -- Domain name:_default' \
+':POLICY_NAME -- Policy name:_default' \
+&& ret=0
+;;
+(check-policy-for-domain-with-signature)
+_arguments "${_arguments_options[@]}" : \
+'*-v[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'*--verbose[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'-h[Print help]' \
+'--help[Print help]' \
+':SIGNATURE -- Signature:_default' \
 ':DOMAIN -- Domain name:_default' \
 ':POLICY_NAME -- Policy name:_default' \
 && ret=0
@@ -385,6 +396,10 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
+(check-policy-for-domain-with-signature)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
 (check-policy)
 _arguments "${_arguments_options[@]}" : \
 && ret=0
@@ -466,7 +481,8 @@ _edamame_posture_commands() {
 'get-threat-info:Get threat information' \
 'request-signature:Report the security posture anonymously and get a signature for later retrieval' \
 'request-report:Send a report from a signature to an email address' \
-'check-policy-for-domain:Check a policy against a specific domain in the hub' \
+'check-policy-for-domain:Check the current score against a policy for a specific domain in the hub' \
+'check-policy-for-domain-with-signature:A score associated with a signature, against of policy for a specific domain in the hub' \
 'check-policy:Check locally if the current system meets the specified policy requirements' \
 'get-tag-prefixes:Get threat model tag prefixes' \
 'background-logs:Display logs from the background process' \
@@ -543,6 +559,11 @@ _edamame_posture__check-policy-for-domain_commands() {
     local commands; commands=()
     _describe -t commands 'edamame_posture check-policy-for-domain commands' commands "$@"
 }
+(( $+functions[_edamame_posture__check-policy-for-domain-with-signature_commands] )) ||
+_edamame_posture__check-policy-for-domain-with-signature_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture check-policy-for-domain-with-signature commands' commands "$@"
+}
 (( $+functions[_edamame_posture__completion_commands] )) ||
 _edamame_posture__completion_commands() {
     local commands; commands=()
@@ -608,7 +629,8 @@ _edamame_posture__help_commands() {
 'get-threat-info:Get threat information' \
 'request-signature:Report the security posture anonymously and get a signature for later retrieval' \
 'request-report:Send a report from a signature to an email address' \
-'check-policy-for-domain:Check a policy against a specific domain in the hub' \
+'check-policy-for-domain:Check the current score against a policy for a specific domain in the hub' \
+'check-policy-for-domain-with-signature:A score associated with a signature, against of policy for a specific domain in the hub' \
 'check-policy:Check locally if the current system meets the specified policy requirements' \
 'get-tag-prefixes:Get threat model tag prefixes' \
 'background-logs:Display logs from the background process' \
@@ -684,6 +706,11 @@ _edamame_posture__help__check-policy_commands() {
 _edamame_posture__help__check-policy-for-domain_commands() {
     local commands; commands=()
     _describe -t commands 'edamame_posture help check-policy-for-domain commands' commands "$@"
+}
+(( $+functions[_edamame_posture__help__check-policy-for-domain-with-signature_commands] )) ||
+_edamame_posture__help__check-policy-for-domain-with-signature_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture help check-policy-for-domain-with-signature commands' commands "$@"
 }
 (( $+functions[_edamame_posture__help__completion_commands] )) ||
 _edamame_posture__help__completion_commands() {
