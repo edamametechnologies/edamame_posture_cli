@@ -389,51 +389,51 @@ pub fn base_check_policy_for_domain_with_signature(
         policy_name, domain
     );
 
-        // Set up timeout variables
-        let timeout_duration = Duration::from_secs(20);
-        let retry_interval = Duration::from_secs(2);
-        let start_time = std::time::Instant::now();
-        loop {
-            let policy_check_result =
-            check_policy_for_domain(signature.clone(), domain.clone(), policy_name.clone());            // Check potential backend error
-            let connection_status = get_connection();
-    
-            if connection_status.backend_error_code != "None" {
-                if connection_status.backend_error_code == "InvalidSignature" {
-                    // Check if we've exceeded our timeout
-                    if start_time.elapsed() >= timeout_duration {
-                        eprintln!("Timeout exceeded waiting for valid signature");
-                        return ERROR_CODE_PARAM;
-                    }
-    
-                    // Wait before trying again
-                    sleep(retry_interval);
-                    continue;
-                } else if connection_status.backend_error_code == "InvalidPolicy" {
-                    eprintln!(
-                        "Error getting policy: {:?}",
-                        connection_status.backend_error_code
-                    );
+    // Set up timeout variables
+    let timeout_duration = Duration::from_secs(20);
+    let retry_interval = Duration::from_secs(2);
+    let start_time = std::time::Instant::now();
+    loop {
+        let policy_check_result =
+            check_policy_for_domain(signature.clone(), domain.clone(), policy_name.clone()); // Check potential backend error
+        let connection_status = get_connection();
+
+        if connection_status.backend_error_code != "None" {
+            if connection_status.backend_error_code == "InvalidSignature" {
+                // Check if we've exceeded our timeout
+                if start_time.elapsed() >= timeout_duration {
+                    eprintln!("Timeout exceeded waiting for valid signature");
                     return ERROR_CODE_PARAM;
-                } else {
-                    eprintln!(
-                        "Error getting policy: {:?}",
-                        connection_status.backend_error_code
-                    );
-                    return ERROR_CODE_SERVER_ERROR;
                 }
-            } else {    
-                // Display results
-                if policy_check_result {
-                    println!(
-                        "The system meets the policy requirements for domain '{}'",
-                        domain
-                    );
-                    return 0;
-                } else {
-                    println!(
-                        "The system does not meet the policy requirements for domain '{}'",
-                        domain
+
+                // Wait before trying again
+                sleep(retry_interval);
+                continue;
+            } else if connection_status.backend_error_code == "InvalidPolicy" {
+                eprintln!(
+                    "Error getting policy: {:?}",
+                    connection_status.backend_error_code
+                );
+                return ERROR_CODE_PARAM;
+            } else {
+                eprintln!(
+                    "Error getting policy: {:?}",
+                    connection_status.backend_error_code
+                );
+                return ERROR_CODE_SERVER_ERROR;
+            }
+        } else {
+            // Display results
+            if policy_check_result {
+                println!(
+                    "The system meets the policy requirements for domain '{}'",
+                    domain
+                );
+                return 0;
+            } else {
+                println!(
+                    "The system does not meet the policy requirements for domain '{}'",
+                    domain
                 );
                 return 1;
             }
