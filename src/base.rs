@@ -1,4 +1,3 @@
-use crate::initialize_core;
 use crate::ERROR_CODE_MISMATCH;
 use crate::ERROR_CODE_PARAM;
 use crate::ERROR_CODE_SERVER_ERROR;
@@ -354,14 +353,127 @@ pub fn base_get_core_info() {
 }
 
 pub fn base_get_device_info() {
-    let device_info = get_device_info();
-    println!("Device information:");
-    println!("{}", device_info);
+    let info = get_device_info();
+    println!("{}", info);
+}
+
+pub fn base_check_policy_for_domain(domain: String, policy_name: String) -> i32 {
+    println!(
+        "Checking policy '{}' for domain '{}'...",
+        policy_name, domain
+    );
+
+    // Request a score computation
+    compute_score();
+
+    // Wait for score computation to complete
+    let mut score = get_score(false);
+    while score.compute_in_progress {
+        sleep(Duration::from_millis(100));
+        score = get_score(false);
+    }
+
+    // Make sure we have the final score
+    score = get_score(true);
+
+    println!("Current score: {:.1}", score.stars);
+    println!("Checking domain policy requirements...");
+
+    // Call the new API function to check the policy
+    let policy_check_result = check_policy_for_domain(domain.clone(), policy_name.clone());
+
+    if policy_check_result {
+        println!(
+            "The system meets the policy requirements for domain '{}'",
+            domain
+        );
+        return 0;
+    } else {
+        println!(
+            "The system does not meet the policy requirements for domain '{}'",
+            domain
+        );
+        println!("Please fix the threats and try again.");
+        return 1;
+    }
+}
+
+pub fn base_check_policy(minimum_score: f32, threat_ids: String, tag_prefixes: String) -> i32 {
+    println!(
+        "Checking policy with minimum score {:.1} and required threats to fix: {}{}",
+        minimum_score,
+        if threat_ids.is_empty() {
+            "none"
+        } else {
+            &threat_ids
+        },
+        if tag_prefixes.is_empty() {
+            "".to_string()
+        } else {
+            format!(", tag prefixes: {}", tag_prefixes)
+        }
+    );
+
+    // Request a score computation
+    compute_score();
+
+    // Wait for score computation to complete
+    let mut score = get_score(false);
+    while score.compute_in_progress {
+        sleep(Duration::from_millis(100));
+        score = get_score(false);
+    }
+
+    // Make sure we have the final score
+    score = get_score(true);
+
+    println!("Current score: {:.1}", score.stars);
+
+    // Convert the threat_ids and tag_prefixes to vectors
+    let threat_ids = threat_ids
+        .split(',')
+        .map(|s| s.trim().to_string())
+        .collect();
+    let tag_prefixes = tag_prefixes
+        .split(',')
+        .map(|s| s.trim().to_string())
+        .collect();
+
+    // Call the direct policy check API
+    let policy_check_result = check_policy(minimum_score, threat_ids, tag_prefixes);
+
+    // Display results
+    if policy_check_result {
+        println!("The system meets all policy requirements");
+        return 0;
+    } else {
+        println!("The system does not meet all policy requirements");
+
+        // Additional details about what requirements were not met
+        if score.stars < minimum_score as f64 {
+            println!(
+                "Score requirement not met: {:.1} < {:.1}",
+                score.stars, minimum_score
+            );
+        } else {
+            println!(
+                "Score requirement met: {:.1} >= {:.1}",
+                score.stars, minimum_score
+            );
+        }
+        return ERROR_CODE_MISMATCH;
+    }
+}
+
+pub fn base_get_tag_prefixes() {
+    let tag_prefixes = get_tag_prefixes();
+    println!("Tag prefixes: {:?}", tag_prefixes);
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::initialize_core;
 
     #[test]
     fn test_signature() {

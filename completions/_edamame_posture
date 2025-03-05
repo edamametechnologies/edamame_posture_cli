@@ -179,6 +179,35 @@ _arguments "${_arguments_options[@]}" : \
 ':SIGNATURE -- Signature:_default' \
 && ret=0
 ;;
+(check-policy-for-domain)
+_arguments "${_arguments_options[@]}" : \
+'*-v[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'*--verbose[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'-h[Print help]' \
+'--help[Print help]' \
+':DOMAIN -- Domain name:_default' \
+':POLICY_NAME -- Policy name:_default' \
+&& ret=0
+;;
+(check-policy)
+_arguments "${_arguments_options[@]}" : \
+'*-v[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'*--verbose[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'-h[Print help]' \
+'--help[Print help]' \
+':MINIMUM_SCORE -- Minimum required score (value between 0.0 and 5.0):_default' \
+':THREAT_IDS -- Comma separated list of threat IDs that must be fixed:_default' \
+'::TAG_PREFIXES -- Comma separated list of tag prefixes:_default' \
+&& ret=0
+;;
+(get-tag-prefixes)
+_arguments "${_arguments_options[@]}" : \
+'*-v[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'*--verbose[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
 (background-logs)
 _arguments "${_arguments_options[@]}" : \
 '*-v[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
@@ -352,6 +381,18 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
+(check-policy-for-domain)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(check-policy)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(get-tag-prefixes)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
 (background-logs)
 _arguments "${_arguments_options[@]}" : \
 && ret=0
@@ -425,6 +466,9 @@ _edamame_posture_commands() {
 'get-threat-info:Get threat information' \
 'request-signature:Report the security posture anonymously and get a signature for later retrieval' \
 'request-report:Send a report from a signature to an email address' \
+'check-policy-for-domain:Check a policy against a specific domain in the hub' \
+'check-policy:Check locally if the current system meets the specified policy requirements' \
+'get-tag-prefixes:Get threat model tag prefixes' \
 'background-logs:Display logs from the background process' \
 'background-wait-for-connection:Wait for connection of the background process' \
 'background-sessions:Get connections of the background process' \
@@ -489,6 +533,16 @@ _edamame_posture__capture_commands() {
     local commands; commands=()
     _describe -t commands 'edamame_posture capture commands' commands "$@"
 }
+(( $+functions[_edamame_posture__check-policy_commands] )) ||
+_edamame_posture__check-policy_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture check-policy commands' commands "$@"
+}
+(( $+functions[_edamame_posture__check-policy-for-domain_commands] )) ||
+_edamame_posture__check-policy-for-domain_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture check-policy-for-domain commands' commands "$@"
+}
 (( $+functions[_edamame_posture__completion_commands] )) ||
 _edamame_posture__completion_commands() {
     local commands; commands=()
@@ -524,6 +578,11 @@ _edamame_posture__get-system-info_commands() {
     local commands; commands=()
     _describe -t commands 'edamame_posture get-system-info commands' commands "$@"
 }
+(( $+functions[_edamame_posture__get-tag-prefixes_commands] )) ||
+_edamame_posture__get-tag-prefixes_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture get-tag-prefixes commands' commands "$@"
+}
 (( $+functions[_edamame_posture__get-threat-info_commands] )) ||
 _edamame_posture__get-threat-info_commands() {
     local commands; commands=()
@@ -549,6 +608,9 @@ _edamame_posture__help_commands() {
 'get-threat-info:Get threat information' \
 'request-signature:Report the security posture anonymously and get a signature for later retrieval' \
 'request-report:Send a report from a signature to an email address' \
+'check-policy-for-domain:Check a policy against a specific domain in the hub' \
+'check-policy:Check locally if the current system meets the specified policy requirements' \
+'get-tag-prefixes:Get threat model tag prefixes' \
 'background-logs:Display logs from the background process' \
 'background-wait-for-connection:Wait for connection of the background process' \
 'background-sessions:Get connections of the background process' \
@@ -613,6 +675,16 @@ _edamame_posture__help__capture_commands() {
     local commands; commands=()
     _describe -t commands 'edamame_posture help capture commands' commands "$@"
 }
+(( $+functions[_edamame_posture__help__check-policy_commands] )) ||
+_edamame_posture__help__check-policy_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture help check-policy commands' commands "$@"
+}
+(( $+functions[_edamame_posture__help__check-policy-for-domain_commands] )) ||
+_edamame_posture__help__check-policy-for-domain_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture help check-policy-for-domain commands' commands "$@"
+}
 (( $+functions[_edamame_posture__help__completion_commands] )) ||
 _edamame_posture__help__completion_commands() {
     local commands; commands=()
@@ -647,6 +719,11 @@ _edamame_posture__help__get-score_commands() {
 _edamame_posture__help__get-system-info_commands() {
     local commands; commands=()
     _describe -t commands 'edamame_posture help get-system-info commands' commands "$@"
+}
+(( $+functions[_edamame_posture__help__get-tag-prefixes_commands] )) ||
+_edamame_posture__help__get-tag-prefixes_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture help get-tag-prefixes commands' commands "$@"
 }
 (( $+functions[_edamame_posture__help__get-threat-info_commands] )) ||
 _edamame_posture__help__get-threat-info_commands() {
