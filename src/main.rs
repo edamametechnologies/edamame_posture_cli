@@ -67,7 +67,7 @@ fn parse_username(s: &str) -> Result<String, String> {
     if s.is_empty() {
         return Ok(s.to_string());
     }
-    if s.contains('@') || s.contains('.') {
+    if s.contains('@') {
         return Err(String::from("Invalid username format"));
     }
     Ok(s.to_string())
@@ -367,6 +367,38 @@ fn run_base() {
             initialize_core("".to_string(), true, false, false, false, false);
             ensure_admin();
             exit_code = base_remediate_threat(threat_id);
+        }
+        Some(("check-policy-for-domain", sub_matches)) => {
+            let domain = sub_matches.get_one::<String>("DOMAIN").unwrap().to_string();
+            let policy_name = sub_matches
+                .get_one::<String>("POLICY_NAME")
+                .unwrap()
+                .to_string();
+            // Initialize the core with computing enabled
+            initialize_core("".to_string(), false, false, false, false, verbose);
+            ensure_admin();
+            exit_code = base_check_policy_for_domain(domain, policy_name);
+        }
+        Some(("check-policy", sub_matches)) => {
+            let minimum_score = *sub_matches.get_one::<f32>("MINIMUM_SCORE").unwrap();
+            let threat_ids = sub_matches
+                .get_one::<String>("THREAT_IDS")
+                .unwrap()
+                .to_string();
+            let tag_prefixes = sub_matches
+                .get_one::<String>("TAG_PREFIXES")
+                .map(|s| s.to_string())
+                .unwrap_or_else(|| String::new());
+            // Initialize the core with computing enabled
+            initialize_core("".to_string(), true, false, false, false, verbose);
+            ensure_admin();
+            exit_code = base_check_policy(minimum_score, threat_ids, tag_prefixes);
+        }
+        Some(("get-tag-prefixes", _)) => {
+            // Initialize the core with computing enabled
+            initialize_core("".to_string(), true, false, false, false, verbose);
+            ensure_admin();
+            base_get_tag_prefixes();
         }
         Some(("rollback-threat", sub_matches)) => {
             let threat_id = sub_matches

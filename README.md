@@ -126,16 +126,16 @@ We provide a GPG-signed APT repository for `.deb` packages, ensuring secure and 
 
 1. **Download** the Debian package for your platform:
 
-   - **x86_64 (64-bit):** [edamame-posture_0.9.18-1_amd64.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.18/edamame-posture_0.9.18-1_amd64.deb)
-   - **i686 (32-bit):** [edamame-posture_0.9.18-1_i386.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.18/edamame-posture_0.9.18-1_i386.deb)
-   - **aarch64 (ARM 64-bit):** [edamame-posture_0.9.18-1_arm64.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.18/edamame-posture_0.9.18-1_arm64.deb)
-   - **armv7 (ARM 32-bit):** [edamame-posture_0.9.18-1_armhf.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.18/edamame-posture_0.9.18-1_armhf.deb)
+   - **x86_64 (64-bit):** [edamame-posture_0.9.19-1_amd64.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.19/edamame-posture_0.9.19-1_amd64.deb)
+   - **i686 (32-bit):** [edamame-posture_0.9.19-1_i386.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.19/edamame-posture_0.9.19-1_i386.deb)
+   - **aarch64 (ARM 64-bit):** [edamame-posture_0.9.19-1_arm64.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.19/edamame-posture_0.9.19-1_arm64.deb)
+   - **armv7 (ARM 32-bit):** [edamame-posture_0.9.19-1_armhf.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.19/edamame-posture_0.9.19-1_armhf.deb)
 
 2. **Install** the package using either method:
    ```bash
-   sudo apt install ./edamame-posture_0.9.18-1_amd64.deb
+   sudo apt install ./edamame-posture_0.9.19-1_amd64.deb
    # or
-   sudo dpkg -i edamame-posture_0.9.18-1_amd64.deb
+   sudo dpkg -i edamame-posture_0.9.19-1_amd64.deb
    ```
 
 3. **Configure** the service by editing the configuration file:
@@ -197,12 +197,12 @@ We provide a GPG-signed APT repository for `.deb` packages, ensuring secure and 
 #### Manual Linux Binary Installation
 
 1. **Download** the Linux binary for your architecture:
-   - **x86_64 (64-bit)**: [edamame_posture-0.9.18-x86_64-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.18/edamame_posture-0.9.18-x86_64-unknown-linux-gnu)  
-   - **i686 (32-bit)**: [edamame_posture-0.9.18-i686-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.18/edamame_posture-0.9.18-i686-unknown-linux-gnu)  
-   - **aarch64 (ARM 64-bit)**: [edamame_posture-0.9.18-aarch64-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.18/edamame_posture-0.9.18-aarch64-unknown-linux-gnu)  
-   - **armv7 (ARM 32-bit)**: [edamame_posture-0.9.18-armv7-unknown-linux-gnueabihf](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.18/edamame_posture-0.9.18-armv7-unknown-linux-gnueabihf)
-   - **x86_64 (64-bit) for Alpine Linux (musl)**: [edamame_posture-0.9.18-x86_64-unknown-linux-musl](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.18/edamame_posture-0.9.18-x86_64-unknown-linux-musl) 
-   - **aarch64 (ARM 64-bit) for Alpine Linux (musl)**: [edamame_posture-0.9.18-aarch64-unknown-linux-musl](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.18/edamame_posture-0.9.18-aarch64-unknown-linux-musl)
+   - **x86_64 (64-bit)**: [edamame_posture-0.9.19-x86_64-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.19/edamame_posture-0.9.19-x86_64-unknown-linux-gnu)  
+   - **i686 (32-bit)**: [edamame_posture-0.9.19-i686-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.19/edamame_posture-0.9.19-i686-unknown-linux-gnu)  
+   - **aarch64 (ARM 64-bit)**: [edamame_posture-0.9.19-aarch64-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.19/edamame_posture-0.9.19-aarch64-unknown-linux-gnu)  
+   - **armv7 (ARM 32-bit)**: [edamame_posture-0.9.19-armv7-unknown-linux-gnueabihf](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.19/edamame_posture-0.9.19-armv7-unknown-linux-gnueabihf)
+   - **x86_64 (64-bit) for Alpine Linux (musl)**: [edamame_posture-0.9.19-x86_64-unknown-linux-musl](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.19/edamame_posture-0.9.19-x86_64-unknown-linux-musl) 
+   - **aarch64 (ARM 64-bit) for Alpine Linux (musl)**: [edamame_posture-0.9.19-aarch64-unknown-linux-musl](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.19/edamame_posture-0.9.19-aarch64-unknown-linux-musl)
 
 2. **Install** by placing the binary in your `PATH` and making it executable:
    ```bash
@@ -217,7 +217,7 @@ We provide a GPG-signed APT repository for `.deb` packages, ensuring secure and 
 #### macOS Installation
 
 1. **Download** the macOS universal binary:
-   - [edamame_posture-0.9.18-universal-apple-darwin](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.18/edamame_posture-0.9.18-universal-apple-darwin)  
+   - [edamame_posture-0.9.19-universal-apple-darwin](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.19/edamame_posture-0.9.19-universal-apple-darwin)  
 
 2. **Install** by placing the binary in your `PATH` and making it executable:
    ```bash
@@ -236,7 +236,7 @@ Proceed with installation as stated above but make sure the binary is located wi
 #### Windows Standard Installation
 
 1. **Download** the Windows binary:
-   - [edamame_posture-0.9.18-x86_64-pc-windows-msvc.exe](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.18/edamame_posture-0.9.18-x86_64-pc-windows-msvc.exe)
+   - [edamame_posture-0.9.19-x86_64-pc-windows-msvc.exe](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.19/edamame_posture-0.9.19-x86_64-pc-windows-msvc.exe)
 
 2. **Install Npcap** (Required for traffic capture feature):
    - Install [Npcap](https://npcap.com/#download), the packet capture library from the Nmap team

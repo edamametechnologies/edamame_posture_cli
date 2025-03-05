@@ -112,6 +112,40 @@ pub fn build_cli() -> Command {
                 .value_parser(parse_signature),
         ),
     )
+    .subcommand(
+        Command::new("check-policy-for-domain")
+            .about("Check a policy against a specific domain in the hub")
+            .arg(
+                arg!(<DOMAIN> "Domain name")
+                    .required(true)
+                    .value_parser(parse_fqdn),
+            )
+            .arg(
+                arg!(<POLICY_NAME> "Policy name")
+                    .required(true)
+                    .value_parser(clap::value_parser!(String)),
+            )
+    )
+    .subcommand(
+        Command::new("check-policy")
+            .about("Check locally if the current system meets the specified policy requirements")
+            .arg(
+                arg!(<MINIMUM_SCORE> "Minimum required score (value between 0.0 and 5.0)")
+                    .required(true)
+                    .value_parser(clap::value_parser!(f32)),
+            )
+            .arg(
+                arg!(<THREAT_IDS> "Comma separated list of threat IDs that must be fixed")
+                    .required(true)
+                    .value_parser(clap::value_parser!(String)),
+            )
+            .arg(
+                arg!([TAG_PREFIXES] "Comma separated list of tag prefixes")
+                    .required(false)
+                    .value_parser(clap::value_parser!(String)),
+            )
+    )
+    .subcommand(Command::new("get-tag-prefixes").about("Get threat model tag prefixes"))
     //////////////////////
     // Background commands
     //////////////////////
