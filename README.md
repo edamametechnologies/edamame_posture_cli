@@ -468,6 +468,42 @@ Retrieves the background process's history of score modifications.
 edamame_posture get-history
 ```
 
+#### check-policy-for-domain
+Checks if a the actual score meets the specified policy requirements of a domain.  
+(Requires **admin** privileges.)
+
+**Syntax**:  
+```
+edamame_posture check-policy-for-domain <DOMAIN> <POLICY_NAME>
+```
+
+#### check-policy-for-domain-with-signature
+Checks if the score associated with the signature meets the specified policy requirements of a domain.  
+(Does **NOT** require admin privileges.)
+
+**Syntax**:  
+```
+edamame_posture check-policy-for-domain-with-signature <SIGNATURE> <DOMAIN> <POLICY_NAME>
+```
+
+#### check-policy
+Checks locally if the current system meets the specified policy requirements.  
+(Requires **admin** privileges.)
+
+**Syntax**:  
+```
+edamame_posture check-policy <MINIMUM_SCORE> <THREAT_IDS> [TAG_PREFIXES]
+```
+
+#### get-tag-prefixes
+Gets threat model tag prefixes.  
+(Does **NOT** require admin privileges.)
+
+**Syntax**:  
+```
+edamame_posture get-tag-prefixes
+```
+
 ## Requirements
 
 Most commands require administrator privileges. If a command requires admin privileges and they are not available, the tool will exit with an error message.
