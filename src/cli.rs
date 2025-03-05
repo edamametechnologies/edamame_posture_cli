@@ -107,14 +107,14 @@ pub fn build_cli() -> Command {
         arg!(<EMAIL> "Email address")
                 .required(true)
                 .value_parser(parse_email)).arg(
-            arg!(<SIGNATURE> "Signature")
+            arg!(<SIGNATURE> "SignaturCe")
                 .required(true)
                 .value_parser(parse_signature),
         ),
     )
     .subcommand(
         Command::new("check-policy-for-domain")
-            .about("Check a policy against a specific domain in the hub")
+            .about("Check the current score against a policy for a specific domain in the hub")
             .arg(
                 arg!(<DOMAIN> "Domain name")
                     .required(true)
@@ -125,6 +125,22 @@ pub fn build_cli() -> Command {
                     .required(true)
                     .value_parser(clap::value_parser!(String)),
             )
+    )
+    .subcommand(Command::new("check-policy-for-domain-with-signature").about("A score associated with a signature, against of policy for a specific domain in the hub").arg(
+        arg!(<SIGNATURE> "Signature")
+            .required(true)
+            .value_parser(parse_signature),
+        )
+        .arg(
+            arg!(<DOMAIN> "Domain name")
+                .required(true)
+                .value_parser(parse_fqdn),
+        )
+        .arg(
+                arg!(<POLICY_NAME> "Policy name")
+                    .required(true)
+                    .value_parser(clap::value_parser!(String)),
+        )
     )
     .subcommand(
         Command::new("check-policy")

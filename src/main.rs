@@ -379,6 +379,18 @@ fn run_base() {
             ensure_admin();
             exit_code = base_check_policy_for_domain(domain, policy_name);
         }
+        Some(("check-policy-for-domain-with-signature", sub_matches)) => {
+            let signature = sub_matches
+                .get_one::<String>("SIGNATURE")
+                .unwrap()
+                .to_string();
+            let domain = sub_matches.get_one::<String>("DOMAIN").unwrap().to_string();
+            let policy_name = sub_matches
+                .get_one::<String>("POLICY_NAME")
+                .unwrap()
+                .to_string();
+            exit_code = base_check_policy_for_domain_with_signature(signature, domain, policy_name);
+        }
         Some(("check-policy", sub_matches)) => {
             let minimum_score = *sub_matches.get_one::<f32>("MINIMUM_SCORE").unwrap();
             let threat_ids = sub_matches
