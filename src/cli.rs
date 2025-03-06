@@ -148,7 +148,17 @@ pub fn build_cli() -> Command {
             .arg(
                 arg!(<MINIMUM_SCORE> "Minimum required score (value between 0.0 and 5.0)")
                     .required(true)
-                    .value_parser(clap::value_parser!(f32)),
+                    .value_parser(|s: &str| -> Result<f32, String> {
+                        // Try to parse as float first
+                        if let Ok(val) = s.parse::<f32>() {
+                            return Ok(val);
+                        }
+                        // If that fails, try to parse as integer, then convert to float
+                        match s.parse::<i32>() {
+                            Ok(val) => Ok(val as f32),
+                            Err(_) => Err(format!("Invalid minimum score: '{}'. Expected a number between 0.0 and 5.0", s))
+                        }
+                    }),
             )
             .arg(
                 arg!(<THREAT_IDS> "Comma separated list of threat IDs that must be fixed")
