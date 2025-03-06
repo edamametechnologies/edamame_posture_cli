@@ -148,6 +148,7 @@ pub fn background_wait_for_connection(timeout: u64) -> i32 {
         last_report_time: "".to_string(),
         last_report_signature: "".to_string(),
         backend_error_code: "".to_string(),
+        backend_error_reason: "".to_string(),
     };
 
     // Wait for a non-empty signature or until we time out
@@ -184,8 +185,8 @@ pub fn background_wait_for_connection(timeout: u64) -> i32 {
         // The backend error code won't reflect an actual error until communication with the backend occur, i.e. the connection is established
         if connection_status.is_connected && connection_status.backend_error_code != "None" {
             eprintln!(
-                "Error attempting to connect to domain: {}",
-                connection_status.backend_error_code
+                "Error attempting to connect to domain: {}, {}",
+                connection_status.backend_error_code, connection_status.backend_error_reason
             );
             return ERROR_CODE_PARAM;
         }

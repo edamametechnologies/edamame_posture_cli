@@ -319,8 +319,8 @@ pub fn base_request_report(email: String, signature: String) -> i32 {
                 continue;
             } else {
                 eprintln!(
-                    "Error getting signature: {:?}",
-                    connection_status.backend_error_code
+                    "Error getting signature: {}, {}",
+                    connection_status.backend_error_code, connection_status.backend_error_reason
                 );
                 return ERROR_CODE_SERVER_ERROR;
             }
@@ -352,8 +352,8 @@ fn get_signature() -> (String, i32) {
         let connection_status = get_connection();
         if connection_status.backend_error_code != "None" {
             eprintln!(
-                "Error getting signature: {:?}",
-                connection_status.backend_error_code
+                "Error getting signature: {}, {}",
+                connection_status.backend_error_code, connection_status.backend_error_reason
             );
             return (String::new(), ERROR_CODE_SERVER_ERROR);
         } else {
@@ -366,11 +366,6 @@ fn get_signature() -> (String, i32) {
 }
 
 pub fn base_check_policy_for_domain(domain: String, policy_name: String) -> i32 {
-    println!(
-        "Checking policy '{}' for domain '{}'...",
-        policy_name, domain
-    );
-
     let (signature, exit_code) = get_signature();
     if exit_code != 0 {
         return exit_code;
@@ -395,7 +390,9 @@ pub fn base_check_policy_for_domain_with_signature(
     let start_time = std::time::Instant::now();
     loop {
         let policy_check_result =
-            check_policy_for_domain(signature.clone(), domain.clone(), policy_name.clone()); // Check potential backend error
+            check_policy_for_domain(signature.clone(), domain.clone(), policy_name.clone());
+
+        // Check potential backend error
         let connection_status = get_connection();
 
         if connection_status.backend_error_code != "None" {
@@ -411,14 +408,14 @@ pub fn base_check_policy_for_domain_with_signature(
                 continue;
             } else if connection_status.backend_error_code == "InvalidPolicy" {
                 eprintln!(
-                    "Error getting policy: {:?}",
-                    connection_status.backend_error_code
+                    "Error checking policy: {}, {}",
+                    connection_status.backend_error_code, connection_status.backend_error_reason
                 );
                 return ERROR_CODE_PARAM;
             } else {
                 eprintln!(
-                    "Error getting policy: {:?}",
-                    connection_status.backend_error_code
+                    "Error checking policy: {}, {}",
+                    connection_status.backend_error_code, connection_status.backend_error_reason
                 );
                 return ERROR_CODE_SERVER_ERROR;
             }
@@ -432,9 +429,12 @@ pub fn base_check_policy_for_domain_with_signature(
                 return 0;
             } else {
                 println!(
-                    "The system does not meet the policy requirements for domain '{}'",
-                    domain
+                    "The system does not meet the policy requirements for domain '{}' (error code: {}, error reason: {})",
+                    domain,
+                    connection_status.backend_error_code,
+                    connection_status.backend_error_reason
                 );
+
                 return 1;
             }
         }
@@ -457,18 +457,11 @@ pub fn base_check_policy(minimum_score: f32, threat_ids: String, tag_prefixes: S
         }
     );
 
-    // Request a score computation
-    compute_score();
-
-    // Wait for score computation to complete
-    let mut score = get_score(false);
-    while score.compute_in_progress {
-        sleep(Duration::from_millis(100));
-        score = get_score(false);
-    }
+    // Compute the score
+    base_get_score(true);
 
     // Make sure we have the final score
-    score = get_score(true);
+    let score = get_score(true);
 
     println!("Current score: {:.1}", score.stars);
 
