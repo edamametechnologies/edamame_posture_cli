@@ -166,9 +166,6 @@ jobs:
           # Install the new binary
           cp -f ./target/release/$BINARY ~/$BINARY
 
-          # Check home directory
-          ls -la ~/
-
           # Get core info
           echo "Core info:"
           ~/$BINARY -v get-core-info
@@ -184,6 +181,35 @@ jobs:
           # Perform a simple score computation
           echo "Score:"
           $SUDO_CMD ~/$BINARY -v score
+          
+          # Test remediate command with skip_remediations
+          echo "Remediate (with skipped remediations):"
+          $SUDO_CMD ~/$BINARY -v remediate "remote login enabled,local firewall disabled"
+          
+          # Test request-signature command
+          echo "Request signature:"
+          signature=$($SUDO_CMD ~/$BINARY -v request-signature | grep Signature | awk '{print $2}')
+          echo "Obtained signature: $signature"
+          
+          # Test request-report command (using a test email)
+          if [[ "$signature" != "signature_error" ]]; then
+            echo "Request report:"
+            $SUDO_CMD ~/$BINARY -v request-report "test@example.com" "$signature"
+          fi
+          
+          # Test check-policy command with both integer and float scores
+          echo "Check policy (local):"
+          # Should always be compliant
+          $SUDO_CMD ~/$BINARY -v check-policy 1.0 "encrypted disk disabled"
+
+          # Test check-policy-for-domain command
+          echo "Check policy (with domain):"
+          # Should always be compliant (this is the domain in use in the CI)
+          $SUDO_CMD ~/$BINARY -v check-policy-for-domain "edamame.tech" "Github"
+          
+          echo "Check policy (with float score):"
+          # Should always be compliant
+          $SUDO_CMD ~/$BINARY -v check-policy 1.0 "encrypted disk disabled"
           
           # Perform a lanscan
           echo "Lanscan:"
@@ -204,9 +230,10 @@ jobs:
           # Start the new binary in the background
           $SUDO_CMD ~/$BINARY -v start ${{ vars.EDAMAME_POSTURE_USER }} ${{ vars.EDAMAME_POSTURE_DOMAIN }} ${{ secrets.EDAMAME_POSTURE_PIN }} ${{ github.run_id }} true "github_ubuntu"
           
-          # Leave time for the binary to start
-          sleep 10
-
+          # Test wait-for-connection command
+          echo "Wait for connection:"
+          $SUDO_CMD ~/$BINARY -v wait-for-connection
+          
           # Check status
           echo "Status:"
           ~/$BINARY -v status
