@@ -8,7 +8,8 @@
 2. [Key Features](#key-features)
 3. [Targeted Use Cases](#targeted-use-cases)
 4. [How It Works](#how-it-works)
-5. [Installation](#installation)
+5. [Security Posture Assessment Methods](#security-posture-assessment-methods)
+6. [Installation](#installation)
    - [Linux (Debian/Ubuntu)](#linux-debianubuntu)
      - [APT Repository Method (Recommended)](#apt-repository-method-recommended)
      - [Debian Package Installation](#debian-package-installation)
@@ -21,11 +22,11 @@
    - [Windows](#windows)
      - [Windows Standard Installation](#windows-standard-installation)
      - [Windows CI/CD Installation](#windows-cicd-installation)
-6. [Usage](#usage)
+7. [Usage](#usage)
    - [Common Commands](#common-commands)
    - [All Available Commands](#all-available-commands)
-7. [Requirements](#requirements)
-8. [Error Handling](#error-handling)
+8. [Requirements](#requirements)
+9. [Error Handling](#error-handling)
 
 ## Overview
 
@@ -72,6 +73,49 @@ And if your needs grow, you can seamlessly connect it to [EDAMAME Hub](https://h
    Generate a signed report using `request-signature` and `request-report`
 4. **Workflows**  
    Check out the [associated GitHub action](https://github.com/edamametechnologies/edamame_posture_action) to see how to integrate `edamame_posture` directly in your GitHub CI/CD workflows and [associated GitLab workflow](https://gitlab.com/edamametechnologies/edamame_posture_action) to see how to integrate it in your GitLab CI/CD workflows.
+
+## Security Posture Assessment Methods
+
+EDAMAME Posture offers three distinct approaches to ensure a device is compliant:
+
+### 1. Local Policy Check (`check-policy`)
+
+The `check-policy` command allows you to define and enforce security policies directly on your local system:
+
+```bash
+edamame_posture check-policy <MINIMUM_SCORE> <THREAT_IDS> [TAG_PREFIXES]
+```
+
+**Example:**
+```bash
+edamame_posture check-policy 2.0 "encrypted disk disabled" "SOC-2"
+```
+
+### 2. Domain-Based Policy Check (`check-policy-for-domain`)
+
+The `check-policy-for-domain` command validates the device security posture against a policy defined for specific a domain in the [EDAMAME Hub](https://hub.edamame.tech):
+
+```bash
+edamame_posture check-policy-for-domain <DOMAIN> <POLICY_NAME>
+```
+
+**Example:**
+```bash
+edamame_posture check-policy-for-domain example.com standard_policy
+```
+
+### 3. Continuous Monitoring with Access Control (`start`)
+
+The `start` command initiates a background process that continuously monitors the device security posture and can enable conditional access controls as defined in the [EDAMAME Hub](https://hub.edamame.tech):
+
+```bash
+edamame_posture start <USER> <DOMAIN> <PIN> [DEVICE_ID] [LAN_SCANNING] [WHITELIST_NAME] [LOCAL_TRAFFIC]
+```
+
+**Example:**
+```bash
+edamame_posture start user example.com 123456
+```
 
 ## Installation
 
