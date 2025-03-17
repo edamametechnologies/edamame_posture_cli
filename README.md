@@ -375,11 +375,6 @@ edamame_posture capture [SECONDS] [WHITELIST_NAME] [ZEEK_FORMAT] [LOCAL_TRAFFIC]
 # Capture traffic for 5 minutes (300 seconds)
 edamame_posture capture 300
 
-# Capture traffic and create a whitelist from it
-edamame_posture capture 300
-edamame_posture create-custom-whitelists > my_whitelist.json
-```
-
 #### get-core-info
 Fetches core information of the device.  
 (Does **NOT** require admin privileges.)
@@ -562,7 +557,8 @@ edamame_posture get-tag-prefixes
 
 #### set-custom-whitelists
 Sets custom network whitelists from a provided JSON string.  
-(Does **NOT** require admin privileges.)
+(Does **NOT** require admin privileges.)  
+**Requires** a background process started with `LAN_SCANNING` set to `true`.
 
 **Syntax**:  
 ```
@@ -571,13 +567,17 @@ edamame_posture set-custom-whitelists <WHITELIST_JSON>
 
 **Example Usage**:
 ```bash
-# Apply a custom whitelist from a file
+# First start background process with LAN_SCANNING enabled
+edamame_posture start <USER> <DOMAIN> <PIN> "" true
+
+# Then apply a custom whitelist from a file
 edamame_posture set-custom-whitelists "$(cat my_whitelist.json)"
 ```
 
 #### create-custom-whitelists
 Creates custom network whitelists from current network sessions and returns the JSON.  
-(Does **NOT** require admin privileges.)
+(Does **NOT** require admin privileges.)  
+**Requires** a background process started with `LAN_SCANNING` set to `true`.
 
 **Syntax**:  
 ```
@@ -586,16 +586,159 @@ edamame_posture create-custom-whitelists
 
 **Example Usage**:
 ```bash
-# Generate a whitelist and save to file
+# First start background process with LAN_SCANNING enabled
+edamame_posture start <USER> <DOMAIN> <PIN> "" true
+
+# Then generate a whitelist and save to file
 edamame_posture create-custom-whitelists > my_whitelist.json
 
-# Generate and apply in one step
+# Or generate and apply in one step
 edamame_posture set-custom-whitelists "$(edamame_posture create-custom-whitelists)"
 ```
 
 ## Whitelist Logic and Format
 
 Whitelists are a powerful feature in EDAMAME that allow you to define which network connections are permitted. Understanding the whitelist logic and format is essential for effective network security management. EDAMAME comes with several [default whitelists](#default-whitelists) that you can use as-is or extend with your own custom rules.
+
+### Typical Whitelist Workflow
+
+The process of creating and using whitelists typically follows these steps:
+
+1. **Initial Run with Background Process**:
+   ```bash
+   # Start the background process with LAN_SCANNING enabled
+   edamame_posture start <USER> <DOMAIN> <PIN> "" true
+   ```
+
+2. **Perform Normal Workflow**:
+   Run your normal development or CI/CD workflow activities to capture the network connections your process typically needs.
+
+3. **Generate Whitelist at the End**:
+   ```bash
+   # Create a whitelist from the captured sessions
+   edamame_posture create-custom-whitelists > my_workflow_whitelist.json
+   ```
+
+4. **Subsequent Runs**:
+   In future executions, use the previously generated whitelist:
+   ```bash
+   # Start background process with LAN scanning enabled
+   edamame_posture start <USER> <DOMAIN> <PIN> "" true
+   
+   # Apply your stored whitelist
+   edamame_posture set-custom-whitelists "$(cat my_workflow_whitelist.json)"
+   ```
+
+#### Managed vs. Self-hosted Runners
+
+There's an important difference in how whitelists are handled in different environments, especially in CI/CD contexts:
+
+- **Managed Runners** (GitHub Actions, GitLab CI, etc.): 
+  - Typically ephemeral environments without persistent storage between runs
+  - Store your whitelist JSON in your repository and load it during each run
+  - Example for GitHub/GitLab managed runners:
+    ```yaml
+    # In your CI configuration
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Set up EDAMAME Posture
+        run: |
+          # Start background process with LAN scanning enabled
+          edamame_posture start $USER $DOMAIN $PIN "" true
+          
+          # Apply the stored whitelist from your repository
+          edamame_posture set-custom-whitelists "$(cat .github/workflows/whitelist.json)"
+    ```
+
+- **Self-hosted Runners**:
+  - Can store whitelists in persistent paths on the runner
+  - Better for teams that need to maintain consistent security posture
+  - Example workflow with persistent storage:
+    ```bash
+    # For initial whitelist creation (run once to establish baseline)
+    edamame_posture start $USER $DOMAIN $PIN "" true
+    # Run your typical workflow tasks
+    # ...
+    # Create and store the whitelist
+    edamame_posture create-custom-whitelists > /opt/runner/whitelists/build_workflow.json
+    
+    # For subsequent runs (in your CI configuration)
+    edamame_posture start $USER $DOMAIN $PIN "" true
+    edamame_posture set-custom-whitelists "$(cat /opt/runner/whitelists/build_workflow.json)"
+    # Run your regular workflow tasks
+    ```
+
+#### Integration with GitHub Action
+
+If you're using the [EDAMAME Posture GitHub Action](https://github.com/edamametechnologies/edamame_posture_action), you can easily incorporate whitelist creation and usage:
+
+```yaml
+# Create and save a custom whitelist
+- name: EDAMAME Posture with Custom Whitelist Creation
+  uses: edamametechnologies/edamame_posture_action@v0
+  with:
+    network_scan: true                     # Enable LAN scanning
+    create_custom_whitelist: true          # Generate whitelist from traffic
+    custom_whitelist_path: ./whitelist.json # Save to this file
+
+# Apply a previously created whitelist in future runs
+- name: EDAMAME Posture with Custom Whitelist
+  uses: edamametechnologies/edamame_posture_action@v0
+  with:
+    network_scan: true                     # Enable LAN scanning
+    custom_whitelist_path: ./whitelist.json # Load and apply this whitelist
+    whitelist_conformance: true            # Fail if non-compliant traffic detected
+```
+
+#### Complete CI/CD Workflow Example
+
+For a complete CI/CD integration that includes whitelist management, security posture assessment, and remediation:
+
+```yaml
+- name: EDAMAME Posture Setup with Continuous Monitoring
+  uses: edamametechnologies/edamame_posture_action@v0
+  with:
+    edamame_user: ${{ secrets.EDAMAME_USER }}
+    edamame_domain: ${{ secrets.EDAMAME_DOMAIN }}
+    edamame_pin: ${{ secrets.EDAMAME_PIN }}
+    edamame_id: "cicd-runner"
+    network_scan: true                     # Enable LAN scanning
+    custom_whitelist_path: ./whitelist.json # Path for whitelist
+    whitelist_conformance: true            # Enforce whitelist compliance
+    auto_remediate: true                   # Fix security issues automatically
+```
+
+#### Whitelist Development Lifecycle
+
+A recommended approach for developing and maintaining whitelists is:
+
+1. **Discovery Phase**: Initially run without a custom whitelist to observe required traffic patterns
+   ```bash
+   # Run once to observe normal traffic patterns
+   edamame_posture start <USER> <DOMAIN> <PIN> "" true
+   # Perform your normal workflow activities
+   # Create whitelist from observed traffic
+   edamame_posture create-custom-whitelists > baseline_whitelist.json
+   ```
+
+2. **Test Phase**: Apply the whitelist in test mode without enforcing compliance
+   ```bash
+   # Apply whitelist without strict enforcement
+   edamame_posture start <USER> <DOMAIN> <PIN> "" true
+   edamame_posture set-custom-whitelists "$(cat baseline_whitelist.json)"
+   # Run workflow and check logs for any blocked connections
+   ```
+
+3. **Production Phase**: Apply the whitelist with strict compliance enforcement
+   ```bash
+   # For managed runners, store the whitelist in your repository
+   # For self-hosted runners, store in a persistent location on the runner
+   # Apply with enforcement in production environment
+   ```
+
+This approach allows you to create highly tuned whitelists for specific workflows and environments, minimizing the attack surface while ensuring your legitimate network connections continue to function properly.
 
 ### Best Practices
 
