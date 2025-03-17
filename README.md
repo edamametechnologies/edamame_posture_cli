@@ -170,16 +170,16 @@ We provide a GPG-signed APT repository for `.deb` packages, ensuring secure and 
 
 1. **Download** the Debian package for your platform:
 
-   - **x86_64 (64-bit):** [edamame-posture_0.9.19-1_amd64.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.19/edamame-posture_0.9.19-1_amd64.deb)
-   - **i686 (32-bit):** [edamame-posture_0.9.19-1_i386.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.19/edamame-posture_0.9.19-1_i386.deb)
-   - **aarch64 (ARM 64-bit):** [edamame-posture_0.9.19-1_arm64.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.19/edamame-posture_0.9.19-1_arm64.deb)
-   - **armv7 (ARM 32-bit):** [edamame-posture_0.9.19-1_armhf.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.19/edamame-posture_0.9.19-1_armhf.deb)
+   - **x86_64 (64-bit):** [edamame-posture_0.9.20-1_amd64.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.20/edamame-posture_0.9.20-1_amd64.deb)
+   - **i686 (32-bit):** [edamame-posture_0.9.20-1_i386.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.20/edamame-posture_0.9.20-1_i386.deb)
+   - **aarch64 (ARM 64-bit):** [edamame-posture_0.9.20-1_arm64.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.20/edamame-posture_0.9.20-1_arm64.deb)
+   - **armv7 (ARM 32-bit):** [edamame-posture_0.9.20-1_armhf.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.20/edamame-posture_0.9.20-1_armhf.deb)
 
 2. **Install** the package using either method:
    ```bash
-   sudo apt install ./edamame-posture_0.9.19-1_amd64.deb
+   sudo apt install ./edamame-posture_0.9.20-1_amd64.deb
    # or
-   sudo dpkg -i edamame-posture_0.9.19-1_amd64.deb
+   sudo dpkg -i edamame-posture_0.9.20-1_amd64.deb
    ```
 
 3. **Configure** the service by editing the configuration file:
@@ -241,12 +241,12 @@ We provide a GPG-signed APT repository for `.deb` packages, ensuring secure and 
 #### Manual Linux Binary Installation
 
 1. **Download** the Linux binary for your architecture:
-   - **x86_64 (64-bit)**: [edamame_posture-0.9.19-x86_64-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.19/edamame_posture-0.9.19-x86_64-unknown-linux-gnu)  
-   - **i686 (32-bit)**: [edamame_posture-0.9.19-i686-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.19/edamame_posture-0.9.19-i686-unknown-linux-gnu)  
-   - **aarch64 (ARM 64-bit)**: [edamame_posture-0.9.19-aarch64-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.19/edamame_posture-0.9.19-aarch64-unknown-linux-gnu)  
-   - **armv7 (ARM 32-bit)**: [edamame_posture-0.9.19-armv7-unknown-linux-gnueabihf](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.19/edamame_posture-0.9.19-armv7-unknown-linux-gnueabihf)
-   - **x86_64 (64-bit) for Alpine Linux (musl)**: [edamame_posture-0.9.19-x86_64-unknown-linux-musl](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.19/edamame_posture-0.9.19-x86_64-unknown-linux-musl) 
-   - **aarch64 (ARM 64-bit) for Alpine Linux (musl)**: [edamame_posture-0.9.19-aarch64-unknown-linux-musl](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.19/edamame_posture-0.9.19-aarch64-unknown-linux-musl)
+   - **x86_64 (64-bit)**: [edamame_posture-0.9.20-x86_64-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.20/edamame_posture-0.9.20-x86_64-unknown-linux-gnu)  
+   - **i686 (32-bit)**: [edamame_posture-0.9.20-i686-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.20/edamame_posture-0.9.20-i686-unknown-linux-gnu)  
+   - **aarch64 (ARM 64-bit)**: [edamame_posture-0.9.20-aarch64-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.20/edamame_posture-0.9.20-aarch64-unknown-linux-gnu)  
+   - **armv7 (ARM 32-bit)**: [edamame_posture-0.9.20-armv7-unknown-linux-gnueabihf](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.20/edamame_posture-0.9.20-armv7-unknown-linux-gnueabihf)
+   - **x86_64 (64-bit) for Alpine Linux (musl)**: [edamame_posture-0.9.20-x86_64-unknown-linux-musl](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.20/edamame_posture-0.9.20-x86_64-unknown-linux-musl) 
+   - **aarch64 (ARM 64-bit) for Alpine Linux (musl)**: [edamame_posture-0.9.20-aarch64-unknown-linux-musl](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.20/edamame_posture-0.9.20-aarch64-unknown-linux-musl)
 
 2. **Install** by placing the binary in your `PATH` and making it executable:
    ```bash
@@ -261,7 +261,7 @@ We provide a GPG-signed APT repository for `.deb` packages, ensuring secure and 
 #### macOS Installation
 
 1. **Download** the macOS universal binary:
-   - [edamame_posture-0.9.19-universal-apple-darwin](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.19/edamame_posture-0.9.19-universal-apple-darwin)  
+   - [edamame_posture-0.9.20-universal-apple-darwin](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.20/edamame_posture-0.9.20-universal-apple-darwin)  
 
 2. **Install** by placing the binary in your `PATH` and making it executable:
    ```bash
@@ -280,7 +280,7 @@ Proceed with installation as stated above but make sure the binary is located wi
 #### Windows Standard Installation
 
 1. **Download** the Windows binary:
-   - [edamame_posture-0.9.19-x86_64-pc-windows-msvc.exe](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.19/edamame_posture-0.9.19-x86_64-pc-windows-msvc.exe)
+   - [edamame_posture-0.9.20-x86_64-pc-windows-msvc.exe](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.20/edamame_posture-0.9.20-x86_64-pc-windows-msvc.exe)
 
 2. **Install Npcap** (Required for traffic capture feature):
    - Install [Npcap](https://npcap.com/#download), the packet capture library from the Nmap team
@@ -309,6 +309,8 @@ Proceed with installation as stated above but make sure the binary is located wi
 - **Fix security issues**: `edamame_posture remediate`
 - **Get system info**: `edamame_posture get-system-info`
 - **Monitor network traffic**: `edamame_posture capture`
+- **Create whitelist from sessions**: `edamame_posture create-custom-whitelists`
+- **Apply custom whitelist**: `edamame_posture set-custom-whitelists <JSON_DATA>`
 
 ### All Available Commands
 
@@ -366,6 +368,16 @@ Captures network traffic for a specified duration and formats it as a log.
 **Syntax**:  
 ```
 edamame_posture capture [SECONDS] [WHITELIST_NAME] [ZEEK_FORMAT] [LOCAL_TRAFFIC]
+```
+
+**Example Usage**:
+```bash
+# Capture traffic for 5 minutes (300 seconds)
+edamame_posture capture 300
+
+# Capture traffic and create a whitelist from it
+edamame_posture capture 300
+edamame_posture create-custom-whitelists > my_whitelist.json
 ```
 
 #### get-core-info
@@ -548,6 +560,119 @@ Gets threat model tag prefixes.
 edamame_posture get-tag-prefixes
 ```
 
+#### set-custom-whitelists
+Sets custom network whitelists from a provided JSON string.  
+(Does **NOT** require admin privileges.)
+
+**Syntax**:  
+```
+edamame_posture set-custom-whitelists <WHITELIST_JSON>
+```
+
+**Example Usage**:
+```bash
+# Apply a custom whitelist from a file
+edamame_posture set-custom-whitelists "$(cat my_whitelist.json)"
+```
+
+#### create-custom-whitelists
+Creates custom network whitelists from current network sessions and returns the JSON.  
+(Does **NOT** require admin privileges.)
+
+**Syntax**:  
+```
+edamame_posture create-custom-whitelists
+```
+
+**Example Usage**:
+```bash
+# Generate a whitelist and save to file
+edamame_posture create-custom-whitelists > my_whitelist.json
+
+# Generate and apply in one step
+edamame_posture set-custom-whitelists "$(edamame_posture create-custom-whitelists)"
+```
+
+## Whitelist Logic and Format
+
+Whitelists are a powerful feature in EDAMAME that allow you to define which network connections are permitted. Understanding the whitelist logic and format is essential for effective network security management. EDAMAME comes with several [default whitelists](#default-whitelists) that you can use as-is or extend with your own custom rules.
+
+### Best Practices
+
+1. **Start Specific**: Begin with the most specific rules possible for security.
+2. **Test Thoroughly**: Validate your whitelist with `capture` before applying it permanently.
+3. **Use Descriptions**: Add clear descriptions to help understand the purpose of each endpoint.
+4. **Regular Updates**: Review and update your whitelists as your network usage patterns change.
+5. **Leverage Inheritance**: Use the `extends` field to build hierarchical whitelists for better organization.
+
+## Embedded Whitelists
+
+EDAMAME includes the following embedded whitelists that are ready to use for different environments and workflows:
+
+### Base Whitelists
+
+- **`edamame`**: Core whitelist with essential EDAMAME functionality
+  - IP-API connections for IP geolocation
+  - Mixpanel analytics services
+  - IPify service for IP address detection
+  - EDAMAME backend services on AWS
+
+### Development Whitelists
+
+- **`builder`**: Extends `edamame`, designed for development environments
+  - NTP time synchronization
+  - Package repositories (Dart/Flutter, Ruby)
+  - Source code repositories (Chromium)
+  - CDN services (Fastly, CloudFront)
+  - Cloud platforms (AWS, Google Cloud)
+  - DNS services (Google DNS over TLS/HTTPS)
+
+### GitHub Workflow Whitelists
+
+- **`github`**: Extends `builder`, adds GitHub-specific endpoints
+  - GitHub.com and related domains
+  - GitHub Actions services
+  - GitHub raw content access
+  - Microsoft Azure services
+
+#### OS-Specific GitHub Whitelists
+
+- **`github_macos`**: Extends `github`, optimized for macOS GitHub workflows
+  - Homebrew package manager
+  - Apple services and domains
+  - Apple DNS and certificate services
+  - Apple push notification services
+
+- **`github_linux`**: Extends `github`, optimized for Linux GitHub workflows
+  - Ubuntu repositories
+  - Snapcraft services
+  - Microsoft Azure cloud mirror
+
+- **`github_windows`**: Extends `github`, template for Windows GitHub workflows
+  - Currently empty, ready for Windows-specific endpoints
+
+### Whitelist Inheritance Example
+
+```
+edamame (base)
+   ↑
+builder (extends edamame)
+   ↑
+github (extends builder)
+   ↑
+github_macos/github_linux/github_windows (extends github)
+```
+
+To use these embedded whitelists, specify the whitelist name when starting EDAMAME Posture:
+
+```bash
+# For a macOS GitHub workflow environment
+edamame_posture start user example.com 123456 "" true github_macos
+
+# For a basic development environment
+edamame_posture start user example.com 123456 "" true builder
+```
+
 ## Requirements
 
 Most commands require administrator privileges. If a command requires admin privileges and they are not available, the tool will exit with an error message.
@@ -558,6 +683,20 @@ Most commands require administrator privileges. If a command requires admin priv
 - Missing arguments required for a subcommand will generate an error.
 
 --------------------------------------------------------------------------------
+
+## EDAMAME Ecosystem
+
+EDAMAME Posture is part of the broader EDAMAME security ecosystem:
+
+- **EDAMAME Core**: The core implementation used by all EDAMAME components (closed source)
+- **EDAMAME Security**: Desktop security application with full UI and enhanced capabilities (closed source)
+- **[EDAMAME Foundation](https://github.com/edamametechnologies/edamame_foundation)**: Foundation library providing security assessment functionality
+- **[EDAMAME Helper](https://github.com/edamametechnologies/edamame_helper)**: Helper application for executing privileged security checks
+- **[EDAMAME CLI](https://github.com/edamametechnologies/edamame_cli)**: Interface to EDAMAME core services
+- **[GitHub Integration](https://github.com/edamametechnologies/edamame_posture_action)**: GitHub Action built on this CLI for integrating posture checks in CI/CD
+- **[GitLab Integration](https://gitlab.com/edamametechnologies/edamame_posture_action)**: Integration for GitLab CI/CD workflows based on this CLI
+- **[Threat Models](https://github.com/edamametechnologies/threatmodels)**: Threat model definitions used by this CLI
+- **[EDAMAME Hub](https://hub.edamame.tech)**: Web portal for centralized management when using this CLI in team environments
 
 ## Author
 
