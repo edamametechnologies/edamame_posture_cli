@@ -6,9 +6,6 @@ on:
     branches:
       - 'dev'
       - 'main'
-    paths-ignore:
-      - '.github/workflows/**'
-      - 'Makefile'
 
 # Auto cancel previous runs if they were not completed.
 concurrency:
