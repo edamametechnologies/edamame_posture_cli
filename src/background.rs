@@ -13,6 +13,7 @@ use edamame_core::api::api_score::*;
 use edamame_core::api::api_score_history::*;
 use edamame_core::api::api_score_threats::*;
 use edamame_core::api::api_trust::*;
+use edamame_foundation::whitelists::*;
 use std::thread::sleep;
 use std::time::Duration;
 
@@ -299,6 +300,64 @@ pub fn background_get_history() -> i32 {
         Err(e) => {
             eprintln!("Error getting history: {}", e);
             return ERROR_CODE_SERVER_ERROR;
+        }
+    }
+}
+
+pub fn background_create_custom_whitelists() -> i32 {
+    match rpc_create_custom_whitelists(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(whitelists) => {
+            if whitelists.is_empty() {
+                eprintln!("Failed to create custom whitelists");
+                return ERROR_CODE_SERVER_ERROR;
+            } else {
+                // The whitelist is a String represent a JSON object
+                // We need to parse it and print it pretty
+                let whitelist: WhitelistsJSON = match serde_json::from_str(&whitelists) {
+                    Ok(whitelist) => whitelist,
+                    Err(e) => {
+                        eprintln!("Error parsing custom whitelists: {}", e);
+                        return ERROR_CODE_SERVER_ERROR;
+                    }
+                };
+                let pretty_whitelist = match serde_json::to_string_pretty(&whitelist) {
+                    Ok(pretty_whitelist) => pretty_whitelist,
+                    Err(e) => {
+                        eprintln!("Error pretty printing custom whitelists: {}", e);
+                        return ERROR_CODE_SERVER_ERROR;
+                    }
+                };
+                println!("{}", pretty_whitelist);
+                return 0;
+            }
+        }
+        Err(e) => {
+            eprintln!("Error creating custom whitelists: {}", e);
+            return ERROR_CODE_SERVER_ERROR;
+        }
+    }
+}
+
+pub fn background_set_custom_whitelists(whitelist_json: String) -> i32 {
+    match rpc_set_custom_whitelists(
+        whitelist_json,
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(_) => {
+            println!("Custom whitelists set successfully");
+            0
+        }
+        Err(e) => {
+            eprintln!("Error setting custom whitelists: {}", e);
+            ERROR_CODE_SERVER_ERROR
         }
     }
 }

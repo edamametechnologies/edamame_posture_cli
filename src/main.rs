@@ -607,6 +607,22 @@ fn run_base() {
             exit_code = background_get_last_report_signature();
             is_background = true;
         }
+        Some(("background-set-custom-whitelists", sub_matches)) => {
+            let whitelist_json = sub_matches
+                .get_one::<String>("WHITELIST_JSON")
+                .expect("WHITELIST_JSON not provided")
+                .to_string();
+            // Initialize the core with all options disabled
+            initialize_core("".to_string(), false, false, false, false, verbose);
+            exit_code = background_set_custom_whitelists(whitelist_json);
+            is_background = true;
+        }
+        Some(("background-create-custom-whitelists", _)) => {
+            // Initialize the core with all options disabled
+            initialize_core("".to_string(), false, false, false, false, verbose);
+            exit_code = background_create_custom_whitelists();
+            is_background = true;
+        }
         _ => {
             // Initialize the core with all options disabled
             initialize_core("".to_string(), false, false, false, false, verbose);

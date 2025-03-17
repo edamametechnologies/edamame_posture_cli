@@ -272,4 +272,19 @@ pub fn build_cli() -> Command {
     .subcommand(Command::new("background-status").alias("status").about("Get status of reporting background process"))
     .subcommand(Command::new("background-last-report-signature").alias("get-last-report-signature").about("Get last report signature of background process"))
     .subcommand(Command::new("background-get-history").alias("get-history").about("Get history of score modifications"))
+    .subcommand(
+        Command::new("background-set-custom-whitelists")
+            .alias("set-custom-whitelists")
+            .about("Set custom whitelists from JSON")
+            .arg(
+                arg!(<WHITELIST_JSON> "JSON string containing whitelist definitions")
+                    .required(true)
+                    .value_parser(clap::value_parser!(String)),
+            )
+    )
+    .subcommand(
+        Command::new("background-create-custom-whitelists")
+            .alias("create-custom-whitelists")
+            .about("Create custom whitelists from current sessions")
+    )
 }
