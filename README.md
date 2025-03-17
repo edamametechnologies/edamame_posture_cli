@@ -689,7 +689,7 @@ Most commands require administrator privileges. If a command requires admin priv
 EDAMAME Posture is part of the broader EDAMAME security ecosystem:
 
 - **EDAMAME Core**: The core implementation used by all EDAMAME components (closed source)
-- **EDAMAME Security**: Desktop security application with full UI and enhanced capabilities (closed source)
+- **[EDAMAME Security](https://github.com/edamametechnologies)**: Desktop/mobile security application with full UI and enhanced capabilities (closed source)
 - **[EDAMAME Foundation](https://github.com/edamametechnologies/edamame_foundation)**: Foundation library providing security assessment functionality
 - **[EDAMAME Helper](https://github.com/edamametechnologies/edamame_helper)**: Helper application for executing privileged security checks
 - **[EDAMAME CLI](https://github.com/edamametechnologies/edamame_cli)**: Interface to EDAMAME core services
