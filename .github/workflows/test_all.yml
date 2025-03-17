@@ -219,6 +219,43 @@ jobs:
           echo "Capture:"
           $SUDO_CMD ~/$BINARY -v capture 5
 
+          # Create custom whitelist from network sessions
+          echo "Create custom whitelist:"
+          $SUDO_CMD ~/$BINARY -v create-custom-whitelists > custom_whitelists.json
+          
+          # Verify whitelist file exists and is valid JSON
+          echo "Verify whitelist file:"
+          if [[ ! -s custom_whitelists.json ]]; then
+            echo "Error: Whitelist file is empty or does not exist"
+            exit 1
+          fi
+          
+          # Validate JSON format using jq
+          if ! jq empty custom_whitelists.json; then
+            echo "Error: Invalid JSON format in whitelist file"
+            exit 1
+          fi
+          
+          # Show whitelist content summary (first few lines)
+          echo "Whitelist content summary:"
+          echo "Whitelist date: $(jq -r '.date' custom_whitelists.json)"
+          echo "Number of whitelists: $(jq -r '.whitelists | length' custom_whitelists.json)"
+          echo "First whitelist name: $(jq -r '.whitelists[0].name' custom_whitelists.json)"
+          echo "Number of endpoints: $(jq -r '.whitelists[0].endpoints | length' custom_whitelists.json)"
+          
+          # Apply the custom whitelist
+          echo "Apply custom whitelist:"
+          $SUDO_CMD ~/$BINARY -v set-custom-whitelists "$(cat custom_whitelists.json)"
+          
+          # Perform a short capture with the whitelist applied
+          echo "Capture with whitelist:"
+          $SUDO_CMD ~/$BINARY -v capture 3 "" false true
+          
+          # Check sessions with whitelist conformance
+          echo "Sessions with whitelist:"
+          # Can fail because of whitelist conformance, ignore it
+          ~/$BINARY -v get-sessions false true || true
+          
           # Get device info
           echo "Device info:"
           $SUDO_CMD ~/$BINARY -v get-device-info
