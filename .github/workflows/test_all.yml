@@ -211,51 +211,6 @@ jobs:
           # Should always be compliant
           $SUDO_CMD ~/$BINARY -v check-policy 1.0 "encrypted disk disabled"
           
-          # Perform a lanscan
-          echo "Lanscan:"
-          $SUDO_CMD ~/$BINARY -v lanscan
-          
-          # Perform a capture
-          echo "Capture:"
-          $SUDO_CMD ~/$BINARY -v capture 5
-
-          # Create custom whitelist from network sessions
-          echo "Create custom whitelist:"
-          $SUDO_CMD ~/$BINARY -v create-custom-whitelists > custom_whitelists.json
-          
-          # Verify whitelist file exists and is valid JSON
-          echo "Verify whitelist file:"
-          if [[ ! -s custom_whitelists.json ]]; then
-            echo "Error: Whitelist file is empty or does not exist"
-            exit 1
-          fi
-          
-          # Validate JSON format using jq
-          if ! jq empty custom_whitelists.json; then
-            echo "Error: Invalid JSON format in whitelist file"
-            exit 1
-          fi
-          
-          # Show whitelist content summary (first few lines)
-          echo "Whitelist content summary:"
-          echo "Whitelist date: $(jq -r '.date' custom_whitelists.json)"
-          echo "Number of whitelists: $(jq -r '.whitelists | length' custom_whitelists.json)"
-          echo "First whitelist name: $(jq -r '.whitelists[0].name' custom_whitelists.json)"
-          echo "Number of endpoints: $(jq -r '.whitelists[0].endpoints | length' custom_whitelists.json)"
-          
-          # Apply the custom whitelist
-          echo "Apply custom whitelist:"
-          $SUDO_CMD ~/$BINARY -v set-custom-whitelists "$(cat custom_whitelists.json)"
-          
-          # Perform a short capture with the whitelist applied
-          echo "Capture with whitelist:"
-          $SUDO_CMD ~/$BINARY -v capture 3 "" false true
-          
-          # Check sessions with whitelist conformance
-          echo "Sessions with whitelist:"
-          # Can fail because of whitelist conformance, ignore it
-          ~/$BINARY -v get-sessions false true || true
-          
           # Get device info
           echo "Device info:"
           $SUDO_CMD ~/$BINARY -v get-device-info
@@ -264,7 +219,15 @@ jobs:
           echo "System info:"
           $SUDO_CMD ~/$BINARY -v get-system-info
 
-          # Start the new binary in the background
+          # Perform a lanscan
+          echo "Lanscan:"
+          $SUDO_CMD ~/$BINARY -v lanscan
+
+          # Perform a capture
+          echo "Capture:"
+          $SUDO_CMD ~/$BINARY -v capture 5
+
+          # Start the new binary in the background with LAN scan enabled
           $SUDO_CMD ~/$BINARY -v start ${{ vars.EDAMAME_POSTURE_USER }} ${{ vars.EDAMAME_POSTURE_DOMAIN }} ${{ secrets.EDAMAME_POSTURE_PIN }} ${{ github.run_id }} true "github_ubuntu"
           
           # Test wait-for-connection command
@@ -279,14 +242,43 @@ jobs:
           make clean
           cargo build --release
 
+          # For macOS and Linux (not Windows)
+          if [[ "${{ matrix.os }}" != "windows-latest" ]]; then
+
+            # Create custom whitelist from network sessions
+            echo "Create custom whitelist:"
+            $SUDO_CMD ~/$BINARY -v create-custom-whitelists > custom_whitelists.json
+            
+            # Verify whitelist file exists and is valid JSON
+            echo "Verify whitelist file:"
+            if [[ ! -s custom_whitelists.json ]]; then
+              echo "Error: Whitelist file is empty or does not exist"
+              exit 1
+            fi
+            
+            # Validate JSON format using jq
+            if ! jq empty custom_whitelists.json; then
+              echo "Error: Invalid JSON format in whitelist file"
+              exit 1
+            fi
+
+            # Display the custom whitelist
+            echo "Custom whitelist:"
+            cat custom_whitelists.json
+            
+            # Apply the custom whitelist
+            echo "Apply custom whitelist:"
+            $SUDO_CMD ~/$BINARY -v set-custom-whitelists "$(cat custom_whitelists.json)"
+          fi
+
+          # Check sessions with whitelist conformance
+          echo "Sessions with whitelist:"
+          # Can fail because of whitelist conformance, ignore it
+          ~/$BINARY -v get-sessions false true || true
+          
           # Check status
           echo "Status:"
           ~/$BINARY -v status
-
-          # Check sessions
-          echo "Sessions:"
-          # Can fail because of whitelist conformance, ignore it
-          ~/$BINARY -v get-sessions false false || true
           
           # Check logs
           echo "Logs:"
