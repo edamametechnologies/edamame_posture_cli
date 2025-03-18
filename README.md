@@ -374,6 +374,7 @@ edamame_posture capture [SECONDS] [WHITELIST_NAME] [ZEEK_FORMAT] [LOCAL_TRAFFIC]
 ```bash
 # Capture traffic for 5 minutes (300 seconds)
 edamame_posture capture 300
+```
 
 #### get-core-info
 Fetches core information of the device.  
