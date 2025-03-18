@@ -571,7 +571,7 @@ edamame_posture set-custom-whitelists <WHITELIST_JSON>
 # First start background process with LAN_SCANNING enabled
 edamame_posture start <USER> <DOMAIN> <PIN> "" true
 
-# Then apply a custom whitelist from a file
+# Then apply custom whitelists from a file
 edamame_posture set-custom-whitelists "$(cat my_whitelist.json)"
 ```
 
@@ -715,7 +715,7 @@ For a complete CI/CD integration that includes whitelist management, security po
 
 A recommended approach for developing and maintaining whitelists is:
 
-1. **Discovery Phase**: Initially run without a custom whitelist to observe required traffic patterns
+1. **Discovery Phase**: Initially run without custom whitelists to observe required traffic patterns
    ```bash
    # Run once to observe normal traffic patterns
    edamame_posture start <USER> <DOMAIN> <PIN> "" true

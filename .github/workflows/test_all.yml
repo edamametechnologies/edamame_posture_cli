@@ -242,7 +242,7 @@ jobs:
           # For macOS and Linux (not Windows)
           if [[ "${{ matrix.os }}" != "windows-latest" ]]; then
 
-            # Create custom whitelist from network sessions
+            # Create custom whitelists from network sessions
             echo "Create custom whitelist:"
             $SUDO_CMD ~/$BINARY -v create-custom-whitelists > custom_whitelists.json
             
