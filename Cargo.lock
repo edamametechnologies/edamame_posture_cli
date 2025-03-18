@@ -1618,7 +1618,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "0.9.20"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#3226f59b6e1df36fe9ffe10c5d3050ce080b755a"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#59b4f5c9e5e8328b72de81e8ab88b178ea3a6c05"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1689,7 +1689,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "0.9.20"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#5f7232ae8d1e961cdd70eb4bf8eebc8250268650"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#3937ce3c51057c2223dd07ab874d44a22aa8d7f8"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1749,7 +1749,7 @@ dependencies = [
  "users",
  "uuid",
  "wez-mdns",
- "windows 0.59.0",
+ "windows 0.61.0",
  "zip",
 ]
 
@@ -6662,16 +6662,6 @@ dependencies = [
 
 [[package]]
 name = "windows"
-version = "0.59.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7f919aee0a93304be7f62e8e5027811bbba96bcb1de84d6618be56e43f8a32a1"
-dependencies = [
- "windows-core 0.59.0",
- "windows-targets 0.53.0",
-]
-
-[[package]]
-name = "windows"
 version = "0.60.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ddf874e74c7a99773e62b1c671427abf01a425e77c3d3fb9fb1e4883ea934529"
@@ -6680,7 +6670,20 @@ dependencies = [
  "windows-core 0.60.1",
  "windows-future",
  "windows-link",
- "windows-numerics",
+ "windows-numerics 0.1.1",
+]
+
+[[package]]
+name = "windows"
+version = "0.61.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b76779b1008b2bafb6cdf5e299dfe7f5780d604349fe68d9476c08feb448e98f"
+dependencies = [
+ "windows-collections",
+ "windows-core 0.61.0",
+ "windows-future",
+ "windows-link",
+ "windows-numerics 0.2.0",
 ]
 
 [[package]]
@@ -6734,19 +6737,6 @@ dependencies = [
  "windows-result 0.2.0",
  "windows-strings 0.1.0",
  "windows-targets 0.52.6",
-]
-
-[[package]]
-name = "windows-core"
-version = "0.59.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "810ce18ed2112484b0d4e15d022e5f598113e220c53e373fb31e67e21670c1ce"
-dependencies = [
- "windows-implement 0.59.0",
- "windows-interface 0.59.1",
- "windows-result 0.3.2",
- "windows-strings 0.3.1",
- "windows-targets 0.53.0",
 ]
 
 [[package]]
@@ -6875,6 +6865,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "005dea54e2f6499f2cee279b8f703b3cf3b5734a2d8d21867c8f44003182eeed"
 dependencies = [
  "windows-core 0.60.1",
+ "windows-link",
+]
+
+[[package]]
+name = "windows-numerics"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9150af68066c4c5c07ddc0ce30421554771e528bde427614c61038bc2c92c2b1"
+dependencies = [
+ "windows-core 0.61.0",
  "windows-link",
 ]
 
