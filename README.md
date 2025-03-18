@@ -681,15 +681,15 @@ If you're using the [EDAMAME Posture GitHub Action](https://github.com/edamamete
   uses: edamametechnologies/edamame_posture_action@v0
   with:
     network_scan: true                     # Enable LAN scanning
-    create_custom_whitelist: true          # Generate whitelist from traffic
-    custom_whitelist_path: ./whitelist.json # Save to this file
+    create_custom_whitelists: true          # Generate whitelist from traffic
+    custom_whitelists_path: ./whitelist.json # Save to this file
 
 # Apply a previously created whitelist in future runs
 - name: EDAMAME Posture with Custom Whitelist
   uses: edamametechnologies/edamame_posture_action@v0
   with:
     network_scan: true                     # Enable LAN scanning
-    custom_whitelist_path: ./whitelist.json # Load and apply this whitelist
+    custom_whitelists_path: ./whitelist.json # Load and apply this whitelist
     whitelist_conformance: true            # Fail if non-compliant traffic detected
 ```
 
@@ -706,7 +706,7 @@ For a complete CI/CD integration that includes whitelist management, security po
     edamame_pin: ${{ secrets.EDAMAME_PIN }}
     edamame_id: "cicd-runner"
     network_scan: true                     # Enable LAN scanning
-    custom_whitelist_path: ./whitelist.json # Path for whitelist
+    custom_whitelists_path: ./whitelist.json # Path for whitelist
     whitelist_conformance: true            # Enforce whitelist compliance
     auto_remediate: true                   # Fix security issues automatically
 ```
