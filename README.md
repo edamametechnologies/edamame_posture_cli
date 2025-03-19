@@ -817,6 +817,40 @@ edamame_posture start user example.com 123456 "" true github_macos
 edamame_posture start user example.com 123456 "" true builder
 ```
 
+## Business rules
+
+To enable business rules functionality as seen in [EDAMAME Threat Models](https://github.com/edamametechnologies/), set the `EDAMAME_BUSINESS_RULES_CMD` environment variable according to your platform:
+
+- **Linux**: Add to `/usr/lib/systemd/system/edamame_posture.service` in the [service] section:
+  ```
+  Environment=EDAMAME_BUSINESS_RULES_CMD="/path/to/your/script.sh"
+  ```
+
+- **Windows**: Set in user environment variables through System Properties > Environment Variables > User variables
+
+- **macOS**: Add to `~/.zshenv` or `~/.bash_profile`:
+  ```
+  export EDAMAME_BUSINESS_RULES_CMD="/path/to/your/script.sh"
+  ```
+
+The app on macOS and Windows or edamame_posture service on Linux need to be restarted in order for the environment variable to be accounted for.
+
+For Linux:
+- For systemd to account for the updated service file:
+  ```
+  systemctl daemon-reload
+  ```
+- For edamame_posture to account for the environment variable:
+  ```
+  service edamame_posture restart
+  ```
+
+The script specified by `EDAMAME_BUSINESS_RULES_CMD` should:
+1. Solely rely on user space operations
+2. Return an empty string when all rules are respected
+3. Return a non empty message when any of the rules are not respected - it's advised to provide a self explanatory message on the reasons why the rules are not respected. This information will be displayed when computing a score in the app or through edamame_posture.
+4. Exit with status code 0 for success, non-zero for errors (this is for internal use only - errors will lead to the threat being handled as "unknown" by EDAMAME).
+
 ## Requirements
 
 Most commands require administrator privileges. If a command requires admin privileges and they are not available, the tool will exit with an error message.
