@@ -851,6 +851,24 @@ The script specified by `EDAMAME_BUSINESS_RULES_CMD` should:
 3. Return a non empty message when any of the rules are not respected - it's advised to provide a self explanatory message on the reasons why the rules are not respected. This information will be displayed when computing a score in the app or through edamame_posture.
 4. Exit with status code 0 for success, non-zero for errors (this is for internal use only - errors will lead to the threat being handled as "unknown" by EDAMAME).
 
+### Business Rules Visualization and Principles
+
+The CLI and UX (tooltip in remediation pages) display the output of the script execution. This output is purely local and is never communicated to EDAMAME.
+
+There is only one rule because the logic is that companies could abuse this functionality if given too much granularity, which would prevent deployment on any devices. The principle is to position the company's chosen script on each user's workstation. The user will have the responsibility to verify and accept or reject this script. We can imagine assistance for automatically populating the script later.
+
+The script is pure user space and is executed as another check. You can set a policy in the [EDAMAME Hub](https://hub.edamame.tech) that requires this script and sends an email notification if the rule fails.
+
+The user sees the check in the UX and can look at the script output to determine which element of the script generates output and thus causes the check to fail.
+
+Example script:
+```bash
+#!/bin/bash
+check1 || echo "check 1 hasn't passed"
+check2 || echo "check 2 hasn't passed"
+# ... more checks ...
+```
+
 ## Requirements
 
 Most commands require administrator privileges. If a command requires admin privileges and they are not available, the tool will exit with an error message.
