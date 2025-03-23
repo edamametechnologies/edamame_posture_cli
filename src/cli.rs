@@ -273,6 +273,26 @@ pub fn build_cli() -> Command {
     .subcommand(Command::new("background-last-report-signature").alias("get-last-report-signature").about("Get last report signature of background process"))
     .subcommand(Command::new("background-get-history").alias("get-history").about("Get history of score modifications"))
     .subcommand(
+        Command::new("background-start-disconnected")
+            .about("Start the background process in disconnected mode (without domain authentication)")
+            .arg(
+                arg!([LAN_SCANNING] "LAN scanning enabled")
+                    .required(false)
+                    .value_parser(clap::value_parser!(bool)),
+            )
+            .arg(
+                arg!([WHITELIST_NAME] "Whitelist name")
+                    .required(false)
+                    .value_parser(clap::value_parser!(String)),
+            )
+            .arg(
+                arg!([LOCAL_TRAFFIC] "Include local traffic")
+                    .required(false)
+                    .default_value("false")
+                    .value_parser(clap::value_parser!(bool)),
+            )
+    )
+    .subcommand(
         Command::new("background-set-custom-whitelists")
             .alias("set-custom-whitelists")
             .about("Set custom whitelists from JSON")
