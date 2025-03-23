@@ -236,7 +236,7 @@ _arguments "${_arguments_options[@]}" : \
 '::TIMEOUT -- Timeout in seconds:_default' \
 && ret=0
 ;;
-(background-sessions)
+(background-get-sessions)
 _arguments "${_arguments_options[@]}" : \
 '*-v[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
 '*--verbose[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
@@ -441,7 +441,7 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
-(background-sessions)
+(background-get-sessions)
 _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
@@ -524,7 +524,7 @@ _edamame_posture_commands() {
 'get-tag-prefixes:Get threat model tag prefixes' \
 'background-logs:Display logs from the background process' \
 'background-wait-for-connection:Wait for connection of the background process' \
-'background-sessions:Get connections of the background process' \
+'background-get-sessions:Get connections of the background process' \
 'background-threats-info:Get threats information of the background process' \
 'foreground-start:Start reporting in the foreground (used by the systemd service)' \
 'background-start:Start reporting background process' \
@@ -564,10 +564,10 @@ _edamame_posture__background-score_commands() {
     local commands; commands=()
     _describe -t commands 'edamame_posture background-score commands' commands "$@"
 }
-(( $+functions[_edamame_posture__background-sessions_commands] )) ||
-_edamame_posture__background-sessions_commands() {
+(( $+functions[_edamame_posture__background-get-sessions_commands] )) ||
+_edamame_posture__background-get-sessions_commands() {
     local commands; commands=()
-    _describe -t commands 'edamame_posture background-sessions commands' commands "$@"
+    _describe -t commands 'edamame_posture background-get-sessions commands' commands "$@"
 }
 (( $+functions[_edamame_posture__background-set-custom-whitelists_commands] )) ||
 _edamame_posture__background-set-custom-whitelists_commands() {
@@ -690,7 +690,7 @@ _edamame_posture__help_commands() {
 'get-tag-prefixes:Get threat model tag prefixes' \
 'background-logs:Display logs from the background process' \
 'background-wait-for-connection:Wait for connection of the background process' \
-'background-sessions:Get connections of the background process' \
+'background-get-sessions:Get connections of the background process' \
 'background-threats-info:Get threats information of the background process' \
 'foreground-start:Start reporting in the foreground (used by the systemd service)' \
 'background-start:Start reporting background process' \
@@ -730,10 +730,10 @@ _edamame_posture__help__background-score_commands() {
     local commands; commands=()
     _describe -t commands 'edamame_posture help background-score commands' commands "$@"
 }
-(( $+functions[_edamame_posture__help__background-sessions_commands] )) ||
-_edamame_posture__help__background-sessions_commands() {
+(( $+functions[_edamame_posture__help__background-get-sessions_commands] )) ||
+_edamame_posture__help__background-get-sessions_commands() {
     local commands; commands=()
-    _describe -t commands 'edamame_posture help background-sessions commands' commands "$@"
+    _describe -t commands 'edamame_posture help background-get-sessions commands' commands "$@"
 }
 (( $+functions[_edamame_posture__help__background-set-custom-whitelists_commands] )) ||
 _edamame_posture__help__background-set-custom-whitelists_commands() {

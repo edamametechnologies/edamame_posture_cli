@@ -187,7 +187,7 @@ pub fn build_cli() -> Command {
             ),
     )
     .subcommand(
-        Command::new("background-sessions")
+        Command::new("background-get-sessions")
             .alias("get-sessions")
             .about("Get connections of the background process")
             .arg(
