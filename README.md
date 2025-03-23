@@ -1,6 +1,6 @@
-# EDAMAME Security (CLI: `edamame_posture`)
+# EDAMAME Posture: Free CI/CD CLI
 
-> **What?**: Lightweight, developer-friendly security posture assessment and remediation tool—perfect for those who want a straightforward way to secure their development environment.
+> **What?**: Lightweight, developer-friendly security posture assessment and remediation tool—perfect for those who want a straightforward way to secure their development environment and CI/CD pipelines without slowing down development.
 
 ## Table of Contents
 
@@ -9,8 +9,9 @@
 3. [Targeted Use Cases](#targeted-use-cases)
 4. [How It Works](#how-it-works)
 5. [Security Posture Assessment Methods](#security-posture-assessment-methods)
-6. [CI/CD Integration and Workflow Controls](#cicd-integration-and-workflow-controls)
-7. [Installation](#installation)
+6. [Threat Models and Security Assessment](#threat-models-and-security-assessment)
+7. [CI/CD Integration and Workflow Controls](#cicd-integration-and-workflow-controls)
+8. [Installation](#installation)
    - [Linux (Debian/Ubuntu)](#linux-debianubuntu)
      - [APT Repository Method (Recommended)](#apt-repository-method-recommended)
      - [Debian Package Installation](#debian-package-installation)
@@ -23,41 +24,44 @@
    - [Windows](#windows)
      - [Windows Standard Installation](#windows-standard-installation)
      - [Windows CI/CD Installation](#windows-cicd-installation)
-8. [Usage](#usage)
+9. [Usage](#usage)
    - [Common Commands](#common-commands)
    - [All Available Commands](#all-available-commands)
-9. [Exit Codes and CI/CD Pipelines](#exit-codes-and-cicd-pipelines)
-10. [Historical Security Posture Verification](#historical-security-posture-verification)
-11. [Requirements](#requirements)
-12. [Error Handling](#error-handling)
+10. [Exit Codes and CI/CD Pipelines](#exit-codes-and-cicd-pipelines)
+11. [Historical Security Posture Verification](#historical-security-posture-verification)
+12. [Requirements](#requirements)
+13. [Error Handling](#error-handling)
 
 ## Overview
 
-`edamame_posture` is a cross-platform CLI that helps you quickly:
-- **Assess** the security posture of your device or environment.
-- **Harden** against common misconfigurations at the click of a button.
-- **Generate** compliance or audit reports—giving you proof of a hardened setup.
+EDAMAME Posture is a cross-platform CLI that safeguards your software development lifecycle—making it easy to:
 
-And if your needs grow, you can seamlessly connect it to [EDAMAME Hub](https://hub.edamame.tech) for more advanced conditional access, centralized reporting, and enterprise-level features.
+- **Assess** the security posture of your device or CI/CD environment
+- **Harden** against common misconfigurations at the click of a button
+- **Monitor** network traffic to detect and prevent supply chain attacks
+- **Generate** compliance or audit reports—giving you proof of a hardened setup
 
-### Local Controls Without External Dependencies
+Whether you're an individual developer or part of a larger team, EDAMAME Posture offers flexible security options that grow with your needs—from completely local, disconnected controls to centralized policy management through [EDAMAME Hub](https://hub.edamame.tech).
+
+### Security Without Undermining Productivity
 
 One of the key strengths of EDAMAME Posture is that it provides powerful security controls that work entirely locally, without requiring any external connectivity or registration:
 
-- **Local Policy Checks**: Use `check-policy` to enforce security standards based on minimum score thresholds, specific threat detections, and security tag prefixes.
-- **CI/CD Pipeline Gates**: The non-zero exit codes returned by these checks allow you to automatically fail pipelines when security requirements aren't met.
-- **Disconnected Network Monitoring**: Monitor and enforce network traffic whitelists in air-gapped or restricted environments.
+- **Local Policy Checks**: Use `check-policy` to enforce security standards based on minimum score thresholds, specific threat detections, and security tag prefixes
+- **CI/CD Pipeline Gates**: Non-zero exit codes returned by these checks allow you to automatically fail pipelines when security requirements aren't met
+- **Disconnected Network Monitoring**: Monitor and enforce network traffic whitelists in air-gapped or restricted environments
+- **Zero-Configuration Integration**: Add security gates to your personal repositories with minimal setup
 
 This means you can immediately integrate security controls into your workflows, even before deciding to connect to EDAMAME Hub for more advanced features.
 
-### Security Reporting and Verification
+### Security Beyond Compliance
 
-EDAMAME Posture enables powerful reporting use cases:
+EDAMAME Posture enables powerful reporting and verification use cases:
 
-- **Point-in-Time Signatures**: Generate cryptographically verifiable signatures that capture the security state of a device at a specific moment.
-- **Historical Verification**: Using `check-policy-for-domain-with-signature`, verify that code was committed or released from environments that met security requirements.
-- **Development Workflow Integration**: Embed signatures in Git commits, pull requests, or release artifacts for security traceability.
-- **Continuous Compliance**: Maintain an audit trail of security posture across your development lifecycle.
+- **Point-in-Time Signatures**: Generate cryptographically verifiable signatures that capture the security state of a device at a specific moment
+- **Historical Verification**: Verify that code was committed or released from environments that met security requirements
+- **Development Workflow Integration**: Embed signatures in Git commits, pull requests, or release artifacts for security traceability
+- **Continuous Compliance**: Maintain an audit trail of security posture across your development lifecycle
 
 These capabilities allow you to not only enforce security at build time but also track and verify security posture throughout your entire development process.
 
@@ -70,11 +74,15 @@ These capabilities allow you to not only enforce security at build time but also
 3. **Automated Remediation**  
    Resolve many security risks automatically with a single command.  
 4. **Network & Egress Tracking**  
-   Get clear visibility into local devices and outbound connections.  
-5. **Compliance Reporting**  
-   Generate tamper-proof reports for audits or personal assurance.  
-6. **Optional Hub Integration**  
+   Get clear visibility into local devices and outbound connections, detecting suspicious traffic that could indicate supply chain attacks.  
+5. **Pipeline Security Gates**  
+   Fail builds when security posture doesn't meet requirements, preventing insecure code deployment.
+6. **Compliance Reporting**  
+   Generate tamper-proof reports for audits or personal assurance.
+7. **Optional Hub Integration**  
    Connect to [EDAMAME Hub](https://hub.edamame.tech) when you're ready for shared visibility and policy enforcement.
+8. **Versatile for CI/CD and Dev Machines**
+   Seamlessly integrates into CI/CD pipelines and developer workstations with CLI and GitHub/GitLab Actions.
 
 ## Targeted Use Cases
 
@@ -145,6 +153,50 @@ edamame_posture start <USER> <DOMAIN> <PIN> [DEVICE_ID] [LAN_SCANNING] [WHITELIS
 edamame_posture start user example.com 123456
 ```
 
+## Threat Models and Security Assessment
+
+EDAMAME Posture's security assessment capabilities are powered by comprehensive threat models that evaluate security across five key dimensions:
+
+### Threat Dimensions
+
+| Dimension | Description | Examples |
+|-----------|-------------|----------|
+| **Applications** | Application authorizations, code signing, EPP/antivirus | Outdated browsers, unsigned applications |
+| **Network** | Network configuration, exposed services, unsafe connections | Unpatched network services, insecure protocols |
+| **Credentials** | Password policies, biometrics, 2FA, exposed credentials | Weak password policies, exposed API keys |
+| **System Integrity** | MDM profiles, jailbreaking, 3rd party administrative access | Jailbreaking, unauthorized system modifications |
+| **System Services** | System configuration, service vulnerabilities | Unnecessary services, outdated system components |
+
+### Compliance Frameworks
+
+Security assessments incorporate industry-standard compliance frameworks, including:
+
+- **CIS Benchmarks**: Center for Internet Security configuration guidelines
+- **NIST Standards**: National Institute of Standards and Technology security controls
+- **SOC-2**: Service Organization Control criteria for security, availability, and privacy
+- **ISO 27001**: Information security management system requirements
+- **PCI-DSS**: Payment Card Industry Data Security Standard
+
+Each threat detected by EDAMAME Posture is mapped to these compliance frameworks, allowing you to demonstrate compliance with specific standards.
+
+### Assessment Methods
+
+EDAMAME Posture employs multiple assessment methods to evaluate threats:
+
+1. **System Checks**: Direct evaluation of system configurations, file presence, or settings
+2. **Command Line Checks**: Safe, predefined commands that gather system state information
+3. **Business Rules**: Optional custom script execution in userspace for organization-specific policies
+
+### Whitelist Database
+
+Network security assessment uses comprehensive whitelist databases that define allowable network connections:
+
+- **Base Whitelists**: Core connectivity for essential functionality
+- **Environment-Specific Whitelists**: Specialized for development and CI/CD environments
+- **Platform-Specific Whitelists**: Tailored for macOS, Linux, and Windows
+
+These whitelists support advanced pattern matching for domains, IP addresses, ports, and protocols, enabling precise control over network communications.
+
 ## CI/CD Integration and Workflow Controls
 
 EDAMAME Posture offers multiple levels of security controls for CI/CD environments, allowing for gradual adoption and integration:
@@ -200,6 +252,24 @@ This enables:
 - Network monitoring and whitelist enforcement without external connectivity
 - Local-only security controls for sensitive or air-gapped environments
 - All the monitoring capabilities without domain registration
+
+### Preventing Supply Chain Attacks
+
+EDAMAME Posture provides critical protection against supply chain attacks in CI/CD pipelines:
+
+1. **Network Egress Monitoring**: Continuously monitors all outbound connections from your CI/CD runners
+2. **Whitelist Enforcement**: Only allows connections to approved endpoints, blocking malicious outbound traffic
+3. **Real-Time Anomaly Detection**: Flags suspicious network activity that could indicate compromise
+4. **Exit Code Integration**: Automatically fails builds when security violations are detected
+
+**Real-world example**: When the popular GitHub Action tj-actions/changed-files was compromised (CVE-2025-30066), attackers modified it to leak CI/CD secrets by making unauthorized network calls to fetch a malicious payload from gist.githubusercontent.com. EDAMAME Posture's network monitoring would have detected and blocked this exact attack pattern, preventing the compromise by:
+
+1. Identifying the unexpected connection to gist.githubusercontent.com
+2. Verifying this domain wasn't in the approved whitelist
+3. Failing the pipeline with a non-zero exit code
+4. Providing detailed logs showing the exact violation
+
+This zero-trust approach to CI/CD networking effectively prevents malicious payloads from being executed, protecting your repositories from credential theft and further compromise.
 
 ### Recommended CI/CD Integration Pattern
 
@@ -508,6 +578,63 @@ pipeline {
     }
 }
 ```
+
+### Optimal Usage Pattern for CI/CD Security
+
+For optimal protection against supply chain attacks and other CI/CD security risks, follow these best practices regardless of the CI/CD platform you're using:
+
+#### 1. Setup at Workflow Beginning
+
+Always place EDAMAME Posture setup at the very beginning of your workflow, before any build, test, or deployment steps:
+- This ensures that security monitoring is active throughout the entire pipeline execution
+- Captures all network activity from the start, including any potential malicious connections
+- Establishes security posture baseline before any code execution
+
+#### 2. Enable Network Monitoring
+
+Enable network monitoring with the appropriate whitelist for your environment:
+```bash
+sudo edamame_posture background-start-disconnected true github_linux
+```
+
+> **Important:** The `true` parameter enables LAN scanning, which is required for network traffic capture and whitelist enforcement. Without this setting, the network monitoring capabilities will be limited.
+
+#### 3. Perform Initial Assessment and Remediation
+
+Assess and optionally remediate security issues at the beginning:
+```bash
+sudo edamame_posture score
+sudo edamame_posture remediate
+```
+
+#### 4. Enforce Security Policies
+
+Apply appropriate security policies to create a security gate:
+```bash
+sudo edamame_posture check-policy 2.0 "encrypted disk disabled,critical vulnerability" "SOC-2"
+```
+
+#### 5. Verify Network Conformance at Workflow End
+
+Always check network conformance at the end of your workflow to catch any suspicious activity:
+```bash
+edamame_posture get-sessions
+```
+
+This command will fail with a non-zero exit code if any unauthorized network traffic was detected during the workflow execution, preventing CI from completing successfully when security violations occur.
+
+#### 6. Customize with Whitelists (Optional)
+
+For more tailored security controls, create and apply custom whitelists:
+```bash
+# Create a whitelist from observed traffic
+edamame_posture create-custom-whitelists > ./whitelist.json
+
+# In future runs, apply the stored whitelist
+edamame_posture set-custom-whitelists "$(cat ./whitelist.json)"
+```
+
+By following this pattern, you can maintain a zero-trust security posture for all your CI/CD pipelines, effectively preventing supply chain attacks like the one described in CVE-2025-30066.
 
 ## Installation
 
