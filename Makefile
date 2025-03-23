@@ -103,7 +103,7 @@ commands_test:
 	$(BINARY) background-logs
 	$(BINARY) background-wait-for-connection
 	# Can fail because of whitelist conformance, ignore it
-	-$(BINARY) background-sessions
+	-$(BINARY) background-get-sessions
 	$(BINARY) background-last-report-signature
 	$(BINARY) help
 
