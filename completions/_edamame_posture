@@ -312,6 +312,31 @@ _arguments "${_arguments_options[@]}" : \
 '--help[Print help]' \
 && ret=0
 ;;
+(background-set-custom-whitelists)
+_arguments "${_arguments_options[@]}" : \
+'*-v[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'*--verbose[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'-h[Print help]' \
+'--help[Print help]' \
+':WHITELIST_JSON -- JSON string containing whitelist definitions:_default' \
+&& ret=0
+;;
+(background-create-custom-whitelists)
+_arguments "${_arguments_options[@]}" : \
+'*-v[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'*--verbose[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(background-score)
+_arguments "${_arguments_options[@]}" : \
+'*-v[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'*--verbose[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
 (help)
 _arguments "${_arguments_options[@]}" : \
 ":: :_edamame_posture__help_commands" \
@@ -448,6 +473,18 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
+(background-set-custom-whitelists)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(background-create-custom-whitelists)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(background-score)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
 (help)
 _arguments "${_arguments_options[@]}" : \
 && ret=0
@@ -495,9 +532,17 @@ _edamame_posture_commands() {
 'background-status:Get status of reporting background process' \
 'background-last-report-signature:Get last report signature of background process' \
 'background-get-history:Get history of score modifications' \
+'background-set-custom-whitelists:Set custom whitelists from JSON' \
+'background-create-custom-whitelists:Create custom whitelists from current sessions' \
+'background-score:Get security score from the background process' \
 'help:Print this message or the help of the given subcommand(s)' \
     )
     _describe -t commands 'edamame_posture commands' commands "$@"
+}
+(( $+functions[_edamame_posture__background-create-custom-whitelists_commands] )) ||
+_edamame_posture__background-create-custom-whitelists_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture background-create-custom-whitelists commands' commands "$@"
 }
 (( $+functions[_edamame_posture__background-get-history_commands] )) ||
 _edamame_posture__background-get-history_commands() {
@@ -514,10 +559,20 @@ _edamame_posture__background-logs_commands() {
     local commands; commands=()
     _describe -t commands 'edamame_posture background-logs commands' commands "$@"
 }
+(( $+functions[_edamame_posture__background-score_commands] )) ||
+_edamame_posture__background-score_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture background-score commands' commands "$@"
+}
 (( $+functions[_edamame_posture__background-sessions_commands] )) ||
 _edamame_posture__background-sessions_commands() {
     local commands; commands=()
     _describe -t commands 'edamame_posture background-sessions commands' commands "$@"
+}
+(( $+functions[_edamame_posture__background-set-custom-whitelists_commands] )) ||
+_edamame_posture__background-set-custom-whitelists_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture background-set-custom-whitelists commands' commands "$@"
 }
 (( $+functions[_edamame_posture__background-start_commands] )) ||
 _edamame_posture__background-start_commands() {
@@ -643,9 +698,17 @@ _edamame_posture__help_commands() {
 'background-status:Get status of reporting background process' \
 'background-last-report-signature:Get last report signature of background process' \
 'background-get-history:Get history of score modifications' \
+'background-set-custom-whitelists:Set custom whitelists from JSON' \
+'background-create-custom-whitelists:Create custom whitelists from current sessions' \
+'background-score:Get security score from the background process' \
 'help:Print this message or the help of the given subcommand(s)' \
     )
     _describe -t commands 'edamame_posture help commands' commands "$@"
+}
+(( $+functions[_edamame_posture__help__background-create-custom-whitelists_commands] )) ||
+_edamame_posture__help__background-create-custom-whitelists_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture help background-create-custom-whitelists commands' commands "$@"
 }
 (( $+functions[_edamame_posture__help__background-get-history_commands] )) ||
 _edamame_posture__help__background-get-history_commands() {
@@ -662,10 +725,20 @@ _edamame_posture__help__background-logs_commands() {
     local commands; commands=()
     _describe -t commands 'edamame_posture help background-logs commands' commands "$@"
 }
+(( $+functions[_edamame_posture__help__background-score_commands] )) ||
+_edamame_posture__help__background-score_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture help background-score commands' commands "$@"
+}
 (( $+functions[_edamame_posture__help__background-sessions_commands] )) ||
 _edamame_posture__help__background-sessions_commands() {
     local commands; commands=()
     _describe -t commands 'edamame_posture help background-sessions commands' commands "$@"
+}
+(( $+functions[_edamame_posture__help__background-set-custom-whitelists_commands] )) ||
+_edamame_posture__help__background-set-custom-whitelists_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture help background-set-custom-whitelists commands' commands "$@"
 }
 (( $+functions[_edamame_posture__help__background-start_commands] )) ||
 _edamame_posture__help__background-start_commands() {

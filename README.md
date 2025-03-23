@@ -9,7 +9,8 @@
 3. [Targeted Use Cases](#targeted-use-cases)
 4. [How It Works](#how-it-works)
 5. [Security Posture Assessment Methods](#security-posture-assessment-methods)
-6. [Installation](#installation)
+6. [CI/CD Integration and Workflow Controls](#cicd-integration-and-workflow-controls)
+7. [Installation](#installation)
    - [Linux (Debian/Ubuntu)](#linux-debianubuntu)
      - [APT Repository Method (Recommended)](#apt-repository-method-recommended)
      - [Debian Package Installation](#debian-package-installation)
@@ -22,11 +23,13 @@
    - [Windows](#windows)
      - [Windows Standard Installation](#windows-standard-installation)
      - [Windows CI/CD Installation](#windows-cicd-installation)
-7. [Usage](#usage)
+8. [Usage](#usage)
    - [Common Commands](#common-commands)
    - [All Available Commands](#all-available-commands)
-8. [Requirements](#requirements)
-9. [Error Handling](#error-handling)
+9. [Exit Codes and CI/CD Pipelines](#exit-codes-and-cicd-pipelines)
+10. [Historical Security Posture Verification](#historical-security-posture-verification)
+11. [Requirements](#requirements)
+12. [Error Handling](#error-handling)
 
 ## Overview
 
@@ -36,6 +39,27 @@
 - **Generate** compliance or audit reports—giving you proof of a hardened setup.
 
 And if your needs grow, you can seamlessly connect it to [EDAMAME Hub](https://hub.edamame.tech) for more advanced conditional access, centralized reporting, and enterprise-level features.
+
+### Local Controls Without External Dependencies
+
+One of the key strengths of EDAMAME Posture is that it provides powerful security controls that work entirely locally, without requiring any external connectivity or registration:
+
+- **Local Policy Checks**: Use `check-policy` to enforce security standards based on minimum score thresholds, specific threat detections, and security tag prefixes.
+- **CI/CD Pipeline Gates**: The non-zero exit codes returned by these checks allow you to automatically fail pipelines when security requirements aren't met.
+- **Disconnected Network Monitoring**: Monitor and enforce network traffic whitelists in air-gapped or restricted environments.
+
+This means you can immediately integrate security controls into your workflows, even before deciding to connect to EDAMAME Hub for more advanced features.
+
+### Security Reporting and Verification
+
+EDAMAME Posture enables powerful reporting use cases:
+
+- **Point-in-Time Signatures**: Generate cryptographically verifiable signatures that capture the security state of a device at a specific moment.
+- **Historical Verification**: Using `check-policy-for-domain-with-signature`, verify that code was committed or released from environments that met security requirements.
+- **Development Workflow Integration**: Embed signatures in Git commits, pull requests, or release artifacts for security traceability.
+- **Continuous Compliance**: Maintain an audit trail of security posture across your development lifecycle.
+
+These capabilities allow you to not only enforce security at build time but also track and verify security posture throughout your entire development process.
 
 ## Key Features
 
@@ -91,6 +115,8 @@ edamame_posture check-policy <MINIMUM_SCORE> <THREAT_IDS> [TAG_PREFIXES]
 edamame_posture check-policy 2.0 "encrypted disk disabled" "SOC-2"
 ```
 
+This command returns a non-zero exit code when the policy is not met, making it suitable for CI/CD pipeline integration.
+
 ### 2. Domain-Based Policy Check (`check-policy-for-domain`)
 
 The `check-policy-for-domain` command validates the device security posture against a policy defined for specific a domain in the [EDAMAME Hub](https://hub.edamame.tech):
@@ -104,6 +130,8 @@ edamame_posture check-policy-for-domain <DOMAIN> <POLICY_NAME>
 edamame_posture check-policy-for-domain example.com standard_policy
 ```
 
+This command returns a non-zero exit code when the policy is not met, allowing CI/CD pipelines to halt if security requirements aren't satisfied.
+
 ### 3. Continuous Monitoring with Access Control (`start`)
 
 The `start` command initiates a background process that continuously monitors the device security posture and can enable conditional access controls as defined in the [EDAMAME Hub](https://hub.edamame.tech):
@@ -115,6 +143,370 @@ edamame_posture start <USER> <DOMAIN> <PIN> [DEVICE_ID] [LAN_SCANNING] [WHITELIS
 **Example:**
 ```bash
 edamame_posture start user example.com 123456
+```
+
+## CI/CD Integration and Workflow Controls
+
+EDAMAME Posture offers multiple levels of security controls for CI/CD environments, allowing for gradual adoption and integration:
+
+### 1. Local-Only Assessment
+
+With `check-policy`, you can define and enforce local security policies without requiring external connectivity or domain registration:
+
+```bash
+edamame_posture check-policy 2.0 "encrypted disk disabled,critical vulnerability" "SOC-2"
+```
+
+This approach is ideal for:
+- Initial CI/CD security integration
+- Air-gapped or restricted environments
+- Teams wanting full local control over security policies
+
+### 2. Domain-Based Policy Management
+
+Using `check-policy-for-domain`, you can centrally define policies in EDAMAME Hub, but still enforce them locally without continuous connectivity:
+
+```bash
+edamame_posture check-policy-for-domain example.com standard_policy
+```
+
+This approach provides:
+- Centralized policy definition and management
+- Consistent policy enforcement across pipelines
+- No need for constant connectivity during builds
+
+### 3. Full Access Control Integration
+
+The full integration model uses the background process with continuous monitoring and access control:
+
+```bash
+edamame_posture start user example.com 123456 "ci-runner" true github_linux
+```
+
+This provides the most comprehensive security controls:
+- Real-time monitoring throughout pipeline execution
+- Dynamic access controls based on current security posture
+- Conformance reporting to EDAMAME Hub
+
+### 4. Disconnected Background Mode
+
+For environments where domain connectivity isn't available or desired, use the disconnected background mode:
+
+```bash
+edamame_posture background-start-disconnected [LAN_SCANNING] [WHITELIST_NAME] [LOCAL_TRAFFIC]
+```
+
+This enables:
+- Network monitoring and whitelist enforcement without external connectivity
+- Local-only security controls for sensitive or air-gapped environments
+- All the monitoring capabilities without domain registration
+
+### Recommended CI/CD Integration Pattern
+
+For optimal security monitoring in your CI/CD workflows, follow this recommended pattern regardless of platform:
+
+#### 1. Setup at Workflow Beginning
+
+Place EDAMAME Posture setup at the beginning of your workflow, before any build, test, or deployment steps:
+
+```yaml
+# GitHub Actions example
+- name: Setup EDAMAME Posture
+  run: |
+    # Download and install EDAMAME Posture
+    curl -LO https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.21/edamame_posture-0.9.21-x86_64-unknown-linux-gnu
+    chmod +x edamame_posture-0.9.21-x86_64-unknown-linux-gnu
+    sudo mv edamame_posture-0.9.21-x86_64-unknown-linux-gnu /usr/local/bin/edamame_posture
+    
+    # Start with network monitoring in disconnected mode
+    sudo edamame_posture background-start-disconnected true github_linux
+```
+
+```yaml
+# GitLab CI example
+setup_security:
+  stage: setup
+  script:
+    - curl -LO https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.21/edamame_posture-0.9.21-x86_64-unknown-linux-gnu
+    - chmod +x edamame_posture-0.9.21-x86_64-unknown-linux-gnu
+    - sudo mv edamame_posture-0.9.21-x86_64-unknown-linux-gnu /usr/local/bin/edamame_posture
+    
+    # Start background monitoring
+    - sudo edamame_posture background-start-disconnected true github_linux
+```
+
+```groovy
+// Jenkins Pipeline example
+pipeline {
+    agent any
+    stages {
+        stage('Setup Security') {
+            steps {
+                sh '''
+                curl -LO https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.21/edamame_posture-0.9.21-x86_64-unknown-linux-gnu
+                chmod +x edamame_posture-0.9.21-x86_64-unknown-linux-gnu
+                sudo mv edamame_posture-0.9.21-x86_64-unknown-linux-gnu /usr/local/bin/edamame_posture
+                
+                sudo edamame_posture background-start-disconnected true github_linux
+                '''
+            }
+        }
+        // Other stages...
+    }
+}
+```
+
+#### 2. Initial Posture Assessment and Remediation
+
+Check security posture and optionally remediate issues:
+
+```yaml
+# GitHub Actions example
+- name: Check and Remediate Security Posture
+  run: |
+    # Display current security posture
+    sudo edamame_posture score
+    
+    # Optional: Automatically remediate security issues
+    sudo edamame_posture remediate
+```
+
+```yaml
+# GitLab CI example
+check_remediate:
+  stage: verify
+  script:
+    - sudo edamame_posture score
+    - sudo edamame_posture remediate
+```
+
+#### 3. Security Policy Enforcement
+
+Define and enforce security policies to gate your pipeline:
+
+```yaml
+# GitHub Actions example
+- name: Enforce Security Policy
+  run: |
+    # Check local policy compliance (exit with error if not compliant)
+    sudo edamame_posture check-policy 2.0 "encrypted disk disabled,critical vulnerability" "SOC-2"
+    
+    # Or check domain-based policy if using EDAMAME Hub
+    # sudo edamame_posture check-policy-for-domain example.com standard_policy
+```
+
+```yaml
+# GitLab CI example
+enforce_policy:
+  stage: verify
+  script:
+    - sudo edamame_posture check-policy 2.0 "encrypted disk disabled,critical vulnerability" "SOC-2"
+  allow_failure: false  # Fails the pipeline if policy check fails
+```
+
+#### 4. Network Activity Monitoring and Whitelist Enforcement
+
+Throughout the workflow, EDAMAME Posture monitors network activity. After your build processes complete, check for whitelist conformance:
+
+```yaml
+# GitHub Actions example
+- name: Verify Network Conformance
+  run: |
+    # This will fail the workflow if network traffic violates the whitelist
+    edamame_posture get-sessions
+```
+
+```yaml
+# GitLab CI example
+verify_network:
+  stage: cleanup
+  script:
+    - edamame_posture get-sessions  # Exits with non-zero code if whitelist is violated
+  allow_failure: false  # Fails the pipeline if network conformance check fails
+```
+
+#### 5. Optional: Custom Whitelist Generation and Application
+
+For more tailored network controls:
+
+```yaml
+# GitHub Actions example
+- name: Generate Custom Whitelist
+  run: |
+    # Generate whitelist from current sessions
+    edamame_posture create-custom-whitelists > ./whitelist.json
+    
+    # In future runs, apply the custom whitelist
+    # edamame_posture set-custom-whitelists "$(cat ./whitelist.json)"
+```
+
+```yaml
+# GitLab CI example
+create_whitelist:
+  stage: analyze
+  script:
+    - edamame_posture create-custom-whitelists > ./whitelist.json
+  artifacts:
+    paths:
+      - whitelist.json
+```
+
+### Complete CI/CD Examples
+
+#### GitHub Actions Integration (using edamame_posture_action)
+
+The [edamame_posture_action](https://github.com/edamametechnologies/edamame_posture_action) provides a comprehensive GitHub Actions integration:
+
+```yaml
+name: Security Gated Workflow
+on: [push, pull_request]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      # Setup at workflow beginning
+      - name: Setup EDAMAME Posture
+        uses: edamametechnologies/edamame_posture_action@v0
+        with:
+          network_scan: true
+          auto_remediate: true
+          edamame_minimum_score: 2.0
+          edamame_mandatory_threats: "encrypted disk disabled,critical vulnerability"
+          custom_whitelists_path: ./.github/workflows/whitelist.json
+          set_custom_whitelists: true
+      
+      # Your normal workflow steps
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Build and test
+        run: |
+          # Your build and test commands
+          npm install
+          npm test
+      
+      # Network conformance check at the end
+      - name: Check network conformance
+        uses: edamametechnologies/edamame_posture_action@v0
+        with:
+          dump_sessions_log: true
+          whitelist_conformance: true
+```
+
+#### Custom GitLab CI Integration
+
+```yaml
+stages:
+  - setup
+  - build
+  - test
+  - verify
+  - deploy
+
+setup_security:
+  stage: setup
+  script:
+    # Download and install EDAMAME Posture
+    - curl -LO https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.21/edamame_posture-0.9.21-x86_64-unknown-linux-gnu
+    - chmod +x edamame_posture-0.9.21-x86_64-unknown-linux-gnu
+    - sudo mv edamame_posture-0.9.21-x86_64-unknown-linux-gnu /usr/local/bin/edamame_posture
+    
+    # Start background monitoring
+    - sudo edamame_posture background-start-disconnected true github_linux
+    
+    # Check and optionally remediate security posture
+    - sudo edamame_posture score
+    - sudo edamame_posture remediate
+    
+    # Check security policy
+    - sudo edamame_posture check-policy 2.0 "encrypted disk disabled,critical vulnerability" "SOC-2"
+
+build_job:
+  stage: build
+  script:
+    - echo "Building the application..."
+    # Your build commands here
+
+test_job:
+  stage: test
+  script:
+    - echo "Running tests..."
+    # Your test commands here
+
+verify_security:
+  stage: verify
+  script:
+    # Network conformance check - fails pipeline if non-compliant
+    - edamame_posture get-sessions
+  allow_failure: false
+
+deploy_job:
+  stage: deploy
+  script:
+    - echo "Deploying application..."
+  only:
+    - master
+```
+
+#### Jenkins Pipeline Integration
+
+```groovy
+pipeline {
+    agent any
+    
+    stages {
+        stage('Setup Security') {
+            steps {
+                sh '''
+                curl -LO https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.21/edamame_posture-0.9.21-x86_64-unknown-linux-gnu
+                chmod +x edamame_posture-0.9.21-x86_64-unknown-linux-gnu
+                sudo mv edamame_posture-0.9.21-x86_64-unknown-linux-gnu /usr/local/bin/edamame_posture
+                
+                sudo edamame_posture background-start-disconnected true github_linux
+                sudo edamame_posture score
+                sudo edamame_posture remediate
+                sudo edamame_posture check-policy 2.0 "encrypted disk disabled,critical vulnerability" "SOC-2"
+                '''
+            }
+        }
+        
+        stage('Build') {
+            steps {
+                sh 'echo "Building the application..."'
+                // Your build steps here
+            }
+        }
+        
+        stage('Test') {
+            steps {
+                sh 'echo "Running tests..."'
+                // Your test steps here
+            }
+        }
+        
+        stage('Verify Security') {
+            steps {
+                script {
+                    def exitCode = sh(script: 'edamame_posture get-sessions', returnStatus: true)
+                    if (exitCode != 0) {
+                        error "Network conformance check failed! Unauthorized network traffic detected."
+                    }
+                }
+            }
+        }
+        
+        stage('Deploy') {
+            when {
+                branch 'master'
+            }
+            steps {
+                sh 'echo "Deploying application..."'
+                // Your deployment steps here
+            }
+        }
+    }
+}
 ```
 
 ## Installation
@@ -170,16 +562,16 @@ We provide a GPG-signed APT repository for `.deb` packages, ensuring secure and 
 
 1. **Download** the Debian package for your platform:
 
-   - **x86_64 (64-bit):** [edamame-posture_0.9.20-1_amd64.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.20/edamame-posture_0.9.20-1_amd64.deb)
-   - **i686 (32-bit):** [edamame-posture_0.9.20-1_i386.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.20/edamame-posture_0.9.20-1_i386.deb)
-   - **aarch64 (ARM 64-bit):** [edamame-posture_0.9.20-1_arm64.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.20/edamame-posture_0.9.20-1_arm64.deb)
-   - **armv7 (ARM 32-bit):** [edamame-posture_0.9.20-1_armhf.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.20/edamame-posture_0.9.20-1_armhf.deb)
+   - **x86_64 (64-bit):** [edamame-posture_0.9.21-1_amd64.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.21/edamame-posture_0.9.21-1_amd64.deb)
+   - **i686 (32-bit):** [edamame-posture_0.9.21-1_i386.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.21/edamame-posture_0.9.21-1_i386.deb)
+   - **aarch64 (ARM 64-bit):** [edamame-posture_0.9.21-1_arm64.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.21/edamame-posture_0.9.21-1_arm64.deb)
+   - **armv7 (ARM 32-bit):** [edamame-posture_0.9.21-1_armhf.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.21/edamame-posture_0.9.21-1_armhf.deb)
 
 2. **Install** the package using either method:
    ```bash
-   sudo apt install ./edamame-posture_0.9.20-1_amd64.deb
+   sudo apt install ./edamame-posture_0.9.21-1_amd64.deb
    # or
-   sudo dpkg -i edamame-posture_0.9.20-1_amd64.deb
+   sudo dpkg -i edamame-posture_0.9.21-1_amd64.deb
    ```
 
 3. **Configure** the service by editing the configuration file:
@@ -241,12 +633,12 @@ We provide a GPG-signed APT repository for `.deb` packages, ensuring secure and 
 #### Manual Linux Binary Installation
 
 1. **Download** the Linux binary for your architecture:
-   - **x86_64 (64-bit)**: [edamame_posture-0.9.20-x86_64-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.20/edamame_posture-0.9.20-x86_64-unknown-linux-gnu)  
-   - **i686 (32-bit)**: [edamame_posture-0.9.20-i686-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.20/edamame_posture-0.9.20-i686-unknown-linux-gnu)  
-   - **aarch64 (ARM 64-bit)**: [edamame_posture-0.9.20-aarch64-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.20/edamame_posture-0.9.20-aarch64-unknown-linux-gnu)  
-   - **armv7 (ARM 32-bit)**: [edamame_posture-0.9.20-armv7-unknown-linux-gnueabihf](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.20/edamame_posture-0.9.20-armv7-unknown-linux-gnueabihf)
-   - **x86_64 (64-bit) for Alpine Linux (musl)**: [edamame_posture-0.9.20-x86_64-unknown-linux-musl](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.20/edamame_posture-0.9.20-x86_64-unknown-linux-musl) 
-   - **aarch64 (ARM 64-bit) for Alpine Linux (musl)**: [edamame_posture-0.9.20-aarch64-unknown-linux-musl](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.20/edamame_posture-0.9.20-aarch64-unknown-linux-musl)
+   - **x86_64 (64-bit)**: [edamame_posture-0.9.21-x86_64-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.21/edamame_posture-0.9.21-x86_64-unknown-linux-gnu)  
+   - **i686 (32-bit)**: [edamame_posture-0.9.21-i686-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.21/edamame_posture-0.9.21-i686-unknown-linux-gnu)  
+   - **aarch64 (ARM 64-bit)**: [edamame_posture-0.9.21-aarch64-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.21/edamame_posture-0.9.21-aarch64-unknown-linux-gnu)  
+   - **armv7 (ARM 32-bit)**: [edamame_posture-0.9.21-armv7-unknown-linux-gnueabihf](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.21/edamame_posture-0.9.21-armv7-unknown-linux-gnueabihf)
+   - **x86_64 (64-bit) for Alpine Linux (musl)**: [edamame_posture-0.9.21-x86_64-unknown-linux-musl](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.21/edamame_posture-0.9.21-x86_64-unknown-linux-musl) 
+   - **aarch64 (ARM 64-bit) for Alpine Linux (musl)**: [edamame_posture-0.9.21-aarch64-unknown-linux-musl](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.21/edamame_posture-0.9.21-aarch64-unknown-linux-musl)
 
 2. **Install** by placing the binary in your `PATH` and making it executable:
    ```bash
@@ -261,7 +653,7 @@ We provide a GPG-signed APT repository for `.deb` packages, ensuring secure and 
 #### macOS Installation
 
 1. **Download** the macOS universal binary:
-   - [edamame_posture-0.9.20-universal-apple-darwin](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.20/edamame_posture-0.9.20-universal-apple-darwin)  
+   - [edamame_posture-0.9.21-universal-apple-darwin](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.21/edamame_posture-0.9.21-universal-apple-darwin)  
 
 2. **Install** by placing the binary in your `PATH` and making it executable:
    ```bash
@@ -280,7 +672,7 @@ Proceed with installation as stated above but make sure the binary is located wi
 #### Windows Standard Installation
 
 1. **Download** the Windows binary:
-   - [edamame_posture-0.9.20-x86_64-pc-windows-msvc.exe](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.20/edamame_posture-0.9.20-x86_64-pc-windows-msvc.exe)
+   - [edamame_posture-0.9.21-x86_64-pc-windows-msvc.exe](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.21/edamame_posture-0.9.21-x86_64-pc-windows-msvc.exe)
 
 2. **Install Npcap** (Required for traffic capture feature):
    - Install [Npcap](https://npcap.com/#download), the packet capture library from the Nmap team
@@ -360,6 +752,12 @@ Retrieves connection sessions.
 ```
 edamame_posture get-sessions [ZEEK_FORMAT] [LOCAL_TRAFFIC]
 ```
+
+**Exit Codes**:
+- **0**: Success - Sessions retrieved successfully
+- **1**: Error retrieving sessions or whitelist conformance failure - Sessions were found but failed the whitelist check when a background process with a whitelist is active
+
+This command is particularly useful in CI/CD pipelines to verify network activity conformance to defined whitelists.
 
 #### capture
 Captures network traffic for a specified duration and formats it as a log.  
@@ -521,13 +919,19 @@ edamame_posture get-history
 ```
 
 #### check-policy-for-domain
-Checks if a the actual score meets the specified policy requirements of a domain.  
+Checks if the actual score meets the specified policy requirements of a domain.  
 (Requires **admin** privileges.)
 
 **Syntax**:  
 ```
 edamame_posture check-policy-for-domain <DOMAIN> <POLICY_NAME>
 ```
+
+**Exit Codes**:
+- **0**: Success - Current posture meets or exceeds the policy requirements
+- **!=0**: Failure - Current posture does not meet the policy requirements
+
+This command is designed for CI/CD pipeline integration to enforce security policies.
 
 #### check-policy-for-domain-with-signature
 Checks if the score associated with the signature meets the specified policy requirements of a domain.  
@@ -538,6 +942,10 @@ Checks if the score associated with the signature meets the specified policy req
 edamame_posture check-policy-for-domain-with-signature <SIGNATURE> <DOMAIN> <POLICY_NAME>
 ```
 
+**Exit Codes**:
+- **0**: Success - Signature posture meets or exceeds the policy requirements
+- **!=0**: Failure - Signature posture does not meet the policy requirements
+
 #### check-policy
 Checks locally if the current system meets the specified policy requirements.  
 (Requires **admin** privileges.)
@@ -546,6 +954,12 @@ Checks locally if the current system meets the specified policy requirements.
 ```
 edamame_posture check-policy <MINIMUM_SCORE> <THREAT_IDS> [TAG_PREFIXES]
 ```
+
+**Exit Codes**:
+- **0**: Success - Current posture meets or exceeds the specified policy
+- **!=0***: Failure - Current posture does not meet the specified policy
+
+Ideal for CI/CD pipelines where you want to enforce security requirements without requiring domain registration.
 
 #### get-tag-prefixes
 Gets threat model tag prefixes.  
@@ -596,6 +1010,178 @@ edamame_posture create-custom-whitelists > my_whitelist.json
 # Or generate and apply in one step
 edamame_posture set-custom-whitelists "$(edamame_posture create-custom-whitelists)"
 ```
+
+#### background-start-disconnected
+Starts the background process in disconnected mode (without domain authentication).  
+(Requires **admin** privileges.)
+
+**Syntax**:  
+```
+edamame_posture background-start-disconnected [LAN_SCANNING] [WHITELIST_NAME] [LOCAL_TRAFFIC]
+```
+
+**Example Usage**:
+```bash
+# Start background process with LAN scanning and GitHub Linux whitelist
+edamame_posture background-start-disconnected true github_linux
+
+# Check if sessions conform to the whitelist
+edamame_posture get-sessions
+# (returns non-zero exit code if sessions don't conform to whitelist)
+```
+
+This command is useful for CI/CD environments or air-gapped systems where domain connectivity isn't available or desired but you still want the network monitoring and whitelist enforcement capabilities.
+
+## Exit Codes and CI/CD Pipelines
+
+EDAMAME Posture is designed to integrate seamlessly with CI/CD pipelines by using standardized exit codes that can control workflow execution. This allows for security-driven pipeline decisions without complex scripting.
+
+### Key Commands with Exit Codes for CI/CD Integration
+
+| Command | Exit Code 0 | Exit Code 1 | Other Exit Codes |
+|---------|-------------|-------------|------------------|
+| `get-sessions` | Sessions retrieved successfully | Whitelist conformance failure | 3: No active sessions |
+| `check-policy` | Policy requirements met | Policy requirements not met | - |
+| `check-policy-for-domain` | Domain policy requirements met | Domain policy requirements not met | - |
+| `lanscan` | Network scan completed | Network scan failed | - |
+| `capture` | Capture completed | Capture failed or whitelist violation | - |
+
+### CI/CD Integration Example
+
+```yaml
+# GitHub Actions example
+jobs:
+  security-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Install EDAMAME Posture
+        run: |
+          curl -LO https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.21/edamame_posture-0.9.21-x86_64-unknown-linux-gnu
+          chmod +x edamame_posture-0.9.21-x86_64-unknown-linux-gnu
+          sudo mv edamame_posture-0.9.21-x86_64-unknown-linux-gnu /usr/local/bin/edamame_posture
+      
+      - name: Start background monitor in disconnected mode
+        run: sudo edamame_posture background-start-disconnected true github_linux
+      
+      - name: Run build steps
+        run: |
+          # Your normal build steps here
+          npm install
+          npm test
+      
+      - name: Verify network conformance
+        run: |
+          # This will fail the workflow if network traffic violates the whitelist
+          edamame_posture get-sessions
+      
+      - name: Verify security posture
+        run: |
+          # This will fail the workflow if security requirements aren't met
+          sudo edamame_posture check-policy 2.0 "encrypted disk disabled,critical vulnerability" "SOC-2"
+```
+
+By leveraging these exit codes, you can create pipelines that automatically enforce security policies and network conformance without additional scripting or custom logic.
+
+## Historical Security Posture Verification
+
+EDAMAME Posture provides powerful capabilities for historical verification of security posture through its signature system. This enables organizations to maintain an audit trail of security compliance over time.
+
+### Understanding Signatures and Historical Verification
+
+The `check-policy-for-domain-with-signature` command allows for verification of historical security posture by examining previously generated signatures. Unlike real-time policy checks, this command verifies the security posture that existed at the time the signature was created.
+
+**Key benefits:**
+- Audit historical security posture without needing the original device
+- Verify compliance at specific points in time (e.g., at release)
+- Embed security verification in software delivery workflows
+
+### Signature Generation Methods
+
+There are two primary ways to obtain signatures that represent security posture:
+
+1. **On-demand signature generation**:
+   ```bash
+   # Generate a new signature and store it
+   edamame_posture request-signature
+   ```
+
+2. **Retrieve the last generated signature**:
+   ```bash
+   # Get the most recent signature from the background process
+   edamame_posture get-last-report-signature
+   ```
+
+### Git Integration Workflow Example
+
+A powerful use case is embedding security signatures in your Git workflow:
+
+1. **At commit time, generate and include a signature**:
+   ```bash
+   # Generate a security posture signature
+   SIGNATURE=$(edamame_posture request-signature)
+   
+   # Include the signature in your commit message
+   git commit -m "feat: implement new feature 
+   
+   EDAMAME-SIGNATURE: $SIGNATURE"
+   ```
+
+2. **At review/deployment time, verify the signature**:
+   ```bash
+   # Extract signature from a specific commit
+   COMMIT_SIGNATURE=$(git show -s --format=%B <commit-hash> | grep "EDAMAME-SIGNATURE:" | cut -d ' ' -f 2)
+   
+   # Verify it meets policy requirements
+   edamame_posture check-policy-for-domain-with-signature "$COMMIT_SIGNATURE" example.com production_policy
+   ```
+
+This workflow ensures that code was committed from a device that met security requirements at the time of commit.
+
+### CI/CD Implementation Example
+
+```yaml
+# GitHub Actions example for verifying commit signature
+jobs:
+  verify-security-signature:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # Fetch all history for examining commits
+      
+      - name: Install EDAMAME Posture
+        run: |
+          curl -LO https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.21/edamame_posture-0.9.21-x86_64-unknown-linux-gnu
+          chmod +x edamame_posture-0.9.21-x86_64-unknown-linux-gnu
+          sudo mv edamame_posture-0.9.21-x86_64-unknown-linux-gnu /usr/local/bin/edamame_posture
+      
+      - name: Extract and verify signature from last commit
+        run: |
+          # Extract signature from commit message
+          COMMIT_SIGNATURE=$(git show -s --format=%B ${{ github.sha }} | grep "EDAMAME-SIGNATURE:" | cut -d ' ' -f 2)
+          
+          if [ -z "$COMMIT_SIGNATURE" ]; then
+            echo "No EDAMAME security signature found in commit message"
+            exit 1
+          fi
+          
+          # Verify the signature meets security policy requirements
+          edamame_posture check-policy-for-domain-with-signature "$COMMIT_SIGNATURE" company.com production_policy
+```
+
+### Signature Verification in Release Processes
+
+Organizations can implement signature verification at various stages:
+
+1. **Pre-merge checks**: Verify signatures before merging pull requests
+2. **Release approval**: Confirm that the code was committed from secure environments 
+3. **Continuous compliance**: Maintain historical verification of security posture throughout the software lifecycle
+
+This provides a comprehensive audit trail of security posture throughout your development process.
 
 ## Whitelist Logic and Format
 
@@ -897,3 +1483,11 @@ EDAMAME Posture is part of the broader EDAMAME security ecosystem:
 ## Author
 
 EDAMAME Technologies
+
+#### `get-sessions`
+
+- **0**: Success - Sessions retrieved successfully
+- **1**: Error retrieving sessions or whitelist conformance failure - Sessions were found but failed the whitelist check when a whitelist is set
+- **3**: No active network sessions found
+
+#### `check-policy`

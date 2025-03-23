@@ -112,7 +112,7 @@ pub fn initialize_core(
     // Prefix is the machine uid
     let machine_uid = machine_uid::get().unwrap_or("".to_string());
 
-    let mut device = DeviceInfoAPI {
+    let mut device = SystemInfoAPI {
         device_id: "".to_string(),
         model: "".to_string(),
         brand: "".to_string(),
@@ -297,7 +297,7 @@ fn run_base() {
             println!("Gateway detection complete");
 
             // Request a LAN scan
-            _ = get_lan_devices(true, false, false);
+            _ = get_lanscan(true, false, false);
 
             // Wait for the LAN scan to complete
             base_lanscan();
@@ -621,6 +621,12 @@ fn run_base() {
             // Initialize the core with all options disabled
             initialize_core("".to_string(), false, false, false, false, verbose);
             exit_code = background_create_custom_whitelists();
+            is_background = true;
+        }
+        Some(("background-score", _)) => {
+            // Initialize the core with all options disabled
+            initialize_core("".to_string(), false, false, false, false, verbose);
+            exit_code = background_get_score();
             is_background = true;
         }
         _ => {

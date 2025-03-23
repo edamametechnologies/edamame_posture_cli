@@ -13,7 +13,6 @@ use edamame_core::api::api_score::*;
 use edamame_core::api::api_score_history::*;
 use edamame_core::api::api_score_threats::*;
 use edamame_core::api::api_trust::*;
-use edamame_foundation::whitelists::*;
 use std::thread::sleep;
 use std::time::Duration;
 
@@ -233,7 +232,7 @@ pub fn background_wait_for_connection(timeout: u64) -> i32 {
         println!("Model URL: {}", url);
 
         // Print the lanscan results
-        let devices = match rpc_get_lan_devices(
+        let devices = match rpc_get_lanscan(
             false,
             false,
             false,
@@ -318,21 +317,21 @@ pub fn background_create_custom_whitelists() -> i32 {
             } else {
                 // The whitelist is a String represent a JSON object
                 // We need to parse it and print it pretty
-                let whitelist: WhitelistsJSON = match serde_json::from_str(&whitelists) {
-                    Ok(whitelist) => whitelist,
+                let json_value: serde_json::Value = match serde_json::from_str(&whitelists) {
+                    Ok(value) => value,
                     Err(e) => {
-                        eprintln!("Error parsing custom whitelists: {}", e);
+                        eprintln!("Error parsing whitelist JSON: {}", e);
                         return ERROR_CODE_SERVER_ERROR;
                     }
                 };
-                let pretty_whitelist = match serde_json::to_string_pretty(&whitelist) {
-                    Ok(pretty_whitelist) => pretty_whitelist,
+                let pretty_json = match serde_json::to_string_pretty(&json_value) {
+                    Ok(json) => json,
                     Err(e) => {
-                        eprintln!("Error pretty printing custom whitelists: {}", e);
+                        eprintln!("Error formatting whitelist JSON: {}", e);
                         return ERROR_CODE_SERVER_ERROR;
                     }
                 };
-                println!("{}", pretty_whitelist);
+                println!("{}", pretty_json);
                 return 0;
             }
         }
@@ -357,6 +356,37 @@ pub fn background_set_custom_whitelists(whitelist_json: String) -> i32 {
         }
         Err(e) => {
             eprintln!("Error setting custom whitelists: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn background_get_score() -> i32 {
+    match rpc_get_score(
+        false,
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(score) => {
+            println!("Security Score summary:");
+            println!("{}", score);
+
+            // Get threats URL
+            match rpc_get_threats_url(
+                &EDAMAME_CA_PEM,
+                &EDAMAME_CLIENT_PEM,
+                &EDAMAME_CLIENT_KEY,
+                &EDAMAME_TARGET,
+            ) {
+                Ok(url) => println!("Model URL: {}", url),
+                Err(_) => (), // Ignore error if we can't get the URL
+            }
+            0
+        }
+        Err(e) => {
+            eprintln!("Error getting score: {}", e);
             ERROR_CODE_SERVER_ERROR
         }
     }
