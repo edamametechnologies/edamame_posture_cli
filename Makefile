@@ -6,7 +6,13 @@
 -include ../secrets/sentry.env
 export
 
-macos: macos_release
+completions:
+	mkdir -p ./completions
+	./target/release/edamame_posture completion bash > ./completions/edamame_posture.bash
+	./target/release/edamame_posture completion fish > ./completions/edamame_posture.fish
+	./target/release/edamame_posture completion zsh > ./completions/_edamame_posture
+
+macos: macos_release completions
 
 macos_release:
 	cargo build --release
@@ -19,7 +25,7 @@ macos_publish: macos_release
 	# Sign + hardened runtime
 	./macos/sign.sh ./target/release/edamame_posture
 
-windows: windows_release
+windows: windows_release completions
 
 windows_debug:
 	cargo build
@@ -37,7 +43,7 @@ windows_pcap:
 	sleep 20
 	ls -la /c/Windows/System32/Npcap
 
-linux: linux_release
+linux: linux_release completions
 
 linux_debug:
 	cargo build
@@ -45,13 +51,7 @@ linux_debug:
 linux_release:
 	cargo build --release
 
-completions:
-	mkdir -p ./completions
-	./target/release/edamame_posture completion bash > ./completions/edamame_posture.bash
-	./target/release/edamame_posture completion fish > ./completions/edamame_posture.fish
-	./target/release/edamame_posture completion zsh > ./completions/_edamame_posture
-
-linux_publish: linux_release completions
+linux_publish: linux_release
 	cargo deb
 
 linux_alpine: linux_alpine_release
@@ -90,6 +90,7 @@ test:
 # Define the binary based on the OS
 BINARY=$(shell if [ "$(RUNNER_OS)" = "Windows" ]; then echo "target/release/edamame_posture.exe"; else echo "target/release/edamame_posture"; fi)
 
+# This assumes that the background process is running in connected mode
 commands_test:
 	$(BINARY) score
 	$(BINARY) lanscan
@@ -97,18 +98,12 @@ commands_test:
 	$(BINARY) get-core-info
 	$(BINARY) get-device-info
 	$(BINARY) get-system-info
-	# Skipped for now
-	#$(BINARY) request-pin
 	$(BINARY) get-core-version
 	$(BINARY) remediate
 	$(BINARY) background-logs
 	$(BINARY) background-wait-for-connection
 	# Can fail because of whitelist conformance, ignore it
 	-$(BINARY) background-sessions
-	# Skipped for now
-	#$(BINARY) background-start
-	#$(BINARY) background-stop
-	$(BINARY) background-status
 	$(BINARY) background-last-report-signature
 	$(BINARY) help
 

@@ -287,4 +287,5 @@ pub fn build_cli() -> Command {
             .alias("create-custom-whitelists")
             .about("Create custom whitelists from current sessions")
     )
+    .subcommand(Command::new("background-score").alias("get-background-score").about("Get security score from the background process"))
 }

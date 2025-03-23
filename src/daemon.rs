@@ -84,7 +84,7 @@ pub fn background_process(
         info!("Gateway detection complete, requesting a LAN scan...");
 
         // Request a LAN scan
-        _ = get_lan_devices(true, false, false);
+        _ = get_lanscan(true, false, false);
 
         // Wait for the scan to complete
         base_lanscan();
