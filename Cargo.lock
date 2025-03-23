@@ -1618,7 +1618,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "0.9.21"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#519e685d6268ac2fa9147258a9acccb8785e210e"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#f4b6e806cc5628ceaa480ddcbbb42ef231e70d0f"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1689,7 +1689,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "0.9.21"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#02e8d1cc7ec0656f214f71e5fcd75f8ecbdc70d5"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#42f95af55c14f81c86d276364a71b0d711f5f31b"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -7470,9 +7470,9 @@ dependencies = [
 
 [[package]]
 name = "zip"
-version = "2.4.2"
+version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fabe6324e908f85a1c52063ce7aa26b68dcb7eb6dbc83a2d148403c9bc3eba50"
+checksum = "27c03817464f64e23f6f37574b4fdc8cf65925b5bfd2b0f2aedf959791941f88"
 dependencies = [
  "aes",
  "arbitrary",
@@ -7481,7 +7481,6 @@ dependencies = [
  "crc32fast",
  "crossbeam-utils",
  "deflate64",
- "displaydoc",
  "flate2",
  "getrandom 0.3.2",
  "hmac",
@@ -7490,7 +7489,6 @@ dependencies = [
  "memchr",
  "pbkdf2",
  "sha1",
- "thiserror 2.0.12",
  "time",
  "xz2",
  "zeroize",
