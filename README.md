@@ -1030,7 +1030,17 @@ edamame_posture get-sessions
 # (returns non-zero exit code if sessions don't conform to whitelist)
 ```
 
-This command is useful for CI/CD environments or air-gapped systems where domain connectivity isn't available or desired but you still want the network monitoring and whitelist enforcement capabilities.
+This command is a shortcut for starting the service without user, domain, and PIN credentials. Both `foreground-start` and `background-start` commands can also be used in disconnected mode by passing empty strings for these parameters:
+
+```bash
+# Equivalent to background-start-disconnected true github_linux false
+edamame_posture background-start "" "" "" "" true github_linux false
+
+# Similar approach for foreground mode
+edamame_posture foreground-start "" "" ""
+```
+
+This is useful for CI/CD environments or air-gapped systems where domain connectivity isn't available or desired but you still want the network monitoring and whitelist enforcement capabilities.
 
 ## Exit Codes and CI/CD Pipelines
 
