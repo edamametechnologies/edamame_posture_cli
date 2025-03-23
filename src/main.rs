@@ -498,7 +498,7 @@ fn run_base() {
             is_background = true;
             exit_code = background_wait_for_connection(*timeout);
         }
-        Some(("background-sessions", sub_matches)) => {
+        Some(("background-get-sessions", sub_matches)) => {
             let zeek_format = sub_matches.get_one::<bool>("ZEEK_FORMAT").unwrap_or(&false);
             let local_traffic = sub_matches
                 .get_one::<bool>("LOCAL_TRAFFIC")

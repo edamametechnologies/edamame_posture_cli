@@ -27,7 +27,7 @@ _edamame_posture() {
             edamame_posture,background-score)
                 cmd="edamame_posture__background__score"
                 ;;
-            edamame_posture,background-sessions)
+            edamame_posture,background-get-sessions)
                 cmd="edamame_posture__background__sessions"
                 ;;
             edamame_posture,background-set-custom-whitelists)
@@ -132,7 +132,7 @@ _edamame_posture() {
             edamame_posture__help,background-score)
                 cmd="edamame_posture__help__background__score"
                 ;;
-            edamame_posture__help,background-sessions)
+            edamame_posture__help,background-get-sessions)
                 cmd="edamame_posture__help__background__sessions"
                 ;;
             edamame_posture__help,background-set-custom-whitelists)
@@ -229,7 +229,7 @@ _edamame_posture() {
 
     case "${cmd}" in
         edamame_posture)
-            opts="-v -h -V --verbose --help --version completion get-score lanscan capture get-core-info get-device-info get-system-info request-pin get-core-version remediate-all-threats remediate-all-threats-force remediate-threat rollback-threat list-threats get-threat-info request-signature request-report check-policy-for-domain check-policy-for-domain-with-signature check-policy get-tag-prefixes background-logs background-wait-for-connection background-sessions background-threats-info foreground-start background-start background-stop background-status background-last-report-signature background-get-history background-set-custom-whitelists background-create-custom-whitelists background-score help"
+            opts="-v -h -V --verbose --help --version completion get-score lanscan capture get-core-info get-device-info get-system-info request-pin get-core-version remediate-all-threats remediate-all-threats-force remediate-threat rollback-threat list-threats get-threat-info request-signature request-report check-policy-for-domain check-policy-for-domain-with-signature check-policy get-tag-prefixes background-logs background-wait-for-connection background-get-sessions background-threats-info foreground-start background-start background-stop background-status background-last-report-signature background-get-history background-set-custom-whitelists background-create-custom-whitelists background-score help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -593,7 +593,7 @@ _edamame_posture() {
             return 0
             ;;
         edamame_posture__help)
-            opts="completion get-score lanscan capture get-core-info get-device-info get-system-info request-pin get-core-version remediate-all-threats remediate-all-threats-force remediate-threat rollback-threat list-threats get-threat-info request-signature request-report check-policy-for-domain check-policy-for-domain-with-signature check-policy get-tag-prefixes background-logs background-wait-for-connection background-sessions background-threats-info foreground-start background-start background-stop background-status background-last-report-signature background-get-history background-set-custom-whitelists background-create-custom-whitelists background-score help"
+            opts="completion get-score lanscan capture get-core-info get-device-info get-system-info request-pin get-core-version remediate-all-threats remediate-all-threats-force remediate-threat rollback-threat list-threats get-threat-info request-signature request-report check-policy-for-domain check-policy-for-domain-with-signature check-policy get-tag-prefixes background-logs background-wait-for-connection background-get-sessions background-threats-info foreground-start background-start background-stop background-status background-last-report-signature background-get-history background-set-custom-whitelists background-create-custom-whitelists background-score help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
