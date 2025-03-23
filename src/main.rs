@@ -564,6 +564,33 @@ fn run_base() {
             );
             is_background = true;
         }
+        Some(("background-start-disconnected", sub_matches)) => {
+            // Default to false if not provided
+            let lan_scanning = sub_matches
+                .get_one::<bool>("LAN_SCANNING")
+                .unwrap_or(&false);
+            let whitelist_name = sub_matches
+                .get_one::<String>("WHITELIST_NAME")
+                .map_or("", |v| v)
+                .to_string();
+            let local_traffic = sub_matches
+                .get_one::<bool>("LOCAL_TRAFFIC")
+                .unwrap_or(&false);
+
+            // Initialize the core with all options disabled
+            initialize_core("".to_string(), false, false, false, false, verbose);
+            ensure_admin();
+            background_start(
+                "".to_string(),
+                "".to_string(),
+                "".to_string(),
+                "".to_string(),
+                *lan_scanning,
+                whitelist_name,
+                *local_traffic,
+            );
+            is_background = true;
+        }
         Some(("foreground-start", sub_matches)) => {
             let user = sub_matches
                 .get_one::<String>("USER")
