@@ -307,23 +307,21 @@ pub fn base_request_report(email: String, signature: String) -> i32 {
         let connection_status = get_connection();
 
         if connection_status.backend_error_code != "None" {
-            if connection_status.backend_error_code == "InvalidSignature" {
-                // Check if we've exceeded our timeout
-                if start_time.elapsed() >= timeout_duration {
-                    eprintln!("Timeout exceeded waiting for valid signature");
-                    return ERROR_CODE_PARAM;
-                }
-
-                // Wait before trying again
-                sleep(retry_interval);
-                continue;
-            } else {
+            // Check if we've exceeded our timeout
+            if start_time.elapsed() >= timeout_duration {
                 eprintln!(
-                    "Error getting signature: {}, {}",
+                    "Timeout exceeded requesting report - error code: {}, error reason: {}",
                     connection_status.backend_error_code, connection_status.backend_error_reason
                 );
-                return ERROR_CODE_SERVER_ERROR;
+                if connection_status.backend_error_code == "InvalidSignature" {
+                    return ERROR_CODE_PARAM;
+                } else {
+                    return ERROR_CODE_SERVER_ERROR;
+                }
             }
+
+            // Wait before trying again
+            sleep(retry_interval);
         } else {
             return 0;
         }
