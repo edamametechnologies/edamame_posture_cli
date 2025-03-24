@@ -159,23 +159,21 @@ EDAMAME Posture's security assessment capabilities are powered by comprehensive 
 
 ### Threat Dimensions
 
-| Dimension | Description | Examples |
-|-----------|-------------|----------|
-| **Applications** | Application authorizations, code signing, EPP/antivirus | Outdated browsers, unsigned applications |
-| **Network** | Network configuration, exposed services, unsafe connections | Unpatched network services, insecure protocols |
-| **Credentials** | Password policies, biometrics, 2FA, exposed credentials | Weak password policies, exposed API keys |
-| **System Integrity** | MDM profiles, jailbreaking, 3rd party administrative access | Jailbreaking, unauthorized system modifications |
-| **System Services** | System configuration, service vulnerabilities | Unnecessary services, outdated system components |
+| Dimension | Description |
+|-----------|-------------|
+| **Applications** | Application authorizations, EPP/antivirus, ... |
+| **Network** | Network configuration, exposed services, ... |
+| **Credentials** | Password policies, biometrics, 2FA, ... |
+| **System Integrity** | MDM profiles, jailbreaking, 3rd party administrative access, ... |
+| **System Services** | System configuration, service vulnerabilities, ... |
 
 ### Compliance Frameworks
 
 Security assessments incorporate industry-standard compliance frameworks, including:
 
 - **CIS Benchmarks**: Center for Internet Security configuration guidelines
-- **NIST Standards**: National Institute of Standards and Technology security controls
 - **SOC-2**: Service Organization Control criteria for security, availability, and privacy
 - **ISO 27001**: Information security management system requirements
-- **PCI-DSS**: Payment Card Industry Data Security Standard
 
 Each threat detected by EDAMAME Posture is mapped to these compliance frameworks, allowing you to demonstrate compliance with specific standards.
 
@@ -249,9 +247,8 @@ edamame_posture background-start-disconnected [LAN_SCANNING] [WHITELIST_NAME] [L
 ```
 
 This enables:
-- Network monitoring and whitelist enforcement without external connectivity
+- All the monitoring capabilities and whitelist enforcement without domain registration
 - Local-only security controls for sensitive or air-gapped environments
-- All the monitoring capabilities without domain registration
 
 ### Preventing Supply Chain Attacks
 
@@ -1175,13 +1172,11 @@ EDAMAME Posture is designed to integrate seamlessly with CI/CD pipelines by usin
 
 ### Key Commands with Exit Codes for CI/CD Integration
 
-| Command | Exit Code 0 | Exit Code 1 | Other Exit Codes |
-|---------|-------------|-------------|------------------|
-| `get-sessions` | Sessions retrieved successfully | Whitelist conformance failure | 3: No active sessions |
-| `check-policy` | Policy requirements met | Policy requirements not met | - |
-| `check-policy-for-domain` | Domain policy requirements met | Domain policy requirements not met | - |
-| `lanscan` | Network scan completed | Network scan failed | - |
-| `capture` | Capture completed | Capture failed or whitelist violation | - |
+| Command | Exit Code 0 | Other Exit Codes |
+|---------|-------------|------------------|
+| `get-sessions` | Sessions retrieved successfully | Whitelist conformance failure |
+| `check-policy` | Policy requirements met | Policy requirements not met |
+| `check-policy-for-domain` | Domain policy requirements met | Domain policy requirements not met |
 
 ### CI/CD Integration Example
 
