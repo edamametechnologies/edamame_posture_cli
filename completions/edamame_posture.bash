@@ -18,6 +18,9 @@ _edamame_posture() {
             edamame_posture,background-get-history)
                 cmd="edamame_posture__background__get__history"
                 ;;
+            edamame_posture,background-get-sessions)
+                cmd="edamame_posture__background__get__sessions"
+                ;;
             edamame_posture,background-last-report-signature)
                 cmd="edamame_posture__background__last__report__signature"
                 ;;
@@ -27,14 +30,14 @@ _edamame_posture() {
             edamame_posture,background-score)
                 cmd="edamame_posture__background__score"
                 ;;
-            edamame_posture,background-get-sessions)
-                cmd="edamame_posture__background__sessions"
-                ;;
             edamame_posture,background-set-custom-whitelists)
                 cmd="edamame_posture__background__set__custom__whitelists"
                 ;;
             edamame_posture,background-start)
                 cmd="edamame_posture__background__start"
+                ;;
+            edamame_posture,background-start-disconnected)
+                cmd="edamame_posture__background__start__disconnected"
                 ;;
             edamame_posture,background-status)
                 cmd="edamame_posture__background__status"
@@ -123,6 +126,9 @@ _edamame_posture() {
             edamame_posture__help,background-get-history)
                 cmd="edamame_posture__help__background__get__history"
                 ;;
+            edamame_posture__help,background-get-sessions)
+                cmd="edamame_posture__help__background__get__sessions"
+                ;;
             edamame_posture__help,background-last-report-signature)
                 cmd="edamame_posture__help__background__last__report__signature"
                 ;;
@@ -132,14 +138,14 @@ _edamame_posture() {
             edamame_posture__help,background-score)
                 cmd="edamame_posture__help__background__score"
                 ;;
-            edamame_posture__help,background-get-sessions)
-                cmd="edamame_posture__help__background__sessions"
-                ;;
             edamame_posture__help,background-set-custom-whitelists)
                 cmd="edamame_posture__help__background__set__custom__whitelists"
                 ;;
             edamame_posture__help,background-start)
                 cmd="edamame_posture__help__background__start"
+                ;;
+            edamame_posture__help,background-start-disconnected)
+                cmd="edamame_posture__help__background__start__disconnected"
                 ;;
             edamame_posture__help,background-status)
                 cmd="edamame_posture__help__background__status"
@@ -229,7 +235,7 @@ _edamame_posture() {
 
     case "${cmd}" in
         edamame_posture)
-            opts="-v -h -V --verbose --help --version completion get-score lanscan capture get-core-info get-device-info get-system-info request-pin get-core-version remediate-all-threats remediate-all-threats-force remediate-threat rollback-threat list-threats get-threat-info request-signature request-report check-policy-for-domain check-policy-for-domain-with-signature check-policy get-tag-prefixes background-logs background-wait-for-connection background-get-sessions background-threats-info foreground-start background-start background-stop background-status background-last-report-signature background-get-history background-set-custom-whitelists background-create-custom-whitelists background-score help"
+            opts="-v -h -V --verbose --help --version completion get-score lanscan capture get-core-info get-device-info get-system-info request-pin get-core-version remediate-all-threats remediate-all-threats-force remediate-threat rollback-threat list-threats get-threat-info request-signature request-report check-policy-for-domain check-policy-for-domain-with-signature check-policy get-tag-prefixes background-logs background-wait-for-connection background-get-sessions background-threats-info foreground-start background-start background-stop background-status background-last-report-signature background-get-history background-start-disconnected background-set-custom-whitelists background-create-custom-whitelists background-score help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -258,6 +264,20 @@ _edamame_posture() {
             ;;
         edamame_posture__background__get__history)
             opts="-v -h --verbose --help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        edamame_posture__background__get__sessions)
+            opts="-v -h --verbose --help true false true false"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -312,20 +332,6 @@ _edamame_posture() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        edamame_posture__background__sessions)
-            opts="-v -h --verbose --help true false true false"
-            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
-                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-                return 0
-            fi
-            case "${prev}" in
-                *)
-                    COMPREPLY=()
-                    ;;
-            esac
-            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-            return 0
-            ;;
         edamame_posture__background__set__custom__whitelists)
             opts="-v -h --verbose --help <WHITELIST_JSON>"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
@@ -342,6 +348,20 @@ _edamame_posture() {
             ;;
         edamame_posture__background__start)
             opts="-v -h --verbose --help <USER> <DOMAIN> <PIN> [DEVICE_ID] true false [WHITELIST_NAME] true false"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        edamame_posture__background__start__disconnected)
+            opts="-v -h --verbose --help true false [WHITELIST_NAME] true false"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -593,7 +613,7 @@ _edamame_posture() {
             return 0
             ;;
         edamame_posture__help)
-            opts="completion get-score lanscan capture get-core-info get-device-info get-system-info request-pin get-core-version remediate-all-threats remediate-all-threats-force remediate-threat rollback-threat list-threats get-threat-info request-signature request-report check-policy-for-domain check-policy-for-domain-with-signature check-policy get-tag-prefixes background-logs background-wait-for-connection background-get-sessions background-threats-info foreground-start background-start background-stop background-status background-last-report-signature background-get-history background-set-custom-whitelists background-create-custom-whitelists background-score help"
+            opts="completion get-score lanscan capture get-core-info get-device-info get-system-info request-pin get-core-version remediate-all-threats remediate-all-threats-force remediate-threat rollback-threat list-threats get-threat-info request-signature request-report check-policy-for-domain check-policy-for-domain-with-signature check-policy get-tag-prefixes background-logs background-wait-for-connection background-get-sessions background-threats-info foreground-start background-start background-stop background-status background-last-report-signature background-get-history background-start-disconnected background-set-custom-whitelists background-create-custom-whitelists background-score help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -621,6 +641,20 @@ _edamame_posture() {
             return 0
             ;;
         edamame_posture__help__background__get__history)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        edamame_posture__help__background__get__sessions)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -676,20 +710,6 @@ _edamame_posture() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        edamame_posture__help__background__sessions)
-            opts=""
-            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
-                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-                return 0
-            fi
-            case "${prev}" in
-                *)
-                    COMPREPLY=()
-                    ;;
-            esac
-            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-            return 0
-            ;;
         edamame_posture__help__background__set__custom__whitelists)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
@@ -705,6 +725,20 @@ _edamame_posture() {
             return 0
             ;;
         edamame_posture__help__background__start)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        edamame_posture__help__background__start__disconnected)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
