@@ -312,6 +312,17 @@ _arguments "${_arguments_options[@]}" : \
 '--help[Print help]' \
 && ret=0
 ;;
+(background-start-disconnected)
+_arguments "${_arguments_options[@]}" : \
+'*-v[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'*--verbose[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'-h[Print help]' \
+'--help[Print help]' \
+'::LAN_SCANNING -- LAN scanning enabled:(true false)' \
+'::WHITELIST_NAME -- Whitelist name:_default' \
+'::LOCAL_TRAFFIC -- Include local traffic:(true false)' \
+&& ret=0
+;;
 (background-set-custom-whitelists)
 _arguments "${_arguments_options[@]}" : \
 '*-v[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
@@ -473,6 +484,10 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
+(background-start-disconnected)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
 (background-set-custom-whitelists)
 _arguments "${_arguments_options[@]}" : \
 && ret=0
@@ -532,6 +547,7 @@ _edamame_posture_commands() {
 'background-status:Get status of reporting background process' \
 'background-last-report-signature:Get last report signature of background process' \
 'background-get-history:Get history of score modifications' \
+'background-start-disconnected:Start the background process in disconnected mode (without domain authentication)' \
 'background-set-custom-whitelists:Set custom whitelists from JSON' \
 'background-create-custom-whitelists:Create custom whitelists from current sessions' \
 'background-score:Get security score from the background process' \
@@ -549,6 +565,11 @@ _edamame_posture__background-get-history_commands() {
     local commands; commands=()
     _describe -t commands 'edamame_posture background-get-history commands' commands "$@"
 }
+(( $+functions[_edamame_posture__background-get-sessions_commands] )) ||
+_edamame_posture__background-get-sessions_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture background-get-sessions commands' commands "$@"
+}
 (( $+functions[_edamame_posture__background-last-report-signature_commands] )) ||
 _edamame_posture__background-last-report-signature_commands() {
     local commands; commands=()
@@ -564,11 +585,6 @@ _edamame_posture__background-score_commands() {
     local commands; commands=()
     _describe -t commands 'edamame_posture background-score commands' commands "$@"
 }
-(( $+functions[_edamame_posture__background-get-sessions_commands] )) ||
-_edamame_posture__background-get-sessions_commands() {
-    local commands; commands=()
-    _describe -t commands 'edamame_posture background-get-sessions commands' commands "$@"
-}
 (( $+functions[_edamame_posture__background-set-custom-whitelists_commands] )) ||
 _edamame_posture__background-set-custom-whitelists_commands() {
     local commands; commands=()
@@ -578,6 +594,11 @@ _edamame_posture__background-set-custom-whitelists_commands() {
 _edamame_posture__background-start_commands() {
     local commands; commands=()
     _describe -t commands 'edamame_posture background-start commands' commands "$@"
+}
+(( $+functions[_edamame_posture__background-start-disconnected_commands] )) ||
+_edamame_posture__background-start-disconnected_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture background-start-disconnected commands' commands "$@"
 }
 (( $+functions[_edamame_posture__background-status_commands] )) ||
 _edamame_posture__background-status_commands() {
@@ -698,6 +719,7 @@ _edamame_posture__help_commands() {
 'background-status:Get status of reporting background process' \
 'background-last-report-signature:Get last report signature of background process' \
 'background-get-history:Get history of score modifications' \
+'background-start-disconnected:Start the background process in disconnected mode (without domain authentication)' \
 'background-set-custom-whitelists:Set custom whitelists from JSON' \
 'background-create-custom-whitelists:Create custom whitelists from current sessions' \
 'background-score:Get security score from the background process' \
@@ -715,6 +737,11 @@ _edamame_posture__help__background-get-history_commands() {
     local commands; commands=()
     _describe -t commands 'edamame_posture help background-get-history commands' commands "$@"
 }
+(( $+functions[_edamame_posture__help__background-get-sessions_commands] )) ||
+_edamame_posture__help__background-get-sessions_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture help background-get-sessions commands' commands "$@"
+}
 (( $+functions[_edamame_posture__help__background-last-report-signature_commands] )) ||
 _edamame_posture__help__background-last-report-signature_commands() {
     local commands; commands=()
@@ -730,11 +757,6 @@ _edamame_posture__help__background-score_commands() {
     local commands; commands=()
     _describe -t commands 'edamame_posture help background-score commands' commands "$@"
 }
-(( $+functions[_edamame_posture__help__background-get-sessions_commands] )) ||
-_edamame_posture__help__background-get-sessions_commands() {
-    local commands; commands=()
-    _describe -t commands 'edamame_posture help background-get-sessions commands' commands "$@"
-}
 (( $+functions[_edamame_posture__help__background-set-custom-whitelists_commands] )) ||
 _edamame_posture__help__background-set-custom-whitelists_commands() {
     local commands; commands=()
@@ -744,6 +766,11 @@ _edamame_posture__help__background-set-custom-whitelists_commands() {
 _edamame_posture__help__background-start_commands() {
     local commands; commands=()
     _describe -t commands 'edamame_posture help background-start commands' commands "$@"
+}
+(( $+functions[_edamame_posture__help__background-start-disconnected_commands] )) ||
+_edamame_posture__help__background-start-disconnected_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture help background-start-disconnected commands' commands "$@"
 }
 (( $+functions[_edamame_posture__help__background-status_commands] )) ||
 _edamame_posture__help__background-status_commands() {
