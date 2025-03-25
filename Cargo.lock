@@ -1618,7 +1618,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "0.9.21"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#4c77ef1af1772f8e8e664a7e3de3c9e04151373f"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#e04bd66e156afeeb22d0a26d30a2c96604d7e283"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1689,7 +1689,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "0.9.21"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#cc2e892a544164d5dee705664f2e8d2c97c780ad"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#fd3ebdd558a4e49a5d43d13fca6cfcec460016ef"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -4683,9 +4683,9 @@ dependencies = [
 
 [[package]]
 name = "quinn-udp"
-version = "0.5.10"
+version = "0.5.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e46f3055866785f6b92bc6164b76be02ca8f2eb4b002c0354b28cf4c119e5944"
+checksum = "541d0f57c6ec747a90738a52741d3221f7960e8ac2f0ff4b1a63680e033b4ab5"
 dependencies = [
  "cfg_aliases",
  "libc",
