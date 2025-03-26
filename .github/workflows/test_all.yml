@@ -182,7 +182,7 @@ jobs:
           # Set a business rule that will be passed
           # Needs to be passed into the root environment
           echo "Setting business rule so that it will be passed and leave an artifact"
-          $SUDO_CMD sh -c "echo EDAMAME_BUSINESS_RULES_CMD=\\\"echo passed > /tmp/passed_business_rule\\\" >> /etc/environment"
+          $SUDO_CMD sh -c "echo 'EDAMAME_BUSINESS_RULES_CMD=\"{ echo passed > /tmp/passed_business_rule; } > /dev/null 2>&1\"' >> /etc/environment"
           
           # Perform a simple score computation
           echo "Score:"
