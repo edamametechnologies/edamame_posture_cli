@@ -319,7 +319,7 @@ jobs:
           EXCEPTION_COUNT=$(cat exceptions.log | grep "whitelisted: NonConforming" | wc -l)
           UNKNOWN_COUNT=$(cat exceptions.log | grep "whitelisted: Unknown" | wc -l)
           echo "Detected $EXCEPTION_COUNT exceptions and $UNKNOWN_COUNT unknown exceptions"
-          if [[ $EXCEPTION_COUNT -lt 5 || $UNKNOWN_COUNT -gt 0 ]]; then
+          if [[ $EXCEPTION_COUNT -gt 5 || $UNKNOWN_COUNT -gt 0 ]]; then
             echo "Error: Detected too many exceptions or unknown exceptions"
             exit 1
           fi
