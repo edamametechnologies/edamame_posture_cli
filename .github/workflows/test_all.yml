@@ -162,7 +162,7 @@ jobs:
 
           # Clean up the logs
           echo "Cleaning up the logs"
-          find ~/ -name "edamame_bin_*.*" -exec echo "--- {} ---" \; -exec rm -f {} \;
+          find ~/ -name "edamame_cli_*" -exec echo "--- {} ---" \; -exec rm -f {} \;
 
           # Install the new binary
           cp -f ./target/release/$BINARY ~/$BINARY
@@ -182,7 +182,7 @@ jobs:
           # Set a business rule that will be passed
           # Needs to be passed into the root environment
           echo "Setting business rule so that it will be passed and leave an artifact"
-          echo EDAMAME_BUSINESS_RULES_CMD=\"echo passed > /tmp/passed_business_rule\" >> /etc/environment
+          $SUDO_CMD echo EDAMAME_BUSINESS_RULES_CMD=\"echo passed > /tmp/passed_business_rule\" >> /etc/environment
           
           # Perform a simple score computation
           echo "Score:"
@@ -352,7 +352,7 @@ jobs:
       - name: Dump the logs
         shell: bash
         run: |
-          find ~/ -name "edamame_bin_*.*" -exec echo "--- {} ---" \; -exec cat {} \;
+          find ~/ -name "edamame_cli_*.*" -exec echo "--- {} ---" \; -exec cat {} \;
 
       - name: Fail job if tests failed
         if: steps.tests.outcome != 'success'
