@@ -323,7 +323,7 @@ pub fn background_get_history() -> i32 {
     }
 }
 
-pub fn background_create_custom_whitelists() -> i32 {
+pub fn background_create_custom_whitelists_with_list() -> (String, i32) {
     match rpc_create_custom_whitelists(
         &EDAMAME_CA_PEM,
         &EDAMAME_CLIENT_PEM,
@@ -333,7 +333,7 @@ pub fn background_create_custom_whitelists() -> i32 {
         Ok(whitelists) => {
             if whitelists.is_empty() {
                 eprintln!("Failed to create custom whitelists");
-                return ERROR_CODE_SERVER_ERROR;
+                return (String::new(), ERROR_CODE_SERVER_ERROR);
             } else {
                 // The whitelist is a String represent a JSON object
                 // We need to parse it and print it pretty
@@ -341,25 +341,30 @@ pub fn background_create_custom_whitelists() -> i32 {
                     Ok(value) => value,
                     Err(e) => {
                         eprintln!("Error parsing whitelist JSON: {}", e);
-                        return ERROR_CODE_SERVER_ERROR;
+                        return (String::new(), ERROR_CODE_SERVER_ERROR);
                     }
                 };
                 let pretty_json = match serde_json::to_string_pretty(&json_value) {
                     Ok(json) => json,
                     Err(e) => {
                         eprintln!("Error formatting whitelist JSON: {}", e);
-                        return ERROR_CODE_SERVER_ERROR;
+                        return (String::new(), ERROR_CODE_SERVER_ERROR);
                     }
                 };
                 println!("{}", pretty_json);
-                return 0;
+                return (pretty_json, 0);
             }
         }
         Err(e) => {
             eprintln!("Error creating custom whitelists: {}", e);
-            return ERROR_CODE_SERVER_ERROR;
+            return (String::new(), ERROR_CODE_SERVER_ERROR);
         }
     }
+}
+
+pub fn background_create_custom_whitelists() -> i32 {
+    let (_, exit_code) = background_create_custom_whitelists_with_list();
+    exit_code
 }
 
 pub fn background_set_custom_whitelists(whitelist_json: String) -> i32 {
@@ -370,15 +375,20 @@ pub fn background_set_custom_whitelists(whitelist_json: String) -> i32 {
         &EDAMAME_CLIENT_KEY,
         &EDAMAME_TARGET,
     ) {
-        Ok(_) => {
-            println!("Custom whitelists set successfully");
-            0
-        }
+        Ok(_) => 0,
         Err(e) => {
             eprintln!("Error setting custom whitelists: {}", e);
             ERROR_CODE_SERVER_ERROR
         }
     }
+}
+
+pub fn background_create_and_set_custom_whitelists() -> i32 {
+    let (whitelist_json, exit_code) = background_create_custom_whitelists_with_list();
+    if exit_code != 0 {
+        return exit_code;
+    }
+    background_set_custom_whitelists(whitelist_json)
 }
 
 pub fn background_get_score() -> i32 {
