@@ -157,8 +157,12 @@ jobs:
           fi
           sleep 5
 
-          # Remove it along with the logs
+          # Remove it
           $SUDO_CMD rm -f ~/edamame_posture*
+
+          # Clean up the logs
+          echo "Cleaning up the logs"
+          find ~/ -name "edamame_bin_*.*" -exec echo "--- {} ---" \; -exec rm -f {} \;
 
           # Install the new binary
           cp -f ./target/release/$BINARY ~/$BINARY
@@ -177,14 +181,15 @@ jobs:
 
           # Set a business rule that will be passed
           echo "Setting business rule so that it will be passed and leave an artifact"
-          echo "EDAMAME_BUSINESS_RULES_CMD=\"echo passed > ~/passed_business_rule\"" >> $GITHUB_ENV
+          echo EDAMAME_BUSINESS_RULES_CMD=\"echo passed > /tmp/passed_business_rule\"
           
           # Perform a simple score computation
           echo "Score:"
-          $SUDO_CMD ~/$BINARY -v score
+          # Needs to be passed into the root environment
+          $SUDO_CMD EDAMAME_BUSINESS_RULES_CMD="echo passed > /tmp/passed_business_rule" ~/$BINARY -v score
 
           # Check if the business rule was passed
-          if [[ ! -f ~/passed_business_rule ]]; then
+          if [[ ! -f /tmp/passed_business_rule ]]; then
             echo "Error: Business rule not passed"
             exit 1
           fi
