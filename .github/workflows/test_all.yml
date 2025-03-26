@@ -177,7 +177,7 @@ jobs:
 
           # Set a business rule that will be passed
           echo "Setting business rule so that it will be passed and leave an artifact"
-          EDAMAME_BUSINESS_RULES_CMD="echo passed > ~/passed_business_rule"
+          export EDAMAME_BUSINESS_RULES_CMD="echo passed > ~/passed_business_rule"
           
           # Perform a simple score computation
           echo "Score:"
@@ -348,7 +348,7 @@ jobs:
         shell: bash
         run: |
           # Dump the logs - the daemon can die in case of a panic, so we cat all the logs
-          ~/$BINARY logs || for i in $(ls ~/edamame_bin_*.log); do echo "--- $i ---"; cat $i; done
+          ~/$BINARY logs || for i in $(ls ~/edamame_bin_*.*); do echo "--- $i ---"; cat $i; done
 
       - name: Fail job if tests failed
         if: steps.tests.outcome != 'success'
