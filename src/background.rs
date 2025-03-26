@@ -16,7 +16,11 @@ use edamame_core::api::api_trust::*;
 use std::thread::sleep;
 use std::time::Duration;
 
-pub fn background_get_sessions(local_traffic: bool, zeek_format: bool) -> i32 {
+pub fn background_get_sessions(
+    zeek_format: bool,
+    local_traffic: bool,
+    exceptions_only: bool,
+) -> i32 {
     let sessions = match rpc_get_lan_sessions(
         &EDAMAME_CA_PEM,
         &EDAMAME_CLIENT_PEM,
@@ -29,23 +33,6 @@ pub fn background_get_sessions(local_traffic: bool, zeek_format: bool) -> i32 {
             return ERROR_CODE_SERVER_ERROR;
         }
     };
-
-    let sessions = if !local_traffic {
-        // Filter out local traffic
-        filter_global_sessions(sessions.sessions)
-    } else {
-        sessions.sessions
-    };
-
-    // Format the connections and display them
-    let sessions = if zeek_format {
-        format_sessions_zeek(sessions)
-    } else {
-        format_sessions_log(sessions)
-    };
-    for session in sessions.iter() {
-        println!("{}", session);
-    }
 
     // Check whitelist conformance
     let whitelist_conformance = match rpc_get_whitelist_conformance(
@@ -60,12 +47,45 @@ pub fn background_get_sessions(local_traffic: bool, zeek_format: bool) -> i32 {
             return ERROR_CODE_SERVER_ERROR;
         }
     };
-    if !whitelist_conformance {
+
+    // Get all sessions first
+    let mut filtered_sessions = sessions.sessions;
+
+    // If we only want exceptions, find the exceptions
+    if exceptions_only {
+        // Extract the sessions with status that aren't "Conforming"
+        filtered_sessions = filtered_sessions
+            .into_iter()
+            .filter(|session| {
+                session.is_whitelisted
+                    != edamame_core::api::api_lanscan::WhiteListStateAPI::Conforming
+            })
+            .collect::<Vec<_>>();
+    }
+
+    // Filter out local traffic if requested
+    if !local_traffic {
+        filtered_sessions = filter_global_sessions(filtered_sessions);
+    }
+
+    // Format the connections and display them
+    let formatted_sessions = if zeek_format {
+        format_sessions_zeek(filtered_sessions)
+    } else {
+        format_sessions_log(filtered_sessions)
+    };
+
+    for session in formatted_sessions.iter() {
+        println!("{}", session);
+    }
+
+    // Check whitelist conformance
+    if !whitelist_conformance && !exceptions_only {
         eprintln!("Some connections failed the whitelist check");
         return ERROR_CODE_MISMATCH;
-    } else {
-        return 0;
     }
+
+    return 0;
 }
 
 pub fn background_get_threats_info() -> i32 {
