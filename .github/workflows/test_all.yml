@@ -174,10 +174,20 @@ jobs:
           # Help
           echo "Help:"
           ~/$BINARY -v help
+
+          # Set a business rule that will be passed
+          echo "Setting business rule so that it will be passed and leave an artifact"
+          EDAMAME_BUSINESS_RULES_CMD="echo passed > ~/passed_business_rule"
           
           # Perform a simple score computation
           echo "Score:"
           $SUDO_CMD ~/$BINARY -v score
+
+          # Check if the business rule was passed
+          if [[ ! -f ~/passed_business_rule ]]; then
+            echo "Error: Business rule not passed"
+            exit 1
+          fi
           
           # Test remediate command with skip_remediations
           echo "Remediate (with skipped remediations):"
@@ -302,6 +312,17 @@ jobs:
           echo "Sessions with whitelist:"
           # Can fail because of whitelist conformance, ignore it
           ~/$BINARY -v get-sessions || true
+
+          # Get the exceptions
+          echo "Exceptions:"
+          ~/$BINARY -v get-exceptions > exceptions.log
+          EXCEPTION_COUNT=$(cat exceptions.log | grep "whitelisted: NonConforming" | wc -l)
+          UNKNOWN_COUNT=$(cat exceptions.log | grep "whitelisted: Unknown" | wc -l)
+          echo "Detected $EXCEPTION_COUNT exceptions and $UNKNOWN_COUNT unknown exceptions"
+          if [[ $EXCEPTION_COUNT -lt 5 || $UNKNOWN_COUNT -gt 0 ]]; then
+            echo "Error: Detected too many exceptions or unknown exceptions"
+            exit 1
+          fi
           
           # Check status
           echo "Status in connected mode:"
