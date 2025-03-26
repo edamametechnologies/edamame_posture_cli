@@ -326,7 +326,8 @@ jobs:
       - name: Dump the logs
         shell: bash
         run: |
-          ~/$BINARY logs
+          # Dump the logs - the daemon can die in case of a panic, so we cat all the logs
+          ~/$BINARY logs || for i in $(ls ~/edamame_bin_*.log); do echo "--- $i ---"; cat $i; done
 
       - name: Fail job if tests failed
         if: steps.tests.outcome != 'success'
