@@ -180,13 +180,13 @@ jobs:
           ~/$BINARY -v help
 
           # Set a business rule that will be passed
+          # Needs to be passed into the root environment
           echo "Setting business rule so that it will be passed and leave an artifact"
-          echo EDAMAME_BUSINESS_RULES_CMD=\"echo passed > /tmp/passed_business_rule\"
+          echo EDAMAME_BUSINESS_RULES_CMD=\"echo passed > /tmp/passed_business_rule\" >> /etc/environment
           
           # Perform a simple score computation
           echo "Score:"
-          # Needs to be passed into the root environment
-          $SUDO_CMD EDAMAME_BUSINESS_RULES_CMD="echo passed > /tmp/passed_business_rule" ~/$BINARY -v score
+          $SUDO_CMD ~/$BINARY -v score
 
           # Check if the business rule was passed
           if [[ ! -f /tmp/passed_business_rule ]]; then
