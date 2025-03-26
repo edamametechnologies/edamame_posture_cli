@@ -189,7 +189,23 @@ pub fn build_cli() -> Command {
     .subcommand(
         Command::new("background-get-sessions")
             .alias("get-sessions")
-            .about("Get connections of the background process")
+            .about("Get connections from the background process")
+            .arg(
+                arg!([ZEEK_FORMAT] "Zeek format")
+                    .required(false)
+                    .value_parser(clap::value_parser!(bool)),
+            )
+            .arg(
+                arg!([LOCAL_TRAFFIC] "Include local traffic")
+                    .required(false)
+                    .default_value("false")
+                    .value_parser(clap::value_parser!(bool)),
+            ),
+    )
+    .subcommand(
+        Command::new("background-get-exceptions")
+            .alias("get-exceptions")
+            .about("Get non-conforming connections from the background process")
             .arg(
                 arg!([ZEEK_FORMAT] "Zeek format")
                     .required(false)

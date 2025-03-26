@@ -526,7 +526,18 @@ fn run_base() {
 
             // Initialize the core with all options disabled
             initialize_core("".to_string(), false, false, false, false, verbose);
-            exit_code = background_get_sessions(*zeek_format, *local_traffic);
+            exit_code = background_get_sessions(*zeek_format, *local_traffic, false);
+            is_background = true;
+        }
+        Some(("background-get-exceptions", sub_matches)) => {
+            let zeek_format = sub_matches.get_one::<bool>("ZEEK_FORMAT").unwrap_or(&false);
+            let local_traffic = sub_matches
+                .get_one::<bool>("LOCAL_TRAFFIC")
+                .unwrap_or(&false);
+
+            // Initialize the core with all options disabled
+            initialize_core("".to_string(), false, false, false, false, verbose);
+            exit_code = background_get_sessions(*zeek_format, *local_traffic, true);
             is_background = true;
         }
         Some(("background-threats-info", _)) => {
