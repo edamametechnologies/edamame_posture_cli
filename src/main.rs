@@ -250,15 +250,15 @@ fn run_base() {
     let log_level = match verbose_level {
         0 => None,
         1 => {
-            eprintln!("Info logging enabled.");
+            println!("Info logging enabled.");
             Some("info")
         }
         2 => {
-            eprintln!("Debug logging enabled.");
+            println!("Debug logging enabled.");
             Some("debug")
         }
         _ => {
-            eprintln!("Trace logging enabled.");
+            println!("Trace logging enabled.");
             Some("trace")
         }
     };
@@ -500,6 +500,7 @@ fn run_base() {
                 Ok(logs) => logs,
                 Err(e) => {
                     eprintln!("Error getting logs: {:?}", e);
+                    exit_code = ERROR_CODE_SERVER_ERROR;
                     "".to_string()
                 }
             };
@@ -691,6 +692,7 @@ fn run_base() {
             // Initialize the core with all options disabled
             initialize_core("".to_string(), false, false, false, false, verbose);
             eprintln!("Invalid command, use --help for more information");
+            exit_code = ERROR_CODE_PARAM;
         }
     }
 
