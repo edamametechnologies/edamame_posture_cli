@@ -682,6 +682,12 @@ fn run_base() {
             exit_code = background_create_custom_whitelists();
             is_background = true;
         }
+        Some(("background-create-and-set-custom-whitelists", _)) => {
+            // Initialize the core with all options disabled
+            initialize_core("".to_string(), false, false, false, false, verbose);
+            exit_code = background_create_and_set_custom_whitelists();
+            is_background = true;
+        }
         Some(("background-score", _)) => {
             // Initialize the core with all options disabled
             initialize_core("".to_string(), false, false, false, false, verbose);
