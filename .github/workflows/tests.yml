@@ -93,7 +93,8 @@ jobs:
         shell: bash
         run: |
             echo "BINARY=edamame_posture${{ matrix.os == 'windows-latest' && '.exe' || '' }}" >> $GITHUB_ENV
-            echo "SUDO_CMD=${{ matrix.os != 'windows-latest' && 'sudo' || '' }}" >> $GITHUB_ENV
+            # Keep environment variables when running sudo
+            echo "SUDO_CMD=${{ matrix.os != 'windows-latest' && 'sudo -E' || '' }}" >> $GITHUB_ENV
             echo "KEYCHAIN_PATH=/tmp/app-signing.keychain-db" >> $GITHUB_ENV
   
       - name: Build application
@@ -164,12 +165,8 @@ jobs:
           echo "Cleaning up the logs"
           find ~/ -name "edamame_cli_*" -exec echo "--- {} ---" \; -exec rm -f {} \;
 
-          # Set EDAMAME_LOG_LEVEL to debug
-          # Needs to be passed into the root environment
-          if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
-            echo "Setting EDAMAME_LOG_LEVEL to debug"
-            $SUDO_CMD sh -c "echo 'EDAMAME_LOG_LEVEL=debug' >> /etc/environment"
-          fi
+          # Set EDAMAME_LOG_LEVEL to debug for the rest of the script
+          export EDAMAME_LOG_LEVEL=debug
 
           # Install the new binary
           cp -f ./target/release/$BINARY ~/$BINARY
@@ -188,22 +185,17 @@ jobs:
 
           # Set a business rule that will be passed (Linux only)
           # Needs to be passed into the root environment
-          if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
-            echo "Setting business rule so that it will be passed and leave an artifact"
-            $SUDO_CMD sh -c "echo 'EDAMAME_BUSINESS_RULES_CMD=\"{ echo passed > /tmp/passed_business_rule; } > /dev/null 2>&1\"' >> /etc/environment"
-          fi
+          echo "Setting business rule so that it will be passed and leave an artifact in $(HOME)/passed_business_rule"
+          export EDAMAME_BUSINESS_RULES_CMD="{ echo passed > $(HOME)/passed_business_rule; } > /dev/null 2>&1"
           
           # Perform a simple score computation
           echo "Score:"
           $SUDO_CMD ~/$BINARY -v score
 
-          # Check if the business rule was passed (Linux only)
-          if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
-            # Check if the business rule was passed
-            if [[ ! -f /tmp/passed_business_rule ]]; then
-              echo "Error: Business rule not passed"
-              exit 1
-            fi
+          # Check if the business rule was passed
+          if [[ ! -f /tmp/passed_business_rule ]]; then
+            echo "Error: Business rule not passed"
+            exit 1
           fi
           
           # Test remediate command with skip_remediations
@@ -330,12 +322,17 @@ jobs:
           echo "Exceptions log:"
           cat ./exceptions.log
 
-          EXCEPTION_COUNT=$(grep "whitelisted: NonConforming" ./exceptions.log | wc -l | tr -d ' ')
-          UNKNOWN_COUNT=$(grep "whitelisted: Unknown" ./exceptions.log | wc -l | tr -d ' ')
+          EXCEPTION_COUNT=$(grep "whitelisted: NonConforming" ./exceptions.log | wc -l | tr -d ' ' || echo -1)
+          UNKNOWN_COUNT=$(grep "whitelisted: Unknown" ./exceptions.log | wc -l | tr -d ' ' || echo -1)
           
+          if [ "${EXCEPTION_COUNT}" -eq -1 -o "${UNKNOWN_COUNT}" -eq -1 ]; then
+            echo "Error: Failed to count exceptions"
+            exit 1
+          fi
+
           echo "Detected ${EXCEPTION_COUNT} exceptions and ${UNKNOWN_COUNT} unknown exceptions"
           
-          if [ "${EXCEPTION_COUNT}" -gt 5 -o "${UNKNOWN_COUNT}" -gt 0 ]; then
+          if [ "${EXCEPTION_COUNT}" -gt 5 || "${UNKNOWN_COUNT}" -gt 0 ]; then
             echo "Error: Detected too many exceptions or unknown exceptions"
             exit 1
           fi
