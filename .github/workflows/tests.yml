@@ -191,7 +191,7 @@ jobs:
           else 
             if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
               # Use PowerShell
-              export EDAMAME_BUSINESS_RULES_CMD="{ Write-Output 'passed' > `$HOME/passed_business_rule } > `$null 2>&1"
+              export EDAMAME_BUSINESS_RULES_CMD="Write-Output 'passed' > '$HOME/passed_business_rule' 2> $null"
             else
               echo "Error: Unsupported OS"
               exit 1
