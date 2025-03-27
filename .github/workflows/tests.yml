@@ -1,4 +1,4 @@
-name: Test
+name: Cross-platform tests
 
 on:
   workflow_dispatch:
@@ -163,6 +163,13 @@ jobs:
           # Clean up the logs
           echo "Cleaning up the logs"
           find ~/ -name "edamame_cli_*" -exec echo "--- {} ---" \; -exec rm -f {} \;
+
+          # Set EDAMAME_LOG_LEVEL to debug
+          # Needs to be passed into the root environment
+          if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
+            echo "Setting EDAMAME_LOG_LEVEL to debug"
+            $SUDO_CMD sh -c "echo 'EDAMAME_LOG_LEVEL=debug' >> /etc/environment"
+          fi
 
           # Install the new binary
           cp -f ./target/release/$BINARY ~/$BINARY
