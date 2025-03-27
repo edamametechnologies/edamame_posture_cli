@@ -326,7 +326,7 @@ jobs:
           # Get the exceptions
           echo "Exceptions:"
           # Don't use -v here, as it will corrupt the output
-          ~/$BINARY get-exceptions > exceptions.log
+          ~/$BINARY get-exceptions > exceptions.log || echo "get-exceptions command returned exit code $?"
           ls -la exceptions.log
           EXCEPTION_COUNT=$(cat exceptions.log | grep "whitelisted: NonConforming" | wc -l)
           UNKNOWN_COUNT=$(cat exceptions.log | grep "whitelisted: Unknown" | wc -l)
