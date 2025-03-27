@@ -186,7 +186,12 @@ jobs:
           # Set a business rule that will be passed (Linux only)
           # Needs to be passed into the root environment
           echo "Setting business rule so that it will be passed and leave an artifact in $HOME/passed_business_rule"
-          export EDAMAME_BUSINESS_RULES_CMD="{ echo passed > $HOME/passed_business_rule; } > /dev/null 2>&1"
+          if [[ "${{ matrix.os }}" == "ubuntu-latest" || "${{ matrix.os }}" == "macos-latest" ]]; then
+            export EDAMAME_BUSINESS_RULES_CMD="{ echo passed > $HOME/passed_business_rule; } > /dev/null 2>&1"
+          else if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            # Use PowerShell
+            export EDAMAME_BUSINESS_RULES_CMD="{ Write-Output 'passed' > `$HOME/passed_business_rule } > `$null 2>&1"
+          fi
           
           # Perform a simple score computation
           echo "Score:"
