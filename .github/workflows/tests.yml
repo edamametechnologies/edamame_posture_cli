@@ -330,22 +330,12 @@ jobs:
           echo "Exceptions log:"
           cat ./exceptions.log
 
-          # More robust exception counting
-          EXCEPTION_COUNT=0
-          UNKNOWN_COUNT=0
+          EXCEPTION_COUNT=$(grep "whitelisted: NonConforming" ./exceptions.log | wc -l | tr -d ' ')
+          UNKNOWN_COUNT=$(grep "whitelisted: Unknown" ./exceptions.log | wc -l | tr -d ' ')
           
-          if [ -f ./exceptions.log ]; then
-            # Use grep -c instead of wc -l for more consistent counting
-            EXCEPTION_COUNT=$(grep -c "whitelisted: NonConforming" ./exceptions.log || echo 0)
-            UNKNOWN_COUNT=$(grep -c "whitelisted: Unknown" ./exceptions.log || echo 0)
-            
-            # Ensure we have integers, not strings
-            EXCEPTION_COUNT=$((EXCEPTION_COUNT + 0))
-            UNKNOWN_COUNT=$((UNKNOWN_COUNT + 0))
-          fi
+          echo "Detected ${EXCEPTION_COUNT} exceptions and ${UNKNOWN_COUNT} unknown exceptions"
           
-          echo "Detected $EXCEPTION_COUNT exceptions and $UNKNOWN_COUNT unknown exceptions"
-          if [ "$EXCEPTION_COUNT" -gt 5 ] || [ "$UNKNOWN_COUNT" -gt 0 ]; then
+          if [ "${EXCEPTION_COUNT}" -gt 5 -o "${UNKNOWN_COUNT}" -gt 0 ]; then
             echo "Error: Detected too many exceptions or unknown exceptions"
             exit 1
           fi
