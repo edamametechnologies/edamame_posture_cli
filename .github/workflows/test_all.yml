@@ -291,7 +291,8 @@ jobs:
 
             # Create custom whitelists from network sessions
             echo "Create custom whitelist:"
-            $SUDO_CMD ~/$BINARY -v create-custom-whitelists > custom_whitelists.json
+            # Don't use -v here, as it will corrupt the JSON output
+            $SUDO_CMD ~/$BINARY create-custom-whitelists > custom_whitelists.json
             
             # Verify whitelist file exists
             echo "Verify whitelist file:"
@@ -316,7 +317,9 @@ jobs:
 
           # Get the exceptions
           echo "Exceptions:"
-          ~/$BINARY -v get-exceptions > exceptions.log
+          # Don't use -v here, as it will corrupt the output
+          ~/$BINARY get-exceptions > exceptions.log
+          ls -la exceptions.log
           EXCEPTION_COUNT=$(cat exceptions.log | grep "whitelisted: NonConforming" | wc -l)
           UNKNOWN_COUNT=$(cat exceptions.log | grep "whitelisted: Unknown" | wc -l)
           echo "Detected $EXCEPTION_COUNT exceptions and $UNKNOWN_COUNT unknown exceptions"
