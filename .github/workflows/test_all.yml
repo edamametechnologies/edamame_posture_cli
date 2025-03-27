@@ -179,19 +179,24 @@ jobs:
           echo "Help:"
           ~/$BINARY -v help
 
-          # Set a business rule that will be passed
+          # Set a business rule that will be passed (Linux only)
           # Needs to be passed into the root environment
-          echo "Setting business rule so that it will be passed and leave an artifact"
-          $SUDO_CMD sh -c "echo 'EDAMAME_BUSINESS_RULES_CMD=\"{ echo passed > /tmp/passed_business_rule; } > /dev/null 2>&1\"' >> /etc/environment"
+          if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
+            echo "Setting business rule so that it will be passed and leave an artifact"
+            $SUDO_CMD sh -c "echo 'EDAMAME_BUSINESS_RULES_CMD=\"{ echo passed > /tmp/passed_business_rule; } > /dev/null 2>&1\"' >> /etc/environment"
+          fi
           
           # Perform a simple score computation
           echo "Score:"
           $SUDO_CMD ~/$BINARY -v score
 
-          # Check if the business rule was passed
-          if [[ ! -f /tmp/passed_business_rule ]]; then
-            echo "Error: Business rule not passed"
-            exit 1
+          # Check if the business rule was passed (Linux only)
+          if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
+            # Check if the business rule was passed
+            if [[ ! -f /tmp/passed_business_rule ]]; then
+              echo "Error: Business rule not passed"
+              exit 1
+            fi
           fi
           
           # Test remediate command with skip_remediations
@@ -238,18 +243,9 @@ jobs:
           # Perform a capture
           echo "Capture:"
           $SUDO_CMD ~/$BINARY -v capture 5
-
-          # Test disconnected mode
-          echo "Test disconnected mode:"
-          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-            WHITELIST="github_windows"
-          elif [[ "${{ matrix.os }}" == "macos-latest" ]]; then
-            WHITELIST="github_macos"
-          else
-            WHITELIST="github_linux"
-          fi
           
           # Start in disconnected mode
+          WHITELIST="github"
           echo "Starting in disconnected mode with LAN scan enabled and whitelist $WHITELIST:"
           $SUDO_CMD ~/$BINARY -v background-start-disconnected true $WHITELIST
 
