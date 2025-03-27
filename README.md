@@ -1187,4 +1187,4 @@ EDAMAME Posture is part of a broader ecosystem of tools and services provided by
 By using EDAMAME Posture CLI in combination with other ecosystem components, you can scale from individual developer security up to organization-wide endpoint posture management, all while maintaining developer autonomy and privacy.
 
 ## Author
-EDAMAME Technologies (makers of the EDAMAME security platform) 
+EDAMAME Technologies
