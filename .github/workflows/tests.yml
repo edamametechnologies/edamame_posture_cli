@@ -188,9 +188,14 @@ jobs:
           echo "Setting business rule so that it will be passed and leave an artifact in $HOME/passed_business_rule"
           if [[ "${{ matrix.os }}" == "ubuntu-latest" || "${{ matrix.os }}" == "macos-latest" ]]; then
             export EDAMAME_BUSINESS_RULES_CMD="{ echo passed > $HOME/passed_business_rule; } > /dev/null 2>&1"
-          else if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-            # Use PowerShell
-            export EDAMAME_BUSINESS_RULES_CMD="{ Write-Output 'passed' > `$HOME/passed_business_rule } > `$null 2>&1"
+          else 
+            if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+              # Use PowerShell
+              export EDAMAME_BUSINESS_RULES_CMD="{ Write-Output 'passed' > `$HOME/passed_business_rule } > `$null 2>&1"
+            else
+              echo "Error: Unsupported OS"
+              exit 1
+            fi
           fi
           
           # Perform a simple score computation
