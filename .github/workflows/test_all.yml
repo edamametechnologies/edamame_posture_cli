@@ -205,7 +205,8 @@ jobs:
           
           # Test request-signature command
           echo "Request signature:"
-          signature=$($SUDO_CMD ~/$BINARY -v request-signature | grep Signature | awk '{print $2}')
+          # Don't use -v here, as it will corrupt the output
+          signature=$($SUDO_CMD ~/$BINARY request-signature | grep Signature | awk '{print $2}')
           echo "Obtained signature: $signature"
           
           # Test request-report command (using a test email)
