@@ -185,15 +185,15 @@ jobs:
 
           # Set a business rule that will be passed (Linux only)
           # Needs to be passed into the root environment
-          echo "Setting business rule so that it will be passed and leave an artifact in $(HOME)/passed_business_rule"
-          export EDAMAME_BUSINESS_RULES_CMD="{ echo passed > $(HOME)/passed_business_rule; } > /dev/null 2>&1"
+          echo "Setting business rule so that it will be passed and leave an artifact in $HOME/passed_business_rule"
+          export EDAMAME_BUSINESS_RULES_CMD="{ echo passed > $HOME/passed_business_rule; } > /dev/null 2>&1"
           
           # Perform a simple score computation
           echo "Score:"
           $SUDO_CMD ~/$BINARY -v score
 
           # Check if the business rule was passed
-          if [[ ! -f /tmp/passed_business_rule ]]; then
+          if [[ ! -f $HOME/passed_business_rule ]]; then
             echo "Error: Business rule not passed"
             exit 1
           fi
