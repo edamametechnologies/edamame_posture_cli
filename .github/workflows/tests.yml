@@ -352,7 +352,7 @@ jobs:
 
           echo "Detected ${EXCEPTION_COUNT} exceptions and ${UNKNOWN_COUNT} unknown exceptions"
           
-          if [ "${EXCEPTION_COUNT}" -gt 5 || "${UNKNOWN_COUNT}" -gt 0 ]; then
+          if [ "${EXCEPTION_COUNT}" -gt 5 -o "${UNKNOWN_COUNT}" -gt 0 ]; then
             echo "Error: Detected too many exceptions or unknown exceptions"
             exit 1
           fi
