@@ -1111,7 +1111,7 @@ To enable business rules functionality as seen in [EDAMAME Threat Models](https:
   Environment=EDAMAME_BUSINESS_RULES_CMD="/path/to/your/script.sh"
   ```
 
-- **Windows**: Set in user environment variables through System Properties > Environment Variables > User variables. Note that the script is exepcted to be a Powershell script.
+- **Windows**: Set in user environment variables through System Properties > Environment Variables > User variables. Note that the script is expected to be a Powershell script.
 
 - **macOS**: Add to `~/.zshenv` or `~/.bash_profile`:
   ```
