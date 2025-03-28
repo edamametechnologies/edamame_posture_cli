@@ -1604,7 +1604,7 @@ dependencies = [
 [[package]]
 name = "edamame_backend"
 version = "0.3.4"
-source = "git+https://github.com/edamametechnologies/edamame_backend#9901dbc0ae722d58c3f6df897e8f1c0bae5a574e"
+source = "git+https://github.com/edamametechnologies/edamame_backend#bb95a1fe577ac25a8cda926a3ac53f777af00f9b"
 dependencies = [
  "anyhow",
  "blake3",
@@ -1618,7 +1618,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "0.9.21"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#ebe5698345999014db8ca7741736f6ac38de2e6d"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#996bae658c769926356cc27fd9766b2ee7dfd959"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1689,7 +1689,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "0.9.21"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#baf1426d021f0b3504b1d327e5c60c0b7f9f2164"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#d9b9386cdcd79bc1d64de154c0d2a27ecc335494"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1971,9 +1971,9 @@ dependencies = [
 
 [[package]]
 name = "event-listener-strategy"
-version = "0.5.3"
+version = "0.5.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3c3e4e0dd3673c1139bf041f3008816d9cf2946bbfac2945c09e523b8d7b05b2"
+checksum = "8be9f3dfaaffdae2972880079a491a1a8bb7cbed0b8dd7a347f668b4150a3b93"
 dependencies = [
  "event-listener 5.4.0",
  "pin-project-lite",
@@ -3867,9 +3867,9 @@ dependencies = [
 
 [[package]]
 name = "network-interface"
-version = "2.0.0"
+version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "433419f898328beca4f2c6c73a1b52540658d92b0a99f0269330457e0fd998d5"
+checksum = "c3329f515506e4a2de3aa6e07027a6758e22e0f0e8eaf64fa47261cec2282602"
 dependencies = [
  "cc",
  "libc",
@@ -4052,9 +4052,9 @@ dependencies = [
 
 [[package]]
 name = "once_cell"
-version = "1.21.1"
+version = "1.21.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d75b0bedcc4fe52caa0e03d9f1151a323e4aa5e2d78ba3580400cd3c9e2bc4bc"
+checksum = "c2806eaa3524762875e21c3dcd057bc4b7bfa01ce4da8d46be1cd43649e1cc6b"
 
 [[package]]
 name = "opaque-debug"
