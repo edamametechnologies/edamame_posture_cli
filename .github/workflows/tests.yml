@@ -215,6 +215,7 @@ jobs:
             if [[ ! -f $HOME/passed_business_rule ]]; then
               echo "Error: Business rule not passed"
               exit 1
+            fi
           fi
           
           # Test remediate command with skip_remediations
