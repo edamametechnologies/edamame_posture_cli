@@ -61,6 +61,19 @@ EDAMAME Posture is a lightweight, developer-friendly security posture assessment
     - [GitHub Workflow Whitelists](#github-workflow-whitelists)
       - [OS-Specific GitHub Whitelists](#os-specific-github-whitelists)
     - [Whitelist Inheritance Example](#whitelist-inheritance-example)
+- [Blacklist System](#blacklist-system)
+  - [Overview](#overview-2)
+  - [Blacklist Structure](#blacklist-structure)
+  - [IP Matching Algorithm](#ip-matching-algorithm)
+  - [IPv4 and IPv6 Support](#ipv4-and-ipv6-support)
+  - [Blacklist Usage Status](#blacklist-usage-status)
+- [Network Behavior Anomaly Detection (NBAD)](#network-behavior-anomaly-detection-nbad)
+  - [Overview](#overview-3)
+  - [How NBAD Works](#how-nbad-works)
+  - [Session Criticality Classification](#session-criticality-classification)
+  - [Example Output](#example-output)
+  - [NBAD Status and Integration](#nbad-status-and-integration)
+  - [Autonomous Learning](#autonomous-learning)
 - [Historical Security Posture Verification](#historical-security-posture-verification)
   - [Understanding Signatures and Historical Verification](#understanding-signatures-and-historical-verification)
   - [Signature Generation Methods](#signature-generation-methods)
@@ -1006,6 +1019,105 @@ edamame_posture start user example.com 123456 "" true github_macos
 # For a basic development environment
 edamame_posture start user example.com 123456 "" true builder
 ```
+
+## Blacklist System
+
+### Overview
+The EDAMAME blacklist system provides a reliable method to block connections to known malicious IP addresses and ranges. Unlike whitelists which define allowed connections, blacklists specifically identify IPs that should be blocked regardless of other rules.
+
+### Blacklist Structure
+Blacklists are defined in a JSON format similar to whitelists but with a focus on IP ranges to block:
+
+```json
+{
+  "date": "March 29 2025",
+  "signature": "signature_string",
+  "blacklists": [
+    {
+      "name": "malicious_ips",
+      "description": "Known malicious IP ranges",
+      "last_updated": "2025-03-29",
+      "source_url": "https://example.com/blacklist-source",
+      "ip_ranges": [
+        "192.168.0.0/16",
+        "10.0.0.0/8"
+      ]
+    }
+  ]
+}
+```
+
+### IP Matching Algorithm
+The blacklist system uses a precise matching algorithm to determine if an IP address is blocked:
+
+1. Parse the IP address being checked
+2. For each blacklist being used:
+   - Get all IP ranges defined in that blacklist
+   - Check if the IP falls within any of those ranges
+   - If a match is found, the IP is considered blacklisted
+
+### IPv4 and IPv6 Support
+The blacklist system supports both IPv4 and IPv6 addresses and ranges:
+- IPv4 addresses (e.g., `192.168.1.1`)
+- IPv4 CIDR ranges (e.g., `192.168.0.0/16`)
+- IPv6 addresses (e.g., `2001:db8::1`)
+- IPv6 CIDR ranges (e.g., `2001:db8::/32`)
+
+### Blacklist Usage Status
+Currently, blacklists are implemented in the EDAMAME system but are not yet tied to an enforcement action. Unlike whitelists, which can fail a pipeline when a non-conforming connection is detected, blacklists are currently used for informational and reporting purposes only.
+
+When a connection's IP address matches an entry in a blacklist, EDAMAME adds a `blacklist:<name of the blacklist>` tag to the connection's criticality field. For example, if an IP matches a blacklist named "malicious_ips", the connection's criticality field will include `blacklist:malicious_ips`. This allows you to see blacklist matches in the session output:
+
+```
+[2025-03-30T18:53:01.988471+00:00] runner edamame_posture - TCP 192.168.64.23:54495 -> 35.186.241.51:443 (https) ASN15169 / GOOGLE / US (960 bytes sent, 5311 bytes received, duration: ongoing, whitelisted: Conforming, criticality: anomaly:normal,blacklist:malicious_ips)
+```
+
+The blacklist tag appears alongside other criticality fields like the anomaly detection classification.
+
+Future versions will add options to exit with non-zero exit codes or block connections when blacklisted IPs are detected, similar to the whitelist enforcement mechanism.
+
+## Network Behavior Anomaly Detection (NBAD)
+
+### Overview
+EDAMAME Posture includes a sophisticated Network Behavior Anomaly Detection (NBAD) system that automatically identifies unusual network connections without relying on predefined rules. This machine learning-based approach complements the whitelist and blacklist systems by detecting anomalous traffic patterns that might indicate security threats.
+
+### How NBAD Works
+The NBAD system uses an Isolation Forest algorithm, a machine learning technique specifically designed for anomaly detection. It works by:
+
+1. Collecting data about network sessions (without storing sensitive content)
+2. Extracting relevant features like process information, ports, traffic volume, etc.
+3. Building a model of what "normal" traffic looks like
+4. Scoring new connections based on how unusual they appear compared to the baseline
+
+### Session Criticality Classification
+Each network connection is assigned a criticality level based on its anomaly score:
+
+- **Normal**: Connections that match typical patterns
+- **Suspicious**: Connections that seem somewhat unusual but may be legitimate
+- **Abnormal**: Connections that strongly deviate from normal patterns
+
+### Example Output
+When viewing session data with `get-sessions`, you'll see criticality information:
+
+```
+[2025-03-30T18:52:51.408970+00:00] root edamame_posture - TCP 192.168.64.23:54487 -> 185.199.111.153:443 (https) ASN54113 / FASTLY / US (615 bytes sent, 6273 bytes received, duration: 0s, whitelisted: Conforming, criticality: anomaly:normal)
+
+[2025-03-30T18:53:01.988287+00:00] runner edamame_posture - TCP 192.168.64.23:54494 -> 3.5.72.133:443 (https) ASN16509 / AMAZON-02 / US (276 bytes sent, 0 bytes received, duration: ongoing, whitelisted: Conforming, criticality: anomaly:normal)
+
+[2025-03-30T18:53:01.123500+00:00] root edamame_posture - TCP 192.168.64.23:49165 -> 140.82.114.21:443 (https) ASN36459 / GITHUB / US (29117 bytes sent, 0 bytes received, duration: ongoing, whitelisted: NonConforming: No matching endpoint found in whitelist 'github' for domain: None, ip: Some("140.82.114.21"), port: 443, protocol: TCP, ASN: Some(36459), Country: Some("US"), Owner: Some("GITHUB"), Process: Some("edamame_posture"), criticality: anomaly:normal)
+```
+
+### NBAD Status and Integration
+Like blacklists, the NBAD system is currently implemented for informational purposes but is not yet tied to enforcement actions (such as failing a pipeline). It provides valuable insights alongside whitelist checks, helping you identify potentially suspicious behavior even within connections that conform to whitelist rules.
+
+Future versions will provide options to establish policies based on anomaly detection results, allowing for automatic action when abnormal traffic is detected.
+
+### Autonomous Learning
+The NBAD system automatically adapts to the environment where it runs:
+
+- It learns normal traffic patterns for your specific workflows
+- No manual configuration of rules or thresholds is needed
+- It becomes more accurate over time as it observes more traffic
 
 ## Historical Security Posture Verification
 EDAMAME Posture provides powerful capabilities for historical verification of security posture through its signature system. This enables organizations to maintain an audit trail of device security compliance over time.
