@@ -19,7 +19,8 @@ use std::time::Duration;
 pub fn background_get_sessions(
     zeek_format: bool,
     local_traffic: bool,
-    exceptions_only: bool,
+    check_anomalous: bool,
+    check_blacklisted: bool,
 ) -> i32 {
     let sessions = match rpc_get_lan_sessions(
         &EDAMAME_CA_PEM,
@@ -48,8 +49,71 @@ pub fn background_get_sessions(
         }
     };
 
+    // Filter and display sessions (normal mode)
+    background_display_sessions(sessions.sessions, zeek_format, local_traffic, false);
+
+    // Determine exit code based on checks
+    let mut exit_code = 0;
+
+    // Check for whitelist conformance
+    if !whitelist_conformance {
+        eprintln!("Some connections failed the whitelist check");
+        exit_code = ERROR_CODE_MISMATCH;
+    }
+
+    // Check for anomalous sessions if requested
+    if check_anomalous && exit_code == 0 {
+        let anomalous_status = match rpc_get_anomalous_status(
+            &EDAMAME_CA_PEM,
+            &EDAMAME_CLIENT_PEM,
+            &EDAMAME_CLIENT_KEY,
+            &EDAMAME_TARGET,
+        ) {
+            Ok(status) => status,
+            Err(e) => {
+                eprintln!("Error checking anomalous session status: {}", e);
+                false
+            }
+        };
+
+        if anomalous_status {
+            eprintln!("WARNING: Anomalous network sessions detected!");
+            exit_code = ERROR_CODE_MISMATCH;
+        }
+    }
+
+    // Check for blacklisted sessions if requested
+    if check_blacklisted && exit_code == 0 {
+        let blacklisted_status = match rpc_get_blacklisted_status(
+            &EDAMAME_CA_PEM,
+            &EDAMAME_CLIENT_PEM,
+            &EDAMAME_CLIENT_KEY,
+            &EDAMAME_TARGET,
+        ) {
+            Ok(status) => status,
+            Err(e) => {
+                eprintln!("Error checking blacklisted session status: {}", e);
+                false
+            }
+        };
+
+        if blacklisted_status {
+            eprintln!("WARNING: Blacklisted network sessions detected!");
+            exit_code = ERROR_CODE_MISMATCH;
+        }
+    }
+
+    return exit_code;
+}
+
+pub fn background_display_sessions(
+    sessions: Vec<SessionInfoAPI>,
+    zeek_format: bool,
+    local_traffic: bool,
+    exceptions_only: bool,
+) {
     // Get all sessions first
-    let mut filtered_sessions = sessions.sessions;
+    let mut filtered_sessions = sessions;
 
     // If we only want exceptions, find the exceptions
     if exceptions_only {
@@ -75,15 +139,28 @@ pub fn background_get_sessions(
         format_sessions_log(filtered_sessions)
     };
 
+    // Display the sessions
     for session in formatted_sessions.iter() {
         println!("{}", session);
     }
+}
 
-    // Check whitelist conformance
-    if !whitelist_conformance && !exceptions_only {
-        eprintln!("Some connections failed the whitelist check");
-        return ERROR_CODE_MISMATCH;
-    }
+pub fn background_get_exceptions(zeek_format: bool, local_traffic: bool) -> i32 {
+    let sessions = match rpc_get_lan_sessions(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(sessions) => sessions,
+        Err(e) => {
+            eprintln!("Error getting LAN sessions: {}", e);
+            return ERROR_CODE_SERVER_ERROR;
+        }
+    };
+
+    // Display only exceptions
+    background_display_sessions(sessions.sessions, zeek_format, local_traffic, true);
 
     return 0;
 }
@@ -420,4 +497,70 @@ pub fn background_get_score() -> i32 {
             ERROR_CODE_SERVER_ERROR
         }
     }
+}
+
+// Function to display anomalous sessions
+pub fn background_get_anomalous_sessions(zeek_format: bool) -> i32 {
+    // Get anomalous sessions
+    let anomalous_sessions = match rpc_get_anomalous_sessions(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(sessions) => sessions,
+        Err(e) => {
+            eprintln!("Error getting anomalous sessions: {}", e);
+            return ERROR_CODE_SERVER_ERROR;
+        }
+    };
+
+    if anomalous_sessions.is_empty() {
+        return 0;
+    }
+
+    // Format and display sessions
+    let formatted_sessions = if zeek_format {
+        format_sessions_zeek(anomalous_sessions)
+    } else {
+        format_sessions_log(anomalous_sessions)
+    };
+    for session in formatted_sessions.iter() {
+        println!("{}", session);
+    }
+
+    return ERROR_CODE_MISMATCH; // Return 1 to indicate anomalous sessions were found
+}
+
+// Function to display blacklisted sessions
+pub fn background_get_blacklisted_sessions(zeek_format: bool) -> i32 {
+    // Get blacklisted sessions
+    let blacklisted_sessions = match rpc_get_blacklisted_sessions(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(sessions) => sessions,
+        Err(e) => {
+            eprintln!("Error getting blacklisted sessions: {}", e);
+            return ERROR_CODE_SERVER_ERROR;
+        }
+    };
+
+    if blacklisted_sessions.is_empty() {
+        return 0;
+    }
+
+    // Format and display sessions
+    let formatted_sessions = if zeek_format {
+        format_sessions_zeek(blacklisted_sessions)
+    } else {
+        format_sessions_log(blacklisted_sessions)
+    };
+    for session in formatted_sessions.iter() {
+        println!("{}", session);
+    }
+
+    return ERROR_CODE_MISMATCH; // Return 1 to indicate blacklisted sessions were found
 }

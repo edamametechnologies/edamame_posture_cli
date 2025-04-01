@@ -676,9 +676,9 @@ dependencies = [
 
 [[package]]
 name = "blake3"
-version = "1.7.0"
+version = "1.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b17679a8d69b6d7fd9cd9801a536cec9fa5e5970b69f9d4747f70b39b031f5e7"
+checksum = "34a796731680be7931955498a16a10b2270c7762963d5d570fdbfe02dcbf314f"
 dependencies = [
  "arrayref",
  "arrayvec",
@@ -1618,7 +1618,6 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "0.9.22"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#c35d9f086dd52eaaec346611c10a9ed52e01a5df"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1690,7 +1689,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "0.9.21"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#28ab0cf25c59c8e0905cbb15ea8d1d5261551d9a"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#ff8815564b2a1f03262a4d193aa9b0f3d742dfcc"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -2688,9 +2687,9 @@ dependencies = [
 
 [[package]]
 name = "hyper-util"
-version = "0.1.10"
+version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "df2dcfbe0677734ab2f3ffa7fa7bfd4706bfdc1ef393f2ee30184aed67e631b4"
+checksum = "497bbc33a26fdd4af9ed9c70d63f61cf56a938375fbb32df34db9b1cd6d643f2"
 dependencies = [
  "bytes",
  "futures-channel",
@@ -2698,6 +2697,7 @@ dependencies = [
  "http 1.3.1",
  "http-body 1.0.1",
  "hyper 1.6.0",
+ "libc",
  "pin-project-lite",
  "socket2 0.5.9",
  "tokio",
@@ -2707,9 +2707,9 @@ dependencies = [
 
 [[package]]
 name = "iana-time-zone"
-version = "0.1.62"
+version = "0.1.63"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b2fd658b06e56721792c5df4475705b6cda790e9298d19d2f8af083457bcd127"
+checksum = "b0c919e5debc312ad217002b8048a17b7d83f80703865bbfcfebb0458b0b27d8"
 dependencies = [
  "android_system_properties",
  "core-foundation-sys",
@@ -2717,7 +2717,7 @@ dependencies = [
  "js-sys",
  "log",
  "wasm-bindgen",
- "windows-core 0.52.0",
+ "windows-core 0.61.0",
 ]
 
 [[package]]
@@ -5087,9 +5087,9 @@ dependencies = [
 
 [[package]]
 name = "rustix"
-version = "1.0.3"
+version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e56a18552996ac8d29ecc3b190b4fdbb2d91ca4ec396de7bbffaf43f3d637e96"
+checksum = "7a04a32fb43fcdef85b977ce7f77a150805e4b2ea1f2656898d4a547dde78df6"
 dependencies = [
  "bitflags 2.9.0",
  "errno 0.3.10",
@@ -5732,7 +5732,7 @@ dependencies = [
  "fastrand 2.3.0",
  "getrandom 0.3.2",
  "once_cell",
- "rustix 1.0.3",
+ "rustix 1.0.4",
  "windows-sys 0.59.0",
 ]
 
