@@ -360,14 +360,14 @@ jobs:
             EXCEPTION_COUNT=$(grep "whitelisted: NonConforming" ./exceptions.log | wc -l | tr -d ' ' || echo -1)
             UNKNOWN_COUNT=$(grep "whitelisted: Unknown" ./exceptions.log | wc -l | tr -d ' ' || echo -1)
             
-            if [ "${EXCEPTION_COUNT}" -eq -1 -o "${UNKNOWN_COUNT}" -eq -1 ]; then
+            if [[ "${EXCEPTION_COUNT}" -eq -1 ]] || [[ "${UNKNOWN_COUNT}" -eq -1 ]]; then
               echo "Error: Failed to count exceptions"
               exit 1
             fi
 
             echo "Detected ${EXCEPTION_COUNT} exceptions and ${UNKNOWN_COUNT} unknown exceptions"
             
-            if [ "${EXCEPTION_COUNT}" -gt 5 -o "${UNKNOWN_COUNT}" -gt 0 ]; then
+            if [[ "${EXCEPTION_COUNT}" -gt 5 ]] || [[ "${UNKNOWN_COUNT}" -gt 0 ]]; then
               echo "Error: Detected too many exceptions or unknown exceptions"
               exit 1
             fi
@@ -379,7 +379,7 @@ jobs:
             cat ./blacklisted_sessions.log
 
             # Check if the blacklisted IP is not in the log
-            if !grep -q "212.27.48.10" ./blacklisted_sessions.log; then
+            if ! grep -q "212.27.48.10" ./blacklisted_sessions.log; then
               echo "Error: Blacklisted IP is not in the log"
               exit 1
             fi
