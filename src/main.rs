@@ -524,10 +524,21 @@ fn run_base() {
             let local_traffic = sub_matches
                 .get_one::<bool>("LOCAL_TRAFFIC")
                 .unwrap_or(&false);
+            let check_anomalous = sub_matches
+                .get_one::<bool>("CHECK_ANOMALOUS")
+                .unwrap_or(&false);
+            let check_blacklisted = sub_matches
+                .get_one::<bool>("CHECK_BLACKLISTED")
+                .unwrap_or(&true);
 
             // Initialize the core with all options disabled
             initialize_core("".to_string(), false, false, false, false, verbose);
-            exit_code = background_get_sessions(*zeek_format, *local_traffic, false);
+            exit_code = background_get_sessions(
+                *zeek_format,
+                *local_traffic,
+                *check_anomalous,
+                *check_blacklisted,
+            );
             is_background = true;
         }
         Some(("background-get-exceptions", sub_matches)) => {
@@ -538,7 +549,23 @@ fn run_base() {
 
             // Initialize the core with all options disabled
             initialize_core("".to_string(), false, false, false, false, verbose);
-            exit_code = background_get_sessions(*zeek_format, *local_traffic, true);
+            exit_code = background_get_exceptions(*zeek_format, *local_traffic);
+            is_background = true;
+        }
+        Some(("background-get-anomalous-sessions", sub_matches)) => {
+            let zeek_format = sub_matches.get_one::<bool>("ZEEK_FORMAT").unwrap_or(&false);
+
+            // Initialize the core with all options disabled
+            initialize_core("".to_string(), false, false, false, false, verbose);
+            exit_code = background_get_anomalous_sessions(*zeek_format);
+            is_background = true;
+        }
+        Some(("background-get-blacklisted-sessions", sub_matches)) => {
+            let zeek_format = sub_matches.get_one::<bool>("ZEEK_FORMAT").unwrap_or(&false);
+
+            // Initialize the core with all options disabled
+            initialize_core("".to_string(), false, false, false, false, verbose);
+            exit_code = background_get_blacklisted_sessions(*zeek_format);
             is_background = true;
         }
         Some(("background-threats-info", _)) => {

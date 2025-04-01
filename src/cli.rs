@@ -200,6 +200,18 @@ pub fn build_cli() -> Command {
                     .required(false)
                     .default_value("false")
                     .value_parser(clap::value_parser!(bool)),
+            )
+            .arg(
+                arg!([CHECK_ANOMALOUS] "Exit with code 1 if anomalous sessions are detected")
+                    .required(false)
+                    .default_value("false")
+                    .value_parser(clap::value_parser!(bool)),
+            )
+            .arg(
+                arg!([CHECK_BLACKLISTED] "Exit with code 1 if blacklisted sessions are detected")
+                    .required(false)
+                    .default_value("true")
+                    .value_parser(clap::value_parser!(bool)),
             ),
     )
     .subcommand(
@@ -329,4 +341,24 @@ pub fn build_cli() -> Command {
             .about("Create custom whitelists from current sessions and set them")
     )
     .subcommand(Command::new("background-score").alias("get-background-score").about("Get security score from the background process"))
+    .subcommand(
+        Command::new("background-get-anomalous-sessions")
+            .alias("get-anomalous-sessions")
+            .about("Get anomalous connections detected by the background process")
+            .arg(
+                arg!([ZEEK_FORMAT] "Zeek format")
+                    .required(false)
+                    .value_parser(clap::value_parser!(bool)),
+            ),
+    )
+    .subcommand(
+        Command::new("background-get-blacklisted-sessions")
+            .alias("get-blacklisted-sessions")
+            .about("Get blacklisted connections detected by the background process")
+            .arg(
+                arg!([ZEEK_FORMAT] "Zeek format")
+                    .required(false)
+                    .value_parser(clap::value_parser!(bool)),
+            ),
+    )
 }
