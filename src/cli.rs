@@ -340,6 +340,16 @@ pub fn build_cli() -> Command {
             .alias("create-and-set-custom-whitelists")
             .about("Create custom whitelists from current sessions and set them")
     )
+    .subcommand(
+        Command::new("background-set-custom-blacklists")
+            .alias("set-custom-blacklists")
+            .about("Set custom blacklists from JSON")
+            .arg(
+                arg!(<BLACKLIST_JSON> "JSON string containing blacklist definitions")
+                    .required(true)
+                    .value_parser(clap::value_parser!(String)),
+            )
+    )
     .subcommand(Command::new("background-score").alias("get-background-score").about("Get security score from the background process"))
     .subcommand(
         Command::new("background-get-anomalous-sessions")

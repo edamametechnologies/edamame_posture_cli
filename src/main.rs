@@ -703,6 +703,16 @@ fn run_base() {
             exit_code = background_set_custom_whitelists(whitelist_json);
             is_background = true;
         }
+        Some(("background-set-custom-blacklists", sub_matches)) => {
+            let blacklist_json = sub_matches
+                .get_one::<String>("BLACKLIST_JSON")
+                .expect("BLACKLIST_JSON not provided")
+                .to_string();
+            // Initialize the core with all options disabled
+            initialize_core("".to_string(), false, false, false, false, verbose);
+            exit_code = background_set_custom_blacklists(blacklist_json);
+            is_background = true;
+        }
         Some(("background-create-custom-whitelists", _)) => {
             // Initialize the core with all options disabled
             initialize_core("".to_string(), false, false, false, false, verbose);
