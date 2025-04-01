@@ -564,3 +564,22 @@ pub fn background_get_blacklisted_sessions(zeek_format: bool) -> i32 {
 
     return ERROR_CODE_MISMATCH; // Return 1 to indicate blacklisted sessions were found
 }
+
+pub fn background_set_custom_blacklists(blacklist_json: String) -> i32 {
+    match rpc_set_custom_blacklists(
+        blacklist_json,
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(_) => {
+            println!("Custom blacklists set successfully.");
+            0
+        }
+        Err(e) => {
+            eprintln!("Error setting custom blacklists: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}

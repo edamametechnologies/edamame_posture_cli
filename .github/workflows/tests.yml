@@ -328,35 +328,78 @@ jobs:
             # Apply the custom whitelist
             echo "Apply custom whitelist:"
             $SUDO_CMD ~/$BINARY -v set-custom-whitelists "$(cat custom_whitelists.json)"
+
+            # Create a custom blacklist with a specific IP address (example.com - 93.184.216.34)
+            echo "Creating custom blacklist"
+            cat > custom_blacklist.json << EOF
+            {
+              "date": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
+              "blacklists": [
+                {
+                  "name": "test_blacklist",
+                  "description": "Test blacklist for CI",
+                  "last_updated": "$(date -u +"%Y-%m-%d")",
+                  "source_url": "",
+                  "ip_ranges": [
+                    "212.27.48.10/32"
+                  ]
+                }
+              ]
+            }
+            EOF
+
+            # Set custom blacklist
+            echo "Setting custom blacklist"
+            $SUDO_CMD ~/$BINARY -v set-custom-blacklists "$(cat custom_blacklist.json)"
+
+            # Make a connection to the blacklisted IP (free.fr)
+            echo "Making connection to blacklisted IP (free.fr)"
+            if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+              curl.exe -s -m 5 http://free.fr/ -o /dev/null || true
+            else
+              curl -s -m 5 http://free.fr/ -o /dev/null || true
+            fi
+
+            # Check sessions with whitelist conformance
+            echo "Sessions with whitelist:"
+            # Can fail because of whitelist conformance, ignore it
+            ~/$BINARY -v get-sessions || true
+
+            # Get the exceptions
+            echo "Exceptions:"
+            # Don't use -v here, as it will corrupt the output
+            ~/$BINARY get-exceptions > ./exceptions.log
+            echo "Exceptions log:"
+            cat ./exceptions.log
+
+            EXCEPTION_COUNT=$(grep "whitelisted: NonConforming" ./exceptions.log | wc -l | tr -d ' ' || echo -1)
+            UNKNOWN_COUNT=$(grep "whitelisted: Unknown" ./exceptions.log | wc -l | tr -d ' ' || echo -1)
+            
+            if [ "${EXCEPTION_COUNT}" -eq -1 -o "${UNKNOWN_COUNT}" -eq -1 ]; then
+              echo "Error: Failed to count exceptions"
+              exit 1
+            fi
+
+            echo "Detected ${EXCEPTION_COUNT} exceptions and ${UNKNOWN_COUNT} unknown exceptions"
+            
+            if [ "${EXCEPTION_COUNT}" -gt 5 -o "${UNKNOWN_COUNT}" -gt 0 ]; then
+              echo "Error: Detected too many exceptions or unknown exceptions"
+              exit 1
+            fi
+
+            # Check blacklist detection
+            echo "Checking blacklist detection"
+            ~/$BINARY -v get-blacklisted-sessions > ./blacklisted_sessions.log
+            echo "Blacklisted sessions log:"
+            cat ./blacklisted_sessions.log
+
+            # Check if the blacklisted IP is not in the log
+            if !grep -q "212.27.48.10" ./blacklisted_sessions.log; then
+              echo "Error: Blacklisted IP is not in the log"
+              exit 1
+            fi
           fi
 
-          # Check sessions with whitelist conformance
-          echo "Sessions with whitelist:"
-          # Can fail because of whitelist conformance, ignore it
-          ~/$BINARY -v get-sessions || true
-
-          # Get the exceptions
-          echo "Exceptions:"
-          # Don't use -v here, as it will corrupt the output
-          ~/$BINARY get-exceptions > ./exceptions.log
-          echo "Exceptions log:"
-          cat ./exceptions.log
-
-          EXCEPTION_COUNT=$(grep "whitelisted: NonConforming" ./exceptions.log | wc -l | tr -d ' ' || echo -1)
-          UNKNOWN_COUNT=$(grep "whitelisted: Unknown" ./exceptions.log | wc -l | tr -d ' ' || echo -1)
-          
-          if [ "${EXCEPTION_COUNT}" -eq -1 -o "${UNKNOWN_COUNT}" -eq -1 ]; then
-            echo "Error: Failed to count exceptions"
-            exit 1
-          fi
-
-          echo "Detected ${EXCEPTION_COUNT} exceptions and ${UNKNOWN_COUNT} unknown exceptions"
-          
-          if [ "${EXCEPTION_COUNT}" -gt 5 -o "${UNKNOWN_COUNT}" -gt 0 ]; then
-            echo "Error: Detected too many exceptions or unknown exceptions"
-            exit 1
-          fi
-          
           # Check status
           echo "Status in connected mode:"
           ~/$BINARY -v status
