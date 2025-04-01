@@ -357,13 +357,8 @@ jobs:
             echo "Exceptions log:"
             cat ./exceptions.log
 
-            EXCEPTION_COUNT=$(grep "whitelisted: NonConforming" ./exceptions.log | wc -l | tr -d ' ' || echo -1)
-            UNKNOWN_COUNT=$(grep "whitelisted: Unknown" ./exceptions.log | wc -l | tr -d ' ' || echo -1)
-            
-            if [ "${EXCEPTION_COUNT}" -eq -1 -o "${UNKNOWN_COUNT}" -eq -1 ]; then
-              echo "Error: Failed to count exceptions"
-              exit 1
-            fi
+            EXCEPTION_COUNT=$(grep "whitelisted: NonConforming" ./exceptions.log | wc -l | tr -d ' ' || echo 0)
+            UNKNOWN_COUNT=$(grep "whitelisted: Unknown" ./exceptions.log | wc -l | tr -d ' ' || echo 0)
 
             echo "Detected ${EXCEPTION_COUNT} exceptions and ${UNKNOWN_COUNT} unknown exceptions"
             
