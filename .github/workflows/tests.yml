@@ -330,7 +330,7 @@ jobs:
             $SUDO_CMD ~/$BINARY -v set-custom-whitelists "$(cat custom_whitelists.json)"
 
             echo "Creating custom blacklist"
-            echo '{"date":"'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'","blacklists":[{"name":"test_blacklist","description":"Test blacklist for CI","last_updated":"'$(date -u +"%Y-%m-%d")'","source_url":"","ip_ranges":["212.27.48.10/32"]}]}' > custom_blacklist.json
+            echo '{"date":"'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'","blacklists":[{"name":"test_blacklist","description":"Test blacklist for CI","last_updated":"'$(date -u +"%Y-%m-%d")'","source_url":"","ip_ranges":["5.78.100.21/32"]}]}' > custom_blacklist.json
 
             # Set custom blacklist
             echo "Setting custom blacklist"
@@ -339,10 +339,13 @@ jobs:
             # Make a connection to the blacklisted IP (free.fr)
             echo "Making connection to blacklisted IP (free.fr)"
             if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-              curl.exe -s -m 5 http://free.fr/ -o /dev/null || true
+              curl.exe -s -m 5 https://2.na.dl.wireshark.org/src/wireshark-4.4.5.tar.xz -o /dev/null || true
             else
-              curl -s -m 5 http://free.fr/ -o /dev/null || true
+              curl -s -m 5 https://2.na.dl.wireshark.org/src/wireshark-4.4.5.tar.xz -o /dev/null || true
             fi
+
+            # Wait for 60 seconds for the sessions to be updated
+            sleep 60
 
             # Check sessions with whitelist conformance
             echo "Sessions with whitelist:"
