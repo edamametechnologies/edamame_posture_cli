@@ -104,6 +104,8 @@ commands_test:
 	$(BINARY) background-wait-for-connection
 	# Can fail because of whitelist conformance, ignore it
 	-$(BINARY) background-get-sessions
+	$(BINARY) background-get-anomalous-sessions
+	$(BINARY) background-get-blacklisted-sessions
 	$(BINARY) background-last-report-signature
 	$(BINARY) help
 

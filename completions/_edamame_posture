@@ -244,6 +244,8 @@ _arguments "${_arguments_options[@]}" : \
 '--help[Print help]' \
 '::ZEEK_FORMAT -- Zeek format:(true false)' \
 '::LOCAL_TRAFFIC -- Include local traffic:(true false)' \
+'::CHECK_ANOMALOUS -- Exit with code 1 if anomalous sessions are detected:(true false)' \
+'::CHECK_BLACKLISTED -- Exit with code 1 if blacklisted sessions are detected:(true false)' \
 && ret=0
 ;;
 (background-get-exceptions)
@@ -358,12 +360,39 @@ _arguments "${_arguments_options[@]}" : \
 '--help[Print help]' \
 && ret=0
 ;;
+(background-set-custom-blacklists)
+_arguments "${_arguments_options[@]}" : \
+'*-v[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'*--verbose[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'-h[Print help]' \
+'--help[Print help]' \
+':BLACKLIST_JSON -- JSON string containing blacklist definitions:_default' \
+&& ret=0
+;;
 (background-score)
 _arguments "${_arguments_options[@]}" : \
 '*-v[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
 '*--verbose[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
 '-h[Print help]' \
 '--help[Print help]' \
+&& ret=0
+;;
+(background-get-anomalous-sessions)
+_arguments "${_arguments_options[@]}" : \
+'*-v[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'*--verbose[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'-h[Print help]' \
+'--help[Print help]' \
+'::ZEEK_FORMAT -- Zeek format:(true false)' \
+&& ret=0
+;;
+(background-get-blacklisted-sessions)
+_arguments "${_arguments_options[@]}" : \
+'*-v[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'*--verbose[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'-h[Print help]' \
+'--help[Print help]' \
+'::ZEEK_FORMAT -- Zeek format:(true false)' \
 && ret=0
 ;;
 (help)
@@ -522,7 +551,19 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
+(background-set-custom-blacklists)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
 (background-score)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(background-get-anomalous-sessions)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(background-get-blacklisted-sessions)
 _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
@@ -578,7 +619,10 @@ _edamame_posture_commands() {
 'background-set-custom-whitelists:Set custom whitelists from JSON' \
 'background-create-custom-whitelists:Create custom whitelists from current sessions' \
 'background-create-and-set-custom-whitelists:Create custom whitelists from current sessions and set them' \
+'background-set-custom-blacklists:Set custom blacklists from JSON' \
 'background-score:Get security score from the background process' \
+'background-get-anomalous-sessions:Get anomalous connections detected by the background process' \
+'background-get-blacklisted-sessions:Get blacklisted connections detected by the background process' \
 'help:Print this message or the help of the given subcommand(s)' \
     )
     _describe -t commands 'edamame_posture commands' commands "$@"
@@ -592,6 +636,16 @@ _edamame_posture__background-create-and-set-custom-whitelists_commands() {
 _edamame_posture__background-create-custom-whitelists_commands() {
     local commands; commands=()
     _describe -t commands 'edamame_posture background-create-custom-whitelists commands' commands "$@"
+}
+(( $+functions[_edamame_posture__background-get-anomalous-sessions_commands] )) ||
+_edamame_posture__background-get-anomalous-sessions_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture background-get-anomalous-sessions commands' commands "$@"
+}
+(( $+functions[_edamame_posture__background-get-blacklisted-sessions_commands] )) ||
+_edamame_posture__background-get-blacklisted-sessions_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture background-get-blacklisted-sessions commands' commands "$@"
 }
 (( $+functions[_edamame_posture__background-get-exceptions_commands] )) ||
 _edamame_posture__background-get-exceptions_commands() {
@@ -622,6 +676,11 @@ _edamame_posture__background-logs_commands() {
 _edamame_posture__background-score_commands() {
     local commands; commands=()
     _describe -t commands 'edamame_posture background-score commands' commands "$@"
+}
+(( $+functions[_edamame_posture__background-set-custom-blacklists_commands] )) ||
+_edamame_posture__background-set-custom-blacklists_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture background-set-custom-blacklists commands' commands "$@"
 }
 (( $+functions[_edamame_posture__background-set-custom-whitelists_commands] )) ||
 _edamame_posture__background-set-custom-whitelists_commands() {
@@ -762,7 +821,10 @@ _edamame_posture__help_commands() {
 'background-set-custom-whitelists:Set custom whitelists from JSON' \
 'background-create-custom-whitelists:Create custom whitelists from current sessions' \
 'background-create-and-set-custom-whitelists:Create custom whitelists from current sessions and set them' \
+'background-set-custom-blacklists:Set custom blacklists from JSON' \
 'background-score:Get security score from the background process' \
+'background-get-anomalous-sessions:Get anomalous connections detected by the background process' \
+'background-get-blacklisted-sessions:Get blacklisted connections detected by the background process' \
 'help:Print this message or the help of the given subcommand(s)' \
     )
     _describe -t commands 'edamame_posture help commands' commands "$@"
@@ -776,6 +838,16 @@ _edamame_posture__help__background-create-and-set-custom-whitelists_commands() {
 _edamame_posture__help__background-create-custom-whitelists_commands() {
     local commands; commands=()
     _describe -t commands 'edamame_posture help background-create-custom-whitelists commands' commands "$@"
+}
+(( $+functions[_edamame_posture__help__background-get-anomalous-sessions_commands] )) ||
+_edamame_posture__help__background-get-anomalous-sessions_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture help background-get-anomalous-sessions commands' commands "$@"
+}
+(( $+functions[_edamame_posture__help__background-get-blacklisted-sessions_commands] )) ||
+_edamame_posture__help__background-get-blacklisted-sessions_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture help background-get-blacklisted-sessions commands' commands "$@"
 }
 (( $+functions[_edamame_posture__help__background-get-exceptions_commands] )) ||
 _edamame_posture__help__background-get-exceptions_commands() {
@@ -806,6 +878,11 @@ _edamame_posture__help__background-logs_commands() {
 _edamame_posture__help__background-score_commands() {
     local commands; commands=()
     _describe -t commands 'edamame_posture help background-score commands' commands "$@"
+}
+(( $+functions[_edamame_posture__help__background-set-custom-blacklists_commands] )) ||
+_edamame_posture__help__background-set-custom-blacklists_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture help background-set-custom-blacklists commands' commands "$@"
 }
 (( $+functions[_edamame_posture__help__background-set-custom-whitelists_commands] )) ||
 _edamame_posture__help__background-set-custom-whitelists_commands() {
