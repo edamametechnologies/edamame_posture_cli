@@ -77,7 +77,6 @@ pub fn background_get_sessions(
         };
 
         if anomalous_status {
-            eprintln!("WARNING: Anomalous network sessions detected!");
             exit_code = ERROR_CODE_MISMATCH;
         }
     }
@@ -98,7 +97,6 @@ pub fn background_get_sessions(
         };
 
         if blacklisted_status {
-            eprintln!("WARNING: Blacklisted network sessions detected!");
             exit_code = ERROR_CODE_MISMATCH;
         }
     }
