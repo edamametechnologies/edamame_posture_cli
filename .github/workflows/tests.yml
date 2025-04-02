@@ -329,7 +329,6 @@ jobs:
             echo "Apply custom whitelist:"
             $SUDO_CMD ~/$BINARY -v set-custom-whitelists "$(cat custom_whitelists.json)"
 
-            # Create a custom blacklist with a specific IP address (example.com - 93.184.216.34)
             echo "Creating custom blacklist"
             echo '{"date":"'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'","blacklists":[{"name":"test_blacklist","description":"Test blacklist for CI","last_updated":"'$(date -u +"%Y-%m-%d")'","source_url":"","ip_ranges":["212.27.48.10/32"]}]}' > custom_blacklist.json
 
