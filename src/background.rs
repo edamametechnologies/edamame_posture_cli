@@ -35,7 +35,13 @@ pub fn background_get_sessions(
         }
     };
 
-    // Check whitelist conformance
+    // Filter and display sessions (normal mode)
+    background_display_sessions(sessions.sessions, zeek_format, local_traffic, false);
+
+    // Determine exit code based on checks
+    let mut exit_code = 0;
+
+    // Always check whitelist conformance
     let whitelist_conformance = match rpc_get_whitelist_conformance(
         &EDAMAME_CA_PEM,
         &EDAMAME_CLIENT_PEM,
@@ -49,20 +55,13 @@ pub fn background_get_sessions(
         }
     };
 
-    // Filter and display sessions (normal mode)
-    background_display_sessions(sessions.sessions, zeek_format, local_traffic, false);
-
-    // Determine exit code based on checks
-    let mut exit_code = 0;
-
-    // Check for whitelist conformance
     if !whitelist_conformance {
-        eprintln!("Some connections failed the whitelist check");
+        eprintln!("Non-conforming sessions detected");
         exit_code = ERROR_CODE_MISMATCH;
     }
 
     // Check for anomalous sessions if requested
-    if check_anomalous && exit_code == 0 {
+    if check_anomalous {
         let anomalous_status = match rpc_get_anomalous_status(
             &EDAMAME_CA_PEM,
             &EDAMAME_CLIENT_PEM,
@@ -77,12 +76,13 @@ pub fn background_get_sessions(
         };
 
         if anomalous_status {
+            eprintln!("Anomalous sessions detected");
             exit_code = ERROR_CODE_MISMATCH;
         }
     }
 
     // Check for blacklisted sessions if requested
-    if check_blacklisted && exit_code == 0 {
+    if check_blacklisted {
         let blacklisted_status = match rpc_get_blacklisted_status(
             &EDAMAME_CA_PEM,
             &EDAMAME_CLIENT_PEM,
@@ -97,6 +97,7 @@ pub fn background_get_sessions(
         };
 
         if blacklisted_status {
+            eprintln!("Blacklisted sessions detected");
             exit_code = ERROR_CODE_MISMATCH;
         }
     }
@@ -527,7 +528,7 @@ pub fn background_get_anomalous_sessions(zeek_format: bool) -> i32 {
         println!("{}", session);
     }
 
-    return ERROR_CODE_MISMATCH; // Return 1 to indicate anomalous sessions were found
+    return 0; // Always return 0 on success, even if sessions are found
 }
 
 // Function to display blacklisted sessions
@@ -560,7 +561,7 @@ pub fn background_get_blacklisted_sessions(zeek_format: bool) -> i32 {
         println!("{}", session);
     }
 
-    return ERROR_CODE_MISMATCH; // Return 1 to indicate blacklisted sessions were found
+    return 0; // Always return 0 on success, even if sessions are found
 }
 
 pub fn background_set_custom_blacklists(blacklist_json: String) -> i32 {
@@ -577,6 +578,95 @@ pub fn background_set_custom_blacklists(blacklist_json: String) -> i32 {
         }
         Err(e) => {
             eprintln!("Error setting custom blacklists: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+// Function to retrieve blacklists
+pub fn background_get_blacklists() -> i32 {
+    match rpc_get_blacklists(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(blacklists) => {
+            // The list is a String represent a JSON object
+            // We need to parse it and print it pretty
+            let json_value: serde_json::Value = match serde_json::from_str(&blacklists) {
+                Ok(value) => value,
+                Err(e) => {
+                    eprintln!("Error parsing blacklist JSON: {}", e);
+                    return ERROR_CODE_SERVER_ERROR;
+                }
+            };
+            let pretty_json = match serde_json::to_string_pretty(&json_value) {
+                Ok(json) => json,
+                Err(e) => {
+                    eprintln!("Error formatting blacklist JSON: {}", e);
+                    return ERROR_CODE_SERVER_ERROR;
+                }
+            };
+            println!("{}", pretty_json);
+            0
+        }
+        Err(e) => {
+            eprintln!("Error getting blacklists: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+// Function to retrieve whitelists
+pub fn background_get_whitelists() -> i32 {
+    match rpc_get_whitelists(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(whitelists) => {
+            // The list is a String represent a JSON object
+            // We need to parse it and print it pretty
+            let json_value: serde_json::Value = match serde_json::from_str(&whitelists) {
+                Ok(value) => value,
+                Err(e) => {
+                    eprintln!("Error parsing whitelist JSON: {}", e);
+                    return ERROR_CODE_SERVER_ERROR;
+                }
+            };
+            let pretty_json = match serde_json::to_string_pretty(&json_value) {
+                Ok(json) => json,
+                Err(e) => {
+                    eprintln!("Error formatting whitelist JSON: {}", e);
+                    return ERROR_CODE_SERVER_ERROR;
+                }
+            };
+            println!("{}", pretty_json);
+            0
+        }
+        Err(e) => {
+            eprintln!("Error getting whitelists: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+// Function to retrieve whitelist name
+pub fn background_get_whitelist_name() -> i32 {
+    match rpc_get_whitelist_name(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(name) => {
+            println!("{}", name);
+            0
+        }
+        Err(e) => {
+            eprintln!("Error getting whitelist name: {}", e);
             ERROR_CODE_SERVER_ERROR
         }
     }

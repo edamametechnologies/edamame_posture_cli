@@ -731,6 +731,24 @@ fn run_base() {
             exit_code = background_get_score();
             is_background = true;
         }
+        Some(("background-get-blacklists", _)) => {
+            // Initialize the core with all options disabled
+            initialize_core("".to_string(), false, false, false, false, verbose);
+            exit_code = background_get_blacklists();
+            is_background = true;
+        }
+        Some(("background-get-whitelists", _)) => {
+            // Initialize the core with all options disabled
+            initialize_core("".to_string(), false, false, false, false, verbose);
+            exit_code = background_get_whitelists();
+            is_background = true;
+        }
+        Some(("background-get-whitelist-name", _)) => {
+            // Initialize the core with all options disabled
+            initialize_core("".to_string(), false, false, false, false, verbose);
+            exit_code = background_get_whitelist_name();
+            is_background = true;
+        }
         _ => {
             // Initialize the core with all options disabled
             initialize_core("".to_string(), false, false, false, false, verbose);
