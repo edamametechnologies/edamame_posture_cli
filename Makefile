@@ -82,31 +82,66 @@ clean:
 	cargo clean
 	rm -rf ./build/
 	rm -rf ./target/
+	# Keep cleaning generated files here, scripts might create them outside temp dirs if run manually
+	rm -f custom_whitelists.json custom_blacklist.json exceptions.log blacklisted_sessions.log
+	# Clean temporary directories created by scripts
+	rm -rf tests_temp tests_temp_connected
 
+# Basic cargo tests
 test:
-	# Simple test
-	cargo test -- --nocapture
+	bash ./tests/basic_cargo_test.sh
 
-# Define the binary based on the OS
-BINARY=$(shell if [ "$(RUNNER_OS)" = "Windows" ]; then echo "target/release/edamame_posture.exe"; else echo "target/release/edamame_posture"; fi)
+# Define the binary based on the OS for script usage
+# Ensure the path is relative to the Makefile location
+BINARY_PATH := ./target/release/edamame_posture
+ifeq ($(OS),Windows_NT)
+    BINARY_PATH := ./target/release/edamame_posture.exe
+endif
+export BINARY_PATH # Export for the scripts to use
 
-# This assumes that the background process is running in connected mode
-commands_test:
-	$(BINARY) score
-	$(BINARY) lanscan
-	$(BINARY) capture 5
-	$(BINARY) get-core-info
-	$(BINARY) get-device-info
-	$(BINARY) get-system-info
-	$(BINARY) get-core-version
-	$(BINARY) remediate
-	$(BINARY) background-logs
-	$(BINARY) background-wait-for-connection
-	# Can fail because of whitelist conformance, ignore it
-	-$(BINARY) background-get-sessions
-	$(BINARY) background-get-anomalous-sessions
-	$(BINARY) background-get-blacklisted-sessions
-	$(BINARY) background-last-report-signature
-	$(BINARY) help
+# Define SUDO_CMD based on OS (similar to workflow)
+ifeq ($(OS),Windows_NT)
+    SUDO_CMD :=
+else
+	# Check if running as root, if so, don't use sudo
+    ifeq ($(shell id -u), 0)
+        SUDO_CMD :=
+    else
+        SUDO_CMD := sudo -E
+    endif
+endif
+export SUDO_CMD # Export for the scripts to use
+
+# Standalone CLI commands test (mirrors old commands_test and initial workflow steps)
+commands_test: macos_release # Ensure binary is built
+	# Pass OS info for script's internal logic
+	export RUNNER_OS=$(shell if [ "$(OS)" = "Windows_NT" ]; then echo "Windows_NT"; else echo "$(shell uname)"; fi); \
+	bash ./tests/standalone_commands_test.sh
+
+# Run integration tests in disconnected mode (local default)
+test_integration_local: macos_release # Ensure binary is built
+	# Pass OS info for script's internal logic
+	# CI will be implicitly false as it's not set here
+	export RUNNER_OS=$(shell if [ "$(OS)" = "Windows_NT" ]; then echo "Windows_NT"; else echo "$(shell uname)"; fi); \
+	bash ./tests/integration_test.sh
+
+# Run integration tests in connected mode (requires credentials).
+# Requires credentials (EDAMAME_USER, EDAMAME_DOMAIN, EDAMAME_PIN) to be set in the environment.
+# Warning: This will connect to the actual backend.
+test_integration_connected: macos_release # Ensure binary is built
+	# Pass OS info for script's internal logic
+	export RUNNER_OS=$(shell if [ "$(OS)" = "Windows_NT" ]; then echo "Windows_NT"; else echo "$(shell uname)"; fi); \
+	# Check for required env vars before running
+	@[ "${EDAMAME_USER}" ] || (echo "Error: EDAMAME_USER env var is not set. Cannot run connected tests."; exit 1)
+	@[ "${EDAMAME_DOMAIN}" ] || (echo "Error: EDAMAME_DOMAIN env var is not set. Cannot run connected tests."; exit 1)
+	@[ "${EDAMAME_PIN}" ] || (echo "Error: EDAMAME_PIN env var is not set. Cannot run connected tests."; exit 1)
+	# Explicitly set CI=true for this target
+	export CI=true; \
+	bash ./tests/integration_test.sh
+
+# Aggregate target for local testing (excluding connected tests by default)
+all_test: test commands_test test_integration_local
+	@echo "--- All Local Tests Completed ---"
+	@echo "Note: 'make test_integration_connected' can be run separately if credentials are configured."
 
 

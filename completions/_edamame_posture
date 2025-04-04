@@ -245,7 +245,6 @@ _arguments "${_arguments_options[@]}" : \
 '::ZEEK_FORMAT -- Zeek format:(true false)' \
 '::LOCAL_TRAFFIC -- Include local traffic:(true false)' \
 '::CHECK_ANOMALOUS -- Exit with code 1 if anomalous sessions are detected:(true false)' \
-'::CHECK_BLACKLISTED -- Exit with code 1 if blacklisted sessions are detected:(true false)' \
 && ret=0
 ;;
 (background-get-exceptions)
@@ -393,6 +392,30 @@ _arguments "${_arguments_options[@]}" : \
 '-h[Print help]' \
 '--help[Print help]' \
 '::ZEEK_FORMAT -- Zeek format:(true false)' \
+&& ret=0
+;;
+(background-get-blacklists)
+_arguments "${_arguments_options[@]}" : \
+'*-v[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'*--verbose[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(background-get-whitelists)
+_arguments "${_arguments_options[@]}" : \
+'*-v[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'*--verbose[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(background-get-whitelist-name)
+_arguments "${_arguments_options[@]}" : \
+'*-v[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'*--verbose[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'-h[Print help]' \
+'--help[Print help]' \
 && ret=0
 ;;
 (help)
@@ -567,6 +590,18 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
+(background-get-blacklists)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(background-get-whitelists)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(background-get-whitelist-name)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
 (help)
 _arguments "${_arguments_options[@]}" : \
 && ret=0
@@ -623,6 +658,9 @@ _edamame_posture_commands() {
 'background-score:Get security score from the background process' \
 'background-get-anomalous-sessions:Get anomalous connections detected by the background process' \
 'background-get-blacklisted-sessions:Get blacklisted connections detected by the background process' \
+'background-get-blacklists:Get blacklists from the background process' \
+'background-get-whitelists:Get whitelists from the background process' \
+'background-get-whitelist-name:Get the current whitelist name from the background process' \
 'help:Print this message or the help of the given subcommand(s)' \
     )
     _describe -t commands 'edamame_posture commands' commands "$@"
@@ -647,6 +685,11 @@ _edamame_posture__background-get-blacklisted-sessions_commands() {
     local commands; commands=()
     _describe -t commands 'edamame_posture background-get-blacklisted-sessions commands' commands "$@"
 }
+(( $+functions[_edamame_posture__background-get-blacklists_commands] )) ||
+_edamame_posture__background-get-blacklists_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture background-get-blacklists commands' commands "$@"
+}
 (( $+functions[_edamame_posture__background-get-exceptions_commands] )) ||
 _edamame_posture__background-get-exceptions_commands() {
     local commands; commands=()
@@ -661,6 +704,16 @@ _edamame_posture__background-get-history_commands() {
 _edamame_posture__background-get-sessions_commands() {
     local commands; commands=()
     _describe -t commands 'edamame_posture background-get-sessions commands' commands "$@"
+}
+(( $+functions[_edamame_posture__background-get-whitelist-name_commands] )) ||
+_edamame_posture__background-get-whitelist-name_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture background-get-whitelist-name commands' commands "$@"
+}
+(( $+functions[_edamame_posture__background-get-whitelists_commands] )) ||
+_edamame_posture__background-get-whitelists_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture background-get-whitelists commands' commands "$@"
 }
 (( $+functions[_edamame_posture__background-last-report-signature_commands] )) ||
 _edamame_posture__background-last-report-signature_commands() {
@@ -825,6 +878,9 @@ _edamame_posture__help_commands() {
 'background-score:Get security score from the background process' \
 'background-get-anomalous-sessions:Get anomalous connections detected by the background process' \
 'background-get-blacklisted-sessions:Get blacklisted connections detected by the background process' \
+'background-get-blacklists:Get blacklists from the background process' \
+'background-get-whitelists:Get whitelists from the background process' \
+'background-get-whitelist-name:Get the current whitelist name from the background process' \
 'help:Print this message or the help of the given subcommand(s)' \
     )
     _describe -t commands 'edamame_posture help commands' commands "$@"
@@ -849,6 +905,11 @@ _edamame_posture__help__background-get-blacklisted-sessions_commands() {
     local commands; commands=()
     _describe -t commands 'edamame_posture help background-get-blacklisted-sessions commands' commands "$@"
 }
+(( $+functions[_edamame_posture__help__background-get-blacklists_commands] )) ||
+_edamame_posture__help__background-get-blacklists_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture help background-get-blacklists commands' commands "$@"
+}
 (( $+functions[_edamame_posture__help__background-get-exceptions_commands] )) ||
 _edamame_posture__help__background-get-exceptions_commands() {
     local commands; commands=()
@@ -863,6 +924,16 @@ _edamame_posture__help__background-get-history_commands() {
 _edamame_posture__help__background-get-sessions_commands() {
     local commands; commands=()
     _describe -t commands 'edamame_posture help background-get-sessions commands' commands "$@"
+}
+(( $+functions[_edamame_posture__help__background-get-whitelist-name_commands] )) ||
+_edamame_posture__help__background-get-whitelist-name_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture help background-get-whitelist-name commands' commands "$@"
+}
+(( $+functions[_edamame_posture__help__background-get-whitelists_commands] )) ||
+_edamame_posture__help__background-get-whitelists_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture help background-get-whitelists commands' commands "$@"
 }
 (( $+functions[_edamame_posture__help__background-last-report-signature_commands] )) ||
 _edamame_posture__help__background-last-report-signature_commands() {

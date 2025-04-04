@@ -2,3 +2,4 @@
 /.idea/
 npcap-*
 .DS_Store
+/tests_temp/
