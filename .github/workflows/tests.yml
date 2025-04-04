@@ -102,7 +102,9 @@ jobs:
             echo "EDAMAME_LOG_LEVEL=debug" >> $GITHUB_ENV
             # Set EDAMAME_ID for connected tests script
             echo "EDAMAME_ID=${{ github.run_id }}" >> $GITHUB_ENV
-  
+            # Set KEYCHAIN_PATH for macOS signing
+            echo "KEYCHAIN_PATH=/tmp/app-signing.keychain-db" >> $GITHUB_ENV
+
       - name: Build application
         shell: bash
         run: |
@@ -139,12 +141,19 @@ jobs:
           security list-keychain -d user -s $KEYCHAIN_PATH
 
           # Sign + hardened runtime
-          ./macos/sign.sh ./target/release/$BINARY
+          ./macos/sign.sh $BINARY_PATH
 
       - name: Signing for Windows
         if: matrix.os == 'windows-latest'
         # We can't use bash here, as the AzureSignTool is a .NET tool
         run: AzureSignTool sign -kvt ${{ secrets.AZURE_SIGN_TENANT_ID }} -kvu ${{ secrets.AZURE_SIGN_KEY_VAULT_URI }} -kvi ${{ secrets.AZURE_SIGN_CLIENT_ID }} -kvs ${{ secrets.AZURE_SIGN_CLIENT_SECRET }} -kvc ${{ secrets.AZURE_SIGN_CERT_NAME }} -tr http://timestamp.digicert.com -v ./target/release/edamame_posture.exe
+
+      - name: Pcap DLLs for Windows
+        if: matrix.os == 'windows-latest'
+        run: |
+          mkdir -p ./target/debug
+          wget https://github.com/edamametechnologies/edamame_posture_cli/raw/refs/heads/main/windows/Packet.dll -O ./target/debug/Packet.dll
+          wget https://github.com/edamametechnologies/edamame_posture_cli/raw/refs/heads/main/windows/wpcap.dll -O ./target/debug/wpcap.dll
 
       - name: Run Basic Cargo Tests
         id: cargo_tests
