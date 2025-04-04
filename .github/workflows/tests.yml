@@ -163,11 +163,13 @@ jobs:
         id: cargo_tests
         shell: bash
         run: ./tests/basic_cargo_test.sh
+        continue-on-error: true
 
       - name: Run Standalone Commands Test
         id: standalone_tests
         shell: bash
         run: ./tests/standalone_commands_test.sh
+        continue-on-error: true
 
       - name: Run Integration Tests
         id: integration_tests
@@ -177,7 +179,8 @@ jobs:
           EDAMAME_DOMAIN: ${{ vars.EDAMAME_POSTURE_DOMAIN }}
           EDAMAME_PIN: ${{ secrets.EDAMAME_POSTURE_PIN }}
         run: ./tests/integration_test.sh
-
+        continue-on-error: true
+        
       - name: Slack alerts
         if: steps.cargo_tests.outcome == 'failure' || steps.standalone_tests.outcome == 'failure' || steps.integration_tests.outcome == 'failure'
         uses: slackapi/slack-github-action@v1.26.0
