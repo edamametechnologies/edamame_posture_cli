@@ -206,12 +206,6 @@ pub fn build_cli() -> Command {
                     .required(false)
                     .default_value("false")
                     .value_parser(clap::value_parser!(bool)),
-            )
-            .arg(
-                arg!([CHECK_BLACKLISTED] "Exit with code 1 if blacklisted sessions are detected")
-                    .required(false)
-                    .default_value("true")
-                    .value_parser(clap::value_parser!(bool)),
             ),
     )
     .subcommand(
@@ -371,4 +365,7 @@ pub fn build_cli() -> Command {
                     .value_parser(clap::value_parser!(bool)),
             ),
     )
+    .subcommand(Command::new("background-get-blacklists").alias("get-blacklists").about("Get blacklists from the background process"))
+    .subcommand(Command::new("background-get-whitelists").alias("get-whitelists").about("Get whitelists from the background process"))
+    .subcommand(Command::new("background-get-whitelist-name").alias("get-whitelist-name").about("Get the current whitelist name from the background process"))
 }

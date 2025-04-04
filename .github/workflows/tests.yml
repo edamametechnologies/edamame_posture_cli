@@ -92,10 +92,16 @@ jobs:
       - name: Set environment variables
         shell: bash
         run: |
-            echo "BINARY=edamame_posture${{ matrix.os == 'windows-latest' && '.exe' || '' }}" >> $GITHUB_ENV
+            # Set BINARY_PATH for scripts (points to the built release binary)
+            echo "BINARY_PATH=./target/release/edamame_posture${{ matrix.os == 'windows-latest' && '.exe' || '' }}" >> $GITHUB_ENV
             # Keep environment variables when running sudo
             echo "SUDO_CMD=${{ matrix.os != 'windows-latest' && 'sudo -E' || '' }}" >> $GITHUB_ENV
-            echo "KEYCHAIN_PATH=/tmp/app-signing.keychain-db" >> $GITHUB_ENV
+            # Set RUNNER_OS explicitly for scripts (more reliable than uname inside scripts)
+            echo "RUNNER_OS=${{ matrix.os }}" >> $GITHUB_ENV
+            # Set EDAMAME_LOG_LEVEL for scripts
+            echo "EDAMAME_LOG_LEVEL=debug" >> $GITHUB_ENV
+            # Set EDAMAME_ID for connected tests script
+            echo "EDAMAME_ID=${{ github.run_id }}" >> $GITHUB_ENV
   
       - name: Build application
         shell: bash
@@ -140,261 +146,27 @@ jobs:
         # We can't use bash here, as the AzureSignTool is a .NET tool
         run: AzureSignTool sign -kvt ${{ secrets.AZURE_SIGN_TENANT_ID }} -kvu ${{ secrets.AZURE_SIGN_KEY_VAULT_URI }} -kvi ${{ secrets.AZURE_SIGN_CLIENT_ID }} -kvs ${{ secrets.AZURE_SIGN_CLIENT_SECRET }} -kvc ${{ secrets.AZURE_SIGN_CERT_NAME }} -tr http://timestamp.digicert.com -v ./target/release/edamame_posture.exe
 
-      - name: Run tests
-        id: tests
+      - name: Run Basic Cargo Tests
+        id: cargo_tests
         shell: bash
-        run: |
-          # Stop posture
-          echo "Stopping posture"
-          ~/$BINARY stop
-          sleep 10
+        run: ./tests/basic_cargo_test.sh
 
-          # Aggressively kill in case it's still running
-          echo "Killing posture"
-          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-            taskkill -IM edamame_posture.exe -F || true
-          else
-            $SUDO_CMD killall -9 edamame_posture || true
-          fi
-          sleep 5
+      - name: Run Standalone Commands Test
+        id: standalone_tests
+        shell: bash
+        run: ./tests/standalone_commands_test.sh
 
-          # Remove it
-          $SUDO_CMD rm -f ~/edamame_posture*
-
-          # Clean up the logs
-          echo "Cleaning up the logs"
-          find ~/ -name "edamame_cli_*" -exec echo "--- {} ---" \; -exec rm -f {} \;
-
-          # Set EDAMAME_LOG_LEVEL to debug for the rest of the script
-          export EDAMAME_LOG_LEVEL=debug
-
-          # Install the new binary
-          cp -f ./target/release/$BINARY ~/$BINARY
-
-          # Get core info
-          echo "Core info:"
-          ~/$BINARY -v get-core-info
-
-          # Get core version
-          echo "Core version:"
-          ~/$BINARY -v get-core-version
-
-          # Help
-          echo "Help:"
-          ~/$BINARY -v help
-
-          # Set a business rule that will be passed (Linux only)
-          # Needs to be passed into the root environment
-          if [[ "${{ matrix.os }}" == "ubuntu-latest" || "${{ matrix.os }}" == "macos-latest" ]]; then
-            echo "Setting business rule so that it will be passed and leave an artifact in $HOME/passed_business_rule"
-            # $HOME will be expanded to the home directory of the user running the workflow
-            export EDAMAME_BUSINESS_RULES_CMD="{ echo passed > $HOME/passed_business_rule; } > /dev/null 2>&1"
-          else 
-            if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-              # Use PowerShell
-              echo "Setting business rule so that it will be passed and leave an artifact in $USERPROFILE/passed_business_rule"
-              # Quote the environment variable to avoid issues with special characters
-              export EDAMAME_BUSINESS_RULES_CMD='Write-Output "passed" > "$env:USERPROFILE/passed_business_rule" 2>$null'
-            else
-              echo "Error: Unsupported OS"
-              exit 1
-            fi
-          fi
-          
-          # Perform a simple score computation
-          echo "Score:"
-          $SUDO_CMD ~/$BINARY -v score
-
-          # Check if the business rule was passed
-          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-            if [[ ! -f $USERPROFILE/passed_business_rule ]]; then
-              echo "Error: Business rule not passed"
-              exit 1
-            fi
-          else
-            if [[ ! -f $HOME/passed_business_rule ]]; then
-              echo "Error: Business rule not passed"
-              exit 1
-            fi
-          fi
-          
-          # Test remediate command with skip_remediations
-          echo "Remediate (with skipped remediations):"
-          $SUDO_CMD ~/$BINARY -v remediate "remote login enabled,local firewall disabled"
-          
-          # Test request-signature command
-          echo "Request signature:"
-          # Don't use -v here, as it will corrupt the output
-          signature=$($SUDO_CMD ~/$BINARY request-signature | grep Signature | awk '{print $2}')
-          echo "Obtained signature: $signature"
-          
-          # Test request-report command (using a test email)
-          if [[ "$signature" != "signature_error" ]]; then
-            echo "Request report:"
-            $SUDO_CMD ~/$BINARY -v request-report "test@example.com" "$signature"
-          fi
-          
-          # Test check-policy command with both integer and float scores
-          echo "Check policy (local):"
-          # Should always be compliant
-          $SUDO_CMD ~/$BINARY -v check-policy 1.0 "encrypted disk disabled"
-
-          # Test check-policy-for-domain command
-          echo "Check policy (with domain):"
-          # Should always be compliant (this is the domain in use in the CI)
-          $SUDO_CMD ~/$BINARY -v check-policy-for-domain "edamame.tech" "Github"
-          
-          echo "Check policy (with float score):"
-          # Should always be compliant
-          $SUDO_CMD ~/$BINARY -v check-policy 1.0 "encrypted disk disabled"
-          
-          # Get device info
-          echo "Device info:"
-          $SUDO_CMD ~/$BINARY -v get-device-info
-          
-          # Get system info
-          echo "System info:"
-          $SUDO_CMD ~/$BINARY -v get-system-info
-
-          # Perform a lanscan
-          echo "Lanscan:"
-          $SUDO_CMD ~/$BINARY -v lanscan
-
-          # Perform a capture
-          echo "Capture:"
-          $SUDO_CMD ~/$BINARY -v capture 5
-          
-          # Start in disconnected mode
-          WHITELIST="github"
-          echo "Starting in disconnected mode with LAN scan enabled and whitelist $WHITELIST:"
-          $SUDO_CMD ~/$BINARY -v background-start-disconnected true $WHITELIST
-
-          sleep 10
-          
-          # Check status
-          echo "Status in disconnected mode:"
-          ~/$BINARY -v status
-          
-          # Perform local policy check while in disconnected mode
-          echo "Local policy check in disconnected mode:"
-          $SUDO_CMD ~/$BINARY -v check-policy 1.0 "encrypted disk disabled"
-          
-          # Get sessions in disconnected mode (verifies whitelist conformance)
-          echo "Get sessions in disconnected mode:"
-          ~/$BINARY -v get-sessions || true
-          
-          # Stop disconnected mode
-          echo "Stop disconnected mode:"
-          ~/$BINARY -v stop
-
-          # Wait for the server to be ready
-          echo "Waiting for posture to stop..."
-          sleep 10
-
-          # Start in the background with LAN scan enabled and whitelist $WHITELIST
-          $SUDO_CMD ~/$BINARY -v start ${{ vars.EDAMAME_POSTURE_USER }} ${{ vars.EDAMAME_POSTURE_DOMAIN }} ${{ secrets.EDAMAME_POSTURE_PIN }} ${{ github.run_id }} true $WHITELIST
-          
-          # Test wait-for-connection command
-          echo "Wait for connection:"
-          $SUDO_CMD ~/$BINARY -v wait-for-connection
-          
-          # Check status
-          echo "Status:"
-          ~/$BINARY -v status
-
-          # Build ourselves again to generate build activity
-          make clean
-          cargo build --release
-
-          # For macOS and Linux (not Windows)
-          if [[ "${{ matrix.os }}" != "windows-latest" ]]; then
-
-            # Create custom whitelists from network sessions
-            echo "Create custom whitelist:"
-            # Don't use -v here, as it will corrupt the JSON output
-            $SUDO_CMD ~/$BINARY create-custom-whitelists > custom_whitelists.json
-            
-            # Verify whitelist file exists
-            echo "Verify whitelist file:"
-            if [[ ! -s custom_whitelists.json ]]; then
-              echo "Error: Whitelist file is empty or does not exist"
-              exit 1
-            fi
-
-            # Display the custom whitelist
-            echo "Custom whitelist:"
-            cat custom_whitelists.json
-            
-            # Apply the custom whitelist
-            echo "Apply custom whitelist:"
-            $SUDO_CMD ~/$BINARY -v set-custom-whitelists "$(cat custom_whitelists.json)"
-
-            echo "Creating custom blacklist"
-            echo '{"date":"'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'","blacklists":[{"name":"test_blacklist","description":"Test blacklist for CI","last_updated":"'$(date -u +"%Y-%m-%d")'","source_url":"","ip_ranges":["5.78.100.21/32"]}]}' > custom_blacklist.json
-
-            # Set custom blacklist
-            echo "Setting custom blacklist"
-            $SUDO_CMD ~/$BINARY -v set-custom-blacklists "$(cat custom_blacklist.json)"
-
-            # Make a connection to the blacklisted IP (free.fr)
-            echo "Making connection to blacklisted IP (free.fr)"
-            if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-              curl.exe -s -m 5 https://2.na.dl.wireshark.org/src/wireshark-4.4.5.tar.xz -o /dev/null || true
-            else
-              curl -s -m 5 https://2.na.dl.wireshark.org/src/wireshark-4.4.5.tar.xz -o /dev/null || true
-            fi
-
-            # Wait for 60 seconds for the sessions to be updated
-            sleep 60
-
-            # Check sessions with whitelist conformance
-            echo "Sessions with whitelist:"
-            # Can fail because of whitelist conformance, ignore it
-            ~/$BINARY -v get-sessions || true
-
-            # Get the exceptions
-            echo "Exceptions:"
-            # Don't use -v here, as it will corrupt the output
-            ~/$BINARY get-exceptions > ./exceptions.log
-            echo "Exceptions log:"
-            cat ./exceptions.log
-
-            EXCEPTION_COUNT=$(grep "whitelisted: NonConforming" ./exceptions.log | wc -l | tr -d ' ' || echo 0)
-            UNKNOWN_COUNT=$(grep "whitelisted: Unknown" ./exceptions.log | wc -l | tr -d ' ' || echo 0)
-
-            echo "Detected ${EXCEPTION_COUNT} exceptions and ${UNKNOWN_COUNT} unknown exceptions"
-            
-            if [ "${EXCEPTION_COUNT}" -gt 5 -o "${UNKNOWN_COUNT}" -gt 0 ]; then
-              echo "Error: Detected too many exceptions or unknown exceptions"
-              exit 1
-            fi
-
-            # Check blacklist detection
-            echo "Checking blacklist detection"
-            ~/$BINARY -v get-blacklisted-sessions > ./blacklisted_sessions.log
-            echo "Blacklisted sessions log:"
-            cat ./blacklisted_sessions.log
-
-            # Check if the blacklisted IP is not in the log
-            if ! grep -q "212.27.48.10" ./blacklisted_sessions.log; then
-              echo "Error: Blacklisted IP is not in the log"
-              exit 1
-            fi
-          fi
-
-          # Check status
-          echo "Status in connected mode:"
-          ~/$BINARY -v status
-          
-          # Check logs
-          echo "Logs:"
-          ~/$BINARY -v logs
-          
-          echo "Test completed"
-        continue-on-error: true
+      - name: Run Integration Tests
+        id: integration_tests
+        shell: bash
+        env:
+          EDAMAME_USER: ${{ vars.EDAMAME_POSTURE_USER }}
+          EDAMAME_DOMAIN: ${{ vars.EDAMAME_POSTURE_DOMAIN }}
+          EDAMAME_PIN: ${{ secrets.EDAMAME_POSTURE_PIN }}
+        run: ./tests/integration_test.sh
 
       - name: Slack alerts
-        if: steps.tests.outcome != 'success'
+        if: steps.cargo_tests.outcome == 'failure' || steps.standalone_tests.outcome == 'failure' || steps.integration_tests.outcome == 'failure'
         uses: slackapi/slack-github-action@v1.26.0
         with:
           channel-id: 'C072J0U9TH7'
@@ -403,12 +175,21 @@ jobs:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
 
       - name: Dump the logs
+        if: always() # Dump logs regardless of outcome
         shell: bash
         run: |
-          find ~/ -name "edamame_cli_*.*" -exec echo "--- {} ---" \; -exec cat {} \;
+          echo "--- Dumping Logs --- "
+          # Scripts might place logs in ~/ or temporary directories, check common locations
+          echo "Checking $HOME/ for edamame_cli_*.log..."
+          find "$HOME/" -maxdepth 1 -name "edamame_cli_*.log" -exec echo "--- {} ---" \; -exec cat {} \; || echo "No logs found in HOME"
+          echo "Checking temporary test directories for logs..."
+          # Check common temp dir names used in scripts
+          if [ -d "tests_temp" ]; then find tests_temp -name "*.log" -exec echo "--- {} ---" \; -exec cat {} \;; fi
+          if [ -d "tests_temp_connected" ]; then find tests_temp_connected -name "*.log" -exec echo "--- {} ---" \; -exec cat {} \;; fi
+          echo "--- Log Dump Complete ---"
 
       - name: Fail job if tests failed
-        if: steps.tests.outcome != 'success'
+        if: steps.test_summary.outputs.outcome == 'failure'
         run: |
           echo "Forcing job to fail because tests did not succeed."
           exit 1

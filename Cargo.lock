@@ -676,9 +676,9 @@ dependencies = [
 
 [[package]]
 name = "blake3"
-version = "1.8.0"
+version = "1.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "34a796731680be7931955498a16a10b2270c7762963d5d570fdbfe02dcbf314f"
+checksum = "389a099b34312839e16420d499a9cad9650541715937ffbdd40d36f49e77eeb3"
 dependencies = [
  "arrayref",
  "arrayvec",
@@ -778,9 +778,9 @@ dependencies = [
 
 [[package]]
 name = "cargo-deb"
-version = "2.11.3"
+version = "2.11.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "54de00144a8fdfac27ec99f74de3fbf4beea3ba84fd7ef88f65b31d11271fa37"
+checksum = "bdbf45cfdd79b23afe67ce19230007c34fc108fbf2bf75dcf42753e0ed86fd66"
 dependencies = [
  "ar",
  "cargo_toml",
@@ -1617,8 +1617,8 @@ dependencies = [
 
 [[package]]
 name = "edamame_core"
-version = "0.9.22"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#78bbdaa8dd08d242ee8b28f2725c4bd5dd3c7d3d"
+version = "0.9.23"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#3d2c6ab557bba27a60c6b723ea7c3534370859b3"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1690,7 +1690,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "0.9.21"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#a7b4e97bb143b85a4c693b2342e41d4a48cc4cc3"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#20aa062ab7eba4696531b3f535b1f56588925b87"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1756,7 +1756,7 @@ dependencies = [
 
 [[package]]
 name = "edamame_posture"
-version = "0.9.22"
+version = "0.9.23"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -3694,9 +3694,9 @@ checksum = "68354c5c6bd36d73ff3feceb05efa59b6acb7626617f4962be322a825e61f79a"
 
 [[package]]
 name = "miniz_oxide"
-version = "0.8.5"
+version = "0.8.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8e3e04debbb59698c15bacbb6d93584a8c0ca9cc3213cb423d31f760d8843ce5"
+checksum = "ff70ce3e48ae43fa075863cef62e8b43b71a4f2382229920e0df362592919430"
 dependencies = [
  "adler2",
 ]
@@ -7502,9 +7502,9 @@ dependencies = [
 
 [[package]]
 name = "zip"
-version = "2.5.0"
+version = "2.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "27c03817464f64e23f6f37574b4fdc8cf65925b5bfd2b0f2aedf959791941f88"
+checksum = "febbe83a485467affa75a75d28dc7494acd2f819e549536c47d46b3089b56164"
 dependencies = [
  "aes",
  "arbitrary",
