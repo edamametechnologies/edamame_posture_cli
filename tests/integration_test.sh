@@ -338,7 +338,7 @@ if [ "$CI" = "true" ]; then
 
     # Build again to generate build activity (as in workflow)
     echo "Generating build activity (running cargo build --release)..."
-    (cd .. && cargo build --release)
+    cargo build --release
     echo "Build activity generated."
 
     # --- Whitelist/Blacklist Tests (Connected Mode - Run if applicable) ---
