@@ -151,9 +151,13 @@ jobs:
       - name: Pcap DLLs for Windows
         if: matrix.os == 'windows-latest'
         run: |
+          # For cargo tests
           mkdir -p ./target/debug
           wget https://github.com/edamametechnologies/edamame_posture_cli/raw/refs/heads/main/windows/Packet.dll -O ./target/debug/Packet.dll
           wget https://github.com/edamametechnologies/edamame_posture_cli/raw/refs/heads/main/windows/wpcap.dll -O ./target/debug/wpcap.dll
+          # For Standalone and Integration tests
+          cp ./target/debug/Packet.dll ./target/release/
+          cp ./target/debug/wpcap.dll ./target/release/
 
       - name: Run Basic Cargo Tests
         id: cargo_tests
