@@ -322,8 +322,8 @@ if [ "$CI" = "true" ]; then
             break
         fi
         CURRENT_ITERATION=$((CURRENT_ITERATION + 1))
-        echo "Connection not established, waiting 10 seconds... (Attempt $CURRENT_ITERATION/$MAX_WAIT_ITERATIONS)"
-        sleep 10
+        echo "Connection not established, waiting 60 seconds... (Attempt $CURRENT_ITERATION/$MAX_WAIT_ITERATIONS)"
+        sleep 60
     done
 
     if [ "$CONNECTED" = false ]; then
