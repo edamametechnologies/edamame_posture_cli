@@ -20,7 +20,7 @@ if [[ "$RUNNER_OS" == "windows-latest" || "$OS" == "Windows_NT" || "$OS" == "MIN
     ARTIFACT_PATH="$HOME_DIR/passed_business_rule"
     # Set business rule cmd for Windows (PowerShell)
     # Ensure artifact path uses backslashes for PowerShell on Windows
-    ARTIFACT_PATH_WIN=$(echo "$ARTIFACT_PATH" | sed 's|/|\|g')
+    ARTIFACT_PATH_WIN="${ARTIFACT_PATH//\//\\}"
     export EDAMAME_BUSINESS_RULES_CMD="Write-Output \"passed\" > \"$ARTIFACT_PATH_WIN\" 2>$null"
 else
     BINARY_NAME="edamame_posture"
