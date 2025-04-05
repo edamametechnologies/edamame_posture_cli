@@ -17,11 +17,11 @@ if [[ "$RUNNER_OS" == "windows-latest" || "$OS" == "Windows_NT" || "$OS" == "MIN
     BINARY_PATH="$(dirname "$BINARY_PATH")/$BINARY_NAME" # Ensure .exe extension and correct dir
     SUDO_CMD="" # No sudo on Windows
     HOME_DIR="$USERPROFILE"
-    ARTIFACT_PATH="$HOME_DIR/passed_business_rule"
+    # Define ARTIFACT_PATH with backslashes for Windows
+    ARTIFACT_PATH="$HOME_DIR\\\\passed_business_rule"
     # Set business rule cmd for Windows (PowerShell)
-    # Ensure artifact path uses backslashes for PowerShell on Windows
-    ARTIFACT_PATH_WIN="${ARTIFACT_PATH//\//\\}"
-    export EDAMAME_BUSINESS_RULES_CMD="Write-Output \"passed\" > \"$ARTIFACT_PATH_WIN\" 2>$null"
+    # Use the correctly defined ARTIFACT_PATH directly
+    export EDAMAME_BUSINESS_RULES_CMD="Write-Output \\"passed\\" > \\"$ARTIFACT_PATH\\" 2>$null"
 else
     BINARY_NAME="edamame_posture"
     BINARY_PATH="$(dirname "$BINARY_PATH")/$BINARY_NAME" # Ensure correct binary name
