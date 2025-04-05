@@ -1,6 +1,39 @@
 #!/bin/bash
 set -eo pipefail # Exit on error, treat unset variables as error, pipefail
 
+# Function to run on exit
+finish() {
+    local exit_status=$?
+    if [ -f "$ARTIFACT_PATH" ]; then
+        echo "Cleaning up business rule artifact..."
+        rm -f "$ARTIFACT_PATH"
+    fi
+    echo ""
+    echo "--- Test Summary --- "
+    echo "- Standalone Commands:"
+    echo "  - get-core-info"
+    echo "  - get-core-version"
+    echo "  - help"
+    echo "  - score (with business rule)"
+    echo "  - remediate (skipped)"
+    echo "  - request-signature"
+    echo "  - request-report"
+    echo "  - check-policy (local)"
+    echo "  - check-policy-for-domain"
+    echo "  - get-device-info"
+    echo "  - get-system-info"
+    echo "  - lanscan"
+    echo "  - capture"
+    echo "--------------------"
+    if [ $exit_status -eq 0 ]; then
+        echo "✅ --- Standalone Commands Test Completed Successfully --- ✅"
+    else
+        echo "❌ --- Standalone Commands Test Failed (Exit Code: $exit_status) --- ❌"
+    fi
+}
+# Register the finish function to run on exit, also ensure cleanup happens
+trap finish EXIT
+
 echo "--- Running Standalone Commands Test ---"
 
 # --- Configuration ---
@@ -18,10 +51,13 @@ if [[ "$RUNNER_OS" == "windows-latest" || "$OS" == "Windows_NT" || "$OS" == "MIN
     SUDO_CMD="" # No sudo on Windows
     HOME_DIR="$USERPROFILE"
     # Define ARTIFACT_PATH with backslashes for Windows
-    ARTIFACT_PATH="$HOME_DIR\\\\passed_business_rule"
+    ARTIFACT_PATH="$HOME_DIR/passed_business_rule"
     # Set business rule cmd for Windows (PowerShell)
     # Use the correctly defined ARTIFACT_PATH directly
-    export EDAMAME_BUSINESS_RULES_CMD="Write-Output \\"passed\\" > \\"$ARTIFACT_PATH\\" 2>$null"
+    # Use PowerShell
+    echo "Setting business rule so that it will be passed and leave an artifact in $ARTIFACT_PATH"
+    # We must directly refer $env:USERPROFILE in the command for the path to work
+    export EDAMAME_BUSINESS_RULES_CMD='Write-Output "passed" > "$env:USERPROFILE/passed_business_rule" 2>$null'
 else
     BINARY_NAME="edamame_posture"
     BINARY_PATH="$(dirname "$BINARY_PATH")/$BINARY_NAME" # Ensure correct binary name
@@ -124,4 +160,5 @@ $SUDO_CMD "$BINARY_PATH" $VERBOSE_FLAG lanscan
 echo "Capture:"
 $SUDO_CMD "$BINARY_PATH" $VERBOSE_FLAG capture 5
 
-echo "--- Standalone Commands Test Completed ---" 
+# Original success message removed, handled by trap
+# echo "--- Standalone Commands Test Completed ---" 

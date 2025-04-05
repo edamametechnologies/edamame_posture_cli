@@ -93,6 +93,35 @@ ensure_posture_stopped_and_cleaned() {
     else
         echo "Skipping log file cleanup (mode=$mode, exit_status=$exit_status)."
     fi
+
+    # Print final summary only in the post-cleanup phase
+    if [ "$mode" == "post" ]; then
+        echo ""
+        echo "--- Test Summary --- "
+        if [ "$CI" = "true" ]; then
+            echo "- Connected Mode Tests"
+            if [ "$RUN_WL_BL_TESTS" = true ]; then
+                echo "  - Whitelist Test (Connected)"
+                echo "  - Blacklist Test (Connected)"
+            else
+                echo "  - Whitelist/Blacklist Tests Skipped"
+            fi
+        else
+            echo "- Disconnected Mode Tests"
+             if [ "$RUN_WL_BL_TESTS" = true ]; then
+                echo "  - Whitelist Test (Disconnected)"
+                echo "  - Blacklist Test (Disconnected)"
+            else
+                echo "  - Whitelist/Blacklist Tests Skipped"
+            fi
+        fi
+        echo "--------------------"
+        if [ $exit_status -eq 0 ]; then
+            echo "✅ --- Integration Tests Completed Successfully --- ✅"
+        else
+            echo "❌ --- Integration Tests Failed (Exit Code: $exit_status) --- ❌"
+        fi
+    fi
 }
 
 run_whitelist_test() {
@@ -401,5 +430,3 @@ fi
 # --- Final Cleanup --- #
 # Trap handles cleanup on exit (success or failure)
 rm -rf "$TEST_DIR" # Remove the temp directory
-
-echo "--- Integration Tests Completed Successfully ---"
