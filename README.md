@@ -380,13 +380,13 @@ After build and tests, verify that no unauthorized network connections occurred 
 edamame_posture get-sessions
 
 # To also check for anomalous connections (using machine learning detection)
-edamame_posture get-sessions false false true true
+edamame_posture get-sessions false false true true true
 
 # To explicitly check only for blacklisted connections but not anomalous ones
-edamame_posture get-sessions false false false true
+edamame_posture get-sessions false false true true false
 
-# To disable both anomalous and blacklisted checks (whitelist only)
-edamame_posture get-sessions false false false false
+# To check only whitelist conformance and disable both anomalous and blacklisted checks
+edamame_posture get-sessions false false true false false
 ```
 
 Example (GitHub Actions):
@@ -398,7 +398,7 @@ Example (GitHub Actions):
     edamame_posture get-sessions
     
     # Optionally check for anomalous connections too
-    # edamame_posture get-sessions false false true true
+    # edamame_posture get-sessions false false true true true
 ```
 
 Example (GitLab CI):
@@ -642,13 +642,15 @@ Once installed, EDAMAME Posture is invoked via the `edamame_posture` command. Mo
 - **check-policy-for-domain** `<domain>` `<policy_name>`: Similar to check-policy, but retrieves the policy requirements from EDAMAME Hub for the given domain and policy name. This allows centralized policies to be enforced on the local machine. Requires that the machine is enrolled (or at least has a policy cached) for that domain.
 - **start** `<USER>` `<DOMAIN>` `<PIN>` `[DEVICE_ID]` `[LAN_SCANNING]` `[WHITELIST_NAME]` `[LOCAL_TRAFFIC]`: Start continuous monitoring and conditional access control. Typically run as a background service or daemon. You must supply your Hub user/email, domain, and one-time PIN (from Hub) to register the device session. Optional parameters: a custom device identifier, whether to enable LAN scanning (true/false for capturing local traffic), a named whitelist to enforce, and a flag for allowing local traffic. This will keep running until stopped and enforce policy/network rules in real-time (e.g., locking down access if posture degrades).
 - **background-start-disconnected** `[LAN_SCANNING]` `[WHITELIST_NAME]` `[LOCAL_TRAFFIC]`: Start the background monitoring in a local-only mode (no connection to EDAMAME Hub). It will monitor security posture and network traffic, and enforce the provided whitelist. This is useful for CI runners or standalone usage where you want monitoring without cloud integration. This process runs until killed; typically you'd run it in a screen/tmux or as a service.
-- **get-sessions** `[ZEEK_FORMAT]` `[LOCAL_TRAFFIC]` `[CHECK_ANOMALOUS]` `[CHECK_BLACKLISTED]`: Report network sessions and enforce whitelist compliance. Now supports automatic detection of anomalous and blacklisted traffic with configurable exit codes. By default, it will check for blacklisted traffic (`CHECK_BLACKLISTED=true`) but not for anomalous traffic (`CHECK_ANOMALOUS=false`). Returns exit code 0 if successful, 1 if whitelist violation or if anomalous/blacklisted sessions are detected (when those checks are enabled), 3 if no active sessions found.
+- **get-sessions** `[ZEEK_FORMAT]` `[LOCAL_TRAFFIC]` `[CHECK_WHITELIST]` `[CHECK_BLACKLIST]` `[CHECK_ANOMALOUS]`: Report network sessions and enforce whitelist compliance. The parameters control whether to use Zeek format output, include local traffic, check whitelist conformance (default true), check for blacklisted connections (default true), and check for anomalous connections (default false). Returns exit code 0 if successful, 1 if whitelist violation or if anomalous/blacklisted sessions are detected (when those checks are enabled), 3 if no active sessions found.
 - **lanscan**: Perform a quick scan of the local network (LAN) to identify other devices on your subnet. This can reveal potential rogue devices or just provide situational awareness. It lists IP addresses and basic host info for devices it can detect.
 - **request-signature**: Generate a security posture signature for the current device state. The output is a cryptographic signature (token) that represents the current posture (including all threat checks and scores). This signature can be stored or embedded (for example, in a Git commit message) as proof of posture at a point in time.
 - **get-last-report-signature**: If the background process (start or background-start-disconnected) is running, this command fetches the most recently generated posture signature from that background monitor. This is useful to avoid generating a new one if one was already produced at the end of a build or a scheduled interval.
 - **request-report**: Generate a full security report of the current system. This might output a file (e.g., PDF or JSON) containing the detailed posture assessment, including all findings and the signature. The report is signed so it can be verified later. Use this when you need to provide evidence of compliance or for auditing purposes.
 - **create-custom-whitelists**: Outputs the current active whitelist definitions in JSON format to stdout. You can redirect this to a file to use as a base for a custom whitelist. This is often run at the end of a "learning mode" pipeline to capture allowed endpoints observed.
 - **set-custom-whitelists** `"<json_string>"`: Loads a custom whitelist from a JSON string (or file content). Use this to apply a tailored whitelist (perhaps one created and edited from create-custom-whitelists) before running get-sessions. In practice, you might store a whitelist file in your repo and then do: `edamame_posture set-custom-whitelists "$(cat whitelist.json)"` to load it. The custom whitelist will override the default for the remainder of the session.
+- **get-anomalous-sessions** `[ZEEK_FORMAT]`: Display only anomalous network connections detected by the NBAD system. Returns exit code 1 if anomalous sessions are found.
+- **get-blacklisted-sessions** `[ZEEK_FORMAT]`: Display only blacklisted network connections. Returns exit code 1 if blacklisted sessions are found.
 
 ### All Available Commands
 For completeness, here is a list of EDAMAME Posture CLI subcommands with detailed information:
@@ -670,12 +672,18 @@ For completeness, here is a list of EDAMAME Posture CLI subcommands with detaile
 - **stop** (alias for **background-stop**) – Stop a running background monitoring process.
 - **status** (alias for **background-status**) – Check the status of the background monitoring process.
 - **logs** (alias for **background-logs**) – Display logs from the background process.
-- **get-sessions** (alias for **background-get-sessions**) `[ZEEK_FORMAT]` `[LOCAL_TRAFFIC]` – Report network sessions and enforce whitelist compliance. Returns exit code 0 if successful, 1 if whitelist violation, 3 if no active sessions found.
-- **get-exceptions** (alias for **background-get-exceptions**) – Report network sessions that don't conform to whitelist rules.
+- **get-sessions** (alias for **background-get-sessions**) `[ZEEK_FORMAT]` `[LOCAL_TRAFFIC]` `[CHECK_WHITELIST]` `[CHECK_BLACKLIST]` `[CHECK_ANOMALOUS]` – Report network sessions and enforce whitelist compliance. The parameters control whether to use Zeek format output, include local traffic, check whitelist conformance (default true), check for blacklisted connections (default true), and check for anomalous connections (default false). Returns exit code 0 if successful, 1 if whitelist violation or if anomalous/blacklisted sessions are detected (when those checks are enabled), 3 if no active sessions found.
+- **get-exceptions** (alias for **background-get-exceptions**) `[ZEEK_FORMAT]` `[LOCAL_TRAFFIC]` – Report network sessions that don't conform to whitelist rules.
 - **get-background-score** (alias for **background-score**) – Get the current security score from the background process.
 - **create-custom-whitelists** (alias for **background-create-custom-whitelists**) – Output template or current whitelist JSON.
 - **set-custom-whitelists** (alias for **background-set-custom-whitelists**) `"<WHITELIST_JSON>"` – Load custom whitelist rules from input JSON.
 - **create-and-set-custom-whitelists** (alias for **background-create-and-set-custom-whitelists**) – Create custom whitelists from current sessions and apply them in one step.
+- **set-custom-blacklists** (alias for **background-set-custom-blacklists**) `"<BLACKLIST_JSON>"` – Load custom blacklist rules from input JSON.
+- **get-anomalous-sessions** (alias for **background-get-anomalous-sessions**) `[ZEEK_FORMAT]` – Display only anomalous network connections detected by the NBAD system. Returns exit code 1 if anomalous sessions are found.
+- **get-blacklisted-sessions** (alias for **background-get-blacklisted-sessions**) `[ZEEK_FORMAT]` – Display only blacklisted network connections. Returns exit code 1 if blacklisted sessions are found.
+- **get-blacklists** (alias for **background-get-blacklists**) – Get the current blacklists from the background process.
+- **get-whitelists** (alias for **background-get-whitelists**) – Get the current whitelists from the background process.
+- **get-whitelist-name** (alias for **background-get-whitelist-name**) – Get the name of the current active whitelist from the background process.
 - **request-signature** – Generate a cryptographic signature of current posture. *Requires admin privileges*.
 - **get-last-report-signature** (alias for **background-last-report-signature**) – Retrieve the last posture signature from the background service.
 - **request-report** `<EMAIL>` `<SIGNATURE>` – Generate a full security report. Returns exit code 3 for invalid signature parameter.
@@ -688,8 +696,6 @@ For completeness, here is a list of EDAMAME Posture CLI subcommands with detaile
 - **wait-for-connection** (alias for **background-wait-for-connection**) `[TIMEOUT]` – Wait for connection of the background process with optional timeout. Returns exit code 4 for timeout.
 - **completion** `<SHELL>` – Generate shell completion scripts for various shells (bash, zsh, fish, etc.).
 - **help** – Show general help or help for a specific subcommand (e.g., `edamame_posture check-policy --help`).
-- **get-anomalous-sessions** (alias for **background-get-anomalous-sessions**) `[ZEEK_FORMAT]` – Display only anomalous network connections detected by the NBAD system. Returns exit code 1 if anomalous sessions are found.
-- **get-blacklisted-sessions** (alias for **background-get-blacklisted-sessions**) `[ZEEK_FORMAT]` – Display only blacklisted network connections. Returns exit code 1 if blacklisted sessions are found.
 
 Each command may have additional options and flags; run `edamame_posture <command> --help` for detailed usage information on that command. Commands marked with *Requires admin privileges* need to be run with elevated permissions (sudo on Linux/macOS, Run as Administrator on Windows).
 

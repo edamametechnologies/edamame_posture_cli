@@ -21,6 +21,7 @@ pub fn background_get_sessions(
     local_traffic: bool,
     check_anomalous: bool,
     check_blacklisted: bool,
+    check_whitelisted: bool,
 ) -> i32 {
     let sessions = match rpc_get_lan_sessions(
         &EDAMAME_CA_PEM,
@@ -42,22 +43,24 @@ pub fn background_get_sessions(
     let mut exit_code = 0;
 
     // Always check whitelist conformance
-    let whitelist_conformance = match rpc_get_whitelist_conformance(
-        &EDAMAME_CA_PEM,
-        &EDAMAME_CLIENT_PEM,
-        &EDAMAME_CLIENT_KEY,
-        &EDAMAME_TARGET,
-    ) {
-        Ok(conformance) => conformance,
-        Err(e) => {
-            eprintln!("Error getting whitelist conformance: {}", e);
-            return ERROR_CODE_SERVER_ERROR;
-        }
-    };
+    if check_whitelisted {
+        let whitelist_conformance = match rpc_get_whitelist_conformance(
+            &EDAMAME_CA_PEM,
+            &EDAMAME_CLIENT_PEM,
+            &EDAMAME_CLIENT_KEY,
+            &EDAMAME_TARGET,
+        ) {
+            Ok(conformance) => conformance,
+            Err(e) => {
+                eprintln!("Error getting whitelist conformance: {}", e);
+                return ERROR_CODE_SERVER_ERROR;
+            }
+        };
 
-    if !whitelist_conformance {
-        eprintln!("Non-conforming sessions detected");
-        exit_code = ERROR_CODE_MISMATCH;
+        if !whitelist_conformance {
+            eprintln!("Non-conforming sessions detected");
+            exit_code = ERROR_CODE_MISMATCH;
+        }
     }
 
     // Check for anomalous sessions if requested

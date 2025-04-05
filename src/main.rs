@@ -530,6 +530,9 @@ fn run_base() {
             let check_blacklisted = sub_matches
                 .get_one::<bool>("CHECK_BLACKLISTED")
                 .unwrap_or(&true);
+            let check_whitelisted = sub_matches
+                .get_one::<bool>("CHECK_WHITELISTED")
+                .unwrap_or(&true);
 
             // Initialize the core with all options disabled
             initialize_core("".to_string(), false, false, false, false, verbose);
@@ -538,6 +541,7 @@ fn run_base() {
                 *local_traffic,
                 *check_anomalous,
                 *check_blacklisted,
+                *check_whitelisted,
             );
             is_background = true;
         }

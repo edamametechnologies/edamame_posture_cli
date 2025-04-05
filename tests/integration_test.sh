@@ -68,6 +68,8 @@ ensure_posture_stopped_and_cleaned() {
 
     # Attempt graceful stop only if binary likely exists (post-test)
     if [ "$mode" == "post" ] && [ -f "$BINARY_DEST" ]; then
+        # Dump logs before stopping
+        "$BINARY_DEST" logs
         echo "Attempting graceful stop..."
         $SUDO_CMD "$BINARY_DEST" stop || echo "Posture stop command failed or process was not running."
         sleep 5
@@ -184,7 +186,7 @@ run_blacklist_test() {
         cat "$SESSION_PRE_CUSTOM_LOG"
         ensure_posture_stopped_and_cleaned "post" 1; exit 1
     else
-         echo "Verification passed: Test traffic session (IP $BLACKLIST_IP_V4 or $BLACKLIST_IP_V6) found."
+        echo "Verification passed: Test traffic session (IP $BLACKLIST_IP_V4 or $BLACKLIST_IP_V6) found."
     fi
     # --- End Traffic Generation & Session Verification PRE-CUSTOM ---
 
