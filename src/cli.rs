@@ -202,6 +202,18 @@ pub fn build_cli() -> Command {
                     .value_parser(clap::value_parser!(bool)),
             )
             .arg(
+                arg!([CHECK_WHITELIST] "Exit with code 1 if any whitelist exception is detected")
+                    .required(false)
+                    .default_value("true")
+                    .value_parser(clap::value_parser!(bool)),
+            )
+            .arg(
+                arg!([CHECK_BLACKLIST] "Exit with code 1 if blacklisted sessions are detected")
+                    .required(false)
+                    .default_value("true")
+                    .value_parser(clap::value_parser!(bool)),
+            )
+            .arg(
                 arg!([CHECK_ANOMALOUS] "Exit with code 1 if anomalous sessions are detected")
                     .required(false)
                     .default_value("false")

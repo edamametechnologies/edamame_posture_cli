@@ -180,7 +180,7 @@ jobs:
           EDAMAME_PIN: ${{ secrets.EDAMAME_POSTURE_PIN }}
         run: ./tests/integration_test.sh
         continue-on-error: true
-        
+
       - name: Slack alerts
         if: steps.cargo_tests.outcome == 'failure' || steps.standalone_tests.outcome == 'failure' || steps.integration_tests.outcome == 'failure'
         uses: slackapi/slack-github-action@v1.26.0
@@ -197,7 +197,7 @@ jobs:
           echo "--- Dumping Logs --- "
           # Scripts might place logs in ~/ or temporary directories, check common locations
           echo "Checking $HOME/ for edamame_cli_*.log..."
-          find "$HOME/" -maxdepth 1 -name "edamame_cli_*.log" -exec echo "--- {} ---" \; -exec cat {} \; || echo "No logs found in HOME"
+          find "$HOME/" -name "edamame_cli_*.log" -exec echo "--- {} ---" \; -exec cat {} \; || echo "No logs found in HOME"
           echo "Checking temporary test directories for logs..."
           # Check common temp dir names used in scripts
           if [ -d "tests_temp" ]; then find tests_temp -name "*.log" -exec echo "--- {} ---" \; -exec cat {} \;; fi
