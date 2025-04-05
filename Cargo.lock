@@ -778,9 +778,9 @@ dependencies = [
 
 [[package]]
 name = "cargo-deb"
-version = "2.11.4"
+version = "2.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bdbf45cfdd79b23afe67ce19230007c34fc108fbf2bf75dcf42753e0ed86fd66"
+checksum = "5fe08cdd82194f898f0fc8aea9dd584cfd5218a58de35c590911b74777f84c3c"
 dependencies = [
  "ar",
  "cargo_toml",
@@ -1618,7 +1618,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "0.9.23"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#89f4e911a896f992a9357cfd12eec1beb7e84b1f"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#886e50aa23c0cda3df6935712a93a6359f14b783"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1690,7 +1690,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "0.9.21"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#20aa062ab7eba4696531b3f535b1f56588925b87"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#b1ef2c4fd85fd34d18c867c23169cf76ef0bc9c1"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -4845,9 +4845,9 @@ dependencies = [
 
 [[package]]
 name = "redox_syscall"
-version = "0.5.10"
+version = "0.5.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0b8c0c260b63a8219631167be35e6a988e9554dbd323f8bd08439c8ed1302bd1"
+checksum = "d2f103c6d277498fbceb16e84d317e2a400f160f46904d5f5410848c829511a3"
 dependencies = [
  "bitflags 2.9.0",
 ]
@@ -5857,9 +5857,9 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "tokio"
-version = "1.44.1"
+version = "1.44.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f382da615b842244d4b8738c82ed1275e6c5dd90c459a30941cd07080b06c91a"
+checksum = "e6b88822cbe49de4185e3a4cbf8321dd487cf5fe0c5c65695fef6346371e9c48"
 dependencies = [
  "backtrace",
  "bytes",
