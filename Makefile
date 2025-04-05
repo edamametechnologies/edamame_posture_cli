@@ -85,7 +85,7 @@ clean:
 	# Keep cleaning generated files here, scripts might create them outside temp dirs if run manually
 	rm -f custom_whitelists.json custom_blacklist.json exceptions.log blacklisted_sessions.log
 	# Clean temporary directories created by scripts
-	rm -rf tests_temp tests_temp_connected
+	rm -rf tests_temp
 
 # Basic cargo tests
 test:

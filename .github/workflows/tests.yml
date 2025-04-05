@@ -156,8 +156,13 @@ jobs:
           wget https://github.com/edamametechnologies/edamame_posture_cli/raw/refs/heads/main/windows/Packet.dll -O ./target/debug/Packet.dll
           wget https://github.com/edamametechnologies/edamame_posture_cli/raw/refs/heads/main/windows/wpcap.dll -O ./target/debug/wpcap.dll
           # For Standalone and Integration tests
+          mkdir -p ./target/release
           cp ./target/debug/Packet.dll ./target/release/
           cp ./target/debug/wpcap.dll ./target/release/
+          # For Integration tests
+          mkdir -p ./tests_temp
+          cp ./target/debug/Packet.dll ./tests_temp/
+          cp ./target/debug/wpcap.dll ./tests_temp/
 
       - name: Run Basic Cargo Tests
         id: cargo_tests
@@ -195,13 +200,7 @@ jobs:
         shell: bash
         run: |
           echo "--- Dumping Logs --- "
-          # Scripts might place logs in ~/ or temporary directories, check common locations
-          echo "Checking $HOME/ for edamame_cli_*.log..."
-          find "$HOME/" -name "edamame_cli_*.log" -exec echo "--- {} ---" \; -exec cat {} \; || echo "No logs found in HOME"
-          echo "Checking temporary test directories for logs..."
-          # Check common temp dir names used in scripts
-          if [ -d "tests_temp" ]; then find tests_temp -name "*.log" -exec echo "--- {} ---" \; -exec cat {} \;; fi
-          if [ -d "tests_temp_connected" ]; then find tests_temp_connected -name "*.log" -exec echo "--- {} ---" \; -exec cat {} \;; fi
+          find "$HOME/" -name "edamame_cli_*.*" -exec echo "--- {} ---" \; -exec cat {} \; || echo "No logs found in HOME"
           echo "--- Log Dump Complete ---"
 
       - name: Fail job if tests failed
