@@ -244,6 +244,8 @@ _arguments "${_arguments_options[@]}" : \
 '--help[Print help]' \
 '::ZEEK_FORMAT -- Zeek format:(true false)' \
 '::LOCAL_TRAFFIC -- Include local traffic:(true false)' \
+'::CHECK_WHITELIST -- Exit with code 1 if any whitelist exception is detected:(true false)' \
+'::CHECK_BLACKLIST -- Exit with code 1 if blacklisted sessions are detected:(true false)' \
 '::CHECK_ANOMALOUS -- Exit with code 1 if anomalous sessions are detected:(true false)' \
 && ret=0
 ;;

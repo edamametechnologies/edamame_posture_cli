@@ -395,7 +395,7 @@ _edamame_posture() {
             return 0
             ;;
         edamame_posture__background__get__sessions)
-            opts="-v -h --verbose --help true false true false true false"
+            opts="-v -h --verbose --help true false true false true false true false true false"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0

@@ -528,10 +528,10 @@ fn run_base() {
                 .get_one::<bool>("CHECK_ANOMALOUS")
                 .unwrap_or(&false);
             let check_blacklisted = sub_matches
-                .get_one::<bool>("CHECK_BLACKLISTED")
+                .get_one::<bool>("CHECK_BLACKLIST")
                 .unwrap_or(&true);
             let check_whitelisted = sub_matches
-                .get_one::<bool>("CHECK_WHITELISTED")
+                .get_one::<bool>("CHECK_WHITELIST")
                 .unwrap_or(&true);
 
             // Initialize the core with all options disabled
