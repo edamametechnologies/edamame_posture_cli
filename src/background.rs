@@ -24,6 +24,7 @@ pub fn background_get_sessions(
     check_whitelisted: bool,
 ) -> i32 {
     let sessions = match rpc_get_lan_sessions(
+        true,
         &EDAMAME_CA_PEM,
         &EDAMAME_CLIENT_PEM,
         &EDAMAME_CLIENT_KEY,
@@ -149,6 +150,7 @@ pub fn background_display_sessions(
 
 pub fn background_get_exceptions(zeek_format: bool, local_traffic: bool) -> i32 {
     let sessions = match rpc_get_lan_sessions(
+        true,
         &EDAMAME_CA_PEM,
         &EDAMAME_CLIENT_PEM,
         &EDAMAME_CLIENT_KEY,
@@ -351,6 +353,7 @@ pub fn background_wait_for_connection(timeout: u64) -> i32 {
 
         // Print the connections
         let sessions = match rpc_get_lan_sessions(
+            true,
             &EDAMAME_CA_PEM,
             &EDAMAME_CLIENT_PEM,
             &EDAMAME_CLIENT_KEY,
