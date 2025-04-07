@@ -206,7 +206,7 @@ jobs:
 
       - name: Fail job if tests failed
         shell: bash
-        if: steps.test_summary.outputs.outcome == 'failure'
+        if: steps.cargo_tests.outcome == 'failure' || steps.standalone_tests.outcome == 'failure' || steps.integration_tests.outcome == 'failure'
         run: |
           echo "Forcing job to fail because tests did not succeed."
           exit 1
