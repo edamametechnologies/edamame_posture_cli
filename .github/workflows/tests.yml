@@ -195,8 +195,18 @@ jobs:
             SUDO_CMD="sudo"
           fi
 
+          # Find and link static GCC libraries to the expected system location first
+          $SUDO_CMD mkdir -p /usr/lib/${ARCH}-linux-gnu/
+          GCC_PATH=$(find /usr/lib/gcc -name "libgcc.a" | head -n 1)
+          if [ -n "$GCC_PATH" ]; then
+            $SUDO_CMD ln -sf "$GCC_PATH" /usr/lib/${ARCH}-linux-gnu/libgcc.a
+          fi
+          GCC_EH_PATH=$(find /usr/lib/gcc -name "libgcc_eh.a" | head -n 1)
+          if [ -n "$GCC_EH_PATH" ]; then
+            $SUDO_CMD ln -sf "$GCC_EH_PATH" /usr/lib/${ARCH}-linux-gnu/libgcc_eh.a
+          fi
+
           # Ensure static pcap library is properly linked in the system location
-          $SUDO_CMD mkdir -p /usr/lib/${ARCH}-linux-gnu/ # Ensure dir exists for pcap
           PCAP_PATH=$(find /usr -name "libpcap.a" | head -n 1)
           if [ -n "$PCAP_PATH" ] && [ "$PCAP_PATH" != "/usr/lib/${ARCH}-linux-gnu/libpcap.a" ]; then
             $SUDO_CMD ln -sf "$PCAP_PATH" /usr/lib/${ARCH}-linux-gnu/libpcap.a
@@ -206,7 +216,13 @@ jobs:
           RUST_SYSROOT_LIB_DIR="$HOME/.rustup/toolchains/stable-${ARCH}-unknown-linux-gnu/lib/rustlib/${RUST_TARGET}/lib/"
           $SUDO_CMD mkdir -p "$RUST_SYSROOT_LIB_DIR"
 
-          # Link the static pcap library to the Rust sysroot if needed
+          # Link the static libraries to the Rust sysroot if needed
+          if [ -f "/usr/lib/${ARCH}-linux-gnu/libgcc.a" ] && [ ! -f "${RUST_SYSROOT_LIB_DIR}libgcc.a" ]; then
+            $SUDO_CMD ln -sf "/usr/lib/${ARCH}-linux-gnu/libgcc.a" "${RUST_SYSROOT_LIB_DIR}libgcc.a"
+          fi
+          if [ -f "/usr/lib/${ARCH}-linux-gnu/libgcc_eh.a" ] && [ ! -f "${RUST_SYSROOT_LIB_DIR}libgcc_eh.a" ]; then
+            $SUDO_CMD ln -sf "/usr/lib/${ARCH}-linux-gnu/libgcc_eh.a" "${RUST_SYSROOT_LIB_DIR}libgcc_eh.a"
+          fi
           if [ -f "/usr/lib/${ARCH}-linux-gnu/libpcap.a" ] && [ ! -f "${RUST_SYSROOT_LIB_DIR}libpcap.a" ]; then
             $SUDO_CMD ln -sf "/usr/lib/${ARCH}-linux-gnu/libpcap.a" "${RUST_SYSROOT_LIB_DIR}libpcap.a"
           fi
