@@ -120,13 +120,19 @@ jobs:
           git config --global url."https://edamamedev:${{ secrets.DEV_GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
 
       - name: Install additional packages w/ apt for Linux
-        if: matrix.os == 'ubuntu-latest' && !matrix.container
+        if: matrix.os == 'ubuntu-latest'
         run: |
-          sudo apt-get update
-          sudo apt-get install -y protobuf-compiler libpcap-dev gcc-multilib
+          # Determine if sudo is needed
+          SUDO_CMD=""
+          if [[ ${{ !matrix.container }} == true ]]; then
+            SUDO_CMD="sudo"
+          fi
+
+          $SUDO_CMD apt-get update
+          $SUDO_CMD apt-get install -y protobuf-compiler libpcap-dev gcc-multilib
           # For cross-compilation tools
           if [[ "${{ matrix.arch }}" == "aarch64" ]]; then
-            sudo apt-get install -y binutils-aarch64-linux-gnu
+            $SUDO_CMD apt-get install -y binutils-aarch64-linux-gnu
           fi
 
       - name: Install Zig without container
