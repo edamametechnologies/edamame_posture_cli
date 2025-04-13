@@ -104,7 +104,7 @@ jobs:
         # Target is required for cargo-zigbuild to build
         run: cargo install cargo-zigbuild
         
-      # Install dependencies needed for the build (previously in Cross.toml)
+      # Install dependencies needed for the build (as in Cross.toml)
       - name: Install build dependencies
         run: |
           sudo dpkg --add-architecture ${{ matrix.deb_arch }}

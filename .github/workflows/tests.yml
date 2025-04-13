@@ -76,6 +76,16 @@ jobs:
         with:
           platforms: arm64
 
+      # Needed when we are running in a container
+      - name: Setup permissions for git and install missing packages
+        if: matrix.container
+        run: |
+          export DEBIAN_FRONTEND=noninteractive
+          apt-get update -y
+          apt-get install -y git
+          # Without that git pull in edamame_posture_action fails as well as other actions
+          git config --global --add safe.directory '*'
+
       - name: Setup EDAMAME Posture
         uses: edamametechnologies/edamame_posture_action@v0
         with:
