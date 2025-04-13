@@ -86,7 +86,7 @@ jobs:
         run: |
           export DEBIAN_FRONTEND=noninteractive
           apt-get update -y
-          apt-get install -y git
+          apt-get install -y git gh
           # Without that git pull in edamame_posture_action fails as well as other actions
           git config --global --add safe.directory '*'
 
@@ -110,7 +110,7 @@ jobs:
           git config --global url."https://edamamedev:${{ secrets.DEV_GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
 
       - name: Install additional packages w/ apt for Linux containers
-        if: contains(matrix.os, 'ubuntu') && matrix.container
+        if: matrix.os == 'ubuntu-latest' && matrix.container
         run: |
           export DEBIAN_FRONTEND=noninteractive
           # Install build dependencies
@@ -126,7 +126,7 @@ jobs:
           fi
 
       - name: Install additional packages w/ apt for Linux
-        if: contains(matrix.os, 'ubuntu') && ${{ !matrix.container }}
+        if: matrix.os == 'ubuntu-latest' && ${{ !matrix.container }}
         run: |
           # Install build dependencies
           sudo apt-get update
@@ -237,9 +237,6 @@ jobs:
             # Regular build for macOS and Windows
             cargo build --release
           fi
-        env:
-          # Glibc static linking for compatibility with older distros (for Linux only)
-          RUSTFLAGS: ${{ contains(matrix.os, 'ubuntu') && '-C target-feature=+crt-static' || '' }}
 
       - name: Signing for macOS
         if: matrix.os == 'macos-latest'
