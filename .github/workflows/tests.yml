@@ -208,9 +208,6 @@ jobs:
           wget https://ziglang.org/download/0.11.0/zig-linux-x86_64-0.11.0.tar.xz
           tar -xf zig-linux-x86_64-0.11.0.tar.xz
           mv zig-linux-x86_64-0.11.0 /usr/local/zig
-          echo 'export PATH=$PATH:/usr/local/zig' >> ~/.bashrc
-          echo 'export PATH=$PATH:/usr/local/zig' >> $GITHUB_ENV
-          export PATH=$PATH:/usr/local/zig
 
       # Install Rust toolchain for x86_64
       - name: Install Rust toolchain for x86_64
@@ -343,6 +340,7 @@ jobs:
         run: |
           if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
             # Build using zigbuild
+            export PATH=$PATH:/usr/local/zig
             . "$HOME/.cargo/env"
             cargo zigbuild --release --target ${{ matrix.target }}
           else
