@@ -25,27 +25,33 @@ jobs:
           - os: ubuntu-latest
             arch: x86_64
             container: false
+            target: x86_64-unknown-linux-gnu
           - os: macos-latest
             arch: x86_64
             container: false
+            target:
           - os: windows-latest
             arch: x86_64
             container: false
+            target:
           # Linux aarch64 tests using QEMU
           - os: ubuntu-latest
             arch: aarch64
             container: false
+            target: aarch64-unknown-linux-gnu
           # Container-based tests for older Ubuntu versions
           - os: ubuntu-latest
             arch: x86_64
             container: true
             container_image: ubuntu:20.04
             container_name: ubuntu-20.04
+            target: x86_64-unknown-linux-gnu
           - os: ubuntu-latest
             arch: x86_64
             container: true
             container_image: ubuntu:18.04
             container_name: ubuntu-18.04
+            target: x86_64-unknown-linux-gnu
     runs-on: ${{ matrix.os }}
     container: ${{ matrix.container && matrix.container_image || null }}
 
