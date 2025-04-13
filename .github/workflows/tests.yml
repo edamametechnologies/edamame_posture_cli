@@ -27,11 +27,11 @@ jobs:
             container: false
             target: x86_64-unknown-linux-gnu
           - os: macos-latest
-            arch: x86_64
+            arch:
             container: false
             target:
           - os: windows-latest
-            arch: x86_64
+            arch:
             container: false
             target:
           # Linux aarch64 tests using QEMU
@@ -90,14 +90,14 @@ jobs:
           # Without that git pull in edamame_posture_action fails as well as other actions
           git config --global --add safe.directory '*'
           # Install gh (to be removed once edamame_posture_action is updated)
-          (type -p wget >/dev/null || (sudo apt update && sudo apt-get install wget -y)) \
-            && sudo mkdir -p -m 755 /etc/apt/keyrings \
-                  && out=$(mktemp) && wget -nv -O$out https://cli.github.com/packages/githubcli-archive-keyring.gpg \
-                  && cat $out | sudo tee /etc/apt/keyrings/githubcli-archive-keyring.gpg > /dev/null \
-            && sudo chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg \
-            && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
-            && sudo apt update \
-            && sudo apt install gh -y
+          (type -p wget >/dev/null || (apt update && apt-get install wget -y)) \
+            && mkdir -p -m 755 /etc/apt/keyrings \
+            && out=$(mktemp) && wget -nv -O$out https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+            && cat $out | tee /etc/apt/keyrings/githubcli-archive-keyring.gpg > /dev/null \
+            && chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg \
+            && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
+            && apt update \
+            && apt install gh -y
 
       - name: Setup EDAMAME Posture
         uses: edamametechnologies/edamame_posture_action@v0
@@ -135,7 +135,7 @@ jobs:
           fi
 
       - name: Install additional packages w/ apt for Linux
-        if: matrix.os == 'ubuntu-latest' && ${{ !matrix.container }}
+        if: matrix.os == 'ubuntu-latest' && !matrix.container
         run: |
           # Install build dependencies
           sudo apt-get update
@@ -187,7 +187,7 @@ jobs:
 
       # Install cargo-zigbuild for Linux
       - name: Install cargo-zigbuild
-        if: contains(matrix.os, 'ubuntu') && ${{ !matrix.container }}
+        if: contains(matrix.os, 'ubuntu') && !matrix.container
         run: cargo install cargo-zigbuild
 
       # Install cargo-zigbuild in container
