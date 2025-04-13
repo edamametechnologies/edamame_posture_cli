@@ -163,15 +163,15 @@ jobs:
             mkdir -p $HOME/.rustup/toolchains/stable-${ARCH}-unknown-linux-gnu/lib/rustlib/${RUST_TARGET}/lib/
             
             # Link the static libraries to the Rust sysroot if needed
-            if [ -f "/usr/lib/${ARCH}-linux-gnu/libgcc.a" ]; then
+            if [ -f "/usr/lib/${ARCH}-linux-gnu/libgcc.a" ] && [ ! -f "$HOME/.rustup/toolchains/stable-${ARCH}-unknown-linux-gnu/lib/rustlib/${RUST_TARGET}/lib/libgcc.a" ]; then
               ln -sf "/usr/lib/${ARCH}-linux-gnu/libgcc.a" "$HOME/.rustup/toolchains/stable-${ARCH}-unknown-linux-gnu/lib/rustlib/${RUST_TARGET}/lib/libgcc.a"
             fi
             
-            if [ -f "/usr/lib/${ARCH}-linux-gnu/libgcc_eh.a" ]; then
+            if [ -f "/usr/lib/${ARCH}-linux-gnu/libgcc_eh.a" ] && [ ! -f "$HOME/.rustup/toolchains/stable-${ARCH}-unknown-linux-gnu/lib/rustlib/${RUST_TARGET}/lib/libgcc_eh.a" ]; then
               ln -sf "/usr/lib/${ARCH}-linux-gnu/libgcc_eh.a" "$HOME/.rustup/toolchains/stable-${ARCH}-unknown-linux-gnu/lib/rustlib/${RUST_TARGET}/lib/libgcc_eh.a"
             fi
             
-            if [ -f "/usr/lib/${ARCH}-linux-gnu/libpcap.a" ]; then
+            if [ -f "/usr/lib/${ARCH}-linux-gnu/libpcap.a" ] && [ ! -f "$HOME/.rustup/toolchains/stable-${ARCH}-unknown-linux-gnu/lib/rustlib/${RUST_TARGET}/lib/libpcap.a" ]; then
               ln -sf "/usr/lib/${ARCH}-linux-gnu/libpcap.a" "$HOME/.rustup/toolchains/stable-${ARCH}-unknown-linux-gnu/lib/rustlib/${RUST_TARGET}/lib/libpcap.a"
             fi
           fi
@@ -268,19 +268,19 @@ jobs:
           
           # For aarch64, ensure that the lib path is in the expected Rust path too
           if [[ "${{ matrix.arch }}" == "aarch64" ]]; then
-            sudo mkdir -p $HOME/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/${RUST_TARGET}/lib/
+            sudo mkdir -p $HOME/.rustup/toolchains/stable-${ARCH}-unknown-linux-gnu/lib/rustlib/${RUST_TARGET}/lib/
             
             # Link the static libraries to the Rust sysroot if needed
-            if [ -f "/usr/lib/${ARCH}-linux-gnu/libgcc.a" ] && [ ! -f "$HOME/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/${RUST_TARGET}/lib/libgcc.a" ]; then
-              sudo ln -sf "/usr/lib/${ARCH}-linux-gnu/libgcc.a" "$HOME/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/${RUST_TARGET}/lib/libgcc.a"
+            if [ -f "/usr/lib/${ARCH}-linux-gnu/libgcc.a" ] && [ ! -f "$HOME/.rustup/toolchains/stable-${ARCH}-unknown-linux-gnu/lib/rustlib/${RUST_TARGET}/lib/libgcc.a" ]; then
+              sudo ln -sf "/usr/lib/${ARCH}-linux-gnu/libgcc.a" "$HOME/.rustup/toolchains/stable-${ARCH}-unknown-linux-gnu/lib/rustlib/${RUST_TARGET}/lib/libgcc.a"
             fi
             
-            if [ -f "/usr/lib/${ARCH}-linux-gnu/libgcc_eh.a" ] && [ ! -f "$HOME/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/${RUST_TARGET}/lib/libgcc_eh.a" ]; then
-              sudo ln -sf "/usr/lib/${ARCH}-linux-gnu/libgcc_eh.a" "$HOME/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/${RUST_TARGET}/lib/libgcc_eh.a"
+            if [ -f "/usr/lib/${ARCH}-linux-gnu/libgcc_eh.a" ] && [ ! -f "$HOME/.rustup/toolchains/stable-${ARCH}-unknown-linux-gnu/lib/rustlib/${RUST_TARGET}/lib/libgcc_eh.a" ]; then
+              sudo ln -sf "/usr/lib/${ARCH}-linux-gnu/libgcc_eh.a" "$HOME/.rustup/toolchains/stable-${ARCH}-unknown-linux-gnu/lib/rustlib/${RUST_TARGET}/lib/libgcc_eh.a"
             fi
             
-            if [ -f "/usr/lib/${ARCH}-linux-gnu/libpcap.a" ] && [ ! -f "$HOME/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/${RUST_TARGET}/lib/libpcap.a" ]; then
-              sudo ln -sf "/usr/lib/${ARCH}-linux-gnu/libpcap.a" "$HOME/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/${RUST_TARGET}/lib/libpcap.a"
+            if [ -f "/usr/lib/${ARCH}-linux-gnu/libpcap.a" ] && [ ! -f "$HOME/.rustup/toolchains/stable-${ARCH}-unknown-linux-gnu/lib/rustlib/${RUST_TARGET}/lib/libpcap.a" ]; then
+              sudo ln -sf "/usr/lib/${ARCH}-linux-gnu/libpcap.a" "$HOME/.rustup/toolchains/stable-${ARCH}-unknown-linux-gnu/lib/rustlib/${RUST_TARGET}/lib/libpcap.a"
             fi
           fi
 

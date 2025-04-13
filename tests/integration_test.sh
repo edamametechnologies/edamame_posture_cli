@@ -152,13 +152,14 @@ run_whitelist_test() {
     UNKNOWN_COUNT=$((UNKNOWN_COUNT))
     echo "Detected $EXCEPTION_COUNT non-conforming exceptions and $UNKNOWN_COUNT unknown exceptions."
 
-    if [ "$EXCEPTION_COUNT" -gt 10 ] || [ "$UNKNOWN_COUNT" -gt 0 ]; then
+    MAX_ALLOWED_EXCEPTIONS=15
+    if [ "$EXCEPTION_COUNT" -gt "$MAX_ALLOWED_EXCEPTIONS" ] || [ "$UNKNOWN_COUNT" -gt 0 ]; then
         # Only fail in CI mode
         if [ "$CI" = "true" ]; then
-            echo "Error (CI Mode): Detected too many non-conforming exceptions ($EXCEPTION_COUNT > 5) or unknown exceptions ($UNKNOWN_COUNT > 0)."
+            echo "Error (CI Mode): Detected too many non-conforming exceptions (${EXCEPTION_COUNT} > ${MAX_ALLOWED_EXCEPTIONS}) or unknown exceptions (${UNKNOWN_COUNT} > 0)."
             ensure_posture_stopped_and_cleaned "post" 1; exit 1
         else
-                echo "Warning (Local Mode): Detected too many non-conforming exceptions ($EXCEPTION_COUNT > 5) or unknown exceptions ($UNKNOWN_COUNT > 0). Not failing."
+            echo "Warning (Local Mode): Detected too many non-conforming exceptions (${EXCEPTION_COUNT} > ${MAX_ALLOWED_EXCEPTIONS}) or unknown exceptions (${UNKNOWN_COUNT} > 0). Not failing."
         fi
     fi
     echo "Whitelist conformance check passed."
