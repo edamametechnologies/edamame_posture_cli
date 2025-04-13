@@ -120,6 +120,7 @@ jobs:
 
       - name: Install additional packages w/ apt for Linux containers
         if: matrix.os == 'ubuntu-latest' && matrix.container
+        shell: bash
         run: |
           export DEBIAN_FRONTEND=noninteractive
           # Install build dependencies
@@ -229,11 +230,11 @@ jobs:
       # Install Rust in container
       - name: Install Rust in container
         if: matrix.container
+        shell: bash
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
           echo "$HOME/.cargo/bin" >> $GITHUB_PATH
           . "$HOME/.cargo/env"
-        shell: bash
 
       # Install static libraries needed for static linking
       - name: Install static libraries for Linux
@@ -300,9 +301,11 @@ jobs:
       - name: Install cargo-zigbuild in container
         if: matrix.container
         run: |
-          source "$HOME/.cargo/env"
+          . "$HOME/.cargo/env"
           cargo install cargo-zigbuild
+        shell: bash
 
+      # Install additional packages w/ Homebrew for macOS
       - name: Install additional packages w/ Homebrew for macOS
         if: matrix.os == 'macos-latest'
         run: |
@@ -346,7 +349,7 @@ jobs:
         run: |
           if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
             # Build using zigbuild
-            source "$HOME/.cargo/env" || true
+            . "$HOME/.cargo/env" || true
             cargo zigbuild --release --target ${{ matrix.target }}
           else
             # Regular build for macOS and Windows
