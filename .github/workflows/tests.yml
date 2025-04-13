@@ -130,20 +130,52 @@ jobs:
           apt-get install -y curl wget sudo
           # For static linking
           apt-get install -y gcc-multilib
+          
+          # Set architecture-specific paths
+          if [[ "${{ matrix.arch }}" == "aarch64" ]]; then
+            ARCH="aarch64"
+            RUST_TARGET="aarch64-unknown-linux-gnu"
+          else
+            ARCH="x86_64"
+            RUST_TARGET="x86_64-unknown-linux-gnu"
+          fi
+          
           # Find and symlink static gcc libraries
-          mkdir -p /usr/lib/x86_64-linux-gnu/
+          mkdir -p /usr/lib/${ARCH}-linux-gnu/
           GCC_PATH=$(find /usr/lib/gcc -name "libgcc.a" | head -n 1)
           if [ -n "$GCC_PATH" ]; then
-            ln -sf "$GCC_PATH" /usr/lib/x86_64-linux-gnu/libgcc.a
+            ln -sf "$GCC_PATH" /usr/lib/${ARCH}-linux-gnu/libgcc.a
           fi
           GCC_EH_PATH=$(find /usr/lib/gcc -name "libgcc_eh.a" | head -n 1)
           if [ -n "$GCC_EH_PATH" ]; then
-            ln -sf "$GCC_EH_PATH" /usr/lib/x86_64-linux-gnu/libgcc_eh.a
+            ln -sf "$GCC_EH_PATH" /usr/lib/${ARCH}-linux-gnu/libgcc_eh.a
           fi
           # Ensure static pcap library is properly linked
           PCAP_PATH=$(find /usr -name "libpcap.a" | head -n 1)
-          if [ -n "$PCAP_PATH" ]; then
-            ln -sf "$PCAP_PATH" /usr/lib/x86_64-linux-gnu/libpcap.a
+          if [ -n "$PCAP_PATH" ] && [ "$PCAP_PATH" != "/usr/lib/${ARCH}-linux-gnu/libpcap.a" ]; then
+            ln -sf "$PCAP_PATH" /usr/lib/${ARCH}-linux-gnu/libpcap.a
+          fi
+          
+          # For aarch64, ensure that the lib path is in the expected Rust path too
+          if [[ "${{ matrix.arch }}" == "aarch64" ]]; then
+            # Create Rust sysroot lib dir if needed
+            mkdir -p $HOME/.cargo/bin
+            export PATH="$HOME/.cargo/bin:$PATH"
+            . "$HOME/.cargo/env" || true
+            mkdir -p $HOME/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/${RUST_TARGET}/lib/
+            
+            # Link the static libraries to the Rust sysroot if needed
+            if [ -f "/usr/lib/${ARCH}-linux-gnu/libgcc.a" ]; then
+              ln -sf "/usr/lib/${ARCH}-linux-gnu/libgcc.a" "$HOME/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/${RUST_TARGET}/lib/libgcc.a"
+            fi
+            
+            if [ -f "/usr/lib/${ARCH}-linux-gnu/libgcc_eh.a" ]; then
+              ln -sf "/usr/lib/${ARCH}-linux-gnu/libgcc_eh.a" "$HOME/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/${RUST_TARGET}/lib/libgcc_eh.a"
+            fi
+            
+            if [ -f "/usr/lib/${ARCH}-linux-gnu/libpcap.a" ]; then
+              ln -sf "/usr/lib/${ARCH}-linux-gnu/libpcap.a" "$HOME/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/${RUST_TARGET}/lib/libpcap.a"
+            fi
           fi
           
           # For cross-compilation if needed
@@ -209,24 +241,54 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y gcc-multilib
+          
+          # Set architecture-specific paths
+          if [[ "${{ matrix.arch }}" == "aarch64" ]]; then
+            ARCH="aarch64"
+            RUST_TARGET="aarch64-unknown-linux-gnu"
+          else
+            ARCH="x86_64"
+            RUST_TARGET="x86_64-unknown-linux-gnu"
+          fi
+          
           # Create symlinks if the libraries aren't found in the expected locations
-          if [ ! -f /usr/lib/gcc/x86_64-linux-gnu/*/libgcc.a ]; then
-            sudo mkdir -p /usr/lib/x86_64-linux-gnu/
+          if ! find /usr/lib/gcc/${ARCH}-linux-gnu -name "libgcc.a" | grep -q .; then
+            sudo mkdir -p /usr/lib/${ARCH}-linux-gnu/
             GCC_PATH=$(find /usr/lib/gcc -name "libgcc.a" | head -n 1)
             if [ -n "$GCC_PATH" ]; then
-              sudo ln -sf "$GCC_PATH" /usr/lib/x86_64-linux-gnu/libgcc.a
+              sudo ln -sf "$GCC_PATH" /usr/lib/${ARCH}-linux-gnu/libgcc.a
             fi
           fi
-          if [ ! -f /usr/lib/gcc/x86_64-linux-gnu/*/libgcc_eh.a ]; then
+          
+          if ! find /usr/lib/gcc/${ARCH}-linux-gnu -name "libgcc_eh.a" | grep -q .; then
             GCC_EH_PATH=$(find /usr/lib/gcc -name "libgcc_eh.a" | head -n 1)
             if [ -n "$GCC_EH_PATH" ]; then
-              sudo ln -sf "$GCC_EH_PATH" /usr/lib/x86_64-linux-gnu/libgcc_eh.a
+              sudo ln -sf "$GCC_EH_PATH" /usr/lib/${ARCH}-linux-gnu/libgcc_eh.a
             fi
           fi
+          
           # Ensure static pcap library is properly linked
           PCAP_PATH=$(find /usr -name "libpcap.a" | head -n 1)
-          if [ -n "$PCAP_PATH" ]; then
-            sudo ln -sf "$PCAP_PATH" /usr/lib/x86_64-linux-gnu/libpcap.a
+          if [ -n "$PCAP_PATH" ] && [ "$PCAP_PATH" != "/usr/lib/${ARCH}-linux-gnu/libpcap.a" ]; then
+            sudo ln -sf "$PCAP_PATH" /usr/lib/${ARCH}-linux-gnu/libpcap.a
+          fi
+          
+          # For aarch64, ensure that the lib path is in the expected Rust path too
+          if [[ "${{ matrix.arch }}" == "aarch64" ]]; then
+            sudo mkdir -p $HOME/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/${RUST_TARGET}/lib/
+            
+            # Link the static libraries to the Rust sysroot if needed
+            if [ -f "/usr/lib/${ARCH}-linux-gnu/libgcc.a" ] && [ ! -f "$HOME/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/${RUST_TARGET}/lib/libgcc.a" ]; then
+              sudo ln -sf "/usr/lib/${ARCH}-linux-gnu/libgcc.a" "$HOME/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/${RUST_TARGET}/lib/libgcc.a"
+            fi
+            
+            if [ -f "/usr/lib/${ARCH}-linux-gnu/libgcc_eh.a" ] && [ ! -f "$HOME/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/${RUST_TARGET}/lib/libgcc_eh.a" ]; then
+              sudo ln -sf "/usr/lib/${ARCH}-linux-gnu/libgcc_eh.a" "$HOME/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/${RUST_TARGET}/lib/libgcc_eh.a"
+            fi
+            
+            if [ -f "/usr/lib/${ARCH}-linux-gnu/libpcap.a" ] && [ ! -f "$HOME/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/${RUST_TARGET}/lib/libpcap.a" ]; then
+              sudo ln -sf "/usr/lib/${ARCH}-linux-gnu/libpcap.a" "$HOME/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/${RUST_TARGET}/lib/libpcap.a"
+            fi
           fi
 
       # Install cargo-zigbuild for Linux
