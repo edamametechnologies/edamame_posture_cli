@@ -224,13 +224,10 @@ jobs:
       - name: Build application
         shell: bash
         run: |
-          if [[ "${{ matrix.os }}" == "ubuntu-latest" && "${{ matrix.arch }}" == "aarch64" ]]; then
-            # Build for aarch64
-            cargo zigbuild --release --target aarch64-unknown-linux-gnu
-          elif [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
-            # Build using zigbuild for Linux x86_64
+          if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
+            # Build using zigbuild
             source "$HOME/.cargo/env" || true
-            cargo zigbuild --release
+            cargo zigbuild --release --target ${{ matrix.target }}
           else
             # Regular build for macOS and Windows
             cargo build --release
