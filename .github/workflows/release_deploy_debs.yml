@@ -107,7 +107,8 @@ jobs:
 
       # Install cargo-zigbuild
       - name: Install cargo-zigbuild
-        run: cargo install cargo-zigbuild
+        # Target is required for cargo-zigbuild to build
+        run: cargo install cargo-zigbuild --target ${{ matrix.target }}
         
       # Install dependencies needed for the build (previously in Cross.toml)
       - name: Install build dependencies
