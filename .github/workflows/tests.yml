@@ -183,7 +183,8 @@ jobs:
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
           echo "$HOME/.cargo/bin" >> $GITHUB_PATH
-          source "$HOME/.cargo/env"
+          . "$HOME/.cargo/env"
+        shell: bash
 
       # Install cargo-zigbuild for Linux
       - name: Install cargo-zigbuild
