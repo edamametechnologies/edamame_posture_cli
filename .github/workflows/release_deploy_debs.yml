@@ -124,10 +124,6 @@ jobs:
         env:
           # Glibc static linking for compatibility with older distros
           RUSTFLAGS: "-C target-feature=+crt-static"
-          CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS: "-C target-feature=+crt-static"
-          CARGO_TARGET_I686_UNKNOWN_LINUX_GNU_RUSTFLAGS: "-C target-feature=+crt-static"
-          CARGO_TARGET_ARMV7_UNKNOWN_LINUX_GNUEABIHF_RUSTFLAGS: "-C target-feature=+crt-static"
-          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_RUSTFLAGS: "-C target-feature=+crt-static"
           
       - name: Package Debian package with cargo deb
         run: |
