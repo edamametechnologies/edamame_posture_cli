@@ -53,8 +53,12 @@ jobs:
       APPLE_APPSTORE_CONNECT_API_KEY: ${{ secrets.APPLE_APPSTORE_CONNECT_API_KEY }}
       MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.DEV_GITHUB_TOKEN_B64 }}
       MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
-      # Required for cross to not show warnings and fail
-      CROSS_NO_WARNINGS: 0
+      # Glibc static linking for compatibility with older distros
+      RUSTFLAGS: "-C target-feature=+crt-static"
+      CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS: "-C target-feature=+crt-static"
+      CARGO_TARGET_I686_UNKNOWN_LINUX_GNU_RUSTFLAGS: "-C target-feature=+crt-static"
+      CARGO_TARGET_ARMV7_UNKNOWN_LINUX_GNUEABIHF_RUSTFLAGS: "-C target-feature=+crt-static"
+      CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_RUSTFLAGS: "-C target-feature=+crt-static"
     
     steps:
       - name: Setup EDAMAME Posture
@@ -115,10 +119,36 @@ jobs:
         with:
           targets: ${{ matrix.target }}
 
-      # Install Cross for Linux
-      - name: Install Cross for Linux
+      # Install Zig for Linux (not musl)
+      - name: Install Zig
         if: matrix.os == 'ubuntu' && matrix.target != 'x86_64-unknown-linux-musl' && matrix.target != 'aarch64-unknown-linux-musl'
-        run: cargo install cross --git https://github.com/cross-rs/cross
+        uses: goto-bus-stop/setup-zig@v2
+        with:
+          version: 0.11.0
+
+      # Install cargo-zigbuild for Linux (not musl)
+      - name: Install cargo-zigbuild
+        if: matrix.os == 'ubuntu' && matrix.target != 'x86_64-unknown-linux-musl' && matrix.target != 'aarch64-unknown-linux-musl'
+        run: cargo install cargo-zigbuild
+        
+      # Install dependencies needed for the build (previously in Cross.toml)
+      - name: Install build dependencies
+        if: matrix.os == 'ubuntu' && matrix.target != 'x86_64-unknown-linux-musl' && matrix.target != 'aarch64-unknown-linux-musl'
+        run: |
+          # Calculate debian architecture
+          if [[ "${{ matrix.target }}" == "x86_64-unknown-linux-gnu" ]]; then
+            CROSS_DEB_ARCH=amd64
+          elif [[ "${{ matrix.target }}" == "i686-unknown-linux-gnu" ]]; then
+            CROSS_DEB_ARCH=i386
+          elif [[ "${{ matrix.target }}" == "armv7-unknown-linux-gnueabihf" ]]; then
+            CROSS_DEB_ARCH=armhf
+          elif [[ "${{ matrix.target }}" == "aarch64-unknown-linux-gnu" ]]; then
+            CROSS_DEB_ARCH=arm64
+          fi
+          
+          sudo dpkg --add-architecture $CROSS_DEB_ARCH
+          sudo apt update -y
+          sudo apt install -y protobuf-compiler libpcap-dev:$CROSS_DEB_ARCH
 
       # Linux musl (using cross is not possible due to libpcap)
       # Setup Alpine Linux
@@ -172,10 +202,10 @@ jobs:
       # Build
       ############################################################################################
 
-      # Build application for Linux using cross (not musl)
-      - name: Build application for Linux using cross
+      # Build application for Linux using zigbuild (not musl)
+      - name: Build application for Linux using zigbuild
         if: matrix.os == 'ubuntu' && matrix.target != 'x86_64-unknown-linux-musl' && matrix.target != 'aarch64-unknown-linux-musl'
-        run: cross build --release --target ${{ matrix.target }}
+        run: cargo zigbuild --release --target ${{ matrix.target }}
 
       # Build application for Linux musl
       - name: Build application for Linux musl
