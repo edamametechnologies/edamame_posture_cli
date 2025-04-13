@@ -126,7 +126,7 @@ jobs:
           fi
 
       - name: Install additional packages w/ apt for Linux
-        if: contains(matrix.os, 'ubuntu') && !matrix.container
+        if: contains(matrix.os, 'ubuntu') && ${{ !matrix.container }}
         run: |
           # Install build dependencies
           sudo apt-get update
@@ -139,7 +139,7 @@ jobs:
           fi
 
       - name: Install Zig without container
-        if: !matrix.container
+        if: ${{ !matrix.container }}
         uses: goto-bus-stop/setup-zig@v2
         with:
           version: 0.11.0
@@ -178,7 +178,7 @@ jobs:
 
       # Install cargo-zigbuild for Linux
       - name: Install cargo-zigbuild
-        if: contains(matrix.os, 'ubuntu') && !matrix.container
+        if: contains(matrix.os, 'ubuntu') && ${{ !matrix.container }}
         run: cargo install cargo-zigbuild
 
       # Install cargo-zigbuild in container
