@@ -1,3 +1,4 @@
+# Static linking for Windows
 [target.'cfg(target_os = "windows")']
 rustflags = ["-C", "target-feature=+crt-static"]
 
@@ -17,6 +18,8 @@ strip = { path = "arm-linux-gnueabihf-strip" }
 rustflags = ["-C", "target-feature=+crt-static"]
 objcopy = { path = "aarch64-linux-gnu-objcopy" }
 strip = { path = "aarch64-linux-gnu-strip" }
+
+# No static linking for Alpine
 
 [target.x86_64-unknown-linux-musl]
 rustflags = ["-L/usr/local/musl/usr/lib"]

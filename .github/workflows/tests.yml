@@ -128,6 +128,23 @@ jobs:
           apt-get install -y libpcap-dev
           # For downloading and other tools
           apt-get install -y curl wget sudo
+          # For static linking
+          apt-get install -y gcc-multilib
+          # Find and symlink static gcc libraries
+          mkdir -p /usr/lib/x86_64-linux-gnu/
+          GCC_PATH=$(find /usr/lib/gcc -name "libgcc.a" | head -n 1)
+          if [ -n "$GCC_PATH" ]; then
+            ln -sf "$GCC_PATH" /usr/lib/x86_64-linux-gnu/libgcc.a
+          fi
+          GCC_EH_PATH=$(find /usr/lib/gcc -name "libgcc_eh.a" | head -n 1)
+          if [ -n "$GCC_EH_PATH" ]; then
+            ln -sf "$GCC_EH_PATH" /usr/lib/x86_64-linux-gnu/libgcc_eh.a
+          fi
+          # Ensure static pcap library is properly linked
+          PCAP_PATH=$(find /usr -name "libpcap.a" | head -n 1)
+          if [ -n "$PCAP_PATH" ]; then
+            ln -sf "$PCAP_PATH" /usr/lib/x86_64-linux-gnu/libpcap.a
+          fi
           
           # For cross-compilation if needed
           if [[ "${{ matrix.arch }}" == "aarch64" ]]; then
@@ -185,6 +202,32 @@ jobs:
           echo "$HOME/.cargo/bin" >> $GITHUB_PATH
           . "$HOME/.cargo/env"
         shell: bash
+
+      # Install static libraries needed for static linking
+      - name: Install static libraries for Linux
+        if: contains(matrix.os, 'ubuntu-latest')
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-multilib
+          # Create symlinks if the libraries aren't found in the expected locations
+          if [ ! -f /usr/lib/gcc/x86_64-linux-gnu/*/libgcc.a ]; then
+            sudo mkdir -p /usr/lib/x86_64-linux-gnu/
+            GCC_PATH=$(find /usr/lib/gcc -name "libgcc.a" | head -n 1)
+            if [ -n "$GCC_PATH" ]; then
+              sudo ln -sf "$GCC_PATH" /usr/lib/x86_64-linux-gnu/libgcc.a
+            fi
+          fi
+          if [ ! -f /usr/lib/gcc/x86_64-linux-gnu/*/libgcc_eh.a ]; then
+            GCC_EH_PATH=$(find /usr/lib/gcc -name "libgcc_eh.a" | head -n 1)
+            if [ -n "$GCC_EH_PATH" ]; then
+              sudo ln -sf "$GCC_EH_PATH" /usr/lib/x86_64-linux-gnu/libgcc_eh.a
+            fi
+          fi
+          # Ensure static pcap library is properly linked
+          PCAP_PATH=$(find /usr -name "libpcap.a" | head -n 1)
+          if [ -n "$PCAP_PATH" ]; then
+            sudo ln -sf "$PCAP_PATH" /usr/lib/x86_64-linux-gnu/libpcap.a
+          fi
 
       # Install cargo-zigbuild for Linux
       - name: Install cargo-zigbuild
