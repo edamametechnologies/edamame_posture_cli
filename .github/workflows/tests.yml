@@ -76,15 +76,7 @@ jobs:
         with:
           platforms: arm64
 
-      # Basic container setup for older Ubuntu versions
-      - name: Container setup
-        if: matrix.container
-        run: |
-          apt-get update
-          apt-get install -y git curl wget build-essential pkg-config libssl-dev
-
       - name: Setup EDAMAME Posture
-        if: '!matrix.container'
         uses: edamametechnologies/edamame_posture_action@v0
         with:
           edamame_user: ${{ vars.EDAMAME_POSTURE_USER }}
@@ -97,13 +89,6 @@ jobs:
           wait_for_api: true
           wait_for_https: true
 
-      # Manual checkout for container builds
-      - name: Manual checkout for containers
-        if: matrix.container
-        uses: actions/checkout@v3
-        with:
-          token: ${{ secrets.DEV_GITHUB_TOKEN }}
-
       - name: Configure Git Authentication to import private crates
         run: |
           git config --global user.email "dev@edamame.tech"
@@ -113,6 +98,7 @@ jobs:
       - name: Install additional packages w/ apt for Linux containers
         if: matrix.container
         run: |
+          export DEBIAN_FRONTEND=noninteractive
           # Install build dependencies
           apt-get update
           apt-get install -y protobuf-compiler
