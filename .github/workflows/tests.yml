@@ -20,8 +20,34 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        include:
+          # Regular OS tests
+          - os: ubuntu-latest
+            arch: x86_64
+            container: false
+          - os: macos-latest
+            arch: x86_64
+            container: false
+          - os: windows-latest
+            arch: x86_64
+            container: false
+          # Linux aarch64 tests using QEMU
+          - os: ubuntu-latest
+            arch: aarch64
+            container: false
+          # Container-based tests for older Ubuntu versions
+          - os: ubuntu-latest
+            arch: x86_64
+            container: true
+            container_image: ubuntu:20.04
+            container_name: ubuntu-20.04
+          - os: ubuntu-latest
+            arch: x86_64
+            container: true
+            container_image: ubuntu:18.04
+            container_name: ubuntu-18.04
     runs-on: ${{ matrix.os }}
+    container: ${{ matrix.container && matrix.container_image || null }}
 
     env:
       EDAMAME_APP_SENTRY: ${{ secrets.EDAMAME_APP_SENTRY }}
@@ -37,9 +63,28 @@ jobs:
       EDAMAME_CLIENT_CA_PEM: ${{ secrets.EDAMAME_CLIENT_CA_PEM }}
       LAMBDA_SIGNATURE: ${{ secrets.LAMBDA_SIGNATURE }}
       MIXPANEL_TOKEN: ${{ secrets.MIXPANEL_TOKEN }}
-
+      # Glibc static linking for compatibility with older distros (for Linux only)
+      RUSTFLAGS: ${{ contains(matrix.os, 'ubuntu') && '-C target-feature=+crt-static' || '' }}
+      # Debug mode
+      EDAMAME_LOG_LEVEL: debug
+      
     steps:
+      # Set up QEMU for aarch64 emulation
+      - name: Set up QEMU
+        if: matrix.arch == 'aarch64'
+        uses: docker/setup-qemu-action@v2
+        with:
+          platforms: arm64
+
+      # Basic container setup for older Ubuntu versions
+      - name: Container setup
+        if: matrix.container
+        run: |
+          apt-get update
+          apt-get install -y git curl wget build-essential pkg-config libssl-dev
+
       - name: Setup EDAMAME Posture
+        if: '!matrix.container'
         uses: edamametechnologies/edamame_posture_action@v0
         with:
           edamame_user: ${{ vars.EDAMAME_POSTURE_USER }}
@@ -52,20 +97,97 @@ jobs:
           wait_for_api: true
           wait_for_https: true
 
+      # Manual checkout for container builds
+      - name: Manual checkout for containers
+        if: matrix.container
+        uses: actions/checkout@v3
+        with:
+          token: ${{ secrets.DEV_GITHUB_TOKEN }}
+
       - name: Configure Git Authentication to import private crates
         run: |
           git config --global user.email "dev@edamame.tech"
           git config --global user.name "EDAMAME Dev"
           git config --global url."https://edamamedev:${{ secrets.DEV_GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
 
-      - name: Install additional packages w/ apt for linux
-        if: matrix.os == 'ubuntu-latest'
+      - name: Install additional packages w/ apt for Linux containers
+        if: matrix.container
+        run: |
+          # Install build dependencies
+          apt-get update
+          apt-get install -y protobuf-compiler
+          apt-get install -y libpcap-dev
+          # For downloading and other tools
+          apt-get install -y curl wget sudo
+          
+          # For cross-compilation if needed
+          if [[ "${{ matrix.arch }}" == "aarch64" ]]; then
+            apt-get install -y binutils-aarch64-linux-gnu
+          fi
+
+      - name: Install additional packages w/ apt for Linux
+        if: contains(matrix.os, 'ubuntu') && !matrix.container
         run: |
           # Install build dependencies
           sudo apt-get update
           sudo apt-get install -y protobuf-compiler
           # For packet capture
           sudo apt-get install -y libpcap-dev
+          # For cross-compilation tools
+          if [[ "${{ matrix.arch }}" == "aarch64" ]]; then
+            sudo apt-get install -y binutils-aarch64-linux-gnu
+          fi
+
+      # Install Zig for Linux x86_64
+      - name: Install Zig for x86_64
+        if: contains(matrix.os, 'ubuntu') && matrix.arch == 'x86_64'
+        uses: goto-bus-stop/setup-zig@v2
+        with:
+          version: 0.11.0
+
+      # Manual Zig installation for containers
+      - name: Install Zig in container
+        if: matrix.container
+        run: |
+          cd /tmp
+          wget https://ziglang.org/download/0.11.0/zig-linux-x86_64-0.11.0.tar.xz
+          tar -xf zig-linux-x86_64-0.11.0.tar.xz
+          mv zig-linux-x86_64-0.11.0 /usr/local/zig
+          echo 'export PATH=$PATH:/usr/local/zig' >> ~/.bashrc
+          echo 'export PATH=$PATH:/usr/local/zig' >> $GITHUB_ENV
+          export PATH=$PATH:/usr/local/zig
+
+      # Install Rust toolchain for x86_64
+      - name: Install Rust toolchain for x86_64
+        if: contains(matrix.os, 'ubuntu') && matrix.arch == 'x86_64'
+        uses: dtolnay/rust-toolchain@stable
+
+      # Install Rust toolchain for aarch64
+      - name: Install Rust toolchain for aarch64
+        if: matrix.arch == 'aarch64'
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-unknown-linux-gnu
+
+      # Install Rust in container
+      - name: Install Rust in container
+        if: matrix.container
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+          source "$HOME/.cargo/env"
+
+      # Install cargo-zigbuild for Linux
+      - name: Install cargo-zigbuild
+        if: contains(matrix.os, 'ubuntu') && !matrix.container
+        run: cargo install cargo-zigbuild
+
+      # Install cargo-zigbuild in container
+      - name: Install cargo-zigbuild in container
+        if: matrix.container
+        run: |
+          source "$HOME/.cargo/env"
+          cargo install cargo-zigbuild
 
       - name: Install additional packages w/ Homebrew for macOS
         if: matrix.os == 'macos-latest'
@@ -108,7 +230,17 @@ jobs:
       - name: Build application
         shell: bash
         run: |
-          cargo build --release
+          if [[ "${{ matrix.os }}" == "ubuntu-latest" && "${{ matrix.arch }}" == "aarch64" ]]; then
+            # Build for aarch64
+            cargo zigbuild --release --target aarch64-unknown-linux-gnu
+          elif [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
+            # Build using zigbuild for Linux x86_64
+            source "$HOME/.cargo/env" || true
+            cargo zigbuild --release
+          else
+            # Regular build for macOS and Windows
+            cargo build --release
+          fi
   
       - name: Signing for macOS
         if: matrix.os == 'macos-latest'
@@ -193,7 +325,7 @@ jobs:
         with:
           channel-id: 'C072J0U9TH7'
           slack-message: |
-            *Test Results for ${{ github.repository }} (${{ runner.os }})*:
+            *Test Results for ${{ github.repository }} (${{ matrix.container_name || matrix.os }}-${{ matrix.arch }})*:
             - Cargo Tests: ${{ steps.cargo_tests.outcome != 'failure' && '✅ Success' || '❌ Failed' }}
             - Standalone Tests: ${{ steps.standalone_tests.outcome != 'failure' && '✅ Success' || '❌ Failed' }}
             - Integration Tests: ${{ steps.integration_tests.outcome != 'failure' && '✅ Success' || '❌ Failed' }}
