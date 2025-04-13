@@ -230,7 +230,6 @@ jobs:
         shell: bash
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
       # Install static libraries needed for static linking
       - name: Install static libraries for Linux
@@ -293,14 +292,12 @@ jobs:
         if: contains(matrix.os, 'ubuntu') && !matrix.container
         run: |
           cargo install cargo-zigbuild
-          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
       # Install cargo-zigbuild in container
       - name: Install cargo-zigbuild in container
         if: matrix.container
         run: |
           cargo install cargo-zigbuild
-          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
       # Install additional packages w/ Homebrew for macOS
       - name: Install additional packages w/ Homebrew for macOS
@@ -346,6 +343,7 @@ jobs:
         run: |
           if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
             # Build using zigbuild
+            . "$HOME/.cargo/env"
             cargo zigbuild --release --target ${{ matrix.target }}
           else
             # Regular build for macOS and Windows
