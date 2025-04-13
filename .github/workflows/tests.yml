@@ -110,7 +110,7 @@ jobs:
           git config --global url."https://edamamedev:${{ secrets.DEV_GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
 
       - name: Install additional packages w/ apt for Linux containers
-        if: matrix.container
+        if: contains(matrix.os, 'ubuntu') && matrix.container
         run: |
           export DEBIAN_FRONTEND=noninteractive
           # Install build dependencies
