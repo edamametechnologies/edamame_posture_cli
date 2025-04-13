@@ -53,12 +53,6 @@ jobs:
       APPLE_APPSTORE_CONNECT_API_KEY: ${{ secrets.APPLE_APPSTORE_CONNECT_API_KEY }}
       MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.DEV_GITHUB_TOKEN_B64 }}
       MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
-      # Glibc static linking for compatibility with older distros
-      RUSTFLAGS: "-C target-feature=+crt-static"
-      CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS: "-C target-feature=+crt-static"
-      CARGO_TARGET_I686_UNKNOWN_LINUX_GNU_RUSTFLAGS: "-C target-feature=+crt-static"
-      CARGO_TARGET_ARMV7_UNKNOWN_LINUX_GNUEABIHF_RUSTFLAGS: "-C target-feature=+crt-static"
-      CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_RUSTFLAGS: "-C target-feature=+crt-static"
     
     steps:
       - name: Setup EDAMAME Posture
@@ -206,7 +200,10 @@ jobs:
       - name: Build application for Linux using zigbuild
         if: matrix.os == 'ubuntu' && matrix.target != 'x86_64-unknown-linux-musl' && matrix.target != 'aarch64-unknown-linux-musl'
         run: cargo zigbuild --release --target ${{ matrix.target }}
-
+        env:
+          # Glibc static linking for compatibility with older distros
+          RUSTFLAGS: "-C target-feature=+crt-static"
+          
       # Build application for Linux musl
       - name: Build application for Linux musl
         if: matrix.os == 'ubuntu' && matrix.target == 'x86_64-unknown-linux-musl' || matrix.target == 'aarch64-unknown-linux-musl'
