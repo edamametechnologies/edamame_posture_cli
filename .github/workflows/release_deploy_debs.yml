@@ -59,12 +59,6 @@ jobs:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_REGION: ${{ secrets.AWS_REGION }}
-      # Glibc static linking for compatibility with older distros
-      RUSTFLAGS: "-C target-feature=+crt-static"
-      CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS: "-C target-feature=+crt-static"
-      CARGO_TARGET_I686_UNKNOWN_LINUX_GNU_RUSTFLAGS: "-C target-feature=+crt-static"
-      CARGO_TARGET_ARMV7_UNKNOWN_LINUX_GNUEABIHF_RUSTFLAGS: "-C target-feature=+crt-static"
-      CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_RUSTFLAGS: "-C target-feature=+crt-static"
     
     steps:
       - name: Setup EDAMAME Posture
@@ -108,7 +102,7 @@ jobs:
       # Install cargo-zigbuild
       - name: Install cargo-zigbuild
         # Target is required for cargo-zigbuild to build
-        run: cargo install cargo-zigbuild --target ${{ matrix.target }}
+        run: cargo install cargo-zigbuild
         
       # Install dependencies needed for the build (previously in Cross.toml)
       - name: Install build dependencies
@@ -127,7 +121,14 @@ jobs:
           cargo zigbuild --release --target ${{ matrix.target }}
           # Copy the binary to the release folder which is expected by many tools
           cp target/${{ matrix.target }}/release/edamame_posture target/release/edamame_posture
-
+        env:
+          # Glibc static linking for compatibility with older distros
+          RUSTFLAGS: "-C target-feature=+crt-static"
+          CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS: "-C target-feature=+crt-static"
+          CARGO_TARGET_I686_UNKNOWN_LINUX_GNU_RUSTFLAGS: "-C target-feature=+crt-static"
+          CARGO_TARGET_ARMV7_UNKNOWN_LINUX_GNUEABIHF_RUSTFLAGS: "-C target-feature=+crt-static"
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_RUSTFLAGS: "-C target-feature=+crt-static"
+          
       - name: Package Debian package with cargo deb
         run: |
           # Install binutils for objcopy and strip (configured in .cargo/config.toml)
