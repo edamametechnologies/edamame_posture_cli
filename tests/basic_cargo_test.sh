@@ -1,6 +1,11 @@
 #!/bin/bash
 set -e
 
+if [ -z "$1" ]; then
+    echo "Usage: $0 <target>"
+    exit 1
+fi
+
 # Function to run on exit
 finish() {
     local exit_status=$?
@@ -17,5 +22,5 @@ finish() {
 trap finish EXIT # Register the finish function to run on exit
 
 echo "--- Running Basic Cargo Tests ---"
-cargo test -- --nocapture
-# Original success message removed, handled by trap 
+
+cargo test -- --nocapture --target $1
