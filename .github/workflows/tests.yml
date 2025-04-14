@@ -265,9 +265,10 @@ jobs:
             container_name: ubuntu-18.04
             target: x86_64-unknown-linux-gnu
 
-    runs-on: ${{ matrix.os }} # Should always be ubuntu-latest here
+    runs-on: ${{ matrix.os }}
     container:
       image: ${{ matrix.container_image }}
+      # Needed for integration tests (pcap)
       options: --cap-add NET_ADMIN
     env:
       EDAMAME_APP_SENTRY: ${{ secrets.EDAMAME_APP_SENTRY }}
@@ -295,13 +296,13 @@ jobs:
           apt-get install -y git
           git config --global --add safe.directory '*'
           # Install gh (to be removed once edamame_posture_action is updated)
-          (type -p wget >/dev/null || (apt update && apt-get install wget -y)) \\
-            && mkdir -p -m 755 /etc/apt/keyrings \\
-            && out=$(mktemp) && wget -nv -O$out https://cli.github.com/packages/githubcli-archive-keyring.gpg \\
-            && cat $out | tee /etc/apt/keyrings/githubcli-archive-keyring.gpg > /dev/null \\
-            && chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg \\
-            && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null \\
-            && apt update \\
+          (type -p wget >/dev/null || (apt update && apt-get install wget -y)) 
+            && mkdir -p -m 755 /etc/apt/keyrings \
+            && out=$(mktemp) && wget -nv -O$out https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+            && cat $out | tee /etc/apt/keyrings/githubcli-archive-keyring.gpg > /dev/null \
+            && chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg \
+            && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
+            && apt update \
             && apt install gh -y
 
       - name: Setup EDAMAME Posture

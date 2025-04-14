@@ -59,6 +59,10 @@ jobs:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_REGION: ${{ secrets.AWS_REGION }}
+      # Required for cross to not show warnings and fail
+      CROSS_NO_WARNINGS: 0
+      # Debug mode
+      EDAMAME_LOG_LEVEL: debug
     
     steps:
       - name: Setup EDAMAME Posture
@@ -93,38 +97,21 @@ jobs:
         with:
           targets: ${{ matrix.target }}
 
-      # Install Zig
-      - name: Install Zig
-        uses: goto-bus-stop/setup-zig@v2
-        with:
-          version: 0.11.0
-
-      # Install cargo-zigbuild
-      - name: Install cargo-zigbuild
-        # Target is required for cargo-zigbuild to build
-        run: cargo install cargo-zigbuild
-        
-      # Install dependencies needed for the build (as in Cross.toml)
-      - name: Install build dependencies
-        run: |
-          sudo dpkg --add-architecture ${{ matrix.deb_arch }}
-          sudo apt update -y
-          sudo apt install -y protobuf-compiler libpcap-dev:${{ matrix.deb_arch }}
+      # Install Cross for Linux
+      - name: Install Cross for Linux
+        run: cargo install cross --git https://github.com/cross-rs/cross
 
       ############################################################################################
       # Build
       ############################################################################################
 
-      # Build application for Linux using zigbuild
-      - name: Build application for Linux using zigbuild
+      # Build application for Linux using cross
+      - name: Build application for Linux using cross
         run: |
-          cargo zigbuild --release --target ${{ matrix.target }}
+          cross build --release --target ${{ matrix.target }}
           # Copy the binary to the release folder which is expected by many tools
           cp target/${{ matrix.target }}/release/edamame_posture target/release/edamame_posture
-        env:
-          # Glibc static linking for compatibility with older distros
-          RUSTFLAGS: "-C target-feature=+crt-static"
-          
+
       - name: Package Debian package with cargo deb
         run: |
           # Install binutils for objcopy and strip (configured in .cargo/config.toml)
