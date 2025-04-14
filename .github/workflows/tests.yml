@@ -54,9 +54,7 @@ jobs:
             target: x86_64-unknown-linux-gnu
 
     runs-on: ${{ matrix.os }}
-    container:
-      image: ${{ matrix.container && matrix.container_image || '' }}
-      options: ${{ matrix.container && '--cap-add NET_ADMIN' || '' }}
+    container: ${{ matrix.container && matrix.container_image || null }}
     env:
       EDAMAME_APP_SENTRY: ${{ secrets.EDAMAME_APP_SENTRY }}
       PWNED_API_KEY: ${{ secrets.PWNED_API_KEY }}
@@ -82,6 +80,13 @@ jobs:
         with:
           platforms: arm64
 
+      - name: Setup container network settings
+        if: matrix.container
+        run: |
+          # Mimic --net=host --cap-add NET_ADMIN internally
+          ip link set dev lo up || true
+          sysctl -w net.ipv4.ip_forward=1 || true
+          
       # Needed when we are running in a container
       - name: Setup permissions for git and install missing packages
         if: matrix.container
