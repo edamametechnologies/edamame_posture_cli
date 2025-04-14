@@ -150,17 +150,12 @@ jobs:
           tar -xf zig-linux-x86_64-0.11.0.tar.xz
           mv zig-linux-x86_64-0.11.0 /usr/local/zig
 
-      # Install Rust toolchain for x86_64
-      - name: Install Rust toolchain for x86_64
-        if: contains(matrix.os, 'ubuntu') && matrix.arch == 'x86_64'
-        uses: dtolnay/rust-toolchain@stable
-
-      # Install Rust toolchain for aarch64
-      - name: Install Rust toolchain for aarch64
-        if: contains(matrix.os, 'ubuntu') && matrix.arch == 'aarch64'
+      # Install Rust toolchain for Linux
+      - name: Install Rust toolchain
+        if: contains(matrix.os, 'ubuntu')
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-unknown-linux-gnu
+          targets: ${{ matrix.arch }}-unknown-linux-gnu
 
       # Install Rust in container
       - name: Install Rust in container
@@ -181,13 +176,7 @@ jobs:
         shell: bash
         run: |
           # Set architecture-specific paths
-          if [[ "${{ matrix.arch }}" == "aarch64" ]]; then
-            ARCH="aarch64"
-            RUST_TARGET="aarch64-unknown-linux-gnu"
-          else
-            ARCH="x86_64"
-            RUST_TARGET="x86_64-unknown-linux-gnu"
-          fi
+          RUST_TARGET=${{ matrix.arch }}-unknown-linux-gnu
           
           # Determine if sudo is needed
           SUDO_CMD=""
@@ -261,7 +250,7 @@ jobs:
             RUSTFLAGS="-C link-arg=-fuse-ld=lld" cargo zigbuild --release --target ${{ matrix.target }}
           else
             # Regular build for macOS and Windows
-            cargo build --release
+            cargo build --release --target ${{ matrix.target }}
           fi
 
       - name: Signing for macOS
@@ -322,7 +311,8 @@ jobs:
       - name: Run Basic Cargo Tests
         id: cargo_tests
         shell: bash
-        run: ./tests/basic_cargo_test.sh
+        # We must pass the target to the script for proper handling of static linking
+        run: ./tests/basic_cargo_test.sh ${{ matrix.target }}
         continue-on-error: true
 
       - name: Run Standalone Commands Test
