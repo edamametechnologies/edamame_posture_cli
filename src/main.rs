@@ -111,19 +111,25 @@ pub fn initialize_core(
 ) {
     // Set device ID
     // Prefix is the machine uid
-    let machine_uid = match machine_uid::get() {
-        Ok(id) => id,
+    // Can return an empty string under Linux
+    let mut machine_uid = match machine_uid::get() {
+        Ok(uid) => uid,
         Err(_) => {
-            // Create a fallback for Linux
-            match std::fs::read_to_string("/sys/class/dmi/id/product_uuid") {
-                Ok(uid) => uid,
-                Err(_) => {
-                    // Create a random UUID
-                    let uuid = Uuid::new_v4();
-                    uuid.to_string()
-                }
+            "".to_string()
+        }
+    };
+    machine_uid = if machine_uid.is_empty() {
+        // Create a fallback for Linux
+        match std::fs::read_to_string("/sys/class/dmi/id/product_uuid") {
+            Ok(uid) => uid,
+            Err(_) => {
+                // Create a random UUID
+                let uuid = Uuid::new_v4();
+                uuid.to_string()
             }
         }
+    } else {
+        machine_uid
     };
 
     let mut device = SystemInfoAPI {
