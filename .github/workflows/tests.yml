@@ -54,7 +54,9 @@ jobs:
             target: x86_64-unknown-linux-gnu
 
     runs-on: ${{ matrix.os }}
-    container: ${{ matrix.container && fromJSON(format('{{"image":"{0}","options":"--net=host --cap-add NET_ADMIN"}}', matrix.container_image)) || null }}
+    container:
+      image: ${{ matrix.container && matrix.container_image || '' }}
+      options: ${{ matrix.container && '--cap-add NET_ADMIN' || '' }}
     env:
       EDAMAME_APP_SENTRY: ${{ secrets.EDAMAME_APP_SENTRY }}
       PWNED_API_KEY: ${{ secrets.PWNED_API_KEY }}
