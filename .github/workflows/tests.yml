@@ -16,7 +16,7 @@ concurrency:
 permissions: read-all
 
 jobs:
-  test:
+  test-native:
     strategy:
       fail-fast: false
       matrix:
@@ -24,37 +24,20 @@ jobs:
           # Regular OS tests
           - os: ubuntu-latest
             arch: x86_64
-            container: false
             target: x86_64-unknown-linux-gnu
           - os: macos-latest
             arch:
-            container: false
             target:
           - os: windows-latest
             arch:
-            container: false
             target:
           # Linux aarch64 tests using QEMU
           - os: ubuntu-latest
             arch: aarch64
-            container: false
             target: aarch64-unknown-linux-gnu
-          # Container-based tests for older Ubuntu versions
-          - os: ubuntu-latest
-            arch: x86_64
-            container: true
-            container_image: ubuntu:20.04
-            container_name: ubuntu-20.04
-            target: x86_64-unknown-linux-gnu
-          - os: ubuntu-latest
-            arch: x86_64
-            container: true
-            container_image: ubuntu:18.04
-            container_name: ubuntu-18.04
-            target: x86_64-unknown-linux-gnu
 
     runs-on: ${{ matrix.os }}
-    container: ${{ matrix.container && matrix.container_image || null }}
+    # No container for native tests
     env:
       EDAMAME_APP_SENTRY: ${{ secrets.EDAMAME_APP_SENTRY }}
       PWNED_API_KEY: ${{ secrets.PWNED_API_KEY }}
@@ -80,39 +63,13 @@ jobs:
         with:
           platforms: arm64
 
-      - name: Setup container network settings
-        if: matrix.container
-        run: |
-          # Mimic --net=host --cap-add NET_ADMIN internally
-          ip link set dev lo up || true
-          sysctl -w net.ipv4.ip_forward=1 || true
-          
-      # Needed when we are running in a container
-      - name: Setup permissions for git and install missing packages
-        if: matrix.container
-        run: |
-          export DEBIAN_FRONTEND=noninteractive
-          apt-get update -y
-          apt-get install -y git
-          # Without that git pull in edamame_posture_action fails as well as other actions
-          git config --global --add safe.directory '*'
-          # Install gh (to be removed once edamame_posture_action is updated)
-          (type -p wget >/dev/null || (apt update && apt-get install wget -y)) \
-            && mkdir -p -m 755 /etc/apt/keyrings \
-            && out=$(mktemp) && wget -nv -O$out https://cli.github.com/packages/githubcli-archive-keyring.gpg \
-            && cat $out | tee /etc/apt/keyrings/githubcli-archive-keyring.gpg > /dev/null \
-            && chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg \
-            && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
-            && apt update \
-            && apt install gh -y
-
       - name: Setup EDAMAME Posture
         uses: edamametechnologies/edamame_posture_action@v0
         with:
           edamame_user: ${{ vars.EDAMAME_POSTURE_USER }}
           edamame_domain: ${{ vars.EDAMAME_POSTURE_DOMAIN }}
           edamame_pin: ${{ secrets.EDAMAME_POSTURE_PIN }}
-          edamame_id: ${{ github.run_id }}
+          edamame_id: ${{ github.run_id }}-native-${{ matrix.os }}-${{ matrix.arch }} # Unique ID
           checkout: true
           # We are using the token of the the private repo to checkout the public repo and properly wait for access to the private repo
           token: ${{ secrets.DEV_GITHUB_TOKEN }}
@@ -128,34 +85,19 @@ jobs:
       - name: Install additional packages w/ apt for Linux
         if: matrix.os == 'ubuntu-latest'
         run: |
-          # Determine if sudo is needed
-          SUDO_CMD=""
-          if [[ ${{ !matrix.container }} == true ]]; then
-            SUDO_CMD="sudo"
-          fi
-
-          $SUDO_CMD apt-get update
-          $SUDO_CMD apt-get install -y protobuf-compiler libpcap-dev gcc-multilib
+          sudo apt-get update
+          sudo apt-get install -y protobuf-compiler libpcap-dev gcc-multilib
           # For cross-compilation tools
           if [[ "${{ matrix.arch }}" == "aarch64" ]]; then
-            $SUDO_CMD apt-get install -y binutils-aarch64-linux-gnu
+            sudo apt-get install -y binutils-aarch64-linux-gnu
           fi
 
-      # Install Rust toolchain for Linux
       - name: Install Rust toolchain
-        if: contains(matrix.os, 'ubuntu')
+        if: matrix.os == 'ubuntu-latest'
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.arch }}-unknown-linux-gnu
 
-      # Install Rust in container
-      - name: Install Rust in container
-        if: matrix.container
-        shell: bash
-        run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-
-      # Install additional packages w/ Homebrew for macOS
       - name: Install additional packages w/ Homebrew for macOS
         if: matrix.os == 'macos-latest'
         run: |
@@ -189,9 +131,9 @@ jobs:
             echo "RUNNER_OS=${{ matrix.os }}" >> $GITHUB_ENV
             # Set EDAMAME_LOG_LEVEL for scripts
             echo "EDAMAME_LOG_LEVEL=debug" >> $GITHUB_ENV
-            # Set EDAMAME_ID for connected tests script
-            echo "EDAMAME_ID=${{ github.run_id }}" >> $GITHUB_ENV
-            # Set KEYCHAIN_PATH for macOS signing
+            # Set EDAMAME_ID for scripts (unique ID for the run)
+            echo "EDAMAME_ID=${{ github.run_id }}-native-${{ matrix.os }}-${{ matrix.arch }}" >> $GITHUB_ENV # Unique ID
+            # Set KEYCHAIN_PATH for scripts (path to the keychain)
             echo "KEYCHAIN_PATH=/tmp/app-signing.keychain-db" >> $GITHUB_ENV
 
       - name: Build application
@@ -277,12 +219,12 @@ jobs:
         continue-on-error: true
 
       - name: Slack alerts
-        if: steps.cargo_tests.outcome == 'failure' || steps.standalone_tests.outcome == 'failure' || steps.integration_tests.outcome == 'failure'
+        if: failure() # Simpler condition for job failure
         uses: slackapi/slack-github-action@v1.26.0
         with:
           channel-id: 'C072J0U9TH7'
           slack-message: |
-            *Test Results for ${{ github.repository }} (${{ matrix.container_name || matrix.os }}-${{ matrix.arch }})*:
+            *Native Test Results for ${{ github.repository }} (${{ matrix.os }}-${{ matrix.arch }})*:
             - Cargo Tests: ${{ steps.cargo_tests.outcome != 'failure' && '✅ Success' || '❌ Failed' }}
             - Standalone Tests: ${{ steps.standalone_tests.outcome != 'failure' && '✅ Success' || '❌ Failed' }}
             - Integration Tests: ${{ steps.integration_tests.outcome != 'failure' && '✅ Success' || '❌ Failed' }}
@@ -293,15 +235,176 @@ jobs:
 
       - name: Dump the logs
         shell: bash
-        if: always() # Dump logs regardless of outcome
+        if: always()
         run: |
-          echo "--- Dumping Logs --- "
+          echo "--- Dumping Native Logs (${{ matrix.os }}-${{ matrix.arch }}) --- "
           find "$HOME/" -name "edamame_cli_*.*" -exec echo "--- {} ---" \; -exec cat {} \; || echo "No logs found in HOME"
-          echo "--- Log Dump Complete ---"
+          echo "--- Native Log Dump Complete ---"
 
       - name: Fail job if tests failed
         shell: bash
         if: steps.cargo_tests.outcome == 'failure' || steps.standalone_tests.outcome == 'failure' || steps.integration_tests.outcome == 'failure'
         run: |
-          echo "Forcing job to fail because tests did not succeed."
+          echo "Forcing native job to fail because tests did not succeed."
+          exit 1
+
+  test-container:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Container-based tests for older Ubuntu versions
+          - os: ubuntu-latest # Containers always run on ubuntu-latest host
+            arch: x86_64
+            container_image: ubuntu:20.04
+            container_name: ubuntu-20.04
+            target: x86_64-unknown-linux-gnu
+          - os: ubuntu-latest # Containers always run on ubuntu-latest host
+            arch: x86_64
+            container_image: ubuntu:18.04
+            container_name: ubuntu-18.04
+            target: x86_64-unknown-linux-gnu
+
+    runs-on: ${{ matrix.os }} # Should always be ubuntu-latest here
+    container:
+      image: ${{ matrix.container_image }}
+      options: --cap-add NET_ADMIN
+    env:
+      EDAMAME_APP_SENTRY: ${{ secrets.EDAMAME_APP_SENTRY }}
+      PWNED_API_KEY: ${{ secrets.PWNED_API_KEY }}
+      EDAMAME_TARGET: ${{ secrets.EDAMAME_TARGET }}
+      EDAMAME_CORE_TARGET: ${{ secrets.EDAMAME_CORE_TARGET }}
+      EDAMAME_CORE_SERVER: ${{ secrets.EDAMAME_CORE_SERVER }}
+      EDAMAME_CA_PEM: ${{ secrets.EDAMAME_CA_PEM }}
+      EDAMAME_CLIENT_PEM: ${{ secrets.EDAMAME_CLIENT_PEM }}
+      EDAMAME_CLIENT_KEY: ${{ secrets.EDAMAME_CLIENT_KEY }}
+      EDAMAME_SERVER_PEM: ${{ secrets.EDAMAME_SERVER_PEM }}
+      EDAMAME_SERVER_KEY: ${{ secrets.EDAMAME_SERVER_KEY }}
+      EDAMAME_CLIENT_CA_PEM: ${{ secrets.EDAMAME_CLIENT_CA_PEM }}
+      LAMBDA_SIGNATURE: ${{ secrets.LAMBDA_SIGNATURE }}
+      MIXPANEL_TOKEN: ${{ secrets.MIXPANEL_TOKEN }}
+      # Debug mode
+      EDAMAME_LOG_LEVEL: debug
+      
+    steps:
+      # Needed when we are running in a container
+      - name: Setup permissions for git and install missing packages
+        run: |
+          export DEBIAN_FRONTEND=noninteractive
+          apt-get update -y
+          apt-get install -y git
+          git config --global --add safe.directory '*'
+          # Install gh (to be removed once edamame_posture_action is updated)
+          (type -p wget >/dev/null || (apt update && apt-get install wget -y)) \\
+            && mkdir -p -m 755 /etc/apt/keyrings \\
+            && out=$(mktemp) && wget -nv -O$out https://cli.github.com/packages/githubcli-archive-keyring.gpg \\
+            && cat $out | tee /etc/apt/keyrings/githubcli-archive-keyring.gpg > /dev/null \\
+            && chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg \\
+            && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null \\
+            && apt update \\
+            && apt install gh -y
+
+      - name: Setup EDAMAME Posture
+        uses: edamametechnologies/edamame_posture_action@v0
+        with:
+          edamame_user: ${{ vars.EDAMAME_POSTURE_USER }}
+          edamame_domain: ${{ vars.EDAMAME_POSTURE_DOMAIN }}
+          edamame_pin: ${{ secrets.EDAMAME_POSTURE_PIN }}
+          edamame_id: ${{ github.run_id }}-container-${{ matrix.container_name }} # Unique ID
+          checkout: true
+          token: ${{ secrets.DEV_GITHUB_TOKEN }}
+          wait_for_api: true
+          wait_for_https: true
+
+      - name: Configure Git Authentication to import private crates
+        run: |
+          git config --global user.email "dev@edamame.tech"
+          git config --global user.name "EDAMAME Dev"
+          git config --global url."https://edamamedev:${{ secrets.DEV_GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
+
+      - name: Install additional packages w/ apt for Linux
+        run: |
+          apt-get update
+          apt-get install -y protobuf-compiler libpcap-dev gcc-multilib
+
+      # Install Rust toolchain for Linux - use dedicated container step
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }} # Use target from matrix
+
+      # Install Rust in container
+      - name: Install Rust in container
+        shell: bash
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+          # Add rust to path for subsequent steps
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+      - name: Set environment variables
+        shell: bash
+        run: |
+            echo "BINARY_PATH=./target/release/edamame_posture" >> $GITHUB_ENV # No .exe in container
+            echo "SUDO_CMD=" >> $GITHUB_ENV # No sudo needed in container
+            echo "RUNNER_OS=ubuntu-latest" >> $GITHUB_ENV # Explicitly ubuntu host
+            echo "EDAMAME_LOG_LEVEL=debug" >> $GITHUB_ENV
+            echo "EDAMAME_ID=${{ github.run_id }}-container-${{ matrix.container_name }}" >> $GITHUB_ENV # Unique ID
+
+      - name: Build application
+        shell: bash
+        run: |
+          # Ensure cargo is in path
+          export PATH="$HOME/.cargo/bin:$PATH"
+          cargo build --release --target ${{ matrix.target }}
+
+      - name: Run Basic Cargo Tests
+        id: cargo_tests
+        shell: bash
+        run: ./tests/basic_cargo_test.sh
+        continue-on-error: true
+
+      - name: Run Standalone Commands Test
+        id: standalone_tests
+        shell: bash
+        run: ./tests/standalone_commands_test.sh
+        continue-on-error: true
+
+      - name: Run Integration Tests
+        id: integration_tests
+        shell: bash
+        env:
+          EDAMAME_USER: ${{ vars.EDAMAME_POSTURE_USER }}
+          EDAMAME_DOMAIN: ${{ vars.EDAMAME_POSTURE_DOMAIN }}
+          EDAMAME_PIN: ${{ secrets.EDAMAME_POSTURE_PIN }}
+        run: ./tests/integration_test.sh
+        continue-on-error: true
+
+      - name: Slack alerts
+        if: failure() # Simpler condition for job failure
+        uses: slackapi/slack-github-action@v1.26.0
+        with:
+          channel-id: 'C072J0U9TH7'
+          slack-message: |
+            *Container Test Results for ${{ github.repository }} (${{ matrix.container_name }})*:
+            - Cargo Tests: ${{ steps.cargo_tests.outcome != 'failure' && '✅ Success' || '❌ Failed' }}
+            - Standalone Tests: ${{ steps.standalone_tests.outcome != 'failure' && '✅ Success' || '❌ Failed' }}
+            - Integration Tests: ${{ steps.integration_tests.outcome != 'failure' && '✅ Success' || '❌ Failed' }}
+            Branch: ${{ github.ref }}
+            More details: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+
+      - name: Dump the logs
+        shell: bash
+        if: always()
+        run: |
+          echo "--- Dumping Container Logs (${{ matrix.container_name }}) --- "
+          find "$HOME/" -name "edamame_cli_*.*" -exec echo "--- {} ---" \; -exec cat {} \; || echo "No logs found in HOME"
+          echo "--- Container Log Dump Complete ---"
+
+      - name: Fail job if tests failed
+        shell: bash
+        if: steps.cargo_tests.outcome == 'failure' || steps.standalone_tests.outcome == 'failure' || steps.integration_tests.outcome == 'failure'
+        run: |
+          echo "Forcing container job to fail because tests did not succeed."
           exit 1
