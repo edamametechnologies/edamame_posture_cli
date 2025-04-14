@@ -76,7 +76,7 @@ jobs:
           apt-get install -y git
           git config --global --add safe.directory '*'
           # Fix broken node version installed by default on the container
-          sudo apt-get remove nodejs
+          apt-get remove nodejs
           nvm install 16.15.1
 
       - name: Checkout
