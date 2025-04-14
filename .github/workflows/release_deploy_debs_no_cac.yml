@@ -80,6 +80,8 @@ jobs:
           # Install nvm
           apt-get install -y curl
           curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.2/install.sh | bash
+          export NVM_DIR="$HOME/.nvm"
+          [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
           # Install node
           nvm install 16.15.1
 
