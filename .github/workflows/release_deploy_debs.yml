@@ -14,9 +14,6 @@ permissions: write-all
 jobs:
   build:
     runs-on: ${{ matrix.os }}-latest
-    container:
-      # Use an older version of Ubuntu to support older Linux distros
-      image: ubuntu:20.04
 
     timeout-minutes: 90
     strategy:
@@ -68,14 +65,6 @@ jobs:
       EDAMAME_LOG_LEVEL: debug
     
     steps:
-      # Needed when we are running in a container
-      - name: Setup permissions for git and install missing packages
-        run: |
-          export DEBIAN_FRONTEND=noninteractive
-          apt-get update -y
-          apt-get install -y git
-          git config --global --add safe.directory '*'
-
       - name: Setup EDAMAME Posture
         uses: edamametechnologies/edamame_posture_action@v0
         with:
@@ -83,8 +72,7 @@ jobs:
           edamame_domain: ${{ vars.EDAMAME_POSTURE_DOMAIN }}
           edamame_pin: ${{ secrets.EDAMAME_POSTURE_PIN }}
           edamame_id: ${{ github.run_id }}
-          # Disabled as GitHub managed Windows runners configuratioon makes this too slow
-          network_scan: false
+          network_scan: true
           auto_remediate: true
           checkout: true
           # We are using the token of the private repo to checkout the public repo and properly wait for access to the private repo
