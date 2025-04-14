@@ -2,27 +2,16 @@
 [target.'cfg(target_os = "windows")']
 rustflags = ["-C", "target-feature=+crt-static"]
 
-# Static linking for GNU targets
-[target.x86_64-unknown-linux-gnu]
-rustflags = ["-C", "target-feature=+crt-static"]
-
-[target.i686-unknown-linux-gnu]
-rustflags = ["-C", "target-feature=+crt-static"]
-
-[target.armv7-unknown-linux-gnueabihf]
-rustflags = ["-C", "target-feature=+crt-static"]
-objcopy = { path = "arm-linux-gnueabihf-objcopy" }
-strip = { path = "arm-linux-gnueabihf-strip" }
-
-[target.aarch64-unknown-linux-gnu]
-rustflags = ["-C", "target-feature=+crt-static"]
-objcopy = { path = "aarch64-linux-gnu-objcopy" }
-strip = { path = "aarch64-linux-gnu-strip" }
-
-# No static linking for Alpine
-
 [target.x86_64-unknown-linux-musl]
 rustflags = ["-L/usr/local/musl/usr/lib"]
 
 [target.aarch64-unknown-linux-musl]
 rustflags = ["-L/usr/local/musl/usr/lib"]
+
+[target.aarch64-unknown-linux-gnu]
+objcopy = { path = "aarch64-linux-gnu-objcopy" }
+strip = { path = "aarch64-linux-gnu-strip" }
+
+[target.armv7-unknown-linux-gnueabihf]
+objcopy = { path = "arm-linux-gnueabihf-objcopy" }
+strip = { path = "arm-linux-gnueabihf-strip" }
