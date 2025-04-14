@@ -177,6 +177,7 @@ jobs:
         run: |
           # Set architecture-specific paths
           RUST_TARGET=${{ matrix.arch }}-unknown-linux-gnu
+          ARCH=${{ matrix.arch }}
           
           # Determine if sudo is needed
           SUDO_CMD=""
@@ -184,21 +185,64 @@ jobs:
             SUDO_CMD="sudo"
           fi
 
+          # Find the pcap library
+          echo "Finding libpcap.a locations..."
+          find /usr -name "libpcap.a" || echo "No libpcap.a found in /usr"
+
           # Ensure static pcap library is properly linked in the system location
           $SUDO_CMD mkdir -p /usr/lib/${ARCH}-linux-gnu/ # Ensure dir exists for pcap
           PCAP_PATH=$(find /usr -name "libpcap.a" | head -n 1)
           if [ -n "$PCAP_PATH" ] && [ "$PCAP_PATH" != "/usr/lib/${ARCH}-linux-gnu/libpcap.a" ]; then
+            echo "Linking libpcap.a from $PCAP_PATH to /usr/lib/${ARCH}-linux-gnu/libpcap.a"
             $SUDO_CMD ln -sf "$PCAP_PATH" /usr/lib/${ARCH}-linux-gnu/libpcap.a
           fi
           
-          # Ensure that the required static pcap library is in the expected Rust sysroot path too
-          RUST_SYSROOT_LIB_DIR="$HOME/.rustup/toolchains/stable-${ARCH}-unknown-linux-gnu/lib/rustlib/${RUST_TARGET}/lib/"
+          # Check for rustup vs cargo registry paths based on environment
+          echo "Checking Rust toolchain locations..."
+          if [[ "${{ matrix.container }}" == "true" ]]; then
+            # Container often uses cargo registry path
+            source "$HOME/.cargo/env"
+            POSSIBLE_PATHS=(
+              "$HOME/.rustup/toolchains/stable-${ARCH}-unknown-linux-gnu/lib/rustlib/${RUST_TARGET}/lib/"
+              "$HOME/.cargo/registry/toolchains/stable-${ARCH}-unknown-linux-gnu/lib/rustlib/${RUST_TARGET}/lib/"
+              "$HOME/.cargo/toolchains/stable-${ARCH}-unknown-linux-gnu/lib/rustlib/${RUST_TARGET}/lib/"
+            )
+          else
+            # Non-container uses rustup path
+            POSSIBLE_PATHS=(
+              "$HOME/.rustup/toolchains/stable-${ARCH}-unknown-linux-gnu/lib/rustlib/${RUST_TARGET}/lib/"
+              "$HOME/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/${RUST_TARGET}/lib/"
+            )
+          fi
+          
+          # Find the first valid Rust library path
+          RUST_SYSROOT_LIB_DIR=""
+          for path in "${POSSIBLE_PATHS[@]}"; do
+            if [ -d "$(dirname "$path")" ]; then
+              RUST_SYSROOT_LIB_DIR="$path"
+              echo "Found valid Rust path: $RUST_SYSROOT_LIB_DIR"
+              break
+            fi
+          done
+          
+          # If no path was found, use the default
+          if [ -z "$RUST_SYSROOT_LIB_DIR" ]; then
+            RUST_SYSROOT_LIB_DIR="$HOME/.rustup/toolchains/stable-${ARCH}-unknown-linux-gnu/lib/rustlib/${RUST_TARGET}/lib/"
+            echo "Using default path: $RUST_SYSROOT_LIB_DIR"
+          fi
+          
           $SUDO_CMD mkdir -p "$RUST_SYSROOT_LIB_DIR"
 
           # Link the static pcap library to the Rust sysroot if needed
           if [ -f "/usr/lib/${ARCH}-linux-gnu/libpcap.a" ] && [ ! -f "${RUST_SYSROOT_LIB_DIR}libpcap.a" ]; then
+            echo "Linking libpcap.a to Rust toolchain path"
             $SUDO_CMD ln -sf "/usr/lib/${ARCH}-linux-gnu/libpcap.a" "${RUST_SYSROOT_LIB_DIR}libpcap.a"
           fi
+          
+          # Verify the symlinks
+          echo "Verifying libpcap.a symlinks:"
+          ls -l /usr/lib/${ARCH}-linux-gnu/libpcap.a || echo "Missing system libpcap.a"
+          ls -l ${RUST_SYSROOT_LIB_DIR}libpcap.a || echo "Missing Rust toolchain libpcap.a"
 
       # Install additional packages w/ Homebrew for macOS
       - name: Install additional packages w/ Homebrew for macOS
@@ -250,7 +294,7 @@ jobs:
             RUSTFLAGS="-C link-arg=-fuse-ld=lld" cargo zigbuild --release --target ${{ matrix.target }}
           else
             # Regular build for macOS and Windows
-            cargo build --release --target ${{ matrix.target }}
+            cargo build --release
           fi
 
       - name: Signing for macOS
@@ -311,8 +355,7 @@ jobs:
       - name: Run Basic Cargo Tests
         id: cargo_tests
         shell: bash
-        # We must pass the target to the script for proper handling of static linking
-        run: ./tests/basic_cargo_test.sh ${{ matrix.target }}
+        run: ./tests/basic_cargo_test.sh
         continue-on-error: true
 
       - name: Run Standalone Commands Test
