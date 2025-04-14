@@ -258,7 +258,7 @@ jobs:
             export PATH=$PATH:/usr/local/zig
             . "$HOME/.cargo/env"
             # Use specific rustflags to control linking behavior
-            RUSTFLAGS="-C link-arg=-fuse-ld=lld -C link-arg=-Wl,-z,muldefs" cargo zigbuild --release --target ${{ matrix.target }}
+            RUSTFLAGS="-C link-arg=-fuse-ld=lld" cargo zigbuild --release --target ${{ matrix.target }}
           else
             # Regular build for macOS and Windows
             cargo build --release
