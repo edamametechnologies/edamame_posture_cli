@@ -16,7 +16,7 @@ jobs:
     runs-on: ${{ matrix.os }}-latest
     container:
       # Use an older version of Ubuntu to support older Linux distros
-      image: ubuntu:18.04
+      image: ubuntu:20.04
 
     timeout-minutes: 90
     strategy:
