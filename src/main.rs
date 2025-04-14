@@ -21,6 +21,7 @@ use std::io;
 use std::process::exit;
 use std::thread::sleep;
 use std::time::Duration;
+use uuid::Uuid;
 
 const ERROR_CODE_MISMATCH: i32 = 1;
 const ERROR_CODE_SERVER_ERROR: i32 = 2;
@@ -110,7 +111,20 @@ pub fn initialize_core(
 ) {
     // Set device ID
     // Prefix is the machine uid
-    let machine_uid = machine_uid::get().unwrap_or("".to_string());
+    let machine_uid = match machine_uid::get() {
+        Ok(id) => id,
+        Err(_) => {
+            // Create a fallback for Linux
+            match std::fs::read_to_string("/sys/class/dmi/id/product_uuid") {
+                Ok(uid) => uid,
+                Err(_) => {
+                    // Create a random UUID
+                    let uuid = Uuid::new_v4();
+                    uuid.to_string()
+                }
+            }
+        }
+    };
 
     let mut device = SystemInfoAPI {
         device_id: "".to_string(),
