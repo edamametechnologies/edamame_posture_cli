@@ -1591,7 +1591,7 @@ dependencies = [
 [[package]]
 name = "edamame_backend"
 version = "0.3.4"
-source = "git+https://github.com/edamametechnologies/edamame_backend#60208d8bd0e56547e897e0cc0f8d983a5f14117b"
+source = "git+https://github.com/edamametechnologies/edamame_backend#cd65eae9293085cbec0779593b671103d4f88425"
 dependencies = [
  "anyhow",
  "blake3",
@@ -1605,7 +1605,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "0.9.27"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#908c46b1d896b055e0d564598f0add21a538939b"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#3b98ccf368c2ebfd9719b4753549bc0867d74c79"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1677,7 +1677,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "0.9.27"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#b316d9cc317c516aa820821583b2659376a01d98"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#42a862a7094d868a8e38004a90624cce15b83902"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1765,6 +1765,7 @@ dependencies = [
  "serde_yaml",
  "sysinfo",
  "tracing",
+ "uuid",
  "vergen-gitcl",
  "widestring",
  "windows 0.58.0",
@@ -2371,9 +2372,9 @@ dependencies = [
 
 [[package]]
 name = "h2"
-version = "0.4.8"
+version = "0.4.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5017294ff4bb30944501348f6f8e42e6ad28f42c8bbef7a74029aff064a4e3c2"
+checksum = "75249d144030531f8dee69fe9cea04d3edf809a017ae445e2abdff6629e86633"
 dependencies = [
  "atomic-waker",
  "bytes",
@@ -2677,7 +2678,7 @@ dependencies = [
  "bytes",
  "futures-channel",
  "futures-util",
- "h2 0.4.8",
+ "h2 0.4.9",
  "http 1.3.1",
  "http-body 1.0.1",
  "httparse",
@@ -6067,7 +6068,7 @@ dependencies = [
  "axum",
  "base64 0.22.1",
  "bytes",
- "h2 0.4.8",
+ "h2 0.4.9",
  "http 1.3.1",
  "http-body 1.0.1",
  "http-body-util",
