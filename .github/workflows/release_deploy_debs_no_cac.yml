@@ -78,6 +78,7 @@ jobs:
           # Fix broken node version installed by default on the container
           apt-get remove nodejs npm
           # Install nvm
+          apt-get install -y curl
           curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.2/install.sh | bash
           # Install node
           nvm install 16.15.1
