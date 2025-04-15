@@ -497,11 +497,14 @@ jobs:
           git config --global url."https://edamamedev:${{ secrets.DEV_GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
         shell: alpine.sh {0}
 
-      # Manual checkout
+      # Manual checkout for Alpine
       - name: Manual checkout
         run: |
+          mkdir temp
+          cd temp
           git clone https://github.com/${{ github.repository }}.git .
           git checkout ${{ github.ref_name }}
+        shell: alpine.sh {0}
 
       # Install Rust
       - name: Install Rust
@@ -513,29 +516,30 @@ jobs:
 
       - name: Set environment variables
         run: |
-          echo "BINARY_PATH=./target/${{ matrix.target }}/release/edamame_posture" >> $GITHUB_ENV
-          echo "SUDO_CMD=" >> $GITHUB_ENV # No sudo needed in Alpine
-          echo "RUNNER_OS=alpine" >> $GITHUB_ENV # Custom OS identifier
-          echo "EDAMAME_LOG_LEVEL=debug" >> $GITHUB_ENV
-          echo "EDAMAME_ID=${{ github.run_id }}-alpine-${{ matrix.arch }}" >> $GITHUB_ENV # Unique ID
+          export BINARY_PATH=./target/${{ matrix.target }}/release/edamame_posture
+          export SUDO_CMD=""
+          export RUNNER_OS=alpine
+          export EDAMAME_LOG_LEVEL=debug
+          export EDAMAME_ID=${{ github.run_id }}-alpine-${{ matrix.arch }}
         shell: alpine.sh {0}
 
       # Build application
       - name: Build application
         run: |
           source $HOME/.cargo/env
+          cd temp
           cargo build --release --target ${{ matrix.target }}
         shell: alpine.sh --root {0}
 
       - name: Run Basic Cargo Tests
         id: cargo_tests
-        run: ./tests/basic_cargo_test.sh
+        run: cd temp && ./tests/basic_cargo_test.sh
         shell: alpine.sh {0}
         continue-on-error: true
 
       - name: Run Standalone Commands Test
         id: standalone_tests
-        run: ./tests/standalone_commands_test.sh
+        run: cd temp && ./tests/standalone_commands_test.sh
         shell: alpine.sh {0}
         continue-on-error: true
 
@@ -545,7 +549,7 @@ jobs:
           EDAMAME_USER: ${{ vars.EDAMAME_POSTURE_USER }}
           EDAMAME_DOMAIN: ${{ vars.EDAMAME_POSTURE_DOMAIN }}
           EDAMAME_PIN: ${{ secrets.EDAMAME_POSTURE_PIN }}
-        run: ./tests/integration_test.sh
+        run: cd temp && ./tests/integration_test.sh
         shell: alpine.sh {0}
         continue-on-error: true
 
