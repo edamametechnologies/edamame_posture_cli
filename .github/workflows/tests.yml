@@ -245,6 +245,11 @@ jobs:
         shell: bash
         if: steps.cargo_tests.outcome == 'failure' || steps.standalone_tests.outcome == 'failure' || steps.integration_tests.outcome == 'failure'
         run: |
+          echo "## Test Results Summary (Native - ${{ matrix.os }}-${{ matrix.arch }})"
+          echo "- Cargo Tests: ${{ steps.cargo_tests.outcome != 'failure' && '✅ Success' || '❌ Failed' }}"
+          echo "- Standalone Tests: ${{ steps.standalone_tests.outcome != 'failure' && '✅ Success' || '❌ Failed' }}"
+          echo "- Integration Tests: ${{ steps.integration_tests.outcome != 'failure' && '✅ Success' || '❌ Failed' }}"
+          echo ""
           echo "Forcing native job to fail because tests did not succeed."
           exit 1
 
@@ -372,7 +377,8 @@ jobs:
         continue-on-error: true
 
       - name: Slack alerts
-        if: steps.cargo_tests.outcome == 'failure' || steps.standalone_tests.outcome == 'failure' || steps.integration_tests.outcome == 'failure'
+        # Won't work on 18.04 because of glibc version
+        if: (steps.cargo_tests.outcome == 'failure' || steps.standalone_tests.outcome == 'failure' || steps.integration_tests.outcome == 'failure') && !contains(matrix.container_name, '18.04')
         uses: slackapi/slack-github-action@v1.26.0
         with:
           channel-id: 'C072J0U9TH7'
@@ -398,5 +404,178 @@ jobs:
         shell: bash
         if: steps.cargo_tests.outcome == 'failure' || steps.standalone_tests.outcome == 'failure' || steps.integration_tests.outcome == 'failure'
         run: |
+          echo "## Test Results Summary (Container - ${{ matrix.container_name }})"
+          echo "- Cargo Tests: ${{ steps.cargo_tests.outcome != 'failure' && '✅ Success' || '❌ Failed' }}"
+          echo "- Standalone Tests: ${{ steps.standalone_tests.outcome != 'failure' && '✅ Success' || '❌ Failed' }}"
+          echo "- Integration Tests: ${{ steps.integration_tests.outcome != 'failure' && '✅ Success' || '❌ Failed' }}"
+          echo ""
           echo "Forcing container job to fail because tests did not succeed."
           exit 1
+
+  test-alpine:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            arch: x86_64
+            target: x86_64-unknown-linux-musl
+          - os: ubuntu-latest
+            arch: aarch64
+            target: aarch64-unknown-linux-musl
+
+    runs-on: ${{ matrix.os }}
+    # We need to wait a long time for musl aarch64 due to the use of qemu
+    timeout-minutes: 180
+    env:
+      EDAMAME_APP_SENTRY: ${{ secrets.EDAMAME_APP_SENTRY }}
+      PWNED_API_KEY: ${{ secrets.PWNED_API_KEY }}
+      EDAMAME_TARGET: ${{ secrets.EDAMAME_TARGET }}
+      EDAMAME_CORE_TARGET: ${{ secrets.EDAMAME_CORE_TARGET }}
+      EDAMAME_CORE_SERVER: ${{ secrets.EDAMAME_CORE_SERVER }}
+      EDAMAME_CA_PEM: ${{ secrets.EDAMAME_CA_PEM }}
+      EDAMAME_CLIENT_PEM: ${{ secrets.EDAMAME_CLIENT_PEM }}
+      EDAMAME_CLIENT_KEY: ${{ secrets.EDAMAME_CLIENT_KEY }}
+      EDAMAME_SERVER_PEM: ${{ secrets.EDAMAME_SERVER_PEM }}
+      EDAMAME_SERVER_KEY: ${{ secrets.EDAMAME_SERVER_KEY }}
+      EDAMAME_CLIENT_CA_PEM: ${{ secrets.EDAMAME_CLIENT_CA_PEM }}
+      LAMBDA_SIGNATURE: ${{ secrets.LAMBDA_SIGNATURE }}
+      MIXPANEL_TOKEN: ${{ secrets.MIXPANEL_TOKEN }}
+      # Debug mode
+      EDAMAME_LOG_LEVEL: debug
+
+    steps:
+      # Set up QEMU for aarch64 emulation
+      - name: Set up QEMU
+        if: matrix.arch == 'aarch64'
+        uses: docker/setup-qemu-action@v2
+        with:
+          platforms: arm64
+
+      # Setup Alpine Linux
+      - name: Setup Alpine Linux
+        uses: jirutka/setup-alpine@v1
+        with:
+          arch: ${{ matrix.arch }}
+          branch: v3.15
+
+      # Install dependencies with apk
+      - name: Install dependencies with apk
+        run: |
+          apk add --no-cache \
+            build-base \
+            protobuf-dev \
+            libpcap-dev \
+            git \
+            curl \
+            pkgconf \
+            eudev-dev \
+            perl
+        shell: alpine.sh --root {0}
+
+      - name: Setup EDAMAME Posture
+        uses: edamametechnologies/edamame_posture_action@v0
+        with:
+          edamame_user: ${{ vars.EDAMAME_POSTURE_USER }}
+          edamame_domain: ${{ vars.EDAMAME_POSTURE_DOMAIN }}
+          edamame_pin: ${{ secrets.EDAMAME_POSTURE_PIN }}
+          edamame_id: ${{ github.run_id }}-alpine-${{ matrix.arch }} # Unique ID
+          checkout: true
+          # We are using the token of the the private repo to checkout the public repo and properly wait for access to the private repo
+          token: ${{ secrets.DEV_GITHUB_TOKEN }}
+          wait_for_api: true
+          wait_for_https: true
+
+      # Set VERGEN_GIT_BRANCH to main
+      - name: Set VERGEN_GIT_BRANCH to main
+        run: echo "VERGEN_GIT_BRANCH=main" >> $GITHUB_ENV
+        shell: alpine.sh {0}
+
+      # Configure Git Authentication to import private crates
+      - name: Configure Git Authentication to import private crates
+        run: |
+          git config --global user.email "dev@edamame.tech"
+          git config --global user.name "EDAMAME Dev"
+          git config --global url."https://edamamedev:${{ secrets.DEV_GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
+        shell: alpine.sh {0}
+
+      # Install Rust
+      - name: Install Rust
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+          source $HOME/.cargo/env
+          rustup target add ${{ matrix.target }}
+        shell: alpine.sh --root {0}
+
+      - name: Set environment variables
+        run: |
+          echo "BINARY_PATH=./target/${{ matrix.target }}/release/edamame_posture" >> $GITHUB_ENV
+          echo "SUDO_CMD=" >> $GITHUB_ENV # No sudo needed in Alpine
+          echo "RUNNER_OS=alpine" >> $GITHUB_ENV # Custom OS identifier
+          echo "EDAMAME_LOG_LEVEL=debug" >> $GITHUB_ENV
+          echo "EDAMAME_ID=${{ github.run_id }}-alpine-${{ matrix.arch }}" >> $GITHUB_ENV # Unique ID
+        shell: alpine.sh {0}
+
+      # Build application
+      - name: Build application
+        run: |
+          source $HOME/.cargo/env
+          cargo build --release --target ${{ matrix.target }}
+        shell: alpine.sh --root {0}
+
+      - name: Run Basic Cargo Tests
+        id: cargo_tests
+        run: ./tests/basic_cargo_test.sh
+        shell: alpine.sh {0}
+        continue-on-error: true
+
+      - name: Run Standalone Commands Test
+        id: standalone_tests
+        run: ./tests/standalone_commands_test.sh
+        shell: alpine.sh {0}
+        continue-on-error: true
+
+      - name: Run Integration Tests
+        id: integration_tests
+        env:
+          EDAMAME_USER: ${{ vars.EDAMAME_POSTURE_USER }}
+          EDAMAME_DOMAIN: ${{ vars.EDAMAME_POSTURE_DOMAIN }}
+          EDAMAME_PIN: ${{ secrets.EDAMAME_POSTURE_PIN }}
+        run: ./tests/integration_test.sh
+        shell: alpine.sh {0}
+        continue-on-error: true
+
+      - name: Slack alerts
+        if: steps.cargo_tests.outcome == 'failure' || steps.standalone_tests.outcome == 'failure' || steps.integration_tests.outcome == 'failure'
+        uses: slackapi/slack-github-action@v1.26.0
+        with:
+          channel-id: 'C072J0U9TH7'
+          slack-message: |
+            *Alpine Test Results for ${{ github.repository }} (${{ matrix.arch }})*:
+            - Cargo Tests: ${{ steps.cargo_tests.outcome != 'failure' && '✅ Success' || '❌ Failed' }}
+            - Standalone Tests: ${{ steps.standalone_tests.outcome != 'failure' && '✅ Success' || '❌ Failed' }}
+            - Integration Tests: ${{ steps.integration_tests.outcome != 'failure' && '✅ Success' || '❌ Failed' }}
+            Branch: ${{ github.ref }}
+            More details: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+
+      - name: Dump the logs
+        shell: bash
+        if: always()
+        run: |
+          echo "--- Dumping Alpine Logs (${{ matrix.arch }}) --- "
+          find "$HOME/" -name "edamame_cli_*.*" -exec echo "--- {} ---" \; -exec cat {} \; || echo "No logs found in HOME"
+          echo "--- Alpine Log Dump Complete ---"
+
+      - name: Fail job if tests failed
+        if: steps.cargo_tests.outcome == 'failure' || steps.standalone_tests.outcome == 'failure' || steps.integration_tests.outcome == 'failure'
+        run: |
+          echo "## Test Results Summary (Alpine - ${{ matrix.arch }})"
+          echo "- Cargo Tests: ${{ steps.cargo_tests.outcome != 'failure' && '✅ Success' || '❌ Failed' }}"
+          echo "- Standalone Tests: ${{ steps.standalone_tests.outcome != 'failure' && '✅ Success' || '❌ Failed' }}"
+          echo "- Integration Tests: ${{ steps.integration_tests.outcome != 'failure' && '✅ Success' || '❌ Failed' }}"
+          echo ""
+          echo "Forcing alpine job to fail because tests did not succeed."
+          exit 1
+        shell: alpine.sh {0}
