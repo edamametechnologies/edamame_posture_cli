@@ -475,8 +475,8 @@ jobs:
 
       - name: Setup EDAMAME Posture
         run: |
-          # Install bash first
-          apk add --no-cache bash
+          # Install bash and sudo first
+          apk add --no-cache bash sudo
           # Download edamame_posture for MUSL
           wget https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/refs/heads/main/linux/edamame_setup.sh -O ./edamame_setup.sh
           chmod +x ./edamame_setup.sh
@@ -534,13 +534,13 @@ jobs:
       - name: Run Basic Cargo Tests
         id: cargo_tests
         run: cd temp && ./tests/basic_cargo_test.sh
-        shell: alpine.sh {0}
+        shell: alpine.sh --root {0}
         continue-on-error: true
 
       - name: Run Standalone Commands Test
         id: standalone_tests
         run: cd temp && ./tests/standalone_commands_test.sh
-        shell: alpine.sh {0}
+        shell: alpine.sh --root {0}
         continue-on-error: true
 
       - name: Run Integration Tests
@@ -550,7 +550,7 @@ jobs:
           EDAMAME_DOMAIN: ${{ vars.EDAMAME_POSTURE_DOMAIN }}
           EDAMAME_PIN: ${{ secrets.EDAMAME_POSTURE_PIN }}
         run: cd temp && ./tests/integration_test.sh
-        shell: alpine.sh {0}
+        shell: alpine.sh --root {0}
         continue-on-error: true
 
       - name: Slack alerts
