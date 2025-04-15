@@ -82,6 +82,6 @@ $EDAMAME_POSTURE_CMD start "$EDAMAME_USER" "$EDAMAME_DOMAIN" "$EDAMAME_PIN" "$ED
 
 # Wait for connection
 echo "Waiting for connection..."
-$EDAMAME_POSTURE_CMD wait-for-connection
+$EDAMAME_POSTURE_CMD wait-for-connection -vv
 
 echo "EDAMAME Posture started successfully."
