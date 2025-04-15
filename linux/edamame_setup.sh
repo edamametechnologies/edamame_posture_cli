@@ -69,7 +69,7 @@ elif [[ "$RUNNER_OS" == "Linux" ]]; then
         wget --no-verbose https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v${FALLBACK_VERSION}/edamame_posture-${FALLBACK_VERSION}-x86_64-unknown-linux-musl -O edamame_posture
     fi
     chmod u+x edamame_posture
-    EDAMAME_POSTURE_CMD="sudo ./edamame_posture"
+    EDAMAME_POSTURE_CMD="sudo -E ./edamame_posture"
 fi
 
 # Show initial posture
@@ -78,10 +78,11 @@ $EDAMAME_POSTURE_CMD score
 
 # Start EDAMAME Posture process
 echo "Starting EDAMAME Posture with provided credentials..."
+export EDAMAME_LOG_LEVEL=debug
 $EDAMAME_POSTURE_CMD start "$EDAMAME_USER" "$EDAMAME_DOMAIN" "$EDAMAME_PIN" "$EDAMAME_ID" "false"
 
 # Wait for connection
 echo "Waiting for connection..."
-$EDAMAME_POSTURE_CMD wait-for-connection -vv
+$EDAMAME_POSTURE_CMD wait-for-connection
 
 echo "EDAMAME Posture started successfully."
