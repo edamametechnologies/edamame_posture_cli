@@ -151,7 +151,7 @@ jobs:
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
           source $HOME/.cargo/env
           rustup --version
-        shell: alpine.sh --root {0}
+        shell: alpine.sh {0}
 
       # Set VERGEN_GIT_BRANCH to main
       - name: Set VERGEN_GIT_BRANCH to main
@@ -183,7 +183,7 @@ jobs:
         run: |
           rustup target add ${{ matrix.target }}
           cargo build --release --target ${{ matrix.target }}
-        shell: alpine.sh --root {0}
+        shell: alpine.sh {0}
 
       # Build application for Windows
       - name: Build application for Windows
