@@ -38,11 +38,6 @@ else
         SUDO_CMD=""
         KILL_CMD="killall -9 $BINARY_NAME || true"
         RM_CMD="rm -f"
-    elif [[ "$SUDO_CMD" == "sudo -E" ]] && [[ $EUID -eq 0 ]]; then
-         echo "Running as root, removing sudo -E prefix."
-         SUDO_CMD=""
-         KILL_CMD="killall -9 $BINARY_NAME || true"
-         RM_CMD="rm -f"
     fi
 fi
 
