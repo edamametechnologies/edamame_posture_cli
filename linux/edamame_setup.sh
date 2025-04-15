@@ -15,8 +15,8 @@ EDAMAME_PIN="$3"
 EDAMAME_ID="$4"
 
 # Set VERSION to download
-VERSION="0.9.27"
-FALLBACK_VERSION="0.9.24"
+VERSION=0.9.28
+FALLBACK_VERSION=0.9.24
 
 # Determine OS
 RUNNER_OS=$(uname)
@@ -49,9 +49,9 @@ if [[ "$RUNNER_OS" == "Darwin" ]]; then
 elif [[ "$RUNNER_OS" == "Linux" ]]; then
     echo "Downloading EDAMAME Posture binary for Linux..."
     # Get GLIBC version
-    MIN_GLIBC_VERSION="2.29"
+    MIN_GLIBC_VERSION=0.9.28
     if command -v getconf >/dev/null 2>&1; then
-        GLIBC_VERSION=$(getconf GNU_LIBC_VERSION | awk '{print $2}')
+        GLIBC_VERSION=0.9.28
         
         # Compare versions 
         if printf '%s\n%s\n' "$MIN_GLIBC_VERSION" "$GLIBC_VERSION" | sort -V | head -n 1 | grep -q "$MIN_GLIBC_VERSION"; then
