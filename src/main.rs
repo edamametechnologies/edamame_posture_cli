@@ -114,9 +114,7 @@ pub fn initialize_core(
     // Can return an empty string under Linux
     let mut machine_uid = match machine_uid::get() {
         Ok(uid) => uid,
-        Err(_) => {
-            "".to_string()
-        }
+        Err(_) => "".to_string(),
     };
     machine_uid = if machine_uid.is_empty() {
         // Create a fallback for Linux
