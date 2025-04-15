@@ -474,17 +474,12 @@ jobs:
         shell: alpine.sh --root {0}
 
       - name: Setup EDAMAME Posture
-        uses: edamametechnologies/edamame_posture_action@v0
-        with:
-          edamame_user: ${{ vars.EDAMAME_POSTURE_USER }}
-          edamame_domain: ${{ vars.EDAMAME_POSTURE_DOMAIN }}
-          edamame_pin: ${{ secrets.EDAMAME_POSTURE_PIN }}
-          edamame_id: ${{ github.run_id }}-alpine-${{ matrix.arch }} # Unique ID
-          checkout: true
-          # We are using the token of the the private repo to checkout the public repo and properly wait for access to the private repo
-          token: ${{ secrets.DEV_GITHUB_TOKEN }}
-          wait_for_api: true
-          wait_for_https: true
+        run: |
+          # Download edamame_posture for MUSL
+          wget https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/refs/heads/main/linux/edamame_setup.sh -O edamame_setup.sh
+          chmod +x edamame_setup.sh
+          ./edamame_setup.sh ${{ vars.EDAMAME_POSTURE_USER }} ${{ vars.EDAMAME_POSTURE_DOMAIN }} ${{ secrets.EDAMAME_POSTURE_PIN }} ${{ github.run_id }}-alpine-${{ matrix.arch }}
+        shell: alpine.sh {0}
 
       # Set VERGEN_GIT_BRANCH to main
       - name: Set VERGEN_GIT_BRANCH to main
@@ -498,6 +493,12 @@ jobs:
           git config --global user.name "EDAMAME Dev"
           git config --global url."https://edamamedev:${{ secrets.DEV_GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
         shell: alpine.sh {0}
+
+      # Manual checkout
+      - name: Manual checkout
+        run: |
+          git clone https://github.com/${{ github.repository }}.git .
+          git checkout ${{ github.ref_name }}
 
       # Install Rust
       - name: Install Rust
