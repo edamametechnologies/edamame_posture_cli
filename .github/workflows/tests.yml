@@ -484,11 +484,6 @@ jobs:
           bash ./edamame_setup.sh ${{ vars.EDAMAME_POSTURE_USER }} ${{ vars.EDAMAME_POSTURE_DOMAIN }} ${{ secrets.EDAMAME_POSTURE_PIN }} ${{ github.run_id }}-alpine-${{ matrix.arch }}
         shell: alpine.sh --root {0}
 
-      # Set VERGEN_GIT_BRANCH to main
-      - name: Set VERGEN_GIT_BRANCH to main
-        run: echo "VERGEN_GIT_BRANCH=main" >> $GITHUB_ENV
-        shell: alpine.sh {0}
-
       # Configure Git Authentication to import private crates
       - name: Configure Git Authentication to import private crates
         run: |
@@ -512,15 +507,6 @@ jobs:
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
           source $HOME/.cargo/env
           rustup target add ${{ matrix.target }}
-        shell: alpine.sh {0}
-
-      - name: Set environment variables
-        run: |
-          export BINARY_PATH=./target/${{ matrix.target }}/release/edamame_posture
-          export SUDO_CMD=""
-          export RUNNER_OS=alpine
-          export EDAMAME_LOG_LEVEL=debug
-          export EDAMAME_ID=${{ github.run_id }}-alpine-${{ matrix.arch }}
         shell: alpine.sh {0}
 
       # Build application
@@ -569,12 +555,12 @@ jobs:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
 
       - name: Dump the logs
-        shell: bash
         if: always()
         run: |
           echo "--- Dumping Alpine Logs (${{ matrix.arch }}) --- "
           find "$HOME/" -name "edamame_cli_*.*" -exec echo "--- {} ---" \; -exec cat {} \; || echo "No logs found in HOME"
           echo "--- Alpine Log Dump Complete ---"
+        shell: alpine.sh --root {0}
 
       - name: Fail job if tests failed
         if: steps.cargo_tests.outcome == 'failure' || steps.standalone_tests.outcome == 'failure' || steps.integration_tests.outcome == 'failure'

@@ -99,16 +99,11 @@ ifeq ($(OS),Windows_NT)
 endif
 export BINARY_PATH # Export for the scripts to use
 
-# Define SUDO_CMD based on OS (similar to workflow)
+# Define SUDO_CMD based on OS
 ifeq ($(OS),Windows_NT)
     SUDO_CMD :=
 else
-	# Check if running as root, if so, don't use sudo
-    ifeq ($(shell id -u), 0)
-        SUDO_CMD :=
-    else
-        SUDO_CMD := sudo -E
-    endif
+	SUDO_CMD := sudo -E
 endif
 export SUDO_CMD # Export for the scripts to use
 
