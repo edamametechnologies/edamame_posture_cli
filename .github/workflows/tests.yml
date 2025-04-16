@@ -342,12 +342,16 @@ jobs:
         shell: bash
         run: ./tests/basic_cargo_test.sh
         continue-on-error: true
+        env:
+          SUDO_CMD: "" # No sudo needed in container
 
       - name: Run Standalone Commands Test
         id: standalone_tests
         shell: bash
         run: ./tests/standalone_commands_test.sh
         continue-on-error: true
+        env:
+          SUDO_CMD: "" # No sudo needed in container
 
       - name: Run Integration Tests
         id: integration_tests
@@ -356,6 +360,7 @@ jobs:
           EDAMAME_USER: ${{ vars.EDAMAME_POSTURE_USER }}
           EDAMAME_DOMAIN: ${{ vars.EDAMAME_POSTURE_DOMAIN }}
           EDAMAME_PIN: ${{ secrets.EDAMAME_POSTURE_PIN }}
+          SUDO_CMD: "" # No sudo needed in container
         run: ./tests/integration_test.sh
         continue-on-error: true
 
