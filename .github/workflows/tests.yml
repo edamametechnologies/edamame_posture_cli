@@ -125,14 +125,6 @@ jobs:
         run: |
             # Set BINARY_PATH for scripts (points to the built release binary)
             echo "BINARY_PATH=./target/release/edamame_posture${{ matrix.os == 'windows-latest' && '.exe' || '' }}" >> $GITHUB_ENV
-            # Keep environment variables when running sudo
-            echo "SUDO_CMD=${{ matrix.os != 'windows-latest' && 'sudo -E' || '' }}" >> $GITHUB_ENV
-            # Set RUNNER_OS explicitly for scripts (more reliable than uname inside scripts)
-            echo "RUNNER_OS=${{ matrix.os }}" >> $GITHUB_ENV
-            # Set EDAMAME_LOG_LEVEL for scripts
-            echo "EDAMAME_LOG_LEVEL=debug" >> $GITHUB_ENV
-            # Set EDAMAME_ID for scripts (unique ID for the run)
-            echo "EDAMAME_ID=${{ github.run_id }}-native-${{ matrix.os }}-${{ matrix.arch }}" >> $GITHUB_ENV # Unique ID
             # Set KEYCHAIN_PATH for scripts (path to the keychain)
             echo "KEYCHAIN_PATH=/tmp/app-signing.keychain-db" >> $GITHUB_ENV
 
@@ -338,15 +330,6 @@ jobs:
           # Add rust to path for subsequent steps
           echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
-      - name: Set environment variables
-        shell: bash
-        run: |
-            echo "BINARY_PATH=./target/release/edamame_posture" >> $GITHUB_ENV # No .exe in container
-            echo "SUDO_CMD=" >> $GITHUB_ENV # No sudo needed in container
-            echo "RUNNER_OS=ubuntu-latest" >> $GITHUB_ENV # Explicitly ubuntu host
-            echo "EDAMAME_LOG_LEVEL=debug" >> $GITHUB_ENV
-            echo "EDAMAME_ID=${{ github.run_id }}-container-${{ matrix.container_name }}" >> $GITHUB_ENV # Unique ID
-
       - name: Build application
         shell: bash
         run: |
@@ -526,7 +509,7 @@ jobs:
         continue-on-error: true
         env:
           VERGEN_GIT_BRANCH: ${{ github.ref_name }}
-          
+
       - name: Run Standalone Commands Test
         id: standalone_tests
         run: cd temp && ./tests/standalone_commands_test.sh
