@@ -1605,7 +1605,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "0.9.28"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#d5a804eb5eac0706912f5c653056e518ca7f860f"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#88b075994658b4091a90a6b6a065e3eb353f7721"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1677,7 +1677,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "0.9.28"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#8ceaafc2a9d3ce167ce2cb0bf3087df4827a6efc"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#dabfb620833a90a5e8d0a75ebaa870eb94eb85cd"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -4618,9 +4618,9 @@ dependencies = [
 
 [[package]]
 name = "proc-macro2"
-version = "1.0.94"
+version = "1.0.95"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a31971752e70b8b2686d7e46ec17fb38dad4051d94024c88df49b667caea9c84"
+checksum = "02b3e5e68a3a1a02aad3ec490a98007cbc13c37cbe84a3cd7b8e406d76e7f778"
 dependencies = [
  "unicode-ident",
 ]

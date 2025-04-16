@@ -153,12 +153,6 @@ jobs:
           rustup --version
         shell: alpine.sh {0}
 
-      # Set VERGEN_GIT_BRANCH to main
-      - name: Set VERGEN_GIT_BRANCH to main
-        if: matrix.os == 'ubuntu' && matrix.target == 'x86_64-unknown-linux-musl' || matrix.target == 'aarch64-unknown-linux-musl'
-        run: echo "VERGEN_GIT_BRANCH=main" >> $GITHUB_ENV
-        shell: alpine.sh {0}
-
       # Configure Git Authentication to import private crates (within the VM)
       - name: Configure Git Authentication to import private crates
         if: matrix.os == 'ubuntu' && matrix.target == 'x86_64-unknown-linux-musl' || matrix.target == 'aarch64-unknown-linux-musl'
@@ -184,6 +178,8 @@ jobs:
           rustup target add ${{ matrix.target }}
           cargo build --release --target ${{ matrix.target }}
         shell: alpine.sh {0}
+        env:
+          VERGEN_GIT_BRANCH: ${{ github.ref_name }}
 
       # Build application for Windows
       - name: Build application for Windows
