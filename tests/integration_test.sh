@@ -4,7 +4,18 @@ set -eo pipefail # Exit on error, treat unset variables as error, pipefail
 echo "--- Running Integration Tests ---"
 
 # --- Configuration ---
-BINARY_PATH="${BINARY_PATH:-./target/release/edamame_posture}"
+# Find the binary, preferring release but falling back to debug or other locations
+# Use 'find ... -quit' to stop after the first match
+FOUND_BINARY=$(find ./target -type f \\( -name edamame_posture -o -name edamame_posture.exe \\) -print -quit 2>/dev/null)
+
+# Check if a binary was found
+if [ -z "$FOUND_BINARY" ]; then
+  echo "Error: Could not find 'edamame_posture' or 'edamame_posture.exe' in ./target" >&2
+  exit 1
+fi
+
+# Use the found binary path if BINARY_PATH is not already set externally
+BINARY_PATH="${BINARY_PATH:-$FOUND_BINARY}"
 RUNNER_OS="${RUNNER_OS:-$(uname)}"
 SUDO_CMD="${SUDO_CMD:-sudo -E}"
 EDAMAME_LOG_LEVEL="${EDAMAME_LOG_LEVEL:-debug}"
