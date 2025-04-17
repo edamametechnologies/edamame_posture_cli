@@ -6,7 +6,7 @@ echo "--- Running Integration Tests ---"
 # --- Configuration ---
 # Find the binary, preferring release but falling back to debug or other locations
 # Use 'find ... -quit' to stop after the first match
-FOUND_BINARY=$(find ./target -type f \\( -name edamame_posture -o -name edamame_posture.exe \\) -print -quit 2>/dev/null)
+FOUND_BINARY=$(find ./target -type f \( -name edamame_posture -o -name edamame_posture.exe \) -print -quit 2>/dev/null)
 
 # Check if a binary was found
 if [ -z "$FOUND_BINARY" ]; then
