@@ -529,7 +529,7 @@ mod tests {
         let signature = get_signature_from_score_with_email("anonymous@anonymous.eda".to_string());
         println!("Signature: {}", signature);
 
-        sleep(Duration::from_secs(10));
+        sleep(Duration::from_secs(20));
 
         let exit_code = base_request_report("dev@edamame.tech".to_string(), signature);
         println!("Exit code: {}", exit_code);
