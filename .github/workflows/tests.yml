@@ -54,7 +54,7 @@ jobs:
       MIXPANEL_TOKEN: ${{ secrets.MIXPANEL_TOKEN }}
       # Debug mode
       EDAMAME_LOG_LEVEL: debug
-      
+
     steps:
       # Set up QEMU for aarch64 emulation
       - name: Set up QEMU
@@ -283,7 +283,7 @@ jobs:
       MIXPANEL_TOKEN: ${{ secrets.MIXPANEL_TOKEN }}
       # Debug mode
       EDAMAME_LOG_LEVEL: debug
-      
+
     steps:
       # Needed when we are running in a container
       - name: Setup permissions for git and install missing packages
@@ -314,7 +314,8 @@ jobs:
       - name: Install additional packages w/ apt for Linux
         run: |
           apt-get update
-          apt-get install -y protobuf-compiler libpcap-dev
+          # psmisc is needed for killall
+          apt-get install -y protobuf-compiler libpcap-dev psmisc
 
       # Install Rust toolchain for Linux - use dedicated container step
       - name: Install Rust toolchain
@@ -350,8 +351,6 @@ jobs:
         shell: bash
         run: ./tests/standalone_commands_test.sh
         continue-on-error: true
-        env:
-          SUDO_CMD: "" # No sudo needed in container
 
       - name: Run Integration Tests
         id: integration_tests
@@ -504,16 +503,12 @@ jobs:
           cd temp
           cargo build --release --target ${{ matrix.target }}
         shell: alpine.sh --root {0}
-        env:
-          VERGEN_GIT_BRANCH: ${{ github.ref_name }}
 
       - name: Run Basic Cargo Tests
         id: cargo_tests
         run: cd temp && ./tests/basic_cargo_test.sh
         shell: alpine.sh --root {0}
         continue-on-error: true
-        env:
-          VERGEN_GIT_BRANCH: ${{ github.ref_name }}
 
       - name: Run Standalone Commands Test
         id: standalone_tests
