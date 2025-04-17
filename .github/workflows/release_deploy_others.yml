@@ -55,7 +55,7 @@ jobs:
       MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
       # Required for cross to not show warnings and fail
       CROSS_NO_WARNINGS: 0
-    
+
     steps:
       - name: Setup EDAMAME Posture
         uses: edamametechnologies/edamame_posture_action@v0
@@ -178,8 +178,6 @@ jobs:
           rustup target add ${{ matrix.target }}
           cargo build --release --target ${{ matrix.target }}
         shell: alpine.sh {0}
-        env:
-          VERGEN_GIT_BRANCH: ${{ github.ref_name }}
 
       # Build application for Windows
       - name: Build application for Windows
