@@ -503,12 +503,16 @@ jobs:
           cd temp
           cargo build --release --target ${{ matrix.target }}
         shell: alpine.sh --root {0}
+        env:
+          VERGEN_GIT_BRANCH: ${{ github.ref_name }}
 
       - name: Run Basic Cargo Tests
         id: cargo_tests
         run: cd temp && ./tests/basic_cargo_test.sh
         shell: alpine.sh --root {0}
         continue-on-error: true
+        env:
+          VERGEN_GIT_BRANCH: ${{ github.ref_name }}
 
       - name: Run Standalone Commands Test
         id: standalone_tests
