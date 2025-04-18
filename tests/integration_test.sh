@@ -202,7 +202,7 @@ run_blacklist_test() {
     # --- Traffic Generation & Session Verification PRE-CUSTOM ---
     echo "Generating test traffic towards $BLACKLIST_DOMAIN..."
     # Run curl and capture its exit code
-    $CURL_CMD -s -m 10 "https://$BLACKLIST_DOMAIN/src/wireshark-4.4.5.tar.xz" -o /dev/null --insecure || true
+    $CURL_CMD -s -m 10 "https://$BLACKLIST_DOMAIN/src/wireshark-latest.tar.xz" -o /dev/null --insecure || true
     CURL_EXIT_CODE=$?
     if [ $CURL_EXIT_CODE -ne 0 ]; then
         # Non-zero exit code might be expected if connection is refused/reset, but log it.
