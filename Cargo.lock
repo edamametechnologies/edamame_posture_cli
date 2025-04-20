@@ -1605,7 +1605,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "0.9.28"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#b49e34f116d4e42c55eca7412e7bc8809bc91bd8"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#08c5f23c766b635bab3a8b7c9a328b930f14c6f6"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1677,7 +1677,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "0.9.28"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#9ae826b108769b179ef11799d6cdefee4ab171d8"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#151ab6168e91cb691553fa69330293f5f6c07532"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -5531,9 +5531,9 @@ checksum = "0fda2ff0d084019ba4d7c6f371c95d8fd75ce3524c3cb8fb653a3023f6323e64"
 
 [[package]]
 name = "signal-hook-registry"
-version = "1.4.4"
+version = "1.4.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a1ee1aca2bc74ef9589efa7ccaa0f3752751399940356209b3fd80c078149b5e"
+checksum = "9203b8055f63a2a00e2f593bb0510367fe707d7ff1e5c872de2f537b339e5410"
 dependencies = [
  "libc",
 ]
