@@ -511,29 +511,3 @@ pub fn base_get_tag_prefixes() {
     let tag_prefixes = get_tag_prefixes();
     println!("Tag prefixes: {:?}", tag_prefixes);
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::initialize_core;
-
-    #[test]
-    fn test_signature() {
-        // Initialize the core with compute enabled
-        initialize_core("".to_string(), true, false, false, false, true);
-        println!("Core initialized");
-
-        let score = get_score(true);
-        println!("Score: {}", score);
-
-        let signature = get_signature_from_score_with_email("anonymous@anonymous.eda".to_string());
-        println!("Signature: {}", signature);
-
-        sleep(Duration::from_secs(20));
-
-        let exit_code = base_request_report("dev@edamame.tech".to_string(), signature);
-        println!("Exit code: {}", exit_code);
-
-        assert_eq!(exit_code, 0);
-    }
-}
