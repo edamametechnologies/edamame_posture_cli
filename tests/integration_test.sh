@@ -138,6 +138,35 @@ ensure_posture_stopped_and_cleaned() {
     fi
 }
 
+# Generic test result handler for both CI and non-CI modes
+handle_test_result() {
+    local test_type=$1       # "whitelist" or "blacklist"
+    local test_mode=$2       # "connected" or "disconnected"
+    local is_error=$3        # true or false
+    local error_message=$4   # Error message to display
+    local var_name="${test_mode}_${test_type}_result"
+
+    if [ "$is_error" = true ]; then
+        if [ "$CI" = "true" ]; then
+            echo "🔴 Error (CI Mode): $error_message"
+            # Set result variable
+            eval "$var_name=\"❌\""
+            # In CI mode, exit with error
+            ensure_posture_stopped_and_cleaned "post" 1
+            exit 1
+        else
+            echo "⚠️ Warning (Local Mode): $error_message Not failing."
+            # Set result variable
+            eval "$var_name=\"⚠️\""
+            # In local mode, continue
+        fi
+    else
+        echo "✅ $test_type check passed."
+        # Set result variable
+        eval "$var_name=\"✅\""
+    fi
+}
+
 run_whitelist_test() {
     local test_mode_name=$1 # e.g., "Connected Mode" or "Disconnected Mode"
     local test_key=$2 # e.g., "connected_whitelist" or "disconnected_whitelist"
@@ -155,7 +184,7 @@ run_whitelist_test() {
     WHITELIST_CONTENT=$(cat "$WHITELIST_FILE")
     $SUDO_CMD "$BINARY_DEST" $VERBOSE_FLAG set-custom-whitelists "$WHITELIST_CONTENT"
     echo "Waiting 30 seconds for whitelist to apply..."
-    sleep 30 # Allow time for whitelist to apply
+    sleep 10 # Allow time for whitelist to apply
     
     echo "Get sessions with whitelist applied (checking conformance)..."
     "$BINARY_DEST" get-sessions > "$SESSIONS_FILE" || true
@@ -214,7 +243,7 @@ run_whitelist_test() {
     # Show first 10 non-conforming exceptions for debugging
     if [ "$EXCEPTION_COUNT" -gt 0 ]; then
         echo "First 10 non-conforming exceptions (for debugging):"
-        grep "whitelisted: NonConforming" "$EXCEPTIONS_FILE"
+        grep "whitelisted: NonConforming" "$EXCEPTIONS_FILE" | head -10
     fi
     
     if [ "$UNKNOWN_COUNT" -gt 0 ]; then
@@ -222,39 +251,16 @@ run_whitelist_test() {
         grep "whitelisted: Unknown" "$EXCEPTIONS_FILE"
     fi
 
+    # Determine if this is an error condition
+    local is_error=false
     if [ "$EXCEPTION_COUNT" -gt "$MAX_ALLOWED_EXCEPTIONS" ] || [ "$UNKNOWN_COUNT" -gt 2 ]; then
-        # Only fail in CI mode
-        if [ "$CI" = "true" ]; then
-            echo "🔴 Error (CI Mode): Detected too many non-conforming exceptions (${EXCEPTION_COUNT} > ${MAX_ALLOWED_EXCEPTIONS}) or unknown exceptions (${UNKNOWN_COUNT} > 2)."
-            
-            # Set variable based on test_key
-            if [ "$test_key" = "connected_whitelist" ]; then
-                connected_whitelist_result="❌"
-            else
-                disconnected_whitelist_result="❌"
-            fi
-            
-            ensure_posture_stopped_and_cleaned "post" 1; exit 1
-        else
-            echo "⚠️ Warning (Local Mode): Detected too many non-conforming exceptions (${EXCEPTION_COUNT} > ${MAX_ALLOWED_EXCEPTIONS}) or unknown exceptions (${UNKNOWN_COUNT} > 2). Not failing."
-            
-            # Set variable based on test_key
-            if [ "$test_key" = "connected_whitelist" ]; then
-                connected_whitelist_result="⚠️"
-            else
-                disconnected_whitelist_result="⚠️"
-            fi
-        fi
-    else
-        echo "✅ Whitelist conformance check passed."
-        
-        # Set variable based on test_key
-        if [ "$test_key" = "connected_whitelist" ]; then
-            connected_whitelist_result="✅"
-        else
-            disconnected_whitelist_result="✅"
-        fi
+        is_error=true
     fi
+
+    # Handle test result using common function
+    local test_mode=$(echo "$test_key" | cut -d '_' -f1)  # Extract "connected" or "disconnected"
+    local error_message="Detected too many non-conforming exceptions (${EXCEPTION_COUNT} > ${MAX_ALLOWED_EXCEPTIONS}) or unknown exceptions (${UNKNOWN_COUNT} > 2)."
+    handle_test_result "whitelist" "$test_mode" "$is_error" "$error_message"
 }
 
 run_blacklist_test() {
@@ -270,25 +276,18 @@ run_blacklist_test() {
     BLACKLIST_IP_V6="2a01:4ff:1f0:ca4b::1"   # Expected IPv6
     BLACKLIST_IP_V4_CIDR="$BLACKLIST_IP_V4/32"
     BLACKLIST_IP_V6_CIDR="$BLACKLIST_IP_V6/128"
+    test_mode=$(echo "$test_key" | cut -d '_' -f1)  # Extract "connected" or "disconnected"
 
     # --- PRE-CHECK: Ensure no sessions are blacklisted BEFORE applying custom list ---
     echo "Pre-checking for any existing blacklisted sessions (should be none)..."
     "$BINARY_DEST" get-blacklisted-sessions > "$BLACKLIST_PRECHECK_LOG_FILE" || true
     # Check if the precheck log file is non-empty (ignoring potential whitespace/empty lines)
     if grep -q '[^[:space:]]' "$BLACKLIST_PRECHECK_LOG_FILE"; then
-        echo "🔴 Error: Detected blacklisted sessions BEFORE applying custom blacklist!"
+        local error_message="Detected blacklisted sessions BEFORE applying custom blacklist!"
         echo "Precheck log content ($BLACKLIST_PRECHECK_LOG_FILE):"
         cat "$BLACKLIST_PRECHECK_LOG_FILE"
-        # Don't cleanup here, let the main cleanup handle it, just exit
-        
-        # Set variable based on test_key
-        if [ "$test_key" = "connected_blacklist" ]; then
-            connected_blacklist_result="❌"
-        else
-            disconnected_blacklist_result="❌"
-        fi
-        
-        ensure_posture_stopped_and_cleaned "post" 1; exit 1
+        handle_test_result "blacklist" "$test_mode" true "$error_message"
+        return
     else
         echo "✅ Pre-check passed: No blacklisted sessions found initially."
     fi
@@ -302,40 +301,26 @@ run_blacklist_test() {
     if [ $CURL_EXIT_CODE -ne 0 ]; then
         # Non-zero exit code might be expected if connection is refused/reset, but log it.
         # Common curl errors: 7 (connection refused), 28 (timeout), 56 (recv error)
-        echo "⚠️ Curl command finished with non-zero exit code: $CURL_EXIT_CODE"
-        
-        # Set variable based on test_key
-        if [ "$test_key" = "connected_blacklist" ]; then
-            connected_blacklist_result="❌"
-        else
-            disconnected_blacklist_result="❌"
-        fi
-        
-        ensure_posture_stopped_and_cleaned "post" 1; exit 1
+        local error_message="Curl command finished with non-zero exit code: $CURL_EXIT_CODE"
+        handle_test_result "blacklist" "$test_mode" true "$error_message"
+        return
     else
         echo "✅ Curl command finished successfully (exit code 0)."
     fi
 
-    echo "Waiting 30 seconds for sessions to update after traffic generation..."
-    sleep 30
+    echo "Waiting 10 seconds for sessions to update after traffic generation..."
+    sleep 10
 
     echo "Verifying test traffic was captured in get-sessions..."
     SESSION_PRE_CUSTOM_LOG="$TEST_DIR/all_sessions_pre_custom.log"
     "$BINARY_DEST" get-sessions > "$SESSION_PRE_CUSTOM_LOG" || true
     # Check if either the IPv4 or IPv6 address is present
     if ! grep -qE "($BLACKLIST_IP_V4|$BLACKLIST_IP_V6)" "$SESSION_PRE_CUSTOM_LOG"; then
-        echo "🔴 Error: Test traffic connection to $BLACKLIST_DOMAIN (expected IPs $BLACKLIST_IP_V4 or $BLACKLIST_IP_V6) was not found in get-sessions output BEFORE setting custom blacklist."
+        local error_message="Test traffic connection to $BLACKLIST_DOMAIN (expected IPs $BLACKLIST_IP_V4 or $BLACKLIST_IP_V6) was not found in get-sessions output BEFORE setting custom blacklist."
         echo "Full get-sessions output ($SESSION_PRE_CUSTOM_LOG):"
         cat "$SESSION_PRE_CUSTOM_LOG"
-        
-        # Set variable based on test_key
-        if [ "$test_key" = "connected_blacklist" ]; then
-            connected_blacklist_result="❌"
-        else
-            disconnected_blacklist_result="❌"
-        fi
-        
-        ensure_posture_stopped_and_cleaned "post" 1; exit 1
+        handle_test_result "blacklist" "$test_mode" true "$error_message"
+        return
     else
         echo "✅ Verification passed: Test traffic session (IP $BLACKLIST_IP_V4 or $BLACKLIST_IP_V6) found."
     fi
@@ -361,40 +346,26 @@ run_blacklist_test() {
     echo "Setting custom blacklist..."
     BLACKLIST_CONTENT=$(cat "$BLACKLIST_FILE")
     $SUDO_CMD "$BINARY_DEST" $VERBOSE_FLAG set-custom-blacklists "$BLACKLIST_CONTENT"
-    echo "Waiting 30 seconds for blacklist to apply..."
-    sleep 30 # Give time to apply
+    echo "Waiting 10 seconds for blacklist to apply..."
+    sleep 10 # Give time to apply
 
     echo "Verifying that the custom blacklist was set..."
     VERIFY_BLACKLIST_LOG="$TEST_DIR/verify_blacklists.log"
     "$BINARY_DEST" get-blacklists > "$VERIFY_BLACKLIST_LOG" || { 
-        echo "🔴 Error running get-blacklists"; 
-        cat "$VERIFY_BLACKLIST_LOG"; 
-        
-        # Set variable based on test_key
-        if [ "$test_key" = "connected_blacklist" ]; then
-            connected_blacklist_result="❌"
-        else
-            disconnected_blacklist_result="❌"
-        fi
-        
-        ensure_posture_stopped_and_cleaned "post" 1; 
-        exit 1; 
+        local error_message="Error running get-blacklists"
+        echo "🔴 $error_message"
+        cat "$VERIFY_BLACKLIST_LOG"
+        handle_test_result "blacklist" "$test_mode" true "$error_message"
+        return
     }
     echo "--- Start $VERIFY_BLACKLIST_LOG ---"
     cat "$VERIFY_BLACKLIST_LOG"
     echo "--- End $VERIFY_BLACKLIST_LOG ---"
     # Basic check to see if our test blacklist name is present
     if ! grep -q '"name": "test_blacklist"' "$VERIFY_BLACKLIST_LOG"; then
-        echo "🔴 Error: Custom blacklist 'test_blacklist' not found in get-blacklists output."
-        
-        # Set variable based on test_key
-        if [ "$test_key" = "connected_blacklist" ]; then
-            connected_blacklist_result="❌"
-        else
-            disconnected_blacklist_result="❌"
-        fi
-        
-        ensure_posture_stopped_and_cleaned "post" 1; exit 1
+        local error_message="Custom blacklist 'test_blacklist' not found in get-blacklists output."
+        handle_test_result "blacklist" "$test_mode" true "$error_message"
+        return
     else
         echo "✅ Custom blacklist 'test_blacklist' successfully verified."
     fi
@@ -404,19 +375,11 @@ run_blacklist_test() {
     "$BINARY_DEST" get-blacklisted-sessions > "$BLACKLIST_POSTCHECK_LOG_FILE" || true
     # Check if the postcheck log file is non-empty (ignoring potential whitespace/empty lines)
     if grep -q '[^[:space:]]' "$BLACKLIST_PRECHECK_LOG_FILE"; then
-        echo "🔴 Error: Detected blacklisted sessions AFTER applying custom blacklist!"
+        local error_message="Detected blacklisted sessions AFTER applying custom blacklist!"
         echo "Postcheck log content ($BLACKLIST_POSTCHECK_LOG_FILE):"
         cat "$BLACKLIST_POSTCHECK_LOG_FILE"
-        # Don't cleanup here, let the main cleanup handle it, just exit
-        
-        # Set variable based on test_key
-        if [ "$test_key" = "connected_blacklist" ]; then
-            connected_blacklist_result="❌"
-        else
-            disconnected_blacklist_result="❌"
-        fi
-        
-        ensure_posture_stopped_and_cleaned "post" 1; exit 1
+        handle_test_result "blacklist" "$test_mode" true "$error_message"
+        return
     else
         echo "✅ Post-check passed: No blacklisted sessions found after applying custom blacklist."
     fi
@@ -426,8 +389,8 @@ run_blacklist_test() {
     echo "Making connection towards a blacklisted domain ($BLACKLIST_DOMAIN)..."
     $CURL_CMD -s -m 10 "https://$BLACKLIST_DOMAIN/" -o /dev/null --insecure || echo "⚠️ Curl command finished (may fail, expected for blacklist test)"
 
-    echo "Waiting 30 seconds for sessions and blacklist processing..."
-    sleep 30
+    echo "Waiting 10 seconds for sessions and blacklist processing..."
+    sleep 10
 
     # Blacklist Detection Check
     BLACKLIST_FINAL_CHECK_LOG="$TEST_DIR/blacklisted_sessions_final_check.log"
@@ -446,36 +409,24 @@ run_blacklist_test() {
     echo "Verifying if blacklisted IPs ($BLACKLIST_IP_V4 or $BLACKLIST_IP_V6) are found in the log..."
     # Check if either the IPv4 or IPv6 address is blacklisted
     if ! grep -qE "($BLACKLIST_IP_V4|$BLACKLIST_IP_V6)" "$BLACKLIST_FINAL_CHECK_LOG"; then
-        echo "🔴 Error (CI Mode): Neither blacklisted IP ($BLACKLIST_IP_V4 or $BLACKLIST_IP_V6) was found in get-blacklisted-sessions output."
         BLACKLISTED_SESSION_IN_ALL_SESSIONS_LOG=$(grep -E "($BLACKLIST_IP_V4|$BLACKLIST_IP_V6)" "$ALL_SESSIONS_FINAL_CHECK_LOG")
+        local error_message=""
         if [ -n "$BLACKLISTED_SESSION_IN_ALL_SESSIONS_LOG" ]; then
-            echo "🔴 Error: Blacklisted IP ($BLACKLIST_IP_V4 or $BLACKLIST_IP_V6) was found in get-sessions output, but not in get-blacklisted-sessions."
+            error_message="Blacklisted IP ($BLACKLIST_IP_V4 or $BLACKLIST_IP_V6) was found in get-sessions output, but not in get-blacklisted-sessions."
             echo "Blacklisted session in get-sessions output:"
             echo "$BLACKLISTED_SESSION_IN_ALL_SESSIONS_LOG"
         else
-            echo "🔴 Error: Blacklisted IP ($BLACKLIST_IP_V4 or $BLACKLIST_IP_V6) was not found in get-sessions output either."
+            error_message="Blacklisted IP ($BLACKLIST_IP_V4 or $BLACKLIST_IP_V6) was not found in get-sessions output either."
             echo "All sessions log content (captured above): $ALL_SESSIONS_FINAL_CHECK_LOG"
         fi
-        
-        # Set variable based on test_key
-        if [ "$test_key" = "connected_blacklist" ]; then
-            connected_blacklist_result="❌"
-        else
-            disconnected_blacklist_result="❌"
-        fi
-        
-        ensure_posture_stopped_and_cleaned "post" 1; exit 1
+        handle_test_result "blacklist" "$test_mode" true "$error_message"
+        return
     else
         echo "✅ Blacklisted IP ($BLACKLIST_IP_V4 or $BLACKLIST_IP_V6) found in log."
     fi
-    echo "✅ Blacklist test checks completed."
     
-    # Set variable based on test_key
-    if [ "$test_key" = "connected_blacklist" ]; then
-        connected_blacklist_result="✅"
-    else
-        disconnected_blacklist_result="✅"
-    fi
+    echo "✅ Blacklist test checks completed."
+    handle_test_result "blacklist" "$test_mode" false ""
 }
 
 # --- Main Test Logic --- #
@@ -520,8 +471,8 @@ if [ "$CI" = "true" ]; then
             break
         fi
         CURRENT_ITERATION=$((CURRENT_ITERATION + 1))
-        echo "⏳ Connection not established, waiting 30 seconds... (Attempt $CURRENT_ITERATION/$MAX_WAIT_ITERATIONS)"
-        sleep 30
+        echo "⏳ Connection not established, waiting 10 seconds... (Attempt $CURRENT_ITERATION/$MAX_WAIT_ITERATIONS)"
+        sleep 10
     done
 
     if [ "$CONNECTED" = false ]; then
