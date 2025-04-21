@@ -27,9 +27,19 @@ if [[ "$RUNNER_OS" == "Darwin" ]]; then
     command -v wget >/dev/null 2>&1 || brew install wget
     command -v jq >/dev/null 2>&1 || brew install jq
 elif [[ "$RUNNER_OS" == "Linux" ]]; then
-    # Linux
-    command -v wget >/dev/null 2>&1 || sudo apt-get update && sudo apt-get install -y wget
-    command -v jq >/dev/null 2>&1 || sudo apt-get install -y jq
+    # Linux - detect package manager
+    if command -v apt-get >/dev/null 2>&1; then
+        # Debian/Ubuntu
+        command -v wget >/dev/null 2>&1 || sudo apt-get update && sudo apt-get install -y wget
+        command -v jq >/dev/null 2>&1 || sudo apt-get install -y jq
+    elif command -v apk >/dev/null 2>&1; then
+        # Alpine Linux
+        command -v wget >/dev/null 2>&1 || sudo apk add --no-cache wget
+        command -v jq >/dev/null 2>&1 || sudo apk add --no-cache jq
+    else
+        echo "Unsupported Linux distribution. Please install wget and jq manually."
+        exit 1
+    fi
 else
     # Windows/Other
     echo "This script supports macOS and Linux only."
@@ -42,9 +52,9 @@ cd ~
 # Download the binary based on OS
 if [[ "$RUNNER_OS" == "Darwin" ]]; then
     echo "Downloading EDAMAME Posture binary for macOS..."
-    wget --no-verbose https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v${VERSION}/edamame_posture-${VERSION}-universal-apple-darwin -O edamame_posture || \
-    wget --no-verbose https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v${FALLBACK_VERSION}/edamame_posture-${FALLBACK_VERSION}-universal-apple-darwin -O edamame_posture
-    chmod u+x edamame_posture
+    wget --no-verbose https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v${VERSION}/edamame_posture-${VERSION}-universal-apple-darwin -O ./edamame_posture || \
+    wget --no-verbose https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v${FALLBACK_VERSION}/edamame_posture-${FALLBACK_VERSION}-universal-apple-darwin -O ./edamame_posture
+    chmod u+x ./edamame_posture
     EDAMAME_POSTURE_CMD="sudo ./edamame_posture"
 elif [[ "$RUNNER_OS" == "Linux" ]]; then
     echo "Downloading EDAMAME Posture binary for Linux..."
@@ -56,19 +66,19 @@ elif [[ "$RUNNER_OS" == "Linux" ]]; then
         # Compare versions 
         if printf '%s\n%s\n' "$MIN_GLIBC_VERSION" "$GLIBC_VERSION" | sort -V | head -n 1 | grep -q "$MIN_GLIBC_VERSION"; then
             echo "Using x86_64-unknown-linux-gnu version"
-            wget --no-verbose https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v${VERSION}/edamame_posture-${VERSION}-x86_64-unknown-linux-gnu -O edamame_posture || \
-            wget --no-verbose https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v${FALLBACK_VERSION}/edamame_posture-${FALLBACK_VERSION}-x86_64-unknown-linux-gnu -O edamame_posture
+            wget --no-verbose https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v${VERSION}/edamame_posture-${VERSION}-x86_64-unknown-linux-gnu -O ./edamame_posture || \
+            wget --no-verbose https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v${FALLBACK_VERSION}/edamame_posture-${FALLBACK_VERSION}-x86_64-unknown-linux-gnu -O ./edamame_posture
         else
             echo "Using x86_64-unknown-linux-musl version" 
-            wget --no-verbose https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v${VERSION}/edamame_posture-${VERSION}-x86_64-unknown-linux-musl -O edamame_posture || \
-            wget --no-verbose https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v${FALLBACK_VERSION}/edamame_posture-${FALLBACK_VERSION}-x86_64-unknown-linux-musl -O edamame_posture
+            wget --no-verbose https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v${VERSION}/edamame_posture-${VERSION}-x86_64-unknown-linux-musl -O ./edamame_posture || \
+            wget --no-verbose https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v${FALLBACK_VERSION}/edamame_posture-${FALLBACK_VERSION}-x86_64-unknown-linux-musl -O ./edamame_posture
         fi
     else
         echo "Unable to detect GLIBC version, defaulting to musl build"
-        wget --no-verbose https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v${VERSION}/edamame_posture-${VERSION}-x86_64-unknown-linux-musl -O edamame_posture || \
-        wget --no-verbose https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v${FALLBACK_VERSION}/edamame_posture-${FALLBACK_VERSION}-x86_64-unknown-linux-musl -O edamame_posture
+        wget --no-verbose https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v${VERSION}/edamame_posture-${VERSION}-x86_64-unknown-linux-musl -O ./edamame_posture || \
+        wget --no-verbose https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v${FALLBACK_VERSION}/edamame_posture-${FALLBACK_VERSION}-x86_64-unknown-linux-musl -O ./edamame_posture
     fi
-    chmod u+x edamame_posture
+    chmod u+x ./edamame_posture
     EDAMAME_POSTURE_CMD="sudo -E ./edamame_posture"
 fi
 
