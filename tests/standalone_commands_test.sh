@@ -1,6 +1,21 @@
 #!/bin/bash
 set -eo pipefail # Exit on error, treat unset variables as error, pipefail
 
+# Track test results with simple variables for macOS compatibility
+get_core_info_result="❓"
+get_core_version_result="❓"
+help_result="❓"
+score_result="❓"
+remediate_result="❓"
+request_signature_result="❓"
+request_report_result="❓"
+check_policy_result="❓"
+check_policy_for_domain_result="❓"
+get_device_info_result="❓"
+get_system_info_result="❓"
+lanscan_result="❓"
+capture_result="❓"
+
 # Function to run on exit
 finish() {
     local exit_status=$?
@@ -11,19 +26,19 @@ finish() {
     echo ""
     echo "--- Test Summary --- "
     echo "- Standalone Commands:"
-    echo "  - get-core-info"
-    echo "  - get-core-version"
-    echo "  - help"
-    echo "  - score (with business rule)"
-    echo "  - remediate (skipped)"
-    echo "  - request-signature"
-    echo "  - request-report"
-    echo "  - check-policy (local)"
-    echo "  - check-policy-for-domain"
-    echo "  - get-device-info"
-    echo "  - get-system-info"
-    echo "  - lanscan"
-    echo "  - capture"
+    echo "  $get_core_info_result get-core-info"
+    echo "  $get_core_version_result get-core-version"
+    echo "  $help_result help"
+    echo "  $score_result score (with business rule)"
+    echo "  $remediate_result remediate"
+    echo "  $request_signature_result request-signature"
+    echo "  $request_report_result request-report"
+    echo "  $check_policy_result check-policy (local)"
+    echo "  $check_policy_for_domain_result check-policy-for-domain"
+    echo "  $get_device_info_result get-device-info"
+    echo "  $get_system_info_result get-system-info"
+    echo "  $lanscan_result lanscan"
+    echo "  $capture_result capture"
     echo "--------------------"
     if [ $exit_status -eq 0 ]; then
         echo "✅ --- Standalone Commands Test Completed Successfully --- ✅"
@@ -91,23 +106,23 @@ export EDAMAME_LOG_LEVEL
 # --- Tests ---
 
 echo "Get core info:"
-"$BINARY_PATH" $VERBOSE_FLAG get-core-info
+"$BINARY_PATH" $VERBOSE_FLAG get-core-info && get_core_info_result="✅" || get_core_info_result="❌"
 
 echo "Get core version:"
-"$BINARY_PATH" $VERBOSE_FLAG get-core-version
+"$BINARY_PATH" $VERBOSE_FLAG get-core-version && get_core_version_result="✅" || get_core_version_result="❌"
 
 echo "Help:"
-"$BINARY_PATH" $VERBOSE_FLAG help
+"$BINARY_PATH" $VERBOSE_FLAG help && help_result="✅" || help_result="❌"
 
 # Perform a simple score computation (needs business rule cmd env var)
 echo "Score:"
-$SUDO_CMD "$BINARY_PATH" $VERBOSE_FLAG score
+$SUDO_CMD "$BINARY_PATH" $VERBOSE_FLAG score && score_result="✅" || score_result="❌"
 
 # Check if the business rule was passed
 echo "Checking for business rule artifact at $ARTIFACT_PATH..."
 # Use -f for files, works cross-platform better than [[ -f ]] in all shells
 if ! [ -f "$ARTIFACT_PATH" ]; then
-    echo "Error: Business rule artifact not found at $ARTIFACT_PATH"
+    echo "🔴 Error: Business rule artifact not found at $ARTIFACT_PATH"
     ls -la "$(dirname "$ARTIFACT_PATH")" # List directory contents for debugging
     exit 1
 else
@@ -117,7 +132,7 @@ fi
 
 # Test remediate command with skip_remediations
 echo "Remediate (with skipped remediations):"
-$SUDO_CMD "$BINARY_PATH" $VERBOSE_FLAG remediate "remote login enabled,local firewall disabled"
+$SUDO_CMD "$BINARY_PATH" $VERBOSE_FLAG remediate "remote login enabled,local firewall disabled" && remediate_result="✅" || remediate_result="❌"
 
 # Test request-signature command
 echo "Request signature:"
@@ -126,39 +141,45 @@ echo "Request signature:"
 signature_output=$($SUDO_CMD "$BINARY_PATH" request-signature || echo "signature_error")
 signature=$(echo "$signature_output" | grep Signature | awk '{print $2}' || echo "signature_error")
 echo "Obtained signature: $signature"
+if [[ "$signature" != "signature_error" && ! -z "$signature" ]]; then
+    request_signature_result="✅"
+else
+    request_signature_result="❌"
+fi
 
 # Test request-report command (using a test email)
 if [[ "$signature" != "signature_error" && ! -z "$signature" ]]; then
     echo "Request report:"
-    $SUDO_CMD "$BINARY_PATH" $VERBOSE_FLAG request-report "test@example.com" "$signature"
+    $SUDO_CMD "$BINARY_PATH" $VERBOSE_FLAG request-report "test@example.com" "$signature" && request_report_result="✅" || request_report_result="❌"
 else
-    echo "Skipping request-report due to signature error or empty signature."
+    echo "🔴 Error: Skipping request-report due to signature error or empty signature."
+    request_report_result="⏭️"
 fi
 
 # Test check-policy command with float score
 echo "Check policy (local):"
-$SUDO_CMD "$BINARY_PATH" $VERBOSE_FLAG check-policy 1.0 "encrypted disk disabled"
+$SUDO_CMD "$BINARY_PATH" $VERBOSE_FLAG check-policy 1.0 "encrypted disk disabled" && check_policy_result="✅" || check_policy_result="❌"
 
 # Test check-policy-for-domain command
 echo "Check policy (with domain):"
 # Domain value from tests.yml: edamame.tech, Context: Github
-$SUDO_CMD "$BINARY_PATH" $VERBOSE_FLAG check-policy-for-domain "edamame.tech" "Github"
+$SUDO_CMD "$BINARY_PATH" $VERBOSE_FLAG check-policy-for-domain "edamame.tech" "Github" && check_policy_for_domain_result="✅" || check_policy_for_domain_result="❌"
 
 # Get device info
 echo "Device info:"
-$SUDO_CMD "$BINARY_PATH" $VERBOSE_FLAG get-device-info
+$SUDO_CMD "$BINARY_PATH" $VERBOSE_FLAG get-device-info && get_device_info_result="✅" || get_device_info_result="❌"
 
 # Get system info
 echo "System info:"
-$SUDO_CMD "$BINARY_PATH" $VERBOSE_FLAG get-system-info
+$SUDO_CMD "$BINARY_PATH" $VERBOSE_FLAG get-system-info && get_system_info_result="✅" || get_system_info_result="❌"
 
 # Perform a lanscan
 echo "Lanscan:"
-$SUDO_CMD "$BINARY_PATH" $VERBOSE_FLAG lanscan
+$SUDO_CMD "$BINARY_PATH" $VERBOSE_FLAG lanscan && lanscan_result="✅" || lanscan_result="❌"
 
 # Perform a capture
 echo "Capture:"
-$SUDO_CMD "$BINARY_PATH" $VERBOSE_FLAG capture 5
+$SUDO_CMD "$BINARY_PATH" $VERBOSE_FLAG capture 5 && capture_result="✅" || capture_result="❌"
 
 # Original success message removed, handled by trap
 # echo "--- Standalone Commands Test Completed ---" 

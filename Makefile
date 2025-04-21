@@ -4,6 +4,8 @@
 -include ../secrets/lambda-signature.env
 -include ../secrets/foundation.env
 -include ../secrets/sentry.env
+-include ../secrets/analytics.env
+-include ../secrets/edamame.env
 export
 
 completions:
