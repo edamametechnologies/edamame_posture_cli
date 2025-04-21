@@ -255,22 +255,22 @@ jobs:
             arch: x86_64
             container_image: ubuntu:20.04
             container_name: ubuntu-20.04
-            target: x86_64-unknown-linux-gnu
           - os: ubuntu-latest # Containers always run on ubuntu-latest host
             arch: x86_64
             container_image: ubuntu:18.04
             container_name: ubuntu-18.04
-            target: x86_64-unknown-linux-gnu
-
     runs-on: ${{ matrix.os }}
     container:
       image: ${{ matrix.container_image }}
       # Needed for integration tests (pcap)
       options: --cap-add=NET_ADMIN --cap-add=NET_RAW
+    timeout-minutes: 90
     env:
+      CARGO_TERM_COLOR: always
       EDAMAME_APP_SENTRY: ${{ secrets.EDAMAME_APP_SENTRY }}
       PWNED_API_KEY: ${{ secrets.PWNED_API_KEY }}
       EDAMAME_TARGET: ${{ secrets.EDAMAME_TARGET }}
+      EDAMAME_SERVER: ${{ secrets.EDAMAME_SERVER }}
       EDAMAME_CORE_TARGET: ${{ secrets.EDAMAME_CORE_TARGET }}
       EDAMAME_CORE_SERVER: ${{ secrets.EDAMAME_CORE_SERVER }}
       EDAMAME_CA_PEM: ${{ secrets.EDAMAME_CA_PEM }}
@@ -290,7 +290,7 @@ jobs:
         run: |
           export DEBIAN_FRONTEND=noninteractive
           apt-get update -y
-          apt-get install -y git
+          apt-get install -y git curl
           git config --global --add safe.directory '*'
 
       - name: Setup EDAMAME Posture
@@ -300,7 +300,8 @@ jobs:
           edamame_domain: ${{ vars.EDAMAME_POSTURE_DOMAIN }}
           edamame_pin: ${{ secrets.EDAMAME_POSTURE_PIN }}
           edamame_id: ${{ github.run_id }}-container-${{ matrix.container_name }} # Unique ID
-          checkout: true
+          # Don't checkout the repo, as we will do that in the next step
+          checkout: false
           token: ${{ secrets.DEV_GITHUB_TOKEN }}
           wait_for_api: true
           wait_for_https: true
@@ -311,17 +312,18 @@ jobs:
           git config --global user.name "EDAMAME Dev"
           git config --global url."https://edamamedev:${{ secrets.DEV_GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
 
+      # Manual checkout for containers (actions/checkout@v4 requires node20 which is not supported on older Ubuntu containers)
+      - name: Manual checkout for containers
+        shell: bash
+        run: |
+          git clone https://github.com/${{ github.repository }}.git .
+          git checkout ${{ github.ref_name }}
+
       - name: Install additional packages w/ apt for Linux
         run: |
           apt-get update
           # psmisc is needed for killall
           apt-get install -y protobuf-compiler libpcap-dev psmisc
-
-      # Install Rust toolchain for Linux - use dedicated container step
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.target }} # Use target from matrix
 
       # Install Rust in container
       - name: Install Rust in container
@@ -363,6 +365,14 @@ jobs:
         run: ./tests/integration_test.sh
         continue-on-error: true
 
+      - name: Dump the logs
+        shell: bash
+        if: always()
+        run: |
+          echo "--- Dumping Container Logs (${{ matrix.container_name }}) --- "
+          find "$HOME/" -name "edamame_cli_*.*" -exec echo "--- {} ---" \; -exec cat {} \; || echo "No logs found in HOME"
+          echo "--- Container Log Dump Complete ---"
+
       - name: Slack alerts
         # Won't work on 18.04 because of glibc version
         if: (steps.cargo_tests.outcome == 'failure' || steps.standalone_tests.outcome == 'failure' || steps.integration_tests.outcome == 'failure') && !contains(matrix.container_name, '18.04')
@@ -378,14 +388,6 @@ jobs:
             More details: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-
-      - name: Dump the logs
-        shell: bash
-        if: always()
-        run: |
-          echo "--- Dumping Container Logs (${{ matrix.container_name }}) --- "
-          find "$HOME/" -name "edamame_cli_*.*" -exec echo "--- {} ---" \; -exec cat {} \; || echo "No logs found in HOME"
-          echo "--- Container Log Dump Complete ---"
 
       - name: Fail job if tests failed
         shell: bash
@@ -415,6 +417,7 @@ jobs:
     # We need to wait a long time for musl aarch64 due to the use of qemu
     timeout-minutes: 180
     env:
+      CARGO_TERM_COLOR: always
       EDAMAME_APP_SENTRY: ${{ secrets.EDAMAME_APP_SENTRY }}
       PWNED_API_KEY: ${{ secrets.PWNED_API_KEY }}
       EDAMAME_TARGET: ${{ secrets.EDAMAME_TARGET }}
