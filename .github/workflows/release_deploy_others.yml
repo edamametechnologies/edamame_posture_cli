@@ -64,7 +64,7 @@ jobs:
           edamame_domain: ${{ vars.EDAMAME_POSTURE_DOMAIN }}
           edamame_pin: ${{ secrets.EDAMAME_POSTURE_PIN }}
           edamame_id: ${{ github.run_id }}
-          # Disabled on Windows as GitHub managed Windows runners configuratioon makes this too slow
+          # Disabled on Windows as GitHub managed Windows runners configuration makes this too slow
           network_scan: ${{ matrix.os == 'windows' && 'false' || 'true' }}
           auto_remediate: true
           checkout: true
