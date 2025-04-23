@@ -449,7 +449,7 @@ jobs:
           arch: ${{ matrix.arch }}
           branch: v3.15
 
-      # Install dependencies with apk
+      # Install dependencies with apk in Alpine VM
       - name: Install dependencies with apk
         run: |
           apk add --no-cache \
@@ -475,6 +475,7 @@ jobs:
       #   bash ./edamame_setup.sh ${{ vars.EDAMAME_POSTURE_USER }} ${{ vars.EDAMAME_POSTURE_DOMAIN }} ${{ secrets.EDAMAME_POSTURE_PIN }} ${{ github.run_id }}-alpine-${{ matrix.arch }}
       #  shell: alpine.sh --root {0}
 
+      # Setup EDAMAME Posture in host environment
       - name: Setup EDAMAME Posture
         uses: edamametechnologies/edamame_posture_action@v0
         with:
@@ -488,7 +489,7 @@ jobs:
           wait_for_api: true
           wait_for_https: true
 
-      # Configure Git Authentication to import private crates
+      # Configure Git Authentication to import private crates in Alpine VM
       - name: Configure Git Authentication to import private crates
         run: |
           git config --global user.email "dev@edamame.tech"
@@ -496,7 +497,7 @@ jobs:
           git config --global url."https://edamamedev:${{ secrets.DEV_GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
         shell: alpine.sh {0}
 
-      # Manual checkout for Alpine
+      # Manual checkout in Alpine VM
       - name: Manual checkout
         run: |
           mkdir temp
@@ -513,7 +514,7 @@ jobs:
           rustup target add ${{ matrix.target }}
         shell: alpine.sh {0}
 
-      # Build application
+      # Build application in Alpine VM
       - name: Build application
         run: |
           source $HOME/.cargo/env
@@ -522,6 +523,7 @@ jobs:
         env:
           VERGEN_GIT_BRANCH: ${{ github.ref_name }}
 
+      # Must be in the Alpine VM
       - name: Run Basic Cargo Tests
         id: cargo_tests
         run: cd temp && ./tests/basic_cargo_test.sh
@@ -530,12 +532,14 @@ jobs:
         env:
           VERGEN_GIT_BRANCH: ${{ github.ref_name }}
 
+      # Must be in the Alpine VM
       - name: Run Standalone Commands Test
         id: standalone_tests
         run: cd temp && ./tests/standalone_commands_test.sh
         shell: alpine.sh --root {0}
         continue-on-error: true
 
+      # Must be in the Alpine VM
       - name: Run Integration Tests
         id: integration_tests
         env:
@@ -546,6 +550,7 @@ jobs:
         shell: alpine.sh --root {0}
         continue-on-error: true
 
+      # Must be in the host environment
       - name: Slack alerts
         if: steps.cargo_tests.outcome == 'failure' || steps.standalone_tests.outcome == 'failure' || steps.integration_tests.outcome == 'failure'
         uses: slackapi/slack-github-action@v1.26.0
@@ -561,6 +566,7 @@ jobs:
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
 
+      # Must be in the Alpine VM
       - name: Dump the logs
         if: always()
         run: |
@@ -569,6 +575,7 @@ jobs:
           echo "--- Alpine Log Dump Complete ---"
         shell: alpine.sh --root {0}
 
+      # Must be in the host environment
       - name: Fail job if tests failed
         if: steps.cargo_tests.outcome == 'failure' || steps.standalone_tests.outcome == 'failure' || steps.integration_tests.outcome == 'failure'
         run: |
@@ -579,4 +586,3 @@ jobs:
           echo ""
           echo "Forcing alpine job to fail because tests did not succeed."
           exit 1
-        shell: alpine.sh {0}
