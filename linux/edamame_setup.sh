@@ -93,27 +93,32 @@ if [[ "$RUNNER_OS" == "Darwin" ]]; then
 elif [[ "$RUNNER_OS" == "Linux" ]]; then
     echo "Downloading EDAMAME Posture binary for Linux..."
     # Get GLIBC version
-    MIN_GLIBC_VERSION=0.9.28
+    MIN_GLIBC_VERSION="2.29" # Use a real GLIBC version threshold
+    echo "Minimum required GLIBC version: $MIN_GLIBC_VERSION"
     if command -v getconf >/dev/null 2>&1; then
-        GLIBC_VERSION=0.9.28
+        echo "Using getconf to determine GLIBC version"
+        GLIBC_VERSION=$(getconf GNU_LIBC_VERSION | awk '{print $2}')
+        echo "Detected GLIBC version: $GLIBC_VERSION"
         
-        # Compare versions 
+        # Compare versions using sort
         if printf '%s\n%s\n' "$MIN_GLIBC_VERSION" "$GLIBC_VERSION" | sort -V | head -n 1 | grep -q "$MIN_GLIBC_VERSION"; then
+            echo "GLIBC version $GLIBC_VERSION is sufficient (minimum required: $MIN_GLIBC_VERSION)"
             echo "Using x86_64-unknown-linux-gnu version"
             wget --no-verbose https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v${VERSION}/edamame_posture-${VERSION}-x86_64-unknown-linux-gnu -O ./edamame_posture || \
             wget --no-verbose https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v${FALLBACK_VERSION}/edamame_posture-${FALLBACK_VERSION}-x86_64-unknown-linux-gnu -O ./edamame_posture
         else
+            echo "Warning: GLIBC version $GLIBC_VERSION is older than minimum required version $MIN_GLIBC_VERSION"
             echo "Using x86_64-unknown-linux-musl version" 
             wget --no-verbose https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v${VERSION}/edamame_posture-${VERSION}-x86_64-unknown-linux-musl -O ./edamame_posture || \
             wget --no-verbose https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v${FALLBACK_VERSION}/edamame_posture-${FALLBACK_VERSION}-x86_64-unknown-linux-musl -O ./edamame_posture
         fi
     else
-        echo "Unable to detect GLIBC version, defaulting to musl build"
+        echo "Unable to detect GLIBC version using getconf, defaulting to musl build"
         wget --no-verbose https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v${VERSION}/edamame_posture-${VERSION}-x86_64-unknown-linux-musl -O ./edamame_posture || \
         wget --no-verbose https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v${FALLBACK_VERSION}/edamame_posture-${FALLBACK_VERSION}-x86_64-unknown-linux-musl -O ./edamame_posture
     fi
     chmod u+x ./edamame_posture
-    EDAMAME_POSTURE_CMD="./edamame_posture"
+    EDAMAME_POSTURE_CMD="sudo -E ./edamame_posture"
 fi
 
 # Show initial posture
