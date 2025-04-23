@@ -230,7 +230,7 @@ jobs:
         if: always()
         run: |
           echo "--- Dumping Native Logs (${{ matrix.os }}-${{ matrix.arch }}) --- "
-          find "$HOME/" -name "edamame_cli_*.*" -exec echo "--- {} ---" \; -exec cat {} \; || echo "No logs found in HOME"
+          find "$HOME/" -name "edamame_*.*" -exec echo "--- {} ---" \; -exec cat {} \; || echo "No logs found in HOME"
           echo "--- Native Log Dump Complete ---"
 
       - name: Fail job if tests failed
@@ -370,7 +370,7 @@ jobs:
         if: always()
         run: |
           echo "--- Dumping Container Logs (${{ matrix.container_name }}) --- "
-          find "$HOME/" -name "edamame_cli_*.*" -exec echo "--- {} ---" \; -exec cat {} \; || echo "No logs found in HOME"
+          find "$HOME/" -name "edamame_*.*" -exec echo "--- {} ---" \; -exec cat {} \; || echo "No logs found in HOME"
           echo "--- Container Log Dump Complete ---"
 
       - name: Slack alerts
@@ -483,7 +483,8 @@ jobs:
           edamame_domain: ${{ vars.EDAMAME_POSTURE_DOMAIN }}
           edamame_pin: ${{ secrets.EDAMAME_POSTURE_PIN }}
           edamame_id: ${{ github.run_id }}-alpine-${{ matrix.arch }} # Unique ID
-          checkout: true
+          # Don't checkout the repo, as we will do that in the next step
+          checkout: false
           # We are using the token of the the private repo to checkout the public repo and properly wait for access to the private repo
           token: ${{ secrets.DEV_GITHUB_TOKEN }}
           wait_for_api: true
@@ -571,7 +572,7 @@ jobs:
         if: always()
         run: |
           echo "--- Dumping Alpine Logs (${{ matrix.arch }}) --- "
-          find "$HOME/" -name "edamame_cli_*.*" -exec echo "--- {} ---" \; -exec cat {} \; || echo "No logs found in HOME"
+          find "$HOME/" -name "edamame_*.*" -exec echo "--- {} ---" \; -exec cat {} \; || echo "No logs found in HOME"
           echo "--- Alpine Log Dump Complete ---"
         shell: alpine.sh --root {0}
 
