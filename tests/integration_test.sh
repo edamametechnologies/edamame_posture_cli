@@ -199,7 +199,7 @@ run_whitelist_test() {
         echo "Warning: Sessions file does not exist!"
     fi
     
-    # Count total sessions and calculate MAX_ALLOWED_EXCEPTIONS as 75% of sessions
+    # Count total sessions and calculate MAX_ALLOWED_EXCEPTIONS
     SESSION_COUNT=0
     if [ -f "$SESSIONS_FILE" ] && [ -s "$SESSIONS_FILE" ]; then
         # Count all lines in the sessions file as sessions and trim whitespace
@@ -207,8 +207,8 @@ run_whitelist_test() {
     fi
     
     # Calculate 0% of sessions safely (ensure integer division)
-    MAX_ALLOWED_EXCEPTIONS=10  # Default minimum
-    if [ "$SESSION_COUNT" -gt 20 ]; then
+    MAX_ALLOWED_EXCEPTIONS=5  # Default minimum
+    if [ "$SESSION_COUNT" -gt 10 ]; then
         MAX_ALLOWED_EXCEPTIONS=$(( (SESSION_COUNT * 4) / 3 ))
     fi
     
