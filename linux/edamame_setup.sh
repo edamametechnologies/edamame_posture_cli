@@ -14,10 +14,6 @@ EDAMAME_DOMAIN="$2"
 EDAMAME_PIN="$3"
 EDAMAME_ID="$4"
 
-# Set VERSION to download
-VERSION=0.9.29
-FALLBACK_VERSION=0.9.24
-
 # Determine OS
 RUNNER_OS=$(uname)
 
@@ -25,19 +21,19 @@ RUNNER_OS=$(uname)
 if [[ "$RUNNER_OS" == "Darwin" ]]; then
     # macOS
     command -v wget >/dev/null 2>&1 || brew install wget
-    command -v jq >/dev/null 2>&1 || brew install jq
+    command -v curl >/dev/null 2>&1 || brew install curl
 elif [[ "$RUNNER_OS" == "Linux" ]]; then
     # Linux - detect package manager
     if command -v apt-get >/dev/null 2>&1; then
         # Debian/Ubuntu
         command -v wget >/dev/null 2>&1 || sudo apt-get update && sudo apt-get install -y wget
-        command -v jq >/dev/null 2>&1 || sudo apt-get install -y jq
+        command -v curl >/dev/null 2>&1 || sudo apt-get install -y curl
     elif command -v apk >/dev/null 2>&1; then
         # Alpine Linux
         command -v wget >/dev/null 2>&1 || sudo apk add --no-cache wget
-        command -v jq >/dev/null 2>&1 || sudo apk add --no-cache jq
+        command -v curl >/dev/null 2>&1 || sudo apk add --no-cache curl
     else
-        echo "Unsupported Linux distribution. Please install wget and jq manually."
+        echo "Unsupported Linux distribution. Please install wget and curl manually."
         exit 1
     fi
 else
@@ -45,6 +41,44 @@ else
     echo "This script supports macOS and Linux only."
     exit 1
 fi
+
+# Set VERSION to download
+# --- Determine Latest Version via Redirect ---
+LATEST_VERSION=""
+echo "Attempting to get latest version via redirect..."
+REDIRECT_OUTPUT=$(curl -s -L -I -o /dev/null -w '%{url_effective}:%{http_code}' https://github.com/edamametechnologies/edamame_posture_cli/releases/latest)
+
+# Extract status code and URL
+HTTP_STATUS="${REDIRECT_OUTPUT##*:}"
+LATEST_RELEASE_URL="${REDIRECT_OUTPUT%:$HTTP_STATUS}"
+
+echo "Redirect URL: $LATEST_RELEASE_URL"
+echo "HTTP Status: $HTTP_STATUS"
+
+if [[ "$HTTP_STATUS" == "200" && "$LATEST_RELEASE_URL" == *"/releases/tag/"* ]]; then
+  LATEST_VERSION=$(basename "$LATEST_RELEASE_URL")
+  LATEST_VERSION=${LATEST_VERSION#v} # Remove v prefix
+  echo "Latest version found via redirect: $LATEST_VERSION"
+else
+  echo "Failed to get latest version via redirect (Status: $HTTP_STATUS, URL: $LATEST_RELEASE_URL). Will use hardcoded version."
+  LATEST_VERSION="" # Ensure LATEST_VERSION is empty if redirect fails
+fi
+
+HARDCODED_FALLBACK_VERSION="0.9.24" # Define hardcoded fallback
+
+# --- Set VERSION and FALLBACK_VERSION for Download ---
+if [[ -n "$LATEST_VERSION" ]]; then
+  VERSION="$LATEST_VERSION"
+else
+  # Latest version via redirect failed, use hardcoded fallback as primary
+  echo "Using hardcoded version as primary version."
+  VERSION="$HARDCODED_FALLBACK_VERSION"
+fi
+# Always use the hardcoded fallback version
+FALLBACK_VERSION="$HARDCODED_FALLBACK_VERSION"
+
+echo "VERSION to download: $VERSION"
+echo "FALLBACK_VERSION to download: $FALLBACK_VERSION"
 
 # Navigate to home directory
 cd ~
