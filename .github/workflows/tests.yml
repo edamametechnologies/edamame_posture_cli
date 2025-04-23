@@ -460,7 +460,8 @@ jobs:
             curl \
             pkgconf \
             eudev-dev \
-            perl
+            perl \
+            bash
         shell: alpine.sh --root {0}
 
       # We need to setup edamame_posture outside of the Alpine VM as otherwise IP address detection will fail and access will not be granted
