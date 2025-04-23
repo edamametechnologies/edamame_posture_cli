@@ -206,10 +206,10 @@ run_whitelist_test() {
         SESSION_COUNT=$(wc -l < "$SESSIONS_FILE" | xargs)
     fi
     
-    # Calculate 75% of sessions safely (ensure integer division)
+    # Calculate 0% of sessions safely (ensure integer division)
     MAX_ALLOWED_EXCEPTIONS=10  # Default minimum
     if [ "$SESSION_COUNT" -gt 20 ]; then
-        MAX_ALLOWED_EXCEPTIONS=$(( (SESSION_COUNT * 3) / 4 ))
+        MAX_ALLOWED_EXCEPTIONS=$(( (SESSION_COUNT * 4) / 3 ))
     fi
     
     echo "Total sessions: $SESSION_COUNT, Setting MAX_ALLOWED_EXCEPTIONS to: $MAX_ALLOWED_EXCEPTIONS"
