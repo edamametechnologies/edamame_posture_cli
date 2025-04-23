@@ -503,8 +503,7 @@ jobs:
       - name: Build application
         run: |
           source $HOME/.cargo/env
-          cd temp
-          cargo build --release --target ${{ matrix.target }}
+          cd temp && cargo build --release --target ${{ matrix.target }}
         shell: alpine.sh --root {0}
         env:
           VERGEN_GIT_BRANCH: ${{ github.ref_name }}
