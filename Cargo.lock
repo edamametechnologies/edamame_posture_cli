@@ -1584,8 +1584,8 @@ dependencies = [
 
 [[package]]
 name = "edamame_core"
-version = "0.9.28"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#3e3f964ad31fadc6347316fa484c5da9e3e5705a"
+version = "0.9.29"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#33ec9030c9ce1a4be441dce49d5e932f7d673dbe"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1656,8 +1656,8 @@ dependencies = [
 
 [[package]]
 name = "edamame_foundation"
-version = "0.9.28"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#7305715ccd83201cb232c7434ab52ab5c3e6336b"
+version = "0.9.29"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#cdd7054b898566e91f6a3dd3226e095e8cd720b6"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1723,7 +1723,7 @@ dependencies = [
 
 [[package]]
 name = "edamame_posture"
-version = "0.9.28"
+version = "0.9.29"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -2284,9 +2284,9 @@ dependencies = [
 
 [[package]]
 name = "getrandom"
-version = "0.2.15"
+version = "0.2.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c4567c8db10ae91089c99af84c68c38da3ec2f087c3f82960bcdbf3656b6f4d7"
+checksum = "335ff9f135e4384c8150d6f27c6daed433577f86b4750418338c01a1a2528592"
 dependencies = [
  "cfg-if",
  "js-sys",
@@ -3168,7 +3168,7 @@ dependencies = [
  "either",
  "futures",
  "futures-timer",
- "getrandom 0.2.15",
+ "getrandom 0.2.16",
  "libp2p-allow-block-list",
  "libp2p-connection-limits",
  "libp2p-core",
@@ -3272,7 +3272,7 @@ dependencies = [
  "fnv",
  "futures",
  "futures-ticker",
- "getrandom 0.2.15",
+ "getrandom 0.2.16",
  "hex_fmt",
  "libp2p-core",
  "libp2p-identity",
@@ -4856,7 +4856,7 @@ version = "0.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ec0be4795e2f6a28069bec0b5ff3e2ac9bafc99e6a9a7dc3547996c5c816922c"
 dependencies = [
- "getrandom 0.2.15",
+ "getrandom 0.2.16",
 ]
 
 [[package]]
@@ -4925,7 +4925,7 @@ version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dd6f9d3d47bdd2ad6945c5015a226ec6155d0bcdfd8f7cd29f86b71f8de99d2b"
 dependencies = [
- "getrandom 0.2.15",
+ "getrandom 0.2.16",
  "libredox",
  "thiserror 2.0.12",
 ]
@@ -5052,7 +5052,7 @@ checksum = "a4689e6c2294d81e88dc6261c768b63bc4fcdb852be6d1352498b114f61383b7"
 dependencies = [
  "cc",
  "cfg-if",
- "getrandom 0.2.15",
+ "getrandom 0.2.16",
  "libc",
  "untrusted 0.9.0",
  "windows-sys 0.52.0",
@@ -5980,9 +5980,9 @@ dependencies = [
 
 [[package]]
 name = "tokio-util"
-version = "0.7.14"
+version = "0.7.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6b9590b93e6fcc1739458317cccd391ad3955e2bde8913edf6f95f9e65a8f034"
+checksum = "66a539a9ad6d5d281510d5bd368c973d636c02dbf8a67300bfb6b950696ad7df"
 dependencies = [
  "bytes",
  "futures-core",
