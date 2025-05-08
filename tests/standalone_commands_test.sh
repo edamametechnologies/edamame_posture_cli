@@ -51,9 +51,19 @@ trap finish EXIT
 
 echo "--- Running Standalone Commands Test ---"
 
+# Find the binary, preferring release but falling back to debug or other locations
+# Use 'find ... -quit' to stop after the first match
+FOUND_BINARY=$(find ./target -type f \( -name edamame_posture -o -name edamame_posture.exe \) -print -quit 2>/dev/null)
+
+# Check if a binary was found
+if [ -z "$FOUND_BINARY" ]; then
+  echo "🔴 Error: Could not find 'edamame_posture' or 'edamame_posture.exe' in ./target" >&2
+  exit 1
+fi
+
 # --- Configuration ---
-# These should be set externally or defaulted
-BINARY_PATH="${BINARY_PATH:-./target/release/edamame_posture}"
+# Use the found binary path if BINARY_PATH is not already set externally
+BINARY_PATH="${BINARY_PATH:-$FOUND_BINARY}"
 RUNNER_OS="${RUNNER_OS:-$(uname)}" # Default to uname output if not set
 SUDO_CMD="${SUDO_CMD:-sudo -E}"   # Default to sudo -E if not set
 EDAMAME_LOG_LEVEL="${EDAMAME_LOG_LEVEL:-debug}"
