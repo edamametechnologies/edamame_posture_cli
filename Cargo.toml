@@ -1,6 +1,6 @@
 [package]
 name = "edamame_posture"
-version = "0.9.33"
+version = "0.9.34"
 edition = "2021"
 description = "EDAMAME Security posture analysis and remediation"
 
