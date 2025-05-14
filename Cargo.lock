@@ -1754,7 +1754,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "0.9.35"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#870e143d2d1f4b2caf7dce866e5a468f2915b4a5"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#1e889d16748450108f4d8d2df1fb422718317881"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -2358,15 +2358,16 @@ dependencies = [
 
 [[package]]
 name = "generator"
-version = "0.8.4"
+version = "0.8.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cc6bd114ceda131d3b1d665eba35788690ad37f5916457286b32ab6fd3c438dd"
+checksum = "d18470a76cb7f8ff746cf1f7470914f900252ec36bbc40b569d74b1258446827"
 dependencies = [
+ "cc",
  "cfg-if",
  "libc",
  "log",
  "rustversion",
- "windows 0.58.0",
+ "windows 0.61.1",
 ]
 
 [[package]]
