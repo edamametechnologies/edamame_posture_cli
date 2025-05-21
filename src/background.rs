@@ -235,7 +235,6 @@ pub fn background_wait_for_connection(timeout: u64) -> i32 {
     println!("Waiting for score computation and reporting to complete...");
     let mut timeout = timeout;
 
-    let mut last_reported_signature = "".to_string();
     let mut connection_status = ConnectionStatusAPI {
         connected_domain: "".to_string(),
         connected_user: "".to_string(),
@@ -252,23 +251,10 @@ pub fn background_wait_for_connection(timeout: u64) -> i32 {
         backend_error_reason: "".to_string(),
     };
 
-    // Wait for a non-empty signature and connection status to connected or until we time out
-    while last_reported_signature.is_empty() && !connection_status.is_connected && timeout > 0 {
+    // Wait until the daemon reports that it is connected, or until we time out
+    while !connection_status.is_connected && timeout > 0 {
         sleep(Duration::from_secs(5));
         timeout = timeout - 5;
-
-        last_reported_signature = match rpc_get_last_report_signature(
-            &EDAMAME_CA_PEM,
-            &EDAMAME_CLIENT_PEM,
-            &EDAMAME_CLIENT_KEY,
-            &EDAMAME_TARGET,
-        ) {
-            Ok(signature) => signature,
-            Err(e) => {
-                eprintln!("Error getting last reported signature: {}", e);
-                return 1;
-            }
-        };
 
         connection_status = match rpc_get_connection(
             &EDAMAME_CA_PEM,
@@ -296,11 +282,11 @@ pub fn background_wait_for_connection(timeout: u64) -> i32 {
             "Waiting for score computation and reporting to complete... (connected: {}, network activity: {}, report signature: {})",
             connection_status.is_connected,
             connection_status.last_network_activity,
-            last_reported_signature
+            connection_status.last_report_signature
         );
     }
 
-    if timeout <= 0 {
+    if timeout <= 0 || !connection_status.is_connected {
         eprintln!("Timeout waiting for background process to connect to domain...");
         return ERROR_CODE_TIMEOUT;
     } else {
