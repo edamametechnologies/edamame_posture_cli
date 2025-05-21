@@ -464,9 +464,17 @@ if [ "$CI" = "true" ]; then
     CONNECTED=false
     while [ $CURRENT_ITERATION -lt $MAX_WAIT_ITERATIONS ]; do
         if $SUDO_CMD "$BINARY_DEST" $VERBOSE_FLAG wait-for-connection; then
-            echo "✅ Connection established."
-            CONNECTED=true
-            break
+            # Double check that the connection is established by checking the status
+            if $SUDO_CMD "$BINARY_DEST" $VERBOSE_FLAG status | grep -q "connected: true"; then
+                echo "✅ Connection established."
+                CONNECTED=true
+                break
+            else
+                echo "🔴 Error: Connection established but status is not connected."
+                connected_mode_result="❌"
+                # Trap will handle cleanup with non-zero status
+                exit 1
+            fi
         fi
         CURRENT_ITERATION=$((CURRENT_ITERATION + 1))
         echo "⏳ Connection not established, waiting 10 seconds... (Attempt $CURRENT_ITERATION/$MAX_WAIT_ITERATIONS)"

@@ -252,8 +252,8 @@ pub fn background_wait_for_connection(timeout: u64) -> i32 {
         backend_error_reason: "".to_string(),
     };
 
-    // Wait for a non-empty signature and connection status to be established or until we time out
-    while last_reported_signature.is_empty() && connection_status.is_connected && timeout > 0 {
+    // Wait for a non-empty signature and connection status to connected or until we time out
+    while last_reported_signature.is_empty() && !connection_status.is_connected && timeout > 0 {
         sleep(Duration::from_secs(5));
         timeout = timeout - 5;
 

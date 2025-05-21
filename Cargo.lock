@@ -661,26 +661,6 @@ dependencies = [
 
 [[package]]
 name = "bindgen"
-version = "0.70.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f49d8fed880d473ea71efb9bf597651e77201bdd4893efe54c9e5d65ae04ce6f"
-dependencies = [
- "bitflags 2.9.1",
- "cexpr",
- "clang-sys",
- "itertools 0.13.0",
- "log",
- "prettyplease",
- "proc-macro2",
- "quote",
- "regex",
- "rustc-hash 1.1.0",
- "shlex",
- "syn 2.0.101",
-]
-
-[[package]]
-name = "bindgen"
 version = "0.71.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5f58bf3d7db68cfbac37cfc485a8d711e87e064c3d0fe0435b92f7a407f9d6b3"
@@ -694,7 +674,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "regex",
- "rustc-hash 2.1.1",
+ "rustc-hash",
  "shlex",
  "syn 2.0.101",
 ]
@@ -1703,7 +1683,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "0.9.37"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#75588c40dab97b20214112bd696e7c05bc6bd3bc"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#e61b732af76bdb24ba933b6c77ed9df7711eb460"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1775,7 +1755,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "0.9.37"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#c8608173ffde3e5e9299b45d2e678c423bf0d176"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#a6134f1ac8470f523b9f6b918b98d4db45561a06"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1831,7 +1811,6 @@ dependencies = [
  "tracing",
  "tracing-android",
  "tracing-appender",
- "tracing-oslog",
  "tracing-subscriber",
  "users",
  "uuid",
@@ -4038,7 +4017,7 @@ version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6422b6a8c7635e8a82323e4cdf07a90e91901e07f4c1f0f3a245d54b4637e55c"
 dependencies = [
- "bindgen 0.71.1",
+ "bindgen",
  "bitflags 2.9.1",
  "byteorder",
  "netlink-packet-core",
@@ -4860,7 +4839,7 @@ dependencies = [
  "pin-project-lite",
  "quinn-proto",
  "quinn-udp",
- "rustc-hash 2.1.1",
+ "rustc-hash",
  "rustls",
  "socket2 0.5.9",
  "thiserror 2.0.12",
@@ -4880,7 +4859,7 @@ dependencies = [
  "lru-slab",
  "rand 0.9.1",
  "ring 0.17.14",
- "rustc-hash 2.1.1",
+ "rustc-hash",
  "rustls",
  "rustls-pki-types",
  "slab",
@@ -5207,12 +5186,6 @@ name = "rustc-demangle"
 version = "0.1.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "719b953e2095829ee67db738b3bfa9fa368c94900df327b3f07fe6e794d2fe1f"
-
-[[package]]
-name = "rustc-hash"
-version = "1.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "08d43f7aa6b08d49f382cde6a7982047c3426db949b1424bc4b7ec9ae12c6ce2"
 
 [[package]]
 name = "rustc-hash"
@@ -6356,21 +6329,6 @@ dependencies = [
  "log",
  "once_cell",
  "tracing-core",
-]
-
-[[package]]
-name = "tracing-oslog"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "528bdd1f0e27b5dd9a4ededf154e824b0532731e4af73bb531de46276e0aab1e"
-dependencies = [
- "bindgen 0.70.1",
- "cc",
- "cfg-if",
- "once_cell",
- "parking_lot",
- "tracing-core",
- "tracing-subscriber",
 ]
 
 [[package]]
