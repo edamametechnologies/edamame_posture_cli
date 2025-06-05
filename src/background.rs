@@ -8,7 +8,7 @@ use crate::ERROR_CODE_PARAM;
 use crate::ERROR_CODE_SERVER_ERROR;
 use crate::ERROR_CODE_TIMEOUT;
 use edamame_core::api::api_core::*;
-use edamame_core::api::api_lanscan::*;
+use edamame_core::api::api_flodbadd::*;
 use edamame_core::api::api_score::*;
 use edamame_core::api::api_score_history::*;
 use edamame_core::api::api_score_threats::*;
@@ -125,7 +125,7 @@ pub fn background_display_sessions(
             .into_iter()
             .filter(|session| {
                 session.is_whitelisted
-                    != edamame_core::api::api_lanscan::WhiteListStateAPI::Conforming
+                    != edamame_core::api::api_flodbadd::WhiteListStateAPI::Conforming
             })
             .collect::<Vec<_>>();
     }
@@ -318,8 +318,8 @@ pub fn background_wait_for_connection(timeout: u64) -> i32 {
         println!("{}", score);
         println!("Model URL: {}", url);
 
-        // Print the lanscan results
-        let devices = match rpc_get_lanscan(
+        // Print the flodbadd results
+        let devices = match rpc_get_flodbadd(
             false,
             false,
             false,

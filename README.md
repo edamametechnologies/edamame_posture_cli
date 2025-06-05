@@ -128,7 +128,7 @@ These capabilities allow you not only to enforce security at build time but also
 - **Personal Device Hardening**: Quickly validate and remediate workstation security—ensuring it's safe for development work.
 - **CI/CD Pipeline Security**: Insert edamame_posture checks to ensure ephemeral CI runners are properly secured before building or deploying code.
 - **On-Demand Compliance Demonstrations**: Produce signed posture reports when working with clients or partners who require evidence of strong security practices.
-- **Local Network Insights**: Run lanscan to see what's on your subnet—no need for bulky network security tools.
+- **Local Network Insights**: Run flodbadd to see what's on your subnet—no need for bulky network security tools.
 
 ## How It Works
 1. **Install**: Place the edamame_posture binary in your system PATH (for example, /usr/local/bin on Linux/macOS) and make it executable.
@@ -298,9 +298,9 @@ Example (GitHub Actions):
 - name: Setup EDAMAME Posture
   run: |
     # Download and install EDAMAME Posture (Linux example)
-    curl -LO https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.39/edamame_posture-0.9.39-x86_64-unknown-linux-gnu
-    chmod +x edamame_posture-0.9.39-x86_64-unknown-linux-gnu
-    sudo mv edamame_posture-0.9.39-x86_64-unknown-linux-gnu /usr/local/bin/edamame_posture
+    curl -LO https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.40/edamame_posture-0.9.40-x86_64-unknown-linux-gnu
+    chmod +x edamame_posture-0.9.40-x86_64-unknown-linux-gnu
+    sudo mv edamame_posture-0.9.40-x86_64-unknown-linux-gnu /usr/local/bin/edamame_posture
 
     # Start background monitoring in disconnected mode (with LAN scanning enabled)
     sudo edamame_posture background-start-disconnected true github_linux
@@ -311,9 +311,9 @@ Example (GitLab CI):
 setup_security:
   stage: setup
   script:
-    - curl -LO https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.39/edamame_posture-0.9.39-x86_64-unknown-linux-gnu
-    - chmod +x edamame_posture-0.9.39-x86_64-unknown-linux-gnu
-    - sudo mv edamame_posture-0.9.39-x86_64-unknown-linux-gnu /usr/local/bin/edamame_posture
+    - curl -LO https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.40/edamame_posture-0.9.40-x86_64-unknown-linux-gnu
+    - chmod +x edamame_posture-0.9.40-x86_64-unknown-linux-gnu
+    - sudo mv edamame_posture-0.9.40-x86_64-unknown-linux-gnu /usr/local/bin/edamame_posture
     - sudo edamame_posture background-start-disconnected true github_linux
 ```
 
@@ -424,9 +424,9 @@ pipeline {
             steps {
                 sh '''
                 # Download and install EDAMAME Posture (Linux Jenkins agent example)
-                curl -LO https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.39/edamame_posture-0.9.39-x86_64-unknown-linux-gnu
-                chmod +x edamame_posture-0.9.39-x86_64-unknown-linux-gnu
-                sudo mv edamame_posture-0.9.39-x86_64-unknown-linux-gnu /usr/local/bin/edamame_posture
+                curl -LO https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.40/edamame_posture-0.9.40-x86_64-unknown-linux-gnu
+                chmod +x edamame_posture-0.9.40-x86_64-unknown-linux-gnu
+                sudo mv edamame_posture-0.9.40-x86_64-unknown-linux-gnu /usr/local/bin/edamame_posture
 
                 # Start background monitoring (disconnected mode with LAN scanning)
                 sudo edamame_posture background-start-disconnected true github_linux
@@ -539,18 +539,18 @@ The easiest way to install on Debian-based distributions is via our APT reposito
 If you prefer not to add a repository, you can install the Debian package manually:
 
 1. **Download** the Debian package for your platform:
-   - **x86_64 (64-bit):** [edamame-posture_0.9.39-1_amd64.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.39/edamame-posture_0.9.39-1_amd64.deb)
-   - **i686 (32-bit):** [edamame-posture_0.9.39-1_i386.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.39/edamame-posture_0.9.39-1_i386.deb)
-   - **aarch64 (ARM 64-bit):** [edamame-posture_0.9.39-1_arm64.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.39/edamame-posture_0.9.39-1_arm64.deb)
-   - **armv7 (ARM 32-bit):** [edamame-posture_0.9.39-1_armhf.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.39/edamame-posture_0.9.39-1_armhf.deb)
+   - **x86_64 (64-bit):** [edamame-posture_0.9.40-1_amd64.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.40/edamame-posture_0.9.40-1_amd64.deb)
+   - **i686 (32-bit):** [edamame-posture_0.9.40-1_i386.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.40/edamame-posture_0.9.40-1_i386.deb)
+   - **aarch64 (ARM 64-bit):** [edamame-posture_0.9.40-1_arm64.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.40/edamame-posture_0.9.40-1_arm64.deb)
+   - **armv7 (ARM 32-bit):** [edamame-posture_0.9.40-1_armhf.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.40/edamame-posture_0.9.40-1_armhf.deb)
 
    > **Note**: These Debian packages have been tested on Linux Mint 20 and newer, and Ubuntu 20.04 and newer.
 
 2. **Install** the package using either method:
    ```bash
-   sudo apt install ./edamame-posture_0.9.39-1_amd64.deb
+   sudo apt install ./edamame-posture_0.9.40-1_amd64.deb
    # or
-   sudo dpkg -i edamame-posture_0.9.39-1_amd64.deb
+   sudo dpkg -i edamame-posture_0.9.40-1_amd64.deb
    ```
 
 3. **Configure** the service by editing the configuration file:
@@ -581,17 +581,17 @@ If you prefer not to add a repository, you can install the Debian package manual
 For other Linux distributions or portable installation:
 
 1. **Download Binary**: From the Releases page, download the binary for your architecture:
-   - **x86_64 (64-bit)**: [edamame_posture-0.9.39-x86_64-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.39/edamame_posture-0.9.39-x86_64-unknown-linux-gnu)  
-   - **i686 (32-bit)**: [edamame_posture-0.9.39-i686-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.39/edamame_posture-0.9.39-i686-unknown-linux-gnu)  
-   - **aarch64 (ARM 64-bit)**: [edamame_posture-0.9.39-aarch64-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.39/edamame_posture-0.9.39-aarch64-unknown-linux-gnu)  
-   - **armv7 (ARM 32-bit)**: [edamame_posture-0.9.39-armv7-unknown-linux-gnueabihf](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.39/edamame_posture-0.9.39-armv7-unknown-linux-gnueabihf)
-   - **x86_64 (64-bit) for Alpine Linux (musl)**: [edamame_posture-0.9.39-x86_64-unknown-linux-musl](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.39/edamame_posture-0.9.39-x86_64-unknown-linux-musl) 
-   - **aarch64 (ARM 64-bit) for Alpine Linux (musl)**: [edamame_posture-0.9.39-aarch64-unknown-linux-musl](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.39/edamame_posture-0.9.39-aarch64-unknown-linux-musl)
+   - **x86_64 (64-bit)**: [edamame_posture-0.9.40-x86_64-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.40/edamame_posture-0.9.40-x86_64-unknown-linux-gnu)  
+   - **i686 (32-bit)**: [edamame_posture-0.9.40-i686-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.40/edamame_posture-0.9.40-i686-unknown-linux-gnu)  
+   - **aarch64 (ARM 64-bit)**: [edamame_posture-0.9.40-aarch64-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.40/edamame_posture-0.9.40-aarch64-unknown-linux-gnu)  
+   - **armv7 (ARM 32-bit)**: [edamame_posture-0.9.40-armv7-unknown-linux-gnueabihf](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.40/edamame_posture-0.9.40-armv7-unknown-linux-gnueabihf)
+   - **x86_64 (64-bit) for Alpine Linux (musl)**: [edamame_posture-0.9.40-x86_64-unknown-linux-musl](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.40/edamame_posture-0.9.40-x86_64-unknown-linux-musl) 
+   - **aarch64 (ARM 64-bit) for Alpine Linux (musl)**: [edamame_posture-0.9.40-aarch64-unknown-linux-musl](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.40/edamame_posture-0.9.40-aarch64-unknown-linux-musl)
 
 2. **Install Binary**: Extract if needed and place the edamame_posture binary into a directory in your PATH (such as `/usr/local/bin`). For example:
 ```bash
-chmod +x edamame_posture-0.9.39-x86_64-unknown-linux-gnu  
-sudo mv edamame_posture-0.9.39-x86_64-unknown-linux-gnu /usr/local/bin/edamame_posture
+chmod +x edamame_posture-0.9.40-x86_64-unknown-linux-gnu  
+sudo mv edamame_posture-0.9.40-x86_64-unknown-linux-gnu /usr/local/bin/edamame_posture
 ```
 
 ### macOS
@@ -600,7 +600,7 @@ sudo mv edamame_posture-0.9.39-x86_64-unknown-linux-gnu /usr/local/bin/edamame_p
 For a developer workstation on macOS:
 
 1. **Download** the macOS universal binary:
-   - [edamame_posture-0.9.39-universal-apple-darwin](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.39/edamame_posture-0.9.39-universal-apple-darwin)  
+   - [edamame_posture-0.9.40-universal-apple-darwin](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.40/edamame_posture-0.9.40-universal-apple-darwin)  
 
 2. **Install** by placing the binary in your `PATH` and making it executable:
    ```bash
@@ -616,7 +616,7 @@ For a developer workstation on macOS:
 For a Windows workstation or server:
 
 1. **Download** the Windows binary:
-   - [edamame_posture-0.9.39-x86_64-pc-windows-msvc.exe](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.39/edamame_posture-0.9.39-x86_64-pc-windows-msvc.exe)
+   - [edamame_posture-0.9.40-x86_64-pc-windows-msvc.exe](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.40/edamame_posture-0.9.40-x86_64-pc-windows-msvc.exe)
 
 2. **Install Npcap** (Required for traffic capture feature):
    - Install [Npcap](https://npcap.com/#download), the packet capture library from the Nmap team
@@ -643,7 +643,7 @@ Once installed, EDAMAME Posture is invoked via the `edamame_posture` command. Mo
 - **start** `<USER>` `<DOMAIN>` `<PIN>` `[DEVICE_ID]` `[LAN_SCANNING]` `[WHITELIST_NAME]` `[LOCAL_TRAFFIC]`: Start continuous monitoring and conditional access control. Typically run as a background service or daemon. You must supply your Hub user/email, domain, and one-time PIN (from Hub) to register the device session. Optional parameters: a custom device identifier, whether to enable LAN scanning (true/false for capturing local traffic), a named whitelist to enforce, and a flag for allowing local traffic. This will keep running until stopped and enforce policy/network rules in real-time (e.g., locking down access if posture degrades).
 - **background-start-disconnected** `[LAN_SCANNING]` `[WHITELIST_NAME]` `[LOCAL_TRAFFIC]`: Start the background monitoring in a local-only mode (no connection to EDAMAME Hub). It will monitor security posture and network traffic, and enforce the provided whitelist. This is useful for CI runners or standalone usage where you want monitoring without cloud integration. This process runs until killed; typically you'd run it in a screen/tmux or as a service.
 - **get-sessions** `[ZEEK_FORMAT]` `[LOCAL_TRAFFIC]` `[CHECK_WHITELIST]` `[CHECK_BLACKLIST]` `[CHECK_ANOMALOUS]`: Report network sessions and enforce whitelist compliance. The parameters control whether to use Zeek format output, include local traffic, check whitelist conformance (default true), check for blacklisted connections (default true), and check for anomalous connections (default false). Returns exit code 0 if successful, non-zero if whitelist violation or if anomalous/blacklisted sessions are detected (when those checks are enabled).
-- **lanscan**: Perform a quick scan of the local network (LAN) to identify other devices on your subnet. This can reveal potential rogue devices or just provide situational awareness. It lists IP addresses and basic host info for devices it can detect.
+- **flodbadd**: Perform a quick scan of the local network (LAN) to identify other devices on your subnet. This can reveal potential rogue devices or just provide situational awareness. It lists IP addresses and basic host info for devices it can detect.
 - **request-signature**: Generate a security posture signature for the current device state. The output is a cryptographic signature (token) that represents the current posture (including all threat checks and scores). This signature can be stored or embedded (for example, in a Git commit message) as proof of posture at a point in time.
 - **get-last-report-signature**: If the background process (start or background-start-disconnected) is running, this command fetches the most recently generated posture signature from that background monitor. This is useful to avoid generating a new one if one was already produced at the end of a build or a scheduled interval.
 - **request-report**: Generate a full security report of the current system. This might output a file (e.g., PDF or JSON) containing the detailed posture assessment, including all findings and the signature. The report is signed so it can be verified later. Use this when you need to provide evidence of compliance or for auditing purposes.
@@ -662,7 +662,7 @@ For completeness, here is a list of EDAMAME Posture CLI subcommands with detaile
 - **rollback-threat** `<THREAT_ID>` – Roll back remediation for a specific threat by its threat ID. *Requires admin privileges*. Returns non-zero exit code if invalid parameters.
 - **list-threats** – List all threat names available in the system. *Requires admin privileges*.
 - **get-threat-info** `<THREAT_ID>` – Get detailed information about a specific threat. *Requires admin privileges*.
-- **lanscan** – Scan local network for connected devices. *Requires admin privileges*.
+- **flodbadd** – Scan local network for connected devices. *Requires admin privileges*.
 - **capture** `[SECONDS]` `[WHITELIST_NAME]` `[ZEEK_FORMAT]` `[LOCAL_TRAFFIC]` – Capture network traffic for a specified duration. *Requires admin privileges*.
 - **check-policy** `<MINIMUM_SCORE>` `"<THREAT_IDS>"` `"[TAG_PREFIXES]"` – Local policy compliance check. *Requires admin privileges*. Returns non-zero exit code if policy not met.
 - **check-policy-for-domain** `<DOMAIN>` `<POLICY_NAME>` – Policy check against a Hub-defined domain policy. *Requires admin privileges*. Returns non-zero exit code if policy not met.
@@ -724,9 +724,9 @@ jobs:
 
       - name: Install EDAMAME Posture
         run: |
-          curl -LO https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.39/edamame_posture-0.9.39-x86_64-unknown-linux-gnu
-          chmod +x edamame_posture-0.9.39-x86_64-unknown-linux-gnu
-          sudo mv edamame_posture-0.9.39-x86_64-unknown-linux-gnu /usr/local/bin/edamame_posture
+          curl -LO https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.40/edamame_posture-0.9.40-x86_64-unknown-linux-gnu
+          chmod +x edamame_posture-0.9.40-x86_64-unknown-linux-gnu
+          sudo mv edamame_posture-0.9.40-x86_64-unknown-linux-gnu /usr/local/bin/edamame_posture
 
       - name: Start background monitor in disconnected mode
         run: sudo edamame_posture background-start-disconnected true github_linux
@@ -1214,9 +1214,9 @@ jobs:
 
       - name: Install EDAMAME Posture
         run: |
-          curl -LO https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.39/edamame_posture-0.9.39-x86_64-unknown-linux-gnu
-          chmod +x edamame_posture-0.9.39-x86_64-unknown-linux-gnu
-          sudo mv edamame_posture-0.9.39-x86_64-unknown-linux-gnu /usr/local/bin/edamame_posture
+          curl -LO https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.40/edamame_posture-0.9.40-x86_64-unknown-linux-gnu
+          chmod +x edamame_posture-0.9.40-x86_64-unknown-linux-gnu
+          sudo mv edamame_posture-0.9.40-x86_64-unknown-linux-gnu /usr/local/bin/edamame_posture
 
       - name: Extract and verify signature from last commit
         run: |

@@ -380,4 +380,17 @@ pub fn build_cli() -> Command {
     .subcommand(Command::new("background-get-blacklists").alias("get-blacklists").about("Get blacklists from the background process"))
     .subcommand(Command::new("background-get-whitelists").alias("get-whitelists").about("Get whitelists from the background process"))
     .subcommand(Command::new("background-get-whitelist-name").alias("get-whitelist-name").about("Get the current whitelist name from the background process"))
+    ////////////////////
+    // Custom whitelist utility commands
+    ////////////////////
+    .subcommand(Command::new("augment-custom-whitelists")
+        .about("Augment the current custom whitelist locally using current whitelist exceptions"))
+    .subcommand(Command::new("merge-custom-whitelists")
+        .about("Merge two custom whitelist JSON strings into one consolidated whitelist")
+        .arg(arg!(<WHITELIST_JSON_1> "First whitelist JSON string")
+            .required(true)
+            .value_parser(clap::value_parser!(String)))
+        .arg(arg!(<WHITELIST_JSON_2> "Second whitelist JSON string")
+            .required(true)
+            .value_parser(clap::value_parser!(String))))
 }

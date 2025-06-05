@@ -2,7 +2,7 @@ use crate::ERROR_CODE_MISMATCH;
 use crate::ERROR_CODE_PARAM;
 use crate::ERROR_CODE_SERVER_ERROR;
 use edamame_core::api::api_core::*;
-use edamame_core::api::api_lanscan::*;
+use edamame_core::api::api_flodbadd::*;
 use edamame_core::api::api_score::*;
 use edamame_core::api::api_score_threats::*;
 use edamame_core::api::api_trust::*;
@@ -10,6 +10,7 @@ use indicatif::{ProgressBar, ProgressStyle};
 use std::thread::sleep;
 use std::time::Duration;
 use sysinfo::{Disks, Networks, System};
+use serde_json;
 
 pub fn base_get_score(progress_bar: bool) {
     // Request a score computation
@@ -245,7 +246,7 @@ pub fn base_capture(seconds: u64, whitelist_name: &str, zeek_format: bool, local
     }
 }
 
-pub fn base_lanscan() {
+pub fn base_flodbadd() {
     // The network, has been set, consent has been granted and a scan has been requested if needed
     let total_steps = 100;
     let pb = ProgressBar::new(total_steps);
@@ -255,12 +256,12 @@ pub fn base_lanscan() {
         .progress_chars("#>-"));
 
     // Wait completion of the scan
-    let mut devices = get_lanscan(false, false, false);
+    let mut devices = get_flodbadd(false, false, false);
     println!("Waiting for LAN scan to complete...");
     while devices.scan_in_progress {
         pb.set_position(devices.scan_progress_percent as u64);
         sleep(Duration::from_secs(5));
-        devices = get_lanscan(false, false, false);
+        devices = get_flodbadd(false, false, false);
     }
 
     // Display the devices
@@ -510,4 +511,50 @@ pub fn base_check_policy(minimum_score: f32, threat_ids: String, tag_prefixes: S
 pub fn base_get_tag_prefixes() {
     let tag_prefixes = get_tag_prefixes();
     println!("Tag prefixes: {:?}", tag_prefixes);
+}
+
+pub fn base_augment_custom_whitelists() -> i32 {
+    let whitelist_json = augment_custom_whitelists();
+
+    if whitelist_json.is_empty() {
+        eprintln!("Failed to augment custom whitelists");
+        return ERROR_CODE_SERVER_ERROR;
+    }
+
+    match serde_json::from_str::<serde_json::Value>(&whitelist_json) {
+        Ok(json_value) => {
+            match serde_json::to_string_pretty(&json_value) {
+                Ok(pretty_json) => println!("{}", pretty_json),
+                Err(_) => println!("{}", whitelist_json),
+            }
+            0
+        }
+        Err(e) => {
+            eprintln!("Error parsing augmented whitelist JSON: {}", e);
+            ERROR_CODE_PARAM
+        }
+    }
+}
+
+pub fn base_merge_custom_whitelists(whitelist1_json: String, whitelist2_json: String) -> i32 {
+    let merged_json = merge_custom_whitelists(whitelist1_json, whitelist2_json);
+
+    if merged_json.is_empty() {
+        eprintln!("Failed to merge custom whitelists");
+        return ERROR_CODE_SERVER_ERROR;
+    }
+
+    match serde_json::from_str::<serde_json::Value>(&merged_json) {
+        Ok(json_value) => {
+            match serde_json::to_string_pretty(&json_value) {
+                Ok(pretty_json) => println!("{}", pretty_json),
+                Err(_) => println!("{}", merged_json),
+            }
+            0
+        }
+        Err(e) => {
+            eprintln!("Error parsing merged whitelist JSON: {}", e);
+            ERROR_CODE_PARAM
+        }
+    }
 }
