@@ -15,6 +15,8 @@ get_device_info_result="❓"
 get_system_info_result="❓"
 lanscan_result="❓"
 capture_result="❓"
+merge_custom_whitelists_result="❓"
+augment_custom_whitelists_result="❓"
 
 # Function to run on exit
 finish() {
@@ -39,6 +41,8 @@ finish() {
     echo "  $get_system_info_result get-system-info"
     echo "  $lanscan_result lanscan"
     echo "  $capture_result capture"
+    echo "  $merge_custom_whitelists_result merge-custom-whitelists"
+    echo "  $augment_custom_whitelists_result augment-custom-whitelists"
     echo "--------------------"
     if [ $exit_status -eq 0 ]; then
         echo "✅ --- Standalone Commands Test Completed Successfully --- ✅"
@@ -190,6 +194,27 @@ $SUDO_CMD "$BINARY_PATH" $VERBOSE_FLAG lanscan && lanscan_result="✅" || lansca
 # Perform a capture
 echo "Capture:"
 $SUDO_CMD "$BINARY_PATH" $VERBOSE_FLAG capture 5 && capture_result="✅" || capture_result="❌"
+
+# Test augment-custom-whitelists command
+echo "Augment custom whitelists:"
+AUGMENT_JSON=$($SUDO_CMD "$BINARY_PATH" $VERBOSE_FLAG augment-custom-whitelists || echo "")
+if [[ -n "$AUGMENT_JSON" ]]; then
+    augment_custom_whitelists_result="✅"
+else
+    augment_custom_whitelists_result="❌"
+fi
+
+# Test merge-custom-whitelists command
+echo "Merge custom whitelists:"
+# Generate two whitelist JSON strings
+WL_JSON1=$($SUDO_CMD "$BINARY_PATH" create-custom-whitelists || echo "")
+WL_JSON2=$($SUDO_CMD "$BINARY_PATH" create-custom-whitelists || echo "")
+MERGED_JSON=$($SUDO_CMD "$BINARY_PATH" merge-custom-whitelists "$WL_JSON1" "$WL_JSON2" || echo "")
+if [[ -n "$MERGED_JSON" ]]; then
+    merge_custom_whitelists_result="✅"
+else
+    merge_custom_whitelists_result="❌"
+fi
 
 # Original success message removed, handled by trap
 # echo "--- Standalone Commands Test Completed ---" 

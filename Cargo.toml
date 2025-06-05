@@ -1,12 +1,12 @@
 [package]
 name = "edamame_posture"
-version = "0.9.39"
+version = "0.9.40"
 edition = "2021"
 description = "EDAMAME Security posture analysis and remediation"
 
 [dependencies]
-#edamame_core = { path = "../edamame_core", features = [ "standalone", "swiftrs" ] }
-edamame_core = { git = "https://github.com/edamametechnologies/edamame_core", branch = "main", features = [ "standalone", "swiftrs" ] }
+edamame_core = { path = "../edamame_core", features = [ "standalone", "swiftrs" ] }
+#edamame_core = { git = "https://github.com/edamametechnologies/edamame_core", branch = "main", features = [ "standalone", "swiftrs" ] }
 
 # Error handling
 anyhow = "1.0.82"
@@ -20,7 +20,7 @@ serde_yaml = "0.9.34+deprecated"
 serde_json = "1.0.100"
 
 # System
-sysinfo = "0.34.2"
+sysinfo = "0.35.2"
 dirs = "6.0.0"
 
 # Machine UID
@@ -46,8 +46,8 @@ uuid = "1.16.0"
 # Linux and macOS 
 [target.'cfg(any(target_os = "macos", target_os = "linux"))'.dependencies]
 # Local copy in order to allow rapid development/debug
-#edamame_foundation = { path = "../edamame_foundation", features = [ "packetcapture", "asyncpacketcapture" ] }
-edamame_foundation = { git = "https://github.com/edamametechnologies/edamame_foundation", branch = "main", features = [ "packetcapture", "asyncpacketcapture" ] }
+#edamame_foundation = { path = "../edamame_foundation", features = [ "packetcapture" ] }
+edamame_foundation = { git = "https://github.com/edamametechnologies/edamame_foundation", branch = "main", features = [ "packetcapture" ] }
 # Process
 daemonize = "0.5.0"
 
