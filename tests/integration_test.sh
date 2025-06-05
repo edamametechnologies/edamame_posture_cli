@@ -265,6 +265,23 @@ run_whitelist_test() {
     local error_message="Detected too many non-conforming exceptions (${EXCEPTION_COUNT} > ${MAX_ALLOWED_EXCEPTIONS}) or unknown exceptions (${UNKNOWN_COUNT} > 2)."
     echo "Calling handle_test_result with: whitelist, $test_mode, $is_error, '$error_message'"
     handle_test_result "whitelist" "$test_mode" "$is_error" "$error_message"
+
+    echo "Augmenting custom whitelists..."
+    AUGMENT_JSON=$($SUDO_CMD "$BINARY_DEST" augment-custom-whitelists || echo "")
+    if [[ -n "$AUGMENT_JSON" ]]; then
+        echo "Augmented custom whitelist generated (length: ${#AUGMENT_JSON}) bytes"
+    else
+        echo "⚠️ augment-custom-whitelists returned empty output"
+    fi
+
+    echo "Merging original and augmented custom whitelists..."
+    MERGED_JSON=$($SUDO_CMD "$BINARY_DEST" merge-custom-whitelists "$WHITELIST_CONTENT" "$AUGMENT_JSON" || echo "")
+    if [[ -n "$MERGED_JSON" ]]; then
+        echo "Merged custom whitelist generated (length: ${#MERGED_JSON}) bytes"
+    else
+        echo "⚠️ merge-custom-whitelists returned empty output"
+    fi
+
     echo "Whitelist test completed successfully"
 }
 

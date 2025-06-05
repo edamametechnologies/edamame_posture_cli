@@ -11,7 +11,7 @@ use clap_complete::{generate, Generator, Shell};
 use cli::build_cli;
 use daemon::*;
 use edamame_core::api::api_core::*;
-use edamame_core::api::api_lanscan::*;
+use edamame_core::api::api_flodbadd::*;
 use edamame_core::api::api_trust::*;
 use envcrypt::envc;
 use lazy_static::lazy_static;
@@ -167,7 +167,7 @@ pub fn initialize_core(
     );
 
     // Initialize network to autodetect (this will allow the core to detect the network interfaces and support whitelist operations)
-    set_network(LANScanNetworkAPI {
+    set_network(FlodbaddNetworkAPI {
         interfaces: vec![],
         scanned_interfaces: vec![],
         is_ethernet: true,
@@ -302,7 +302,7 @@ fn run_base() {
             initialize_core("".to_string(), false, false, false, false, verbose);
             ensure_admin();
             // Initialize network
-            set_network(LANScanNetworkAPI {
+            set_network(FlodbaddNetworkAPI {
                 interfaces: vec![],
                 scanned_interfaces: vec![],
                 is_ethernet: true,
@@ -335,10 +335,10 @@ fn run_base() {
             println!("Gateway detection complete");
 
             // Request a LAN scan
-            _ = get_lanscan(true, false, false);
+            _ = get_flodbadd(true, false, false);
 
             // Wait for the LAN scan to complete
-            base_lanscan();
+            base_flodbadd();
         }
         Some(("capture", sub_matches)) => {
             // Initialize the core with all options disabled
@@ -452,6 +452,24 @@ fn run_base() {
             initialize_core("".to_string(), true, false, false, false, verbose);
             ensure_admin();
             base_get_tag_prefixes();
+        }
+        Some(("augment-custom-whitelists", _)) => {
+            initialize_core("".to_string(), false, false, false, false, verbose);
+            ensure_admin();
+            exit_code = base_augment_custom_whitelists();
+        }
+        Some(("merge-custom-whitelists", sub_matches)) => {
+            let wl1 = sub_matches
+                .get_one::<String>("WHITELIST_JSON_1")
+                .expect("WHITELIST_JSON_1 not provided")
+                .to_string();
+            let wl2 = sub_matches
+                .get_one::<String>("WHITELIST_JSON_2")
+                .expect("WHITELIST_JSON_2 not provided")
+                .to_string();
+            initialize_core("".to_string(), false, false, false, false, verbose);
+            ensure_admin();
+            exit_code = base_merge_custom_whitelists(wl1, wl2);
         }
         Some(("rollback-threat", sub_matches)) => {
             let threat_id = sub_matches
