@@ -7,10 +7,10 @@ use edamame_core::api::api_score::*;
 use edamame_core::api::api_score_threats::*;
 use edamame_core::api::api_trust::*;
 use indicatif::{ProgressBar, ProgressStyle};
+use serde_json;
 use std::thread::sleep;
 use std::time::Duration;
 use sysinfo::{Disks, Networks, System};
-use serde_json;
 
 pub fn base_get_score(progress_bar: bool) {
     // Request a score computation
