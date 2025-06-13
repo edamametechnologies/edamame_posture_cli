@@ -167,7 +167,7 @@ pub fn initialize_core(
     );
 
     // Initialize network to autodetect (this will allow the core to detect the network interfaces and support whitelist operations)
-    set_network(FlodbaddNetworkAPI {
+    set_network(NetworkAPI {
         interfaces: vec![],
         scanned_interfaces: vec![],
         is_ethernet: true,
@@ -302,7 +302,7 @@ fn run_base() {
             initialize_core("".to_string(), false, false, false, false, verbose);
             ensure_admin();
             // Initialize network
-            set_network(FlodbaddNetworkAPI {
+            set_network(NetworkAPI {
                 interfaces: vec![],
                 scanned_interfaces: vec![],
                 is_ethernet: true,
@@ -335,7 +335,7 @@ fn run_base() {
             println!("Gateway detection complete");
 
             // Request a LAN scan
-            _ = get_flodbadd(true, false, false);
+            _ = get_lanscan(true, false, false);
 
             // Wait for the LAN scan to complete
             base_flodbadd();
