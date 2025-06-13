@@ -256,12 +256,12 @@ pub fn base_flodbadd() {
         .progress_chars("#>-"));
 
     // Wait completion of the scan
-    let mut devices = get_flodbadd(false, false, false);
+    let mut devices = get_lanscan(false, false, false);
     println!("Waiting for LAN scan to complete...");
     while devices.scan_in_progress {
         pb.set_position(devices.scan_progress_percent as u64);
         sleep(Duration::from_secs(5));
-        devices = get_flodbadd(false, false, false);
+        devices = get_lanscan(false, false, false);
     }
 
     // Display the devices
