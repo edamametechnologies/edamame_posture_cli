@@ -1689,7 +1689,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "0.9.41"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#4b4b810b019b87a36692ae6edbcc890b13a22811"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#a66fc5fadd7450448088ac0a3c041fc3a856e8d8"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1764,7 +1764,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "0.9.41"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#3c386d40769fe409292f94baf39131e67e004e73"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#31f72647638efcfb7d69bba57a9f13c549ed2ffc"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -2148,7 +2148,7 @@ dependencies = [
 [[package]]
 name = "flodbadd"
 version = "0.9.41"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#b01893520ff5b7e1552fe43cd0501fa4dd7a7b00"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#07e09b55fcfbaf2d5f58ff970b24e5f9b0ab3b42"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -5757,12 +5757,9 @@ checksum = "d66dc143e6b11c1eddc06d5c423cfc97062865baf299914ab64caa38182078fe"
 
 [[package]]
 name = "slab"
-version = "0.4.9"
+version = "0.4.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8f92a496fb766b417c996b9c5e57daf2f7ad3b0bebe1ccfca4856390e3d3bb67"
-dependencies = [
- "autocfg",
-]
+checksum = "04dc19736151f35336d325007ac991178d504a119863a2fcb3758cdb5e52c50d"
 
 [[package]]
 name = "smallvec"
@@ -6571,8 +6568,8 @@ checksum = "1dccffe3ce07af9386bfd29e80c0ab1a8205a2fc34e4bcd40364df902cfa8f3f"
 
 [[package]]
 name = "undeadlock"
-version = "0.9.40"
-source = "git+https://github.com/edamametechnologies/undeadlock?branch=main#b9b9498cf9f2a51a11dc844f6711f062bd5652d2"
+version = "0.9.41"
+source = "git+https://github.com/edamametechnologies/undeadlock?branch=main#23d6a598891d54936fb15f896f8415f13005d7e7"
 dependencies = [
  "anyhow",
  "chrono",
