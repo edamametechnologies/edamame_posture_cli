@@ -147,19 +147,11 @@ handle_test_result() {
     local var_name="${test_mode}_${test_type}_result"
 
     if [ "$is_error" = true ]; then
-        if [ "$CI" = "true" ]; then
-            echo "🔴 Error (CI Mode): $error_message"
-            # Set result variable
-            eval "$var_name=\"❌\""
-            # In CI mode, exit with error
-            ensure_posture_stopped_and_cleaned "post" 1
-            exit 1
-        else
-            echo "⚠️ Warning (Local Mode): $error_message Not failing."
-            # Set result variable
-            eval "$var_name=\"⚠️\""
-            # In local mode, continue
-        fi
+        echo "🔴 Error: $error_message"
+        # Set result variable
+        eval "$var_name=\"❌\""
+        ensure_posture_stopped_and_cleaned "post" 1
+        exit 1
     else
         echo "✅ $test_type check passed."
         # Set result variable
@@ -330,21 +322,39 @@ run_blacklist_test() {
         echo "✅ Curl command finished successfully (exit code 0)."
     fi
 
-    echo "Waiting 10 seconds for sessions to update after traffic generation..."
-    sleep 10
-
-    echo "Verifying test traffic was captured in get-sessions..."
+    echo "Waiting for sessions to update after traffic generation (retrying every 20 seconds for up to 120 seconds)..."
     SESSION_PRE_CUSTOM_LOG="$TEST_DIR/all_sessions_pre_custom.log"
-    "$BINARY_DEST" get-sessions > "$SESSION_PRE_CUSTOM_LOG" || true
-    # Check if either the IPv4 or IPv6 address is present
-    if ! grep -qE "($BLACKLIST_IP_V4|$BLACKLIST_IP_V6)" "$SESSION_PRE_CUSTOM_LOG"; then
-        local error_message="Test traffic connection to $BLACKLIST_DOMAIN (expected IPs $BLACKLIST_IP_V4 or $BLACKLIST_IP_V6) was not found in get-sessions output BEFORE setting custom blacklist."
-        echo "Full get-sessions output ($SESSION_PRE_CUSTOM_LOG):"
+    RETRY_COUNT=0
+    MAX_RETRIES=6  # 120 seconds / 20 seconds = 6 attempts
+    TRAFFIC_FOUND=false
+    
+    while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+        if [ $RETRY_COUNT -gt 0 ]; then
+            echo "Waiting 20 seconds before retry $RETRY_COUNT/$MAX_RETRIES..."
+            sleep 20
+        fi
+        
+        echo "Verifying test traffic was captured in get-sessions (attempt $((RETRY_COUNT + 1))/$MAX_RETRIES)..."
+        "$BINARY_DEST" get-sessions > "$SESSION_PRE_CUSTOM_LOG" || true
+        
+        # Check if either the IPv4 or IPv6 address is present
+        if grep -qE "($BLACKLIST_IP_V4|$BLACKLIST_IP_V6)" "$SESSION_PRE_CUSTOM_LOG"; then
+            echo "✅ Verification passed: Test traffic session (IP $BLACKLIST_IP_V4 or $BLACKLIST_IP_V6) found."
+            TRAFFIC_FOUND=true
+            break
+        else
+            echo "⏳ Test traffic not found yet (attempt $((RETRY_COUNT + 1))/$MAX_RETRIES)..."
+        fi
+        
+        RETRY_COUNT=$((RETRY_COUNT + 1))
+    done
+    
+    if [ "$TRAFFIC_FOUND" = false ]; then
+        local error_message="Test traffic connection to $BLACKLIST_DOMAIN (expected IPs $BLACKLIST_IP_V4 or $BLACKLIST_IP_V6) was not found in get-sessions output after $MAX_RETRIES attempts over 120 seconds."
+        echo "Full get-sessions output from final attempt ($SESSION_PRE_CUSTOM_LOG):"
         cat "$SESSION_PRE_CUSTOM_LOG"
         handle_test_result "blacklist" "$test_mode" true "$error_message"
         return
-    else
-        echo "✅ Verification passed: Test traffic session (IP $BLACKLIST_IP_V4 or $BLACKLIST_IP_V6) found."
     fi
     # --- End Traffic Generation & Session Verification PRE-CUSTOM ---
 
