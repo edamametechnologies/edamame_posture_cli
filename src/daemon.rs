@@ -139,7 +139,7 @@ pub fn background_start(
         std::process::exit(1);
     }
 
-    println!("Starting background process...");
+    println!("Starting background process with user: {}, domain: {}, device_id: {}, lan_scanning: {}, whitelist_name: {}, local_traffic: {}", user, domain, device_id, lan_scanning, whitelist_name, local_traffic);
 
     #[cfg(unix)]
     {
