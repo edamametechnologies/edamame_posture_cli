@@ -289,7 +289,7 @@ run_blacklist_test() {
     BLACKLIST_LOG_FILE="$TEST_DIR/blacklisted_sessions.log"
     BLACKLIST_PRECHECK_LOG_FILE="$TEST_DIR/blacklisted_sessions_precheck.log"
     BLACKLIST_POSTCHECK_LOG_FILE="$TEST_DIR/blacklisted_sessions_postcheck.log"
-    BLACKLIST_DOMAIN="2.na.dl.wireshark.org" # Use domain instead of IP
+    BLACKLIST_DOMAIN="httpbin.org" # Use domain instead of IP
     BLACKLIST_IP_V4="5.78.100.21"           # Expected IPv4
     BLACKLIST_IP_V6="2a01:4ff:1f0:ca4b::1"   # Expected IPv6
     BLACKLIST_IP_V4_CIDR="$BLACKLIST_IP_V4/32"
@@ -314,7 +314,7 @@ run_blacklist_test() {
     # --- Traffic Generation & Session Verification PRE-CUSTOM ---
     echo "Generating test traffic towards $BLACKLIST_DOMAIN..."
     # Run curl and capture its exit code
-    $CURL_CMD -s -m 10 "https://$BLACKLIST_DOMAIN/src/wireshark-latest.tar.xz" -o /dev/null --insecure || true
+    $CURL_CMD -s -m 10 "https://$BLACKLIST_DOMAIN/image/jpeg" -o /dev/null --insecure || true
     CURL_EXIT_CODE=$?
     if [ $CURL_EXIT_CODE -ne 0 ]; then
         # Non-zero exit code might be expected if connection is refused/reset, but log it.
