@@ -4,8 +4,10 @@ set -eo pipefail # Exit on error, treat unset variables as error, pipefail
 # Track test results with simple variables for macOS compatibility
 connected_mode_result="❓"
 disconnected_mode_result="❓"
+connected_whitelist_json_result="❓"
 connected_whitelist_result="❓"
 connected_blacklist_result="❓"
+disconnected_whitelist_json_result="❓"
 disconnected_whitelist_result="❓"
 disconnected_blacklist_result="❓"
 
@@ -115,6 +117,7 @@ ensure_posture_stopped_and_cleaned() {
         if [ "$CI" = "true" ]; then
             echo "- Connected Mode Tests $connected_mode_result"
             if [ "$RUN_WL_BL_TESTS" = true ]; then
+                echo "  - Whitelist JSON Structure Test (Connected) $connected_whitelist_json_result"
                 echo "  - Whitelist Test (Connected) $connected_whitelist_result"
                 echo "  - Blacklist Test (Connected) $connected_blacklist_result"
             else
@@ -123,6 +126,7 @@ ensure_posture_stopped_and_cleaned() {
         else
             echo "- Disconnected Mode Tests $disconnected_mode_result"
              if [ "$RUN_WL_BL_TESTS" = true ]; then
+                echo "  - Whitelist JSON Structure Test (Disconnected) $disconnected_whitelist_json_result"
                 echo "  - Whitelist Test (Disconnected) $disconnected_whitelist_result"
                 echo "  - Blacklist Test (Disconnected) $disconnected_blacklist_result"
             else
@@ -422,13 +426,13 @@ run_blacklist_test() {
     ALL_SESSIONS_FINAL_CHECK_LOG="$TEST_DIR/all_sessions_final_check.log"
 
     echo "Dumping get-blacklisted-sessions output before final check to $BLACKLIST_FINAL_CHECK_LOG..."
-    "$BINARY_DEST" get-blacklisted-sessions > "$BLACKLIST_FINAL_CHECK_LOG" || echo "⚠️ get-blacklisted-sessions failed (final check)"
+    "$BINARY_DEST" get-blacklisted-sessions > "$BLACKLIST_FINAL_CHECK_LOG"
     echo "--- Start $BLACKLIST_FINAL_CHECK_LOG ---"
     cat "$BLACKLIST_FINAL_CHECK_LOG"
     echo "--- End $BLACKLIST_FINAL_CHECK_LOG ---"
 
     echo "Dumping get-sessions output before final check to $ALL_SESSIONS_FINAL_CHECK_LOG..."
-    "$BINARY_DEST" get-sessions > "$ALL_SESSIONS_FINAL_CHECK_LOG" || echo "⚠️ get-sessions failed (final check)"
+    "$BINARY_DEST" get-sessions > "$ALL_SESSIONS_FINAL_CHECK_LOG" || echo "⚠️ get-sessions return non 0 exit code - this is expected when whitelist, blacklist or anomalous sessions are detected"
 
     echo "Checking blacklist detection (get-blacklisted-sessions)..."
     echo "Verifying if blacklisted IPs ($BLACKLIST_IP_V4 or $BLACKLIST_IP_V6) are found in the log..."
@@ -452,6 +456,184 @@ run_blacklist_test() {
     
     echo "✅ Blacklist test checks completed."
     handle_test_result "blacklist" "$test_mode" false ""
+}
+
+test_custom_whitelist_json_structure() {
+    local test_mode_name=$1 # e.g., "Connected Mode" or "Disconnected Mode"
+    local test_key=$2 # e.g., "connected_whitelist_json" or "disconnected_whitelist_json"
+    echo "--- Testing Custom Whitelist JSON Structure --- ($test_mode_name)"
+    
+    WHITELIST_JSON_FILE="$TEST_DIR/custom_whitelists_structure_test.json"
+    AUGMENTED_JSON_FILE="$TEST_DIR/augmented_whitelists_structure_test.json"
+    test_mode=$(echo "$test_key" | cut -d '_' -f1)  # Extract "connected" or "disconnected"
+    
+    # Test 1: Create custom whitelist and verify JSON structure
+    echo "Step 1: Creating custom whitelist and verifying JSON structure..."
+    $SUDO_CMD "$BINARY_DEST" create-custom-whitelists > "$WHITELIST_JSON_FILE"
+    
+    if [ ! -s "$WHITELIST_JSON_FILE" ]; then
+        handle_test_result "whitelist_json" "$test_mode" true "Whitelist JSON file is empty"
+        return
+    fi
+    
+    echo "Generated whitelist JSON file size: $(wc -c < "$WHITELIST_JSON_FILE") bytes"
+    
+    # Verify JSON is valid
+    if ! command -v jq &> /dev/null; then
+        echo "⚠️ jq not available, skipping detailed JSON validation"
+        echo "Contents of whitelist file (first 500 chars):"
+        head -c 500 "$WHITELIST_JSON_FILE"
+    else
+        echo "Validating JSON structure with jq..."
+        
+        # Test that it's valid JSON
+        if ! jq '.' "$WHITELIST_JSON_FILE" > /dev/null; then
+            handle_test_result "whitelist_json" "$test_mode" true "Generated JSON is not valid"
+            return
+        fi
+        
+        # Test for required top-level fields
+        if ! jq -e '.date' "$WHITELIST_JSON_FILE" > /dev/null; then
+            handle_test_result "whitelist_json" "$test_mode" true "JSON missing required 'date' field"
+            return
+        fi
+        
+        if ! jq -e '.whitelists' "$WHITELIST_JSON_FILE" > /dev/null; then
+            handle_test_result "whitelist_json" "$test_mode" true "JSON missing required 'whitelists' field" 
+            return
+        fi
+        
+        # Test for required whitelist fields (this is the critical bug fix validation)
+        WHITELIST_COUNT=$(jq '.whitelists | length' "$WHITELIST_JSON_FILE")
+        if [ "$WHITELIST_COUNT" -gt 0 ]; then
+            echo "Found $WHITELIST_COUNT whitelists in JSON, validating structure..."
+            
+            # Check for 'name' field (this was missing and caused the parsing error)
+            if ! jq -e '.whitelists[0].name' "$WHITELIST_JSON_FILE" > /dev/null; then
+                handle_test_result "whitelist_json" "$test_mode" true "JSON missing required 'name' field in whitelist - this was the original bug!"
+                return
+            fi
+            
+            # Check for 'extends' field (this was also missing)
+            if ! jq -e '.whitelists[0] | has("extends")' "$WHITELIST_JSON_FILE" > /dev/null; then
+                handle_test_result "whitelist_json" "$test_mode" true "JSON missing required 'extends' field in whitelist - this was the original bug!"
+                return
+            fi
+            
+            # Check for 'endpoints' field
+            if ! jq -e '.whitelists[0].endpoints' "$WHITELIST_JSON_FILE" > /dev/null; then
+                handle_test_result "whitelist_json" "$test_mode" true "JSON missing required 'endpoints' field in whitelist"
+                return
+            fi
+            
+            # Extract and display the name value
+            WHITELIST_NAME=$(jq -r '.whitelists[0].name' "$WHITELIST_JSON_FILE")
+            echo "✅ JSON structure validation passed - whitelist name: '$WHITELIST_NAME'"
+            
+            # Verify the expected name
+            if [ "$WHITELIST_NAME" != "custom_whitelist" ]; then
+                handle_test_result "whitelist_json" "$test_mode" true "Expected whitelist name 'custom_whitelist', got '$WHITELIST_NAME'"
+                return
+            fi
+        else
+            echo "ℹ️ No whitelists in generated JSON (empty sessions list)"
+        fi
+    fi
+    
+    # Test 2: Set custom whitelist with the generated JSON (this was failing before the fix)
+    echo "Step 2: Testing set-custom-whitelists with generated JSON..."
+    WHITELIST_CONTENT=$(cat "$WHITELIST_JSON_FILE")
+    if ! $SUDO_CMD "$BINARY_DEST" $VERBOSE_FLAG set-custom-whitelists "$WHITELIST_CONTENT"; then
+        handle_test_result "whitelist_json" "$test_mode" true "set-custom-whitelists failed with generated JSON - the parsing bug may not be fixed!"
+        return
+    fi
+    echo "✅ set-custom-whitelists succeeded with generated JSON"
+    
+    # Wait for application
+    echo "Waiting 5 seconds for whitelist to apply..."
+    sleep 5
+    
+    # Test 3: Test augment-custom-whitelists
+    echo "Step 3: Testing augment-custom-whitelists..."
+    if $SUDO_CMD "$BINARY_DEST" augment-custom-whitelists > "$AUGMENTED_JSON_FILE"; then
+        if [ -s "$AUGMENTED_JSON_FILE" ]; then
+            echo "Generated augmented whitelist JSON file size: $(wc -c < "$AUGMENTED_JSON_FILE") bytes"
+            
+            # Validate augmented JSON structure if jq is available
+            if command -v jq &> /dev/null; then
+                if ! jq '.' "$AUGMENTED_JSON_FILE" > /dev/null; then
+                    handle_test_result "whitelist_json" "$test_mode" true "Augmented JSON is not valid"
+                    return
+                fi
+                
+                # Test that augmented JSON has the same structure requirements
+                AUGMENTED_WHITELIST_COUNT=$(jq '.whitelists | length' "$AUGMENTED_JSON_FILE")
+                if [ "$AUGMENTED_WHITELIST_COUNT" -gt 0 ]; then
+                    if ! jq -e '.whitelists[0].name' "$AUGMENTED_JSON_FILE" > /dev/null; then
+                        handle_test_result "whitelist_json" "$test_mode" true "Augmented JSON missing required 'name' field"
+                        return
+                    fi
+                    if ! jq -e '.whitelists[0] | has("extends")' "$AUGMENTED_JSON_FILE" > /dev/null; then
+                        handle_test_result "whitelist_json" "$test_mode" true "Augmented JSON missing required 'extends' field"
+                        return
+                    fi
+                    echo "✅ Augmented JSON structure validation passed"
+                fi
+            fi
+            
+            # Test 4: Test setting the augmented whitelist
+            echo "Step 4: Testing set-custom-whitelists with augmented JSON..."
+            AUGMENTED_CONTENT=$(cat "$AUGMENTED_JSON_FILE")
+            if ! $SUDO_CMD "$BINARY_DEST" $VERBOSE_FLAG set-custom-whitelists "$AUGMENTED_CONTENT"; then
+                handle_test_result "whitelist_json" "$test_mode" true "set-custom-whitelists failed with augmented JSON"
+                return
+            fi
+            echo "✅ set-custom-whitelists succeeded with augmented JSON"
+        else
+            echo "ℹ️ augment-custom-whitelists returned empty (no exceptions to augment)"
+        fi
+    else
+        echo "⚠️ augment-custom-whitelists command failed or returned error"
+    fi
+    
+    # Test 5: Test merge-custom-whitelists (if both JSON files exist)
+    if [ -s "$WHITELIST_JSON_FILE" ] && [ -s "$AUGMENTED_JSON_FILE" ]; then
+        echo "Step 5: Testing merge-custom-whitelists..."
+        MERGED_JSON_FILE="$TEST_DIR/merged_whitelists_structure_test.json"
+        if $SUDO_CMD "$BINARY_DEST" merge-custom-whitelists "$WHITELIST_CONTENT" "$AUGMENTED_CONTENT" > "$MERGED_JSON_FILE"; then
+            if [ -s "$MERGED_JSON_FILE" ]; then
+                echo "Generated merged whitelist JSON file size: $(wc -c < "$MERGED_JSON_FILE") bytes"
+                
+                # Validate merged JSON if jq is available
+                if command -v jq &> /dev/null; then
+                    if ! jq '.' "$MERGED_JSON_FILE" > /dev/null; then
+                        handle_test_result "whitelist_json" "$test_mode" true "Merged JSON is not valid"
+                        return
+                    fi
+                    echo "✅ Merged JSON structure validation passed"
+                fi
+                
+                # Test setting the merged whitelist
+                MERGED_CONTENT=$(cat "$MERGED_JSON_FILE")
+                if ! $SUDO_CMD "$BINARY_DEST" $VERBOSE_FLAG set-custom-whitelists "$MERGED_CONTENT"; then
+                    handle_test_result "whitelist_json" "$test_mode" true "set-custom-whitelists failed with merged JSON"
+                    return
+                fi
+                echo "✅ set-custom-whitelists succeeded with merged JSON"
+            else
+                echo "ℹ️ merge-custom-whitelists returned empty"
+            fi
+        else
+            echo "⚠️ merge-custom-whitelists command failed"
+        fi
+    fi
+    
+    # Cleanup - reset whitelist
+    echo "Cleaning up: resetting whitelist..."
+    $SUDO_CMD "$BINARY_DEST" set-custom-whitelists "" || true
+    
+    echo "✅ Custom whitelist JSON structure test completed successfully"
+    handle_test_result "whitelist_json" "$test_mode" false ""
 }
 
 # --- Main Test Logic --- #
@@ -530,6 +712,9 @@ if [ "$CI" = "true" ]; then
     if [ "$RUN_WL_BL_TESTS" = true ]; then
         echo "--- Running Whitelist/Blacklist Tests (Connected Mode) ---"
 
+        # Run JSON Structure Test Function (critical for bug prevention)
+        test_custom_whitelist_json_structure "Connected Mode" "connected_whitelist_json"
+
         # Run Whitelist Test Function
         run_whitelist_test "Connected Mode" "connected_whitelist"
 
@@ -567,6 +752,9 @@ else
 
     # --- Whitelist/Blacklist Tests (Disconnected Mode - Run if applicable) ---
     if [ "$RUN_WL_BL_TESTS" = true ]; then
+
+        # Run JSON Structure Test Function (critical for bug prevention)
+        test_custom_whitelist_json_structure "Disconnected Mode" "disconnected_whitelist_json"
 
         # Run Whitelist Test Function
         run_whitelist_test "Disconnected Mode" "disconnected_whitelist"
