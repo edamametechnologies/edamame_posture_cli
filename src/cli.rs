@@ -334,7 +334,17 @@ pub fn build_cli() -> Command {
                 arg!(<WHITELIST_JSON> "JSON string containing whitelist definitions")
                     .required(true)
                     .value_parser(clap::value_parser!(String)),
-            )
+            ),
+    )
+    .subcommand(
+        Command::new("background-set-custom-whitelists-from-file")
+            .alias("set-custom-whitelists-from-file")
+            .about("Set custom whitelists from a file containing JSON")
+            .arg(
+                arg!(<WHITELIST_FILE> "The path to the whitelist file")
+                    .required(true)
+                    .value_parser(clap::value_parser!(String)),
+            ),
     )
     .subcommand(
         Command::new("background-create-custom-whitelists")
@@ -355,6 +365,16 @@ pub fn build_cli() -> Command {
                     .required(true)
                     .value_parser(clap::value_parser!(String)),
             )
+    )
+    .subcommand(
+        Command::new("background-set-custom-blacklists-from-file")
+            .alias("set-custom-blacklists-from-file")
+            .about("Set custom blacklists from a file containing JSON")
+            .arg(
+                arg!(<BLACKLIST_FILE> "The path to the blacklist file")
+                    .required(true)
+                    .value_parser(clap::value_parser!(String)),
+            ),
     )
     .subcommand(Command::new("background-score").alias("get-background-score").about("Get security score from the background process"))
     .subcommand(
@@ -391,6 +411,14 @@ pub fn build_cli() -> Command {
             .required(true)
             .value_parser(clap::value_parser!(String)))
         .arg(arg!(<WHITELIST_JSON_2> "Second whitelist JSON string")
+            .required(true)
+            .value_parser(clap::value_parser!(String))))
+    .subcommand(Command::new("merge-custom-whitelists-from-files")
+        .about("Merge two custom whitelist JSON files into one consolidated whitelist")
+        .arg(arg!(<WHITELIST_FILE_1> "First whitelist JSON file path")
+            .required(true)
+            .value_parser(clap::value_parser!(String)))
+        .arg(arg!(<WHITELIST_FILE_2> "Second whitelist JSON file path")
             .required(true)
             .value_parser(clap::value_parser!(String))))
 }

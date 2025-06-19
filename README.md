@@ -649,6 +649,9 @@ Once installed, EDAMAME Posture is invoked via the `edamame_posture` command. Mo
 - **request-report**: Generate a full security report of the current system. This might output a file (e.g., PDF or JSON) containing the detailed posture assessment, including all findings and the signature. The report is signed so it can be verified later. Use this when you need to provide evidence of compliance or for auditing purposes.
 - **create-custom-whitelists**: Outputs the current active whitelist definitions in JSON format to stdout. You can redirect this to a file to use as a base for a custom whitelist. This is often run at the end of a "learning mode" pipeline to capture allowed endpoints observed.
 - **set-custom-whitelists** `"<json_string>"`: Loads a custom whitelist from a JSON string (or file content). Use this to apply a tailored whitelist (perhaps one created and edited from create-custom-whitelists) before running get-sessions. In practice, you might store a whitelist file in your repo and then do: `edamame_posture set-custom-whitelists "$(cat whitelist.json)"` to load it. The custom whitelist will override the default for the remainder of the session.
+- **set-custom-whitelists-from-file** `<file_path>`: Loads a custom whitelist directly from a JSON file. This is more convenient than the string version when you have whitelist configuration files: `edamame_posture set-custom-whitelists-from-file whitelist.json`.
+- **set-custom-blacklists-from-file** `<file_path>`: Loads a custom blacklist directly from a JSON file, similar to the whitelist file command.
+- **merge-custom-whitelists-from-files** `<file1>` `<file2>`: Merges two whitelist JSON files into one consolidated whitelist, outputting the result to stdout. This is useful for combining base whitelists with environment-specific additions.
 - **get-anomalous-sessions** `[ZEEK_FORMAT]`: Display only anomalous network connections detected by the NBAD system. Returns non-zero exit code if anomalous sessions are found.
 - **get-blacklisted-sessions** `[ZEEK_FORMAT]`: Display only blacklisted network connections. Returns non-zero exit code if blacklisted sessions are found.
 
@@ -677,8 +680,10 @@ For completeness, here is a list of EDAMAME Posture CLI subcommands with detaile
 - **get-background-score** (alias for **background-score**) – Get the current security score from the background process.
 - **create-custom-whitelists** (alias for **background-create-custom-whitelists**) – Output template or current whitelist JSON.
 - **set-custom-whitelists** (alias for **background-set-custom-whitelists**) `"<WHITELIST_JSON>"` – Load custom whitelist rules from input JSON.
+- **set-custom-whitelists-from-file** (alias for **background-set-custom-whitelists-from-file**) `<WHITELIST_FILE>` – Load custom whitelist rules from a JSON file.
 - **create-and-set-custom-whitelists** (alias for **background-create-and-set-custom-whitelists**) – Create custom whitelists from current sessions and apply them in one step.
 - **set-custom-blacklists** (alias for **background-set-custom-blacklists**) `"<BLACKLIST_JSON>"` – Load custom blacklist rules from input JSON.
+- **set-custom-blacklists-from-file** (alias for **background-set-custom-blacklists-from-file**) `<BLACKLIST_FILE>` – Load custom blacklist rules from a JSON file.
 - **get-anomalous-sessions** (alias for **background-get-anomalous-sessions**) `[ZEEK_FORMAT]` – Display only anomalous network connections detected by the NBAD system. Returns non-zero exit code if anomalous sessions are found.
 - **get-blacklisted-sessions** (alias for **background-get-blacklisted-sessions**) `[ZEEK_FORMAT]` – Display only blacklisted network connections. Returns non-zero exit code if blacklisted sessions are found.
 - **get-blacklists** (alias for **background-get-blacklists**) – Get the current blacklists from the background process.
@@ -692,6 +697,8 @@ For completeness, here is a list of EDAMAME Posture CLI subcommands with detaile
 - **get-system-info** – Get system information. *Requires admin privileges*.
 - **get-core-version** – Get the core version of EDAMAME Posture.
 - **get-tag-prefixes** – Retrieve threat model tag prefixes. *Requires admin privileges*.
+- **merge-custom-whitelists** `<WHITELIST_JSON_1>` `<WHITELIST_JSON_2>` – Merge two custom whitelist JSON strings into one consolidated whitelist.
+- **merge-custom-whitelists-from-files** `<WHITELIST_FILE_1>` `<WHITELIST_FILE_2>` – Merge two custom whitelist JSON files into one consolidated whitelist.
 - **request-pin** `<USER>` `<DOMAIN>` – Request a PIN for domain connection. Returns non-zero exit code for invalid parameters.
 - **wait-for-connection** (alias for **background-wait-for-connection**) `[TIMEOUT]` – Wait for connection of the background process with optional timeout. Returns exit code 4 for timeout.
 - **completion** `<SHELL>` – Generate shell completion scripts for various shells (bash, zsh, fish, etc.).
@@ -943,10 +950,149 @@ function is_session_allowed(session, whitelist_name):
 - **Regular Maintenance**: Update whitelists as services change. Remove endpoints that are no longer needed or have become unsafe. Periodically review inherited chains to ensure they still make sense.
 - **Security Considerations**: Favor domain-based rules (they are easier to understand and audit) over raw IPs, unless necessary. Use the process field to lock down especially sensitive connections (e.g., ensure only a specific process can talk to a database). Always apply the principle of least privilege—only allow what is required.
 
+### Building Comprehensive Whitelist Baselines for Supply Chain Attack Detection
+
+The most effective way to use EDAMAME's whitelist system is to build a comprehensive baseline through multiple build iterations, then use it to detect unauthorized network activity that could indicate supply chain attacks.
+
+#### Phase 1: Learning Mode - Build Your Baseline
+
+1. **Start with Clean Builds**: Begin with fresh CI/CD runners to capture only necessary network connections:
+
+```bash
+# GitHub Actions / CI environment
+sudo edamame_posture background-start-disconnected true github_linux
+
+# Your build process here - let it run normally
+npm install
+npm run build
+npm test
+
+# After build completes, create initial whitelist
+edamame_posture create-custom-whitelists > baseline_whitelist_v1.json
+```
+
+2. **Iterate and Augment**: Run multiple builds with different configurations to capture all legitimate variations:
+
+```bash
+# Build 2: Different environment or test suite
+sudo edamame_posture set-custom-whitelists-from-file baseline_whitelist_v1.json
+# ... run build ...
+
+# Augment with any new legitimate connections discovered
+edamame_posture augment-custom-whitelists > additional_endpoints_v2.json
+edamame_posture merge-custom-whitelists-from-files baseline_whitelist_v1.json additional_endpoints_v2.json > baseline_whitelist_v2.json
+```
+
+3. **Comprehensive Coverage**: Repeat for different scenarios:
+   - Different dependency versions
+   - Different build targets (debug vs release)
+   - Different test suites
+   - Weekend vs weekday builds (different CDN routing)
+
+```bash
+# Build 3: Another scenario
+sudo edamame_posture set-custom-whitelists-from-file baseline_whitelist_v2.json
+# ... run build ...
+edamame_posture augment-custom-whitelists > additional_endpoints_v3.json
+edamame_posture merge-custom-whitelists-from-files baseline_whitelist_v2.json additional_endpoints_v3.json > baseline_whitelist_v3.json
+
+# Continue until you have comprehensive coverage
+```
+
+#### Phase 2: Production Enforcement - Detect Violations
+
+Once you have a stable baseline (typically after 5-10 diverse build runs), switch to enforcement mode:
+
+```bash
+# Apply your finalized baseline
+sudo edamame_posture set-custom-whitelists-from-file baseline_whitelist_final.json
+
+# Run your build normally
+npm install
+npm run build
+npm test
+
+# Check for violations - this will exit non-zero if unauthorized connections occurred
+edamame_posture get-sessions
+```
+
+#### Supply Chain Attack Detection
+
+This approach effectively detects supply chain attacks like CVE-2025-30066 (tj-actions/changed-files compromise):
+
+**Example Attack Detection**:
+```bash
+# Your baseline includes normal package registry connections:
+# - registry.npmjs.org:443
+# - github.com:443  
+# - your-company-cdn.com:443
+
+# But during a compromised build, you see:
+$ edamame_posture get-sessions
+# ERROR: Non-conforming connection detected!
+# Connection: 10.0.0.100:45678 -> gist.githubusercontent.com:443 (node)
+# Reason: No matching endpoint found in whitelist 'custom_whitelist'
+
+# This immediately alerts you to unauthorized data exfiltration
+```
+
+#### Automation and CI/CD Integration
+
+**Learning Phase Automation**:
+```yaml
+# .github/workflows/build-whitelist.yml
+- name: Learning Mode Build
+  run: |
+    sudo edamame_posture background-start-disconnected true github_linux
+    npm install && npm run build && npm test
+    
+- name: Update Baseline Whitelist  
+  run: |
+    # Download existing baseline
+    curl -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+         -o current_baseline.json \
+         https://api.github.com/repos/owner/repo/contents/security/baseline_whitelist.json
+    
+    # Create augmented version
+    edamame_posture augment-custom-whitelists > new_endpoints.json
+    edamame_posture merge-custom-whitelists-from-files current_baseline.json new_endpoints.json > updated_baseline.json
+    
+    # Commit back to repository
+    # (implementation depends on your preferred method)
+```
+
+**Production Enforcement**:
+```yaml
+# Regular CI/CD workflow
+- name: Security Enforcement
+  run: |
+    sudo edamame_posture background-start-disconnected true github_linux
+    sudo edamame_posture set-custom-whitelists-from-file security/baseline_whitelist.json
+    
+- name: Build Application
+  run: |
+    npm install
+    npm run build
+    npm test
+    
+- name: Verify No Unauthorized Network Activity
+  run: |
+    # This fails the build if any unauthorized connections occurred
+    edamame_posture get-sessions
+```
+
+#### Best Practices for Baseline Management
+
+1. **Version Control Your Baselines**: Store whitelist JSON files in your repository under version control
+2. **Environment-Specific Baselines**: Maintain separate baselines for different environments (staging vs production)
+3. **Regular Updates**: Review and update baselines when you intentionally add new dependencies
+4. **Security Review Process**: Require security team approval for baseline changes
+5. **Monitoring and Alerting**: Set up alerts for any whitelist violations in production builds
+
 ### Testing and Validation
 To validate your whitelist configurations before enforcing them in production:
 1. **Create a Test Whitelist**: Run `edamame_posture create-custom-whitelists > test_whitelist.json` after a typical build to capture all observed endpoints in that environment. Edit this JSON to remove anything that shouldn't be allowed generally.
-2. **Apply and Test**: Apply the edited whitelist: `edamame_posture set-custom-whitelists "$(cat test_whitelist.json)"`. Then run a typical workflow (or just get-sessions if the background was running) to see if any connection gets blocked.
+2. **Apply and Test**: Apply the edited whitelist: `edamame_posture set-custom-whitelists-from-file test_whitelist.json`. Then run a typical workflow (or just get-sessions if the background was running) to see if any connection gets blocked.
 3. **Monitor Results**: Review the output of get-sessions and logs:
    - If some expected connections were blocked, adjust the whitelist (add entries or correct patterns).
    - If extraneous endpoints are allowed that shouldn't be, tighten the whitelist (remove or make patterns stricter).
