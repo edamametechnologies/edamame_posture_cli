@@ -471,6 +471,33 @@ fn run_base() {
             ensure_admin();
             exit_code = base_merge_custom_whitelists(wl1, wl2);
         }
+        Some(("merge-custom-whitelists-from-files", sub_matches)) => {
+            let wl_file1 = sub_matches
+                .get_one::<String>("WHITELIST_FILE_1")
+                .expect("WHITELIST_FILE_1 not provided");
+            let wl_file2 = sub_matches
+                .get_one::<String>("WHITELIST_FILE_2")
+                .expect("WHITELIST_FILE_2 not provided");
+
+            match (
+                std::fs::read_to_string(wl_file1),
+                std::fs::read_to_string(wl_file2),
+            ) {
+                (Ok(wl1), Ok(wl2)) => {
+                    initialize_core("".to_string(), false, false, false, false, verbose);
+                    ensure_admin();
+                    exit_code = base_merge_custom_whitelists(wl1, wl2);
+                }
+                (Err(e), _) => {
+                    eprintln!("Error reading whitelist file '{}': {}", wl_file1, e);
+                    exit_code = ERROR_CODE_PARAM;
+                }
+                (_, Err(e)) => {
+                    eprintln!("Error reading whitelist file '{}': {}", wl_file2, e);
+                    exit_code = ERROR_CODE_PARAM;
+                }
+            }
+        }
         Some(("rollback-threat", sub_matches)) => {
             let threat_id = sub_matches
                 .get_one::<String>("THREAT_ID")
@@ -743,6 +770,23 @@ fn run_base() {
             exit_code = background_set_custom_whitelists(whitelist_json);
             is_background = true;
         }
+        Some(("background-set-custom-whitelists-from-file", sub_matches)) => {
+            let whitelist_file = sub_matches
+                .get_one::<String>("WHITELIST_FILE")
+                .expect("WHITELIST_FILE not provided");
+            match std::fs::read_to_string(whitelist_file) {
+                Ok(whitelist_json) => {
+                    // Initialize the core with all options disabled
+                    initialize_core("".to_string(), false, false, false, false, verbose);
+                    exit_code = background_set_custom_whitelists(whitelist_json);
+                    is_background = true;
+                }
+                Err(e) => {
+                    eprintln!("Error reading whitelist file '{}': {}", whitelist_file, e);
+                    exit_code = ERROR_CODE_PARAM;
+                }
+            }
+        }
         Some(("background-set-custom-blacklists", sub_matches)) => {
             let blacklist_json = sub_matches
                 .get_one::<String>("BLACKLIST_JSON")
@@ -752,6 +796,23 @@ fn run_base() {
             initialize_core("".to_string(), false, false, false, false, verbose);
             exit_code = background_set_custom_blacklists(blacklist_json);
             is_background = true;
+        }
+        Some(("background-set-custom-blacklists-from-file", sub_matches)) => {
+            let blacklist_file = sub_matches
+                .get_one::<String>("BLACKLIST_FILE")
+                .expect("BLACKLIST_FILE not provided");
+            match std::fs::read_to_string(blacklist_file) {
+                Ok(blacklist_json) => {
+                    // Initialize the core with all options disabled
+                    initialize_core("".to_string(), false, false, false, false, verbose);
+                    exit_code = background_set_custom_blacklists(blacklist_json);
+                    is_background = true;
+                }
+                Err(e) => {
+                    eprintln!("Error reading blacklist file '{}': {}", blacklist_file, e);
+                    exit_code = ERROR_CODE_PARAM;
+                }
+            }
         }
         Some(("background-create-custom-whitelists", _)) => {
             // Initialize the core with all options disabled

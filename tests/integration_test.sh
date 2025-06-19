@@ -177,8 +177,7 @@ run_whitelist_test() {
     if [ ! -s "$WHITELIST_FILE" ]; then echo "🔴 Error: Whitelist file is empty" >&2; ensure_posture_stopped_and_cleaned "post" 1; exit 1; fi
     cat "$WHITELIST_FILE"
     echo "Apply custom whitelist..."
-    WHITELIST_CONTENT=$(cat "$WHITELIST_FILE")
-    $SUDO_CMD "$BINARY_DEST" $VERBOSE_FLAG set-custom-whitelists "$WHITELIST_CONTENT"
+    $SUDO_CMD "$BINARY_DEST" $VERBOSE_FLAG set-custom-whitelists-from-file "$WHITELIST_FILE"
     echo "Waiting 10 seconds for whitelist to apply..."
     sleep 10 # Allow time for whitelist to apply
     
@@ -271,6 +270,7 @@ run_whitelist_test() {
     fi
 
     echo "Merging original and augmented custom whitelists..."
+    WHITELIST_CONTENT=$(cat "$WHITELIST_FILE")
     MERGED_JSON=$($SUDO_CMD "$BINARY_DEST" merge-custom-whitelists "$WHITELIST_CONTENT" "$AUGMENT_JSON" || echo "")
     if [[ -n "$MERGED_JSON" ]]; then
         echo "Merged custom whitelist generated (length: ${#MERGED_JSON}) bytes"
@@ -380,8 +380,7 @@ run_blacklist_test() {
     }' > "$BLACKLIST_FILE"
     cat "$BLACKLIST_FILE"
     echo "Setting custom blacklist..."
-    BLACKLIST_CONTENT=$(cat "$BLACKLIST_FILE")
-    $SUDO_CMD "$BINARY_DEST" $VERBOSE_FLAG set-custom-blacklists "$BLACKLIST_CONTENT"
+    $SUDO_CMD "$BINARY_DEST" $VERBOSE_FLAG set-custom-blacklists-from-file "$BLACKLIST_FILE"
     echo "Waiting 30 seconds for blacklist to apply..."
     sleep 30 # Give time to apply
 
@@ -541,13 +540,12 @@ test_custom_whitelist_json_structure() {
     fi
     
     # Test 2: Set custom whitelist with the generated JSON (this was failing before the fix)
-    echo "Step 2: Testing set-custom-whitelists with generated JSON..."
-    WHITELIST_CONTENT=$(cat "$WHITELIST_JSON_FILE")
-    if ! $SUDO_CMD "$BINARY_DEST" $VERBOSE_FLAG set-custom-whitelists "$WHITELIST_CONTENT"; then
-        handle_test_result "whitelist_json" "$test_mode" true "set-custom-whitelists failed with generated JSON - the parsing bug may not be fixed!"
+    echo "Step 2: Testing set-custom-whitelists-from-file with generated JSON..."
+    if ! $SUDO_CMD "$BINARY_DEST" $VERBOSE_FLAG set-custom-whitelists-from-file "$WHITELIST_JSON_FILE"; then
+        handle_test_result "whitelist_json" "$test_mode" true "set-custom-whitelists-from-file failed with generated JSON"
         return
     fi
-    echo "✅ set-custom-whitelists succeeded with generated JSON"
+    echo "✅ set-custom-whitelists-from-file succeeded with generated JSON"
     
     # Wait for application
     echo "Waiting 5 seconds for whitelist to apply..."
@@ -582,13 +580,12 @@ test_custom_whitelist_json_structure() {
             fi
             
             # Test 4: Test setting the augmented whitelist
-            echo "Step 4: Testing set-custom-whitelists with augmented JSON..."
-            AUGMENTED_CONTENT=$(cat "$AUGMENTED_JSON_FILE")
-            if ! $SUDO_CMD "$BINARY_DEST" $VERBOSE_FLAG set-custom-whitelists "$AUGMENTED_CONTENT"; then
-                handle_test_result "whitelist_json" "$test_mode" true "set-custom-whitelists failed with augmented JSON"
+            echo "Step 4: Testing set-custom-whitelists-from-file with augmented JSON..."
+            if ! $SUDO_CMD "$BINARY_DEST" $VERBOSE_FLAG set-custom-whitelists-from-file "$AUGMENTED_JSON_FILE"; then
+                handle_test_result "whitelist_json" "$test_mode" true "set-custom-whitelists-from-file failed with augmented JSON"
                 return
             fi
-            echo "✅ set-custom-whitelists succeeded with augmented JSON"
+            echo "✅ set-custom-whitelists-from-file succeeded with augmented JSON"
         else
             echo "ℹ️ augment-custom-whitelists returned empty (no exceptions to augment)"
         fi
@@ -596,11 +593,11 @@ test_custom_whitelist_json_structure() {
         echo "⚠️ augment-custom-whitelists command failed or returned error"
     fi
     
-    # Test 5: Test merge-custom-whitelists (if both JSON files exist)
+    # Test 5: Test merge-custom-whitelists-from-files (if both JSON files exist)
     if [ -s "$WHITELIST_JSON_FILE" ] && [ -s "$AUGMENTED_JSON_FILE" ]; then
-        echo "Step 5: Testing merge-custom-whitelists..."
+        echo "Step 5: Testing merge-custom-whitelists-from-files..."
         MERGED_JSON_FILE="$TEST_DIR/merged_whitelists_structure_test.json"
-        if $SUDO_CMD "$BINARY_DEST" merge-custom-whitelists "$WHITELIST_CONTENT" "$AUGMENTED_CONTENT" > "$MERGED_JSON_FILE"; then
+        if $SUDO_CMD "$BINARY_DEST" merge-custom-whitelists-from-files "$WHITELIST_JSON_FILE" "$AUGMENTED_JSON_FILE" > "$MERGED_JSON_FILE"; then
             if [ -s "$MERGED_JSON_FILE" ]; then
                 echo "Generated merged whitelist JSON file size: $(wc -c < "$MERGED_JSON_FILE") bytes"
                 
@@ -614,17 +611,16 @@ test_custom_whitelist_json_structure() {
                 fi
                 
                 # Test setting the merged whitelist
-                MERGED_CONTENT=$(cat "$MERGED_JSON_FILE")
-                if ! $SUDO_CMD "$BINARY_DEST" $VERBOSE_FLAG set-custom-whitelists "$MERGED_CONTENT"; then
-                    handle_test_result "whitelist_json" "$test_mode" true "set-custom-whitelists failed with merged JSON"
+                if ! $SUDO_CMD "$BINARY_DEST" $VERBOSE_FLAG set-custom-whitelists-from-file "$MERGED_JSON_FILE"; then
+                    handle_test_result "whitelist_json" "$test_mode" true "set-custom-whitelists-from-file failed with merged JSON"
                     return
                 fi
-                echo "✅ set-custom-whitelists succeeded with merged JSON"
-            else
-                echo "ℹ️ merge-custom-whitelists returned empty"
+                echo "✅ set-custom-whitelists-from-file succeeded with merged JSON"
+                          else
+                  echo "ℹ️ merge-custom-whitelists-from-files returned empty"
             fi
         else
-            echo "⚠️ merge-custom-whitelists command failed"
+            echo "⚠️ merge-custom-whitelists-from-files command failed"
         fi
     fi
     
