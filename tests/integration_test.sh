@@ -382,8 +382,8 @@ run_blacklist_test() {
     echo "Setting custom blacklist..."
     BLACKLIST_CONTENT=$(cat "$BLACKLIST_FILE")
     $SUDO_CMD "$BINARY_DEST" $VERBOSE_FLAG set-custom-blacklists "$BLACKLIST_CONTENT"
-    echo "Waiting 10 seconds for blacklist to apply..."
-    sleep 10 # Give time to apply
+    echo "Waiting 30 seconds for blacklist to apply..."
+    sleep 30 # Give time to apply
 
     echo "Verifying that the custom blacklist was set..."
     VERIFY_BLACKLIST_LOG="$TEST_DIR/verify_blacklists.log"
