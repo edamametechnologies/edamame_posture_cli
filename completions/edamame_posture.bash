@@ -61,8 +61,14 @@ _edamame_posture() {
             edamame_posture,background-set-custom-blacklists)
                 cmd="edamame_posture__background__set__custom__blacklists"
                 ;;
+            edamame_posture,background-set-custom-blacklists-from-file)
+                cmd="edamame_posture__background__set__custom__blacklists__from__file"
+                ;;
             edamame_posture,background-set-custom-whitelists)
                 cmd="edamame_posture__background__set__custom__whitelists"
+                ;;
+            edamame_posture,background-set-custom-whitelists-from-file)
+                cmd="edamame_posture__background__set__custom__whitelists__from__file"
                 ;;
             edamame_posture,background-start)
                 cmd="edamame_posture__background__start"
@@ -133,6 +139,9 @@ _edamame_posture() {
             edamame_posture,merge-custom-whitelists)
                 cmd="edamame_posture__merge__custom__whitelists"
                 ;;
+            edamame_posture,merge-custom-whitelists-from-files)
+                cmd="edamame_posture__merge__custom__whitelists__from__files"
+                ;;
             edamame_posture,remediate-all-threats)
                 cmd="edamame_posture__remediate__all__threats"
                 ;;
@@ -199,8 +208,14 @@ _edamame_posture() {
             edamame_posture__help,background-set-custom-blacklists)
                 cmd="edamame_posture__help__background__set__custom__blacklists"
                 ;;
+            edamame_posture__help,background-set-custom-blacklists-from-file)
+                cmd="edamame_posture__help__background__set__custom__blacklists__from__file"
+                ;;
             edamame_posture__help,background-set-custom-whitelists)
                 cmd="edamame_posture__help__background__set__custom__whitelists"
+                ;;
+            edamame_posture__help,background-set-custom-whitelists-from-file)
+                cmd="edamame_posture__help__background__set__custom__whitelists__from__file"
                 ;;
             edamame_posture__help,background-start)
                 cmd="edamame_posture__help__background__start"
@@ -271,6 +286,9 @@ _edamame_posture() {
             edamame_posture__help,merge-custom-whitelists)
                 cmd="edamame_posture__help__merge__custom__whitelists"
                 ;;
+            edamame_posture__help,merge-custom-whitelists-from-files)
+                cmd="edamame_posture__help__merge__custom__whitelists__from__files"
+                ;;
             edamame_posture__help,remediate-all-threats)
                 cmd="edamame_posture__help__remediate__all__threats"
                 ;;
@@ -299,7 +317,7 @@ _edamame_posture() {
 
     case "${cmd}" in
         edamame_posture)
-            opts="-v -h -V --verbose --help --version completion get-score lanscan capture get-core-info get-device-info get-system-info request-pin get-core-version remediate-all-threats remediate-all-threats-force remediate-threat rollback-threat list-threats get-threat-info request-signature request-report check-policy-for-domain check-policy-for-domain-with-signature check-policy get-tag-prefixes background-logs background-wait-for-connection background-get-sessions background-get-exceptions background-threats-info foreground-start background-start background-stop background-status background-last-report-signature background-get-history background-start-disconnected background-set-custom-whitelists background-create-custom-whitelists background-create-and-set-custom-whitelists background-set-custom-blacklists background-score background-get-anomalous-sessions background-get-blacklisted-sessions background-get-blacklists background-get-whitelists background-get-whitelist-name augment-custom-whitelists merge-custom-whitelists help"
+            opts="-v -h -V --verbose --help --version completion get-score lanscan capture get-core-info get-device-info get-system-info request-pin get-core-version remediate-all-threats remediate-all-threats-force remediate-threat rollback-threat list-threats get-threat-info request-signature request-report check-policy-for-domain check-policy-for-domain-with-signature check-policy get-tag-prefixes background-logs background-wait-for-connection background-get-sessions background-get-exceptions background-threats-info foreground-start background-start background-stop background-status background-last-report-signature background-get-history background-start-disconnected background-set-custom-whitelists background-set-custom-whitelists-from-file background-create-custom-whitelists background-create-and-set-custom-whitelists background-set-custom-blacklists background-set-custom-blacklists-from-file background-score background-get-anomalous-sessions background-get-blacklisted-sessions background-get-blacklists background-get-whitelists background-get-whitelist-name augment-custom-whitelists merge-custom-whitelists merge-custom-whitelists-from-files help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -522,8 +540,36 @@ _edamame_posture() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
+        edamame_posture__background__set__custom__blacklists__from__file)
+            opts="-v -h --verbose --help <BLACKLIST_FILE>"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
         edamame_posture__background__set__custom__whitelists)
             opts="-v -h --verbose --help <WHITELIST_JSON>"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        edamame_posture__background__set__custom__whitelists__from__file)
+            opts="-v -h --verbose --help <WHITELIST_FILE>"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -803,7 +849,7 @@ _edamame_posture() {
             return 0
             ;;
         edamame_posture__help)
-            opts="completion get-score lanscan capture get-core-info get-device-info get-system-info request-pin get-core-version remediate-all-threats remediate-all-threats-force remediate-threat rollback-threat list-threats get-threat-info request-signature request-report check-policy-for-domain check-policy-for-domain-with-signature check-policy get-tag-prefixes background-logs background-wait-for-connection background-get-sessions background-get-exceptions background-threats-info foreground-start background-start background-stop background-status background-last-report-signature background-get-history background-start-disconnected background-set-custom-whitelists background-create-custom-whitelists background-create-and-set-custom-whitelists background-set-custom-blacklists background-score background-get-anomalous-sessions background-get-blacklisted-sessions background-get-blacklists background-get-whitelists background-get-whitelist-name augment-custom-whitelists merge-custom-whitelists help"
+            opts="completion get-score lanscan capture get-core-info get-device-info get-system-info request-pin get-core-version remediate-all-threats remediate-all-threats-force remediate-threat rollback-threat list-threats get-threat-info request-signature request-report check-policy-for-domain check-policy-for-domain-with-signature check-policy get-tag-prefixes background-logs background-wait-for-connection background-get-sessions background-get-exceptions background-threats-info foreground-start background-start background-stop background-status background-last-report-signature background-get-history background-start-disconnected background-set-custom-whitelists background-set-custom-whitelists-from-file background-create-custom-whitelists background-create-and-set-custom-whitelists background-set-custom-blacklists background-set-custom-blacklists-from-file background-score background-get-anomalous-sessions background-get-blacklisted-sessions background-get-blacklists background-get-whitelists background-get-whitelist-name augment-custom-whitelists merge-custom-whitelists merge-custom-whitelists-from-files help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -1026,7 +1072,35 @@ _edamame_posture() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
+        edamame_posture__help__background__set__custom__blacklists__from__file)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
         edamame_posture__help__background__set__custom__whitelists)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        edamame_posture__help__background__set__custom__whitelists__from__file)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -1362,6 +1436,20 @@ _edamame_posture() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
+        edamame_posture__help__merge__custom__whitelists__from__files)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
         edamame_posture__help__remediate__all__threats)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
@@ -1490,6 +1578,20 @@ _edamame_posture() {
             ;;
         edamame_posture__merge__custom__whitelists)
             opts="-v -h --verbose --help <WHITELIST_JSON_1> <WHITELIST_JSON_2>"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        edamame_posture__merge__custom__whitelists__from__files)
+            opts="-v -h --verbose --help <WHITELIST_FILE_1> <WHITELIST_FILE_2>"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
