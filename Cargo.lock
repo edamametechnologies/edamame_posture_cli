@@ -1689,7 +1689,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "0.9.41"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#14deac58078561fc4e1abb2433e4ac7f9f4b1a1c"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#c2f38eba52c6b455545be188567903a3fb17affb"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1764,7 +1764,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "0.9.41"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#aaf401a49f4d92da72b724b991d71b1a8ece029a"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#d72c90824ed013dba89923cb157c3ef1c09eadc6"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -2148,7 +2148,7 @@ dependencies = [
 [[package]]
 name = "flodbadd"
 version = "0.9.41"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#a0aefdb0984a86a8be50f42c0fd2dad6987b370f"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#57c00413fca903176ed72743422e55ffa26fc27f"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -2180,6 +2180,7 @@ dependencies = [
  "powershell_script",
  "prost",
  "rand 0.8.5",
+ "rayon",
  "regex",
  "reqwest",
  "serde",
