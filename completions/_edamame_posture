@@ -345,6 +345,15 @@ _arguments "${_arguments_options[@]}" : \
 ':WHITELIST_JSON -- JSON string containing whitelist definitions:_default' \
 && ret=0
 ;;
+(background-set-custom-whitelists-from-file)
+_arguments "${_arguments_options[@]}" : \
+'*-v[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'*--verbose[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'-h[Print help]' \
+'--help[Print help]' \
+':WHITELIST_FILE -- The path to the whitelist file:_default' \
+&& ret=0
+;;
 (background-create-custom-whitelists)
 _arguments "${_arguments_options[@]}" : \
 '*-v[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
@@ -368,6 +377,15 @@ _arguments "${_arguments_options[@]}" : \
 '-h[Print help]' \
 '--help[Print help]' \
 ':BLACKLIST_JSON -- JSON string containing blacklist definitions:_default' \
+&& ret=0
+;;
+(background-set-custom-blacklists-from-file)
+_arguments "${_arguments_options[@]}" : \
+'*-v[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'*--verbose[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'-h[Print help]' \
+'--help[Print help]' \
+':BLACKLIST_FILE -- The path to the blacklist file:_default' \
 && ret=0
 ;;
 (background-score)
@@ -436,6 +454,16 @@ _arguments "${_arguments_options[@]}" : \
 '--help[Print help]' \
 ':WHITELIST_JSON_1 -- First whitelist JSON string:_default' \
 ':WHITELIST_JSON_2 -- Second whitelist JSON string:_default' \
+&& ret=0
+;;
+(merge-custom-whitelists-from-files)
+_arguments "${_arguments_options[@]}" : \
+'*-v[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'*--verbose[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'-h[Print help]' \
+'--help[Print help]' \
+':WHITELIST_FILE_1 -- First whitelist JSON file path:_default' \
+':WHITELIST_FILE_2 -- Second whitelist JSON file path:_default' \
 && ret=0
 ;;
 (help)
@@ -586,6 +614,10 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
+(background-set-custom-whitelists-from-file)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
 (background-create-custom-whitelists)
 _arguments "${_arguments_options[@]}" : \
 && ret=0
@@ -595,6 +627,10 @@ _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
 (background-set-custom-blacklists)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(background-set-custom-blacklists-from-file)
 _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
@@ -627,6 +663,10 @@ _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
 (merge-custom-whitelists)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(merge-custom-whitelists-from-files)
 _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
@@ -680,9 +720,11 @@ _edamame_posture_commands() {
 'background-get-history:Get history of score modifications' \
 'background-start-disconnected:Start the background process in disconnected mode (without domain authentication)' \
 'background-set-custom-whitelists:Set custom whitelists from JSON' \
+'background-set-custom-whitelists-from-file:Set custom whitelists from a file containing JSON' \
 'background-create-custom-whitelists:Create custom whitelists from current sessions' \
 'background-create-and-set-custom-whitelists:Create custom whitelists from current sessions and set them' \
 'background-set-custom-blacklists:Set custom blacklists from JSON' \
+'background-set-custom-blacklists-from-file:Set custom blacklists from a file containing JSON' \
 'background-score:Get security score from the background process' \
 'background-get-anomalous-sessions:Get anomalous connections detected by the background process' \
 'background-get-blacklisted-sessions:Get blacklisted connections detected by the background process' \
@@ -691,6 +733,7 @@ _edamame_posture_commands() {
 'background-get-whitelist-name:Get the current whitelist name from the background process' \
 'augment-custom-whitelists:Augment the current custom whitelist locally using current whitelist exceptions' \
 'merge-custom-whitelists:Merge two custom whitelist JSON strings into one consolidated whitelist' \
+'merge-custom-whitelists-from-files:Merge two custom whitelist JSON files into one consolidated whitelist' \
 'help:Print this message or the help of the given subcommand(s)' \
     )
     _describe -t commands 'edamame_posture commands' commands "$@"
@@ -770,10 +813,20 @@ _edamame_posture__background-set-custom-blacklists_commands() {
     local commands; commands=()
     _describe -t commands 'edamame_posture background-set-custom-blacklists commands' commands "$@"
 }
+(( $+functions[_edamame_posture__background-set-custom-blacklists-from-file_commands] )) ||
+_edamame_posture__background-set-custom-blacklists-from-file_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture background-set-custom-blacklists-from-file commands' commands "$@"
+}
 (( $+functions[_edamame_posture__background-set-custom-whitelists_commands] )) ||
 _edamame_posture__background-set-custom-whitelists_commands() {
     local commands; commands=()
     _describe -t commands 'edamame_posture background-set-custom-whitelists commands' commands "$@"
+}
+(( $+functions[_edamame_posture__background-set-custom-whitelists-from-file_commands] )) ||
+_edamame_posture__background-set-custom-whitelists-from-file_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture background-set-custom-whitelists-from-file commands' commands "$@"
 }
 (( $+functions[_edamame_posture__background-start_commands] )) ||
 _edamame_posture__background-start_commands() {
@@ -907,9 +960,11 @@ _edamame_posture__help_commands() {
 'background-get-history:Get history of score modifications' \
 'background-start-disconnected:Start the background process in disconnected mode (without domain authentication)' \
 'background-set-custom-whitelists:Set custom whitelists from JSON' \
+'background-set-custom-whitelists-from-file:Set custom whitelists from a file containing JSON' \
 'background-create-custom-whitelists:Create custom whitelists from current sessions' \
 'background-create-and-set-custom-whitelists:Create custom whitelists from current sessions and set them' \
 'background-set-custom-blacklists:Set custom blacklists from JSON' \
+'background-set-custom-blacklists-from-file:Set custom blacklists from a file containing JSON' \
 'background-score:Get security score from the background process' \
 'background-get-anomalous-sessions:Get anomalous connections detected by the background process' \
 'background-get-blacklisted-sessions:Get blacklisted connections detected by the background process' \
@@ -918,6 +973,7 @@ _edamame_posture__help_commands() {
 'background-get-whitelist-name:Get the current whitelist name from the background process' \
 'augment-custom-whitelists:Augment the current custom whitelist locally using current whitelist exceptions' \
 'merge-custom-whitelists:Merge two custom whitelist JSON strings into one consolidated whitelist' \
+'merge-custom-whitelists-from-files:Merge two custom whitelist JSON files into one consolidated whitelist' \
 'help:Print this message or the help of the given subcommand(s)' \
     )
     _describe -t commands 'edamame_posture help commands' commands "$@"
@@ -997,10 +1053,20 @@ _edamame_posture__help__background-set-custom-blacklists_commands() {
     local commands; commands=()
     _describe -t commands 'edamame_posture help background-set-custom-blacklists commands' commands "$@"
 }
+(( $+functions[_edamame_posture__help__background-set-custom-blacklists-from-file_commands] )) ||
+_edamame_posture__help__background-set-custom-blacklists-from-file_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture help background-set-custom-blacklists-from-file commands' commands "$@"
+}
 (( $+functions[_edamame_posture__help__background-set-custom-whitelists_commands] )) ||
 _edamame_posture__help__background-set-custom-whitelists_commands() {
     local commands; commands=()
     _describe -t commands 'edamame_posture help background-set-custom-whitelists commands' commands "$@"
+}
+(( $+functions[_edamame_posture__help__background-set-custom-whitelists-from-file_commands] )) ||
+_edamame_posture__help__background-set-custom-whitelists-from-file_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture help background-set-custom-whitelists-from-file commands' commands "$@"
 }
 (( $+functions[_edamame_posture__help__background-start_commands] )) ||
 _edamame_posture__help__background-start_commands() {
@@ -1117,6 +1183,11 @@ _edamame_posture__help__merge-custom-whitelists_commands() {
     local commands; commands=()
     _describe -t commands 'edamame_posture help merge-custom-whitelists commands' commands "$@"
 }
+(( $+functions[_edamame_posture__help__merge-custom-whitelists-from-files_commands] )) ||
+_edamame_posture__help__merge-custom-whitelists-from-files_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture help merge-custom-whitelists-from-files commands' commands "$@"
+}
 (( $+functions[_edamame_posture__help__remediate-all-threats_commands] )) ||
 _edamame_posture__help__remediate-all-threats_commands() {
     local commands; commands=()
@@ -1166,6 +1237,11 @@ _edamame_posture__list-threats_commands() {
 _edamame_posture__merge-custom-whitelists_commands() {
     local commands; commands=()
     _describe -t commands 'edamame_posture merge-custom-whitelists commands' commands "$@"
+}
+(( $+functions[_edamame_posture__merge-custom-whitelists-from-files_commands] )) ||
+_edamame_posture__merge-custom-whitelists-from-files_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture merge-custom-whitelists-from-files commands' commands "$@"
 }
 (( $+functions[_edamame_posture__remediate-all-threats_commands] )) ||
 _edamame_posture__remediate-all-threats_commands() {
