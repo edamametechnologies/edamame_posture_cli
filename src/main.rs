@@ -164,6 +164,7 @@ pub fn initialize_core(
         server,
         // Analytics is enabled by default
         true,
+        false,
     );
 
     // Initialize network to autodetect (this will allow the core to detect the network interfaces and support whitelist operations)
