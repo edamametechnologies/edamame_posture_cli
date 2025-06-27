@@ -108,15 +108,14 @@ jobs:
       - name: Build application for Linux using cross
         run: |
           cross build --release --target ${{ matrix.target }}
-          # Copy the binary to the release folder which is expected by many tools
+          # Copy the binary to the standard release folder
+          mkdir -p target/release
           cp target/${{ matrix.target }}/release/edamame_posture target/release/edamame_posture
 
       # Build application in debug mode for Linux using cross
       - name: Build application in debug mode for Linux using cross
         run: |
           cross build --target ${{ matrix.target }}
-          # Copy the debug binary to the release folder
-          cp target/${{ matrix.target }}/debug/edamame_posture target/release/edamame_posture-debug
 
       - name: Package Debian package with cargo deb
         run: |
