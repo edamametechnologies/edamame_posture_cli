@@ -318,7 +318,7 @@ pub fn background_wait_for_connection(timeout: u64) -> i32 {
         println!("{}", score);
         println!("Model URL: {}", url);
 
-        // Print the flodbadd results
+        // Print the lanscan results
         let devices = match rpc_get_lanscan(
             false,
             false,
