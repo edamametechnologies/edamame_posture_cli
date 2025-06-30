@@ -227,9 +227,27 @@ pub fn background_get_last_report_signature() -> i32 {
     0
 }
 
+pub fn background_get_device_info() -> i32 {
+    let info = match rpc_get_device_info(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(info) => info,
+        Err(e) => {
+            eprintln!("Error getting device information: {}", e);
+            return ERROR_CODE_SERVER_ERROR;
+        }
+    };
+    println!("Device information for the background process:");
+    println!("{}", info);
+    0
+}
+
 pub fn background_wait_for_connection(timeout: u64) -> i32 {
     // Display device and system info
-    base_get_device_info();
+    background_get_device_info();
     base_get_system_info();
 
     println!("Waiting for score computation and reporting to complete...");

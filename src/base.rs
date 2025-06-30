@@ -341,6 +341,7 @@ pub fn base_get_core_info() {
 
 pub fn base_get_device_info() {
     let info = get_device_info();
+    println!("Device information as reported by the core:");
     println!("{}", info);
 }
 
