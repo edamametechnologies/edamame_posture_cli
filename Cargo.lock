@@ -1024,15 +1024,15 @@ dependencies = [
 
 [[package]]
 name = "console"
-version = "0.15.11"
+version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "054ccb5b10f9f2cbf51eb355ca1d05c2d279ce1804688d0db74b4733a5aeafd8"
+checksum = "2e09ced7ebbccb63b4c65413d821f2e00ce54c5ca4514ddc6b3c892fdbcbc69d"
 dependencies = [
  "encode_unicode",
  "libc",
  "once_cell",
  "unicode-width",
- "windows-sys 0.59.0",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -1688,7 +1688,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "0.9.44"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#7a7c12f3bf01cda4a1bc001b9d8f3984895f03fa"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#cd0215a822590fda615f58382a49abd182c60ec3"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1763,7 +1763,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "0.9.44"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#6f38ac86157f187214fa9a450a71ad37596f1209"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#541d38f6a7211e31af0727ce06e15cbb00fc96fb"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -2148,7 +2148,7 @@ dependencies = [
 [[package]]
 name = "flodbadd"
 version = "0.9.44"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#fb44a981571044831c5199cd00fbb34c06b9628d"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#bb08ef7e488382a28447253d768d26884e23294f"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -3143,14 +3143,14 @@ dependencies = [
 
 [[package]]
 name = "indicatif"
-version = "0.17.11"
+version = "0.17.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "183b3088984b400f4cfac3620d5e076c84da5364016b4f49473de574b2586235"
+checksum = "4adb2ee6ad319a912210a36e56e3623555817bcc877a7e6e8802d1d69c4d8056"
 dependencies = [
  "console",
- "number_prefix",
  "portable-atomic",
  "unicode-width",
+ "unit-prefix",
  "web-time",
 ]
 
@@ -4290,12 +4290,6 @@ checksum = "5c7398b9c8b70908f6371f47ed36737907c87c52af34c268fed0bf0ceb92ead9"
 dependencies = [
  "libc",
 ]
-
-[[package]]
-name = "number_prefix"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "830b246a0e5f20af87141b25c173cd1b609bd7779a4617d6ec582abaf90870f3"
 
 [[package]]
 name = "objc2-core-foundation"
@@ -6614,6 +6608,12 @@ name = "unicode-xid"
 version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ebc1c04c71510c7f702b52b7c350734c9ff1295c464a03335b00bb84fc54f853"
+
+[[package]]
+name = "unit-prefix"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "323402cff2dd658f39ca17c789b502021b3f18707c91cdf22e3838e1b4023817"
 
 [[package]]
 name = "universal-hash"
