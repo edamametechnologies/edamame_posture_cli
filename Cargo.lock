@@ -1688,7 +1688,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "0.9.44"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#7ce4f79ace11234850968fe449f6e09e4d4f30d3"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#72e2ab6faa8ddb809f7a0288e81c167b927dcf9b"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1763,7 +1763,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "0.9.44"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#d52c87f8ae2444eceb4c9351be552ad5b6b10d73"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#94d7459485e6c875df78ecff80a8cf052bdf373b"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -2148,7 +2148,7 @@ dependencies = [
 [[package]]
 name = "flodbadd"
 version = "0.9.44"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#4aae1ba8954b00f90a01b1af30cb5bae8a357865"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#8ff6c2ba659874eaf519c239fee449a2157b9243"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -4029,9 +4029,9 @@ dependencies = [
 
 [[package]]
 name = "mutex"
-version = "1.0.1"
+version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "07b045fddfa5cedb1757c724e19fb7d1f762e624ec0b1a200417b9926f5f02b5"
+checksum = "f23bf5944734b7a5d1bd0a9b594213dd04de471fd3d3a1bfce672913dd72d606"
 dependencies = [
  "critical-section",
  "mutex-traits",
