@@ -85,7 +85,7 @@ pub fn build_cli() -> Command {
                 .default_value("remote login enabled,local firewall disabled"),
         ),
     )
-    .subcommand(Command::new("remediate-all-threats-force").alias("remediate-all-threats-force").about("Remediate all threats, including threats that could lock you out of the system, use with caution!"))
+    .subcommand(Command::new("remediate-all-threats-force").about("Remediate all threats, including threats that could lock you out of the system, use with caution!"))
     .subcommand(Command::new("remediate-threat").about("Remediate a threat").arg(
         arg!(<THREAT_ID> "Threat ID")
             .required(true)
