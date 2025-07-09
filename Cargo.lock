@@ -1688,7 +1688,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "0.9.46"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#8355e842f8b2cb11ab379ab99d51bfb1afb48712"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#88c5f6096524cfb1cc7e6640210f95a7dd459647"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1763,7 +1763,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "0.9.46"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#e59204ac6781ce5d3b873230becb70e48a558074"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#d9276a130e97a43b32dc0b8c8be5fa189446796d"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -2148,7 +2148,7 @@ dependencies = [
 [[package]]
 name = "flodbadd"
 version = "0.9.46"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#c1bbeadcbe2358512b544328bfa0a692eeb0948d"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#3ce8ca899ea6adc07602094168fa51d912b9322a"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -6599,7 +6599,7 @@ checksum = "1dccffe3ce07af9386bfd29e80c0ab1a8205a2fc34e4bcd40364df902cfa8f3f"
 [[package]]
 name = "undeadlock"
 version = "0.9.46"
-source = "git+https://github.com/edamametechnologies/undeadlock?branch=main#cff2a012d4defee80b20e92653341da2b989a43c"
+source = "git+https://github.com/edamametechnologies/undeadlock?branch=main#e159732d3f273f9c5af89519b107d0b0b7fb1451"
 dependencies = [
  "dashmap 6.1.0",
  "futures",
