@@ -346,7 +346,7 @@ fn run_base() {
             initialize_core("".to_string(), false, false, false, false, verbose);
             ensure_admin(); // Admin check here
 
-            let seconds = sub_matches.get_one::<u64>("SECONDS").unwrap_or(&600);
+            let seconds = sub_matches.get_one::<u64>("SECONDS").unwrap_or(&900);
             let whitelist_name = sub_matches
                 .get_one::<String>("WHITELIST_NAME")
                 .map_or("", |v| v);
@@ -574,8 +574,8 @@ fn run_base() {
             let timeout = match sub_matches.get_one::<u64>("TIMEOUT") {
                 Some(timeout) => timeout,
                 None => {
-                    println!("Timeout not provided, defaulting to 600 seconds");
-                    &600
+                    println!("Timeout not provided, defaulting to 900 seconds");
+                    &900
                 }
             };
             // Initialize the core with all options disabled
