@@ -354,22 +354,6 @@ pub fn background_wait_for_connection(timeout: u64) -> i32 {
         };
         println!("LAN scan completed at: {}", devices.last_scan);
         println!("{}", devices);
-
-        // Print the connections
-        let sessions = match rpc_get_lan_sessions(
-            true,
-            &EDAMAME_CA_PEM,
-            &EDAMAME_CLIENT_PEM,
-            &EDAMAME_CLIENT_KEY,
-            &EDAMAME_TARGET,
-        ) {
-            Ok(sessions) => sessions,
-            Err(e) => {
-                eprintln!("Error getting LAN sessions: {}", e);
-                return ERROR_CODE_SERVER_ERROR;
-            }
-        };
-        format_sessions_log(sessions.sessions);
     }
     0
 }
