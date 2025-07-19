@@ -1676,7 +1676,7 @@ dependencies = [
 [[package]]
 name = "edamame_backend"
 version = "0.3.4"
-source = "git+https://github.com/edamametechnologies/edamame_backend?branch=main#a2bb74b521c942ee883cf8d9a6570038569c4860"
+source = "git+https://github.com/edamametechnologies/edamame_backend?branch=main#ccdd37784465189ce07b47539245b6c32caca633"
 dependencies = [
  "anyhow",
  "blake3",
@@ -1690,7 +1690,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "0.9.50"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#bc2338f3a3638880344f7d1f8f02c59d0bf12050"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#e0dbb3c088440f1a0497e5a413b2727714601d22"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1765,7 +1765,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "0.9.50"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#8c1ef4e78d5423bed3e6909aea0f7e3109ca5a89"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#e67ff6e9021bd0a4e0f54db33c8b1702875b47b4"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1828,7 +1828,7 @@ dependencies = [
 [[package]]
 name = "edamame_models"
 version = "0.1.0"
-source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#20aa2153a4ce17e003b72e4d8678855900d756fc"
+source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#818dbbc7cbc18ed43945c05f4bee358c72e47cba"
 dependencies = [
  "anyhow",
  "reqwest",
@@ -2140,7 +2140,7 @@ dependencies = [
 [[package]]
 name = "flodbadd"
 version = "0.9.50"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#2b2f19cb8ebca62ee439964910e213b38866460b"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#050b02468ff8459a95f86746244a861a2468b917"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -4445,9 +4445,9 @@ dependencies = [
 
 [[package]]
 name = "pcap"
-version = "2.2.0"
+version = "2.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "499125886165f62fbc0c095ead9189b253f48eb1c5fcab49f81a270f2f220652"
+checksum = "83cdabc34a80d9ec3563694cc31423fba6bb9bab4f31a9a5d5b85f29bd6d660a"
 dependencies = [
  "bitflags 1.3.2",
  "errno 0.2.8",
@@ -5607,9 +5607,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.140"
+version = "1.0.141"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "20068b6e96dc6c9bd23e01df8827e6c7e1f2fddd43c21810382803c136b99373"
+checksum = "30b9eff21ebe718216c6ec64e1d9ac57087aad11efc64e32002bce4a0d4c03d3"
 dependencies = [
  "itoa",
  "memchr",
@@ -6591,7 +6591,7 @@ checksum = "1dccffe3ce07af9386bfd29e80c0ab1a8205a2fc34e4bcd40364df902cfa8f3f"
 [[package]]
 name = "undeadlock"
 version = "0.9.50"
-source = "git+https://github.com/edamametechnologies/undeadlock?branch=main#6acc1cdb6e03835df1501db37194dc26c4381ad0"
+source = "git+https://github.com/edamametechnologies/undeadlock?branch=main#ea60947d3134a9dd607aaf3df11f2b0f8ea30df9"
 dependencies = [
  "dashmap 6.1.0",
  "futures",
