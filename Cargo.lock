@@ -334,9 +334,9 @@ dependencies = [
 
 [[package]]
 name = "async-io"
-version = "2.4.1"
+version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1237c0ae75a0f3765f58910ff9cdd0a12eeb39ab2f4c7de23262f337f0aacbb3"
+checksum = "19634d6336019ef220f09fd31168ce5c184b295cbf80345437cc36094ef223ca"
 dependencies = [
  "async-lock 3.4.0",
  "cfg-if",
@@ -344,11 +344,10 @@ dependencies = [
  "futures-io",
  "futures-lite 2.6.0",
  "parking",
- "polling 3.8.0",
+ "polling 3.9.0",
  "rustix 1.0.8",
  "slab",
- "tracing",
- "windows-sys 0.59.0",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -401,11 +400,11 @@ dependencies = [
 
 [[package]]
 name = "async-signal"
-version = "0.2.11"
+version = "0.2.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d7605a4e50d4b06df3898d5a70bf5fde51ed9059b0434b73105193bc27acce0d"
+checksum = "f567af260ef69e1d52c2b560ce0ea230763e6fbb9214a85d768760a920e3e3c1"
 dependencies = [
- "async-io 2.4.1",
+ "async-io 2.5.0",
  "async-lock 3.4.0",
  "atomic-waker",
  "cfg-if",
@@ -414,7 +413,7 @@ dependencies = [
  "rustix 1.0.8",
  "signal-hook-registry",
  "slab",
- "windows-sys 0.59.0",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -1690,7 +1689,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "0.9.50"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#e0dbb3c088440f1a0497e5a413b2727714601d22"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#502707146d520d42d0e6df49b9246b41c337b9d1"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1765,7 +1764,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "0.9.50"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#e67ff6e9021bd0a4e0f54db33c8b1702875b47b4"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#85ab1462cbafe6f54a9a0fcc8747f81b733d5990"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -2140,7 +2139,7 @@ dependencies = [
 [[package]]
 name = "flodbadd"
 version = "0.9.50"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#050b02468ff8459a95f86746244a861a2468b917"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#ff808a50be9bd17cd37b6bc615eb45d0f89b2f3f"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -3075,7 +3074,7 @@ version = "3.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cdf9d64cfcf380606e64f9a0bcf493616b65331199f984151a6fa11a7b3cde38"
 dependencies = [
- "async-io 2.4.1",
+ "async-io 2.5.0",
  "core-foundation",
  "fnv",
  "futures",
@@ -3688,9 +3687,9 @@ dependencies = [
 
 [[package]]
 name = "libredox"
-version = "0.1.4"
+version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1580801010e535496706ba011c15f8532df6b42297d2e471fec38ceadd8c0638"
+checksum = "4488594b9328dee448adb906d8b126d9b7deb7cf5c22161ee591610bb1be83c0"
 dependencies = [
  "bitflags 2.9.1",
  "libc",
@@ -4134,13 +4133,13 @@ dependencies = [
 
 [[package]]
 name = "network-interface"
-version = "2.0.1"
+version = "2.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c3329f515506e4a2de3aa6e07027a6758e22e0f0e8eaf64fa47261cec2282602"
+checksum = "862f41f1276e7148fb597fc55ed8666423bebe045199a1298c3515a73ec5cdd9"
 dependencies = [
  "cc",
  "libc",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "winapi",
 ]
 
@@ -4702,17 +4701,16 @@ dependencies = [
 
 [[package]]
 name = "polling"
-version = "3.8.0"
+version = "3.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b53a684391ad002dd6a596ceb6c74fd004fdce75f4be2e3f615068abbea5fd50"
+checksum = "8ee9b2fa7a4517d2c91ff5bc6c297a427a96749d15f98fcdbb22c05571a4d4b7"
 dependencies = [
  "cfg-if",
  "concurrent-queue",
  "hermit-abi 0.5.2",
  "pin-project-lite",
  "rustix 1.0.8",
- "tracing",
- "windows-sys 0.59.0",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -6591,7 +6589,7 @@ checksum = "1dccffe3ce07af9386bfd29e80c0ab1a8205a2fc34e4bcd40364df902cfa8f3f"
 [[package]]
 name = "undeadlock"
 version = "0.9.50"
-source = "git+https://github.com/edamametechnologies/undeadlock?branch=main#ea60947d3134a9dd607aaf3df11f2b0f8ea30df9"
+source = "git+https://github.com/edamametechnologies/undeadlock?branch=main#35ae4819134ef559eaf16be2a89d29d10d1ff92d"
 dependencies = [
  "dashmap 6.1.0",
  "futures",
