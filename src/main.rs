@@ -139,6 +139,7 @@ pub fn initialize_core(
         ip4: "".to_string(),
         ip6: "".to_string(),
         mac: "".to_string(),
+        peer_ids: vec![],
     };
     if device_id != "" {
         device.device_id = (machine_uid + "/" + device_id.as_str()).to_string();
