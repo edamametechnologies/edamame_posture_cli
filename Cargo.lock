@@ -1689,7 +1689,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "0.9.50"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#17da3da8ea2afa2d56b404d9e0563f3a903a1748"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#e76108d02f6e753151a055109125c8a995abfd4c"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1764,7 +1764,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "0.9.50"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#85ab1462cbafe6f54a9a0fcc8747f81b733d5990"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#12dd6b7cc6212f6d98f8741967cbc13bede3105e"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -2139,7 +2139,7 @@ dependencies = [
 [[package]]
 name = "flodbadd"
 version = "0.9.50"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#ff808a50be9bd17cd37b6bc615eb45d0f89b2f3f"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#a70ade337e8b3eb0a410e4e86c4eda499464126e"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -5887,20 +5887,19 @@ checksum = "7da8b5736845d9f2fcb837ea5d9e2628564b3b043a70948a3f0b778838c5fb4f"
 
 [[package]]
 name = "strum"
-version = "0.27.1"
+version = "0.27.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f64def088c51c9510a8579e3c5d67c65349dcf755e5479ad3d010aa6454e2c32"
+checksum = "af23d6f6c1a224baef9d3f61e287d2761385a5b88fdab4eb4c6f11aeb54c4bcf"
 
 [[package]]
 name = "strum_macros"
-version = "0.27.1"
+version = "0.27.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c77a8c5abcaf0f9ce05d62342b7d298c346515365c36b673df4ebe3ced01fde8"
+checksum = "7695ce3845ea4b33927c055a39dc438a45b059f7c1b3d91d38d10355fb8cbca7"
 dependencies = [
  "heck 0.5.0",
  "proc-macro2",
  "quote",
- "rustversion",
  "syn 2.0.104",
 ]
 
@@ -6589,7 +6588,7 @@ checksum = "1dccffe3ce07af9386bfd29e80c0ab1a8205a2fc34e4bcd40364df902cfa8f3f"
 [[package]]
 name = "undeadlock"
 version = "0.9.50"
-source = "git+https://github.com/edamametechnologies/undeadlock?branch=main#35ae4819134ef559eaf16be2a89d29d10d1ff92d"
+source = "git+https://github.com/edamametechnologies/undeadlock?branch=main#d1e8f1c4ef2ec64b3b365dc1d81b9d4b700366bc"
 dependencies = [
  "dashmap 6.1.0",
  "futures",
