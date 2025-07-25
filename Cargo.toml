@@ -61,7 +61,7 @@ widestring = "1.1.0"
 
 # Linux
 [target.'cfg(any(target_os = "linux"))'.dependencies]
-cargo-deb = "2.7.0"
+cargo-deb = "3.2.1"
 # See cargo-deb crate for configuration: https://crates.io/crates/cargo-deb
 [package.metadata.deb]
 name = "edamame-posture"
