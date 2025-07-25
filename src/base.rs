@@ -246,7 +246,7 @@ pub fn base_capture(seconds: u64, whitelist_name: &str, zeek_format: bool, local
     }
 }
 
-pub fn base_flodbadd() {
+pub fn base_lanscan() {
     // The network, has been set, consent has been granted and a scan has been requested if needed
     let total_steps = 100;
     let pb = ProgressBar::new(total_steps);

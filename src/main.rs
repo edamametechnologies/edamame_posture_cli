@@ -340,7 +340,7 @@ fn run_base() {
             _ = get_lanscan(true, false, false);
 
             // Wait for the LAN scan to complete
-            base_flodbadd();
+            base_lanscan();
         }
         Some(("capture", sub_matches)) => {
             // Initialize the core with all options disabled
