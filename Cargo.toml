@@ -12,15 +12,15 @@ edamame_core = { git = "https://github.com/edamametechnologies/edamame_core", br
 anyhow = "1.0.82"
 
 # Progress
-indicatif = "0.17.7"
+indicatif = "0.18.0"
 
 # YAML
 serde = "1.0.204"
-serde_yaml = "0.9.34+deprecated"
+serde_yaml_ng = "0.10"
 serde_json = "1.0.100"
 
 # System
-sysinfo = "0.35.2"
+sysinfo = "0.36.1"
 dirs = "6.0.0"
 
 # Machine UID
