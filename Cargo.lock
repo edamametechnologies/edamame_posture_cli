@@ -802,16 +802,17 @@ dependencies = [
 
 [[package]]
 name = "cargo-deb"
-version = "2.12.1"
+version = "3.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a3f6b17a3bb6064d20c3b4a42c81b263d6eae780a4d30411a29efc4c2121a6d4"
+checksum = "4ae95f3881fab4e1c93bdf23ed18d1f1be4366c4a666e13cc439cd6df8a207a0"
 dependencies = [
+ "anstream",
+ "anstyle",
  "ar",
  "cargo_toml",
  "clap",
  "elf",
  "env_logger",
- "flate2",
  "glob",
  "itertools 0.14.0",
  "log",
@@ -1689,7 +1690,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "0.9.51"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#c2dcbf691c400b0f9cc4e125e16af2310874dfb3"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#10b9294c1cfdcfb3597522a6cb929eefa7c60df0"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -2138,8 +2139,8 @@ dependencies = [
 
 [[package]]
 name = "flodbadd"
-version = "0.9.50"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#baebd9ec18e04a1fe2c2eb647ef3b3d73c564380"
+version = "0.9.51"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#49f7232fa2081afb3f3909c431fa1e4f59f6a0fa"
 dependencies = [
  "anyhow",
  "arp-toolkit",
