@@ -3,7 +3,7 @@ use crate::EDAMAME_CA_PEM;
 use crate::EDAMAME_CLIENT_KEY;
 use crate::EDAMAME_CLIENT_PEM;
 use crate::EDAMAME_TARGET;
-use crate::{base_flodbadd, base_get_core_info, base_get_core_version, connect_domain};
+use crate::{base_get_core_info, base_get_core_version, base_lanscan, connect_domain};
 use edamame_core::api::api_core::*;
 use edamame_core::api::api_flodbadd::*;
 use edamame_core::api::api_score::*;
@@ -87,7 +87,7 @@ pub fn background_process(
         _ = get_lanscan(true, false, false);
 
         // Wait for the scan to complete
-        base_flodbadd();
+        base_lanscan();
     }
 
     info!("LAN scan complete, starting connection status loop");
