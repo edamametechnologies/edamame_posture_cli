@@ -61,7 +61,9 @@ widestring = "1.1.0"
 
 # Linux
 [target.'cfg(any(target_os = "linux"))'.dependencies]
-cargo-deb = "3.2.1"
+# Build broken since 25th July 2025
+#cargo-deb = "3.2.1"
+cargo-deb = { git = "https://github.com/arvedarved/cargo-deb", branch = "fix-build" }
 # See cargo-deb crate for configuration: https://crates.io/crates/cargo-deb
 [package.metadata.deb]
 name = "edamame-posture"
