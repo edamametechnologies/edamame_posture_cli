@@ -802,9 +802,9 @@ dependencies = [
 
 [[package]]
 name = "cargo-deb"
-version = "3.2.1"
+version = "3.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4ae95f3881fab4e1c93bdf23ed18d1f1be4366c4a666e13cc439cd6df8a207a0"
+checksum = "d7278d3f8751a6cc48e0a84c7e87e2c8fcc4d465d7fd03a801f60df09d9e1dd0"
 dependencies = [
  "anstream",
  "anstyle",
@@ -1690,7 +1690,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "0.9.51"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#04ceb365b6b9c8fa98039015daaeb7888ecdf07d"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#b551f9d41cfa926d42385ae115c3df75d7b06e4f"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1765,7 +1765,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "0.9.51"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#6a4d17a9a36a035a6d7c0dc0b24ac901b801b2b3"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#517a66fe590bf327dc7bb67ba8895abcb41243b3"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -2140,7 +2140,7 @@ dependencies = [
 [[package]]
 name = "flodbadd"
 version = "0.9.51"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#d2988f8d62da2cba320d741146b30267c587cb53"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#940a3d1226fa04a33a3d56e912e9595e22f45d48"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -6331,6 +6331,7 @@ dependencies = [
  "serde",
  "serde_spanned 0.6.9",
  "toml_datetime 0.6.11",
+ "toml_write",
  "winnow",
 ]
 
@@ -6342,6 +6343,12 @@ checksum = "97200572db069e74c512a14117b296ba0a80a30123fbbb5aa1f4a348f639ca30"
 dependencies = [
  "winnow",
 ]
+
+[[package]]
+name = "toml_write"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5d99f8c9a7727884afe522e9bd5edbfc91a3312b36a77b5fb8926e4c31a41801"
 
 [[package]]
 name = "toml_writer"
