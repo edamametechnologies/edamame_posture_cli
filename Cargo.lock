@@ -1227,9 +1227,9 @@ dependencies = [
 
 [[package]]
 name = "ctor"
-version = "0.4.2"
+version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a4735f265ba6a1188052ca32d461028a7d1125868be18e287e756019da7607b5"
+checksum = "ec09e802f5081de6157da9a75701d6c713d8dc3ba52571fd4bd25f412644e8a6"
 dependencies = [
  "ctor-proc-macro",
  "dtor",
@@ -1237,9 +1237,9 @@ dependencies = [
 
 [[package]]
 name = "ctor-proc-macro"
-version = "0.0.5"
+version = "0.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4f211af61d8efdd104f96e57adf5e426ba1bc3ed7a4ead616e15e5881fd79c4d"
+checksum = "e2931af7e13dc045d8e9d26afccc6fa115d64e115c9c84b1166288b46f6782c2"
 
 [[package]]
 name = "ctr"
@@ -1645,9 +1645,9 @@ checksum = "92773504d58c093f6de2459af4af33faa518c13451eb8f2b5698ed3d36e7c813"
 
 [[package]]
 name = "dyn-clone"
-version = "1.0.19"
+version = "1.0.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1c7a8fb8a9fbf66c1f703fe16184d10ca0ee9d23be5b4436400408ba54a95005"
+checksum = "d0881ea181b1df73ff77ffaaf9c7544ecc11e82fba9b5f27b262a3c73a332555"
 
 [[package]]
 name = "ed25519"
@@ -1689,8 +1689,8 @@ dependencies = [
 
 [[package]]
 name = "edamame_core"
-version = "0.9.51"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#b551f9d41cfa926d42385ae115c3df75d7b06e4f"
+version = "0.9.52"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#58fa0485897bec71f3f7e58b003f81eca497d76d"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1764,8 +1764,8 @@ dependencies = [
 
 [[package]]
 name = "edamame_foundation"
-version = "0.9.51"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#517a66fe590bf327dc7bb67ba8895abcb41243b3"
+version = "0.9.52"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#44b1aecc9f94d3782b5ae109ba98723795fe26bc"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1840,7 +1840,7 @@ dependencies = [
 
 [[package]]
 name = "edamame_posture"
-version = "0.9.51"
+version = "0.9.52"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -2139,8 +2139,8 @@ dependencies = [
 
 [[package]]
 name = "flodbadd"
-version = "0.9.51"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#940a3d1226fa04a33a3d56e912e9595e22f45d48"
+version = "0.9.52"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#e31b33f731a8adde91ec5e066d929f2c25808803"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -5123,9 +5123,9 @@ dependencies = [
 
 [[package]]
 name = "redox_syscall"
-version = "0.5.15"
+version = "0.5.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7e8af0dde094006011e6a740d4879319439489813bd0bcdc7d821beaeeff48ec"
+checksum = "7251471db004e509f4e75a62cca9435365b5ec7bcdff530d612ac7c87c44a792"
 dependencies = [
  "bitflags 2.9.1",
 ]
@@ -5311,9 +5311,9 @@ dependencies = [
 
 [[package]]
 name = "rustc-demangle"
-version = "0.1.25"
+version = "0.1.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "989e6739f80c4ad5b13e0fd7fe89531180375b18520cc8c82080e4dc4035b84f"
+checksum = "56f7d92ca342cea22a06f2121d944b4fd82af56988c270852495420f961d4ace"
 
 [[package]]
 name = "rustc-hash"
@@ -5387,9 +5387,9 @@ dependencies = [
 
 [[package]]
 name = "rustls"
-version = "0.23.29"
+version = "0.23.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2491382039b29b9b11ff08b76ff6c97cf287671dbb74f0be44bda389fffe9bd1"
+checksum = "069a8df149a16b1a12dcc31497c3396a173844be3cac4bd40c9e7671fef96671"
 dependencies = [
  "log",
  "once_cell",
@@ -5855,9 +5855,9 @@ dependencies = [
 
 [[package]]
 name = "sorted-vec"
-version = "0.8.6"
+version = "0.8.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d372029cb5195f9ab4e4b9aef550787dce78b124fcaee8d82519925defcd6f0d"
+checksum = "f40f1aa8c0f688ae6d6ffd5e9e351d635acc176dfad05816494b321be7e01007"
 
 [[package]]
 name = "spin"
@@ -6212,9 +6212,9 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "tokio"
-version = "1.46.1"
+version = "1.47.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0cc3a2344dafbe23a245241fe8b09735b521110d30fcefbbd5feb1797ca35d17"
+checksum = "43864ed400b6043a4757a25c7a64a8efde741aed79a056a2fb348a406701bb35"
 dependencies = [
  "backtrace",
  "bytes",
@@ -6225,10 +6225,10 @@ dependencies = [
  "pin-project-lite",
  "signal-hook-registry",
  "slab",
- "socket2 0.5.10",
+ "socket2 0.6.0",
  "tokio-macros",
  "tracing",
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
