@@ -802,9 +802,9 @@ dependencies = [
 
 [[package]]
 name = "cargo-deb"
-version = "3.3.0"
+version = "3.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d7278d3f8751a6cc48e0a84c7e87e2c8fcc4d465d7fd03a801f60df09d9e1dd0"
+checksum = "b89524dd5791dd2ab75631f88c4e697cf06e1f0defe29774ec4a485aa7ea005a"
 dependencies = [
  "anstream",
  "anstyle",
@@ -823,7 +823,7 @@ dependencies = [
  "serde_json",
  "tar",
  "tempfile",
- "toml 0.8.23",
+ "toml",
  "xz2",
  "zopfli",
 ]
@@ -858,7 +858,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "374b7c592d9c00c1f4972ea58390ac6b18cbb6ab79011f3bdc90a0b82ca06b77"
 dependencies = [
  "serde",
- "toml 0.9.4",
+ "toml",
 ]
 
 [[package]]
@@ -1690,7 +1690,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "0.9.53"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#d8f71fd3d2751c788b8099ea88f5cb00c7ad5b4e"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#d8e1248d07dd833ed54210e475f84d3c3b18374b"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1765,7 +1765,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "0.9.53"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#9616aa28bc4e54ff7913ce192a06692d5329a614"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#54e8f1fbe80905698bebbc545626ee4c03f53cd3"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -2140,7 +2140,7 @@ dependencies = [
 [[package]]
 name = "flodbadd"
 version = "0.9.53"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#d082e4cce6bf67888ceb7089b915c0993f4d59bc"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#8d92d564bb5a67ba79888e1cc0f6842497e2baba"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -5612,15 +5612,6 @@ dependencies = [
 
 [[package]]
 name = "serde_spanned"
-version = "0.6.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bf41e0cfaf7226dca15e8197172c295a782857fcb97fad1808a166870dee75a3"
-dependencies = [
- "serde",
-]
-
-[[package]]
-name = "serde_spanned"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "40734c41988f7306bb04f0ecf60ec0f3f1caa34290e4e8ea471dcd3346483b83"
@@ -6278,38 +6269,17 @@ dependencies = [
 
 [[package]]
 name = "toml"
-version = "0.8.23"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dc1beb996b9d83529a9e75c17a1686767d148d70663143c7854d8b4a09ced362"
-dependencies = [
- "serde",
- "serde_spanned 0.6.9",
- "toml_datetime 0.6.11",
- "toml_edit",
-]
-
-[[package]]
-name = "toml"
 version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "41ae868b5a0f67631c14589f7e250c1ea2c574ee5ba21c6c8dd4b1485705a5a1"
 dependencies = [
  "indexmap 2.10.0",
  "serde",
- "serde_spanned 1.0.0",
- "toml_datetime 0.7.0",
+ "serde_spanned",
+ "toml_datetime",
  "toml_parser",
  "toml_writer",
  "winnow",
-]
-
-[[package]]
-name = "toml_datetime"
-version = "0.6.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "22cddaf88f4fbc13c51aebbf5f8eceb5c7c5a9da2ac40a13519eb5b0a0e8f11c"
-dependencies = [
- "serde",
 ]
 
 [[package]]
@@ -6322,20 +6292,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "toml_edit"
-version = "0.22.27"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "41fe8c660ae4257887cf66394862d21dbca4a6ddd26f04a3560410406a2f819a"
-dependencies = [
- "indexmap 2.10.0",
- "serde",
- "serde_spanned 0.6.9",
- "toml_datetime 0.6.11",
- "toml_write",
- "winnow",
-]
-
-[[package]]
 name = "toml_parser"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6343,12 +6299,6 @@ checksum = "97200572db069e74c512a14117b296ba0a80a30123fbbb5aa1f4a348f639ca30"
 dependencies = [
  "winnow",
 ]
-
-[[package]]
-name = "toml_write"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5d99f8c9a7727884afe522e9bd5edbfc91a3312b36a77b5fb8926e4c31a41801"
 
 [[package]]
 name = "toml_writer"
@@ -7697,9 +7647,6 @@ name = "winnow"
 version = "0.7.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f3edebf492c8125044983378ecb5766203ad3b4c2f7a922bd7dd207f6d443e95"
-dependencies = [
- "memchr",
-]
 
 [[package]]
 name = "winreg"
