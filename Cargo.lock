@@ -1690,7 +1690,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "0.9.53"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#d8e1248d07dd833ed54210e475f84d3c3b18374b"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#bbe534338b814b30f0bbd24c7dfa9d1609b78ac4"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -5132,9 +5132,9 @@ dependencies = [
 
 [[package]]
 name = "redox_users"
-version = "0.5.0"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dd6f9d3d47bdd2ad6945c5015a226ec6155d0bcdfd8f7cd29f86b71f8de99d2b"
+checksum = "78eaea1f52c56d57821be178b2d47e09ff26481a6042e8e042fcb0ced068b470"
 dependencies = [
  "getrandom 0.2.16",
  "libredox",
