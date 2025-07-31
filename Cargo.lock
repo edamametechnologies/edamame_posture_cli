@@ -1689,8 +1689,8 @@ dependencies = [
 
 [[package]]
 name = "edamame_core"
-version = "0.9.53"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#bbe534338b814b30f0bbd24c7dfa9d1609b78ac4"
+version = "0.9.54"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#844e37ad6219e4c6e9c50485f32a3afd338f612e"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1764,8 +1764,8 @@ dependencies = [
 
 [[package]]
 name = "edamame_foundation"
-version = "0.9.53"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#54e8f1fbe80905698bebbc545626ee4c03f53cd3"
+version = "0.9.54"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#5efddc5bbc4d90ea1c7ce94734ae348955c2f651"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1840,7 +1840,7 @@ dependencies = [
 
 [[package]]
 name = "edamame_posture"
-version = "0.9.53"
+version = "0.9.54"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -3688,9 +3688,9 @@ dependencies = [
 
 [[package]]
 name = "libredox"
-version = "0.1.8"
+version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "360e552c93fa0e8152ab463bc4c4837fce76a225df11dfaeea66c313de5e61f7"
+checksum = "391290121bad3d37fbddad76d8f5d1c1c314cfc646d143d7e07a3086ddff0ce3"
 dependencies = [
  "bitflags 2.9.1",
  "libc",
@@ -5132,9 +5132,9 @@ dependencies = [
 
 [[package]]
 name = "redox_users"
-version = "0.5.1"
+version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "78eaea1f52c56d57821be178b2d47e09ff26481a6042e8e042fcb0ced068b470"
+checksum = "a4e608c6638b9c18977b00b475ac1f28d14e84b27d8d42f70e0bf1e3dec127ac"
 dependencies = [
  "getrandom 0.2.16",
  "libredox",
