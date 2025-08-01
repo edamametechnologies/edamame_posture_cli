@@ -863,9 +863,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.2.30"
+version = "1.2.31"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "deec109607ca693028562ed836a5f1c4b8bd77755c4e132fc5ce11b0b6211ae7"
+checksum = "c3a42d84bb6b69d3a8b3eaacf0d88f179e1929695e1ad012b6cf64d9caaa5fd2"
 dependencies = [
  "jobserver",
  "libc",
@@ -1689,8 +1689,8 @@ dependencies = [
 
 [[package]]
 name = "edamame_core"
-version = "0.9.54"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#844e37ad6219e4c6e9c50485f32a3afd338f612e"
+version = "0.9.55"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#a65245d5311cd8542be487be236d22a9ce733569"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1764,8 +1764,8 @@ dependencies = [
 
 [[package]]
 name = "edamame_foundation"
-version = "0.9.54"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#5efddc5bbc4d90ea1c7ce94734ae348955c2f651"
+version = "0.9.55"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#985935f49eb8f9b4a7ae806f6bd4b5934c07aec8"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1840,7 +1840,7 @@ dependencies = [
 
 [[package]]
 name = "edamame_posture"
-version = "0.9.54"
+version = "0.9.55"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -5600,9 +5600,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.141"
+version = "1.0.142"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "30b9eff21ebe718216c6ec64e1d9ac57087aad11efc64e32002bce4a0d4c03d3"
+checksum = "030fedb782600dcbd6f02d479bf0d817ac3bb40d644745b769d6a96bc3afc5a7"
 dependencies = [
  "itoa",
  "memchr",
@@ -6203,9 +6203,9 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "tokio"
-version = "1.47.0"
+version = "1.47.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "43864ed400b6043a4757a25c7a64a8efde741aed79a056a2fb348a406701bb35"
+checksum = "89e49afdadebb872d3145a5638b59eb0691ea23e46ca484037cfab3b76b95038"
 dependencies = [
  "backtrace",
  "bytes",
