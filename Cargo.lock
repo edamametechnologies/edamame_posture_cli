@@ -1690,7 +1690,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "0.9.57"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#49b6a73ee90e2bfe3f7ba3d5df6588ce3ff512cb"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#2bb040e34f3f04d6aea217a5c8cce9fbd0362fd5"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -7874,9 +7874,9 @@ dependencies = [
 
 [[package]]
 name = "zerovec"
-version = "0.11.2"
+version = "0.11.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4a05eb080e015ba39cc9e23bbe5e7fb04d5fb040350f99f34e338d5fdd294428"
+checksum = "bdbb9122ea75b11bf96e7492afb723e8a7fbe12c67417aa95e7e3d18144d37cd"
 dependencies = [
  "yoke",
  "zerofrom",
