@@ -515,12 +515,15 @@ pub fn base_get_tag_prefixes() {
 }
 
 pub fn base_augment_custom_whitelists() -> i32 {
-    let whitelist_json = augment_custom_whitelists();
+    let (whitelist_json, percent_changed) = augment_custom_whitelists_info();
 
     if whitelist_json.is_empty() {
         eprintln!("Failed to augment custom whitelists");
         return ERROR_CODE_SERVER_ERROR;
     }
+
+    // Informational: report % of changes to stderr so stdout remains JSON-only
+    eprintln!("Percent of changes: {:.2}", percent_changed);
 
     match serde_json::from_str::<serde_json::Value>(&whitelist_json) {
         Ok(json_value) => {
