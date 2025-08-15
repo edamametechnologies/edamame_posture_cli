@@ -802,9 +802,9 @@ dependencies = [
 
 [[package]]
 name = "cargo-deb"
-version = "3.5.0"
+version = "3.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1da856db7d36d5e24ad7023c2b796a36a30207cf07e616ae5bd47ebce2d71341"
+checksum = "cadc9eecfdcb6355e502603757828c209d7a66d5f7437b694af52fe85a0a220d"
 dependencies = [
  "anstream",
  "anstyle",
@@ -1689,8 +1689,8 @@ dependencies = [
 
 [[package]]
 name = "edamame_core"
-version = "0.9.59"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#e4e470f25d38058acc01037efce46c61cb91b5bd"
+version = "0.9.60"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#845896c99abeb9f31e613e3063633223166ea14e"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1840,7 +1840,7 @@ dependencies = [
 
 [[package]]
 name = "edamame_posture"
-version = "0.9.59"
+version = "0.9.60"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
