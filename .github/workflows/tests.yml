@@ -319,7 +319,7 @@ jobs:
         shell: bash
         run: |
           git clone https://github.com/${{ github.repository }}.git .
-          git checkout ${{ github.ref_name }}
+          git checkout "${{ github.head_ref || github.ref_name }}"
 
       - name: Install additional packages w/ apt for Linux
         run: |
@@ -508,7 +508,7 @@ jobs:
           mkdir temp
           cd temp
           git clone https://github.com/${{ github.repository }}.git .
-          git checkout ${{ github.ref_name }}
+          git checkout "${{ github.head_ref || github.ref_name }}"
         shell: alpine.sh {0}
 
       # Install Rust
