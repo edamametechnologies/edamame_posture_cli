@@ -28,7 +28,7 @@ jobs:
           - os: macos-latest
             arch:
             target:
-          - os: windows-latest
+          - os: edamame-large-runner-windows
             arch:
             target:
           # Linux aarch64 tests using QEMU
@@ -107,17 +107,17 @@ jobs:
           brew install wget
 
       - name: Setup .NET 8.0 for Windows
-        if: matrix.os == 'windows-latest'
+        if: matrix.os == 'edamame-large-runner-windows'
         uses: actions/setup-dotnet@v3
         with:
           dotnet-version: 8.0.x
 
       - name: Setup MS Store CLI for Windows
-        if: matrix.os == 'windows-latest'
+        if: matrix.os == 'edamame-large-runner-windows'
         uses: microsoft/setup-msstore-cli@v1
 
       - name: Install additional packages w/ Chocolatey for Windows
-        if: matrix.os == 'windows-latest'
+        if: matrix.os == 'edamame-large-runner-windows'
         run: |
           choco install protoc wget
           dotnet tool install --global AzureSignTool
@@ -126,7 +126,7 @@ jobs:
         shell: bash
         run: |
             # Set BINARY_PATH for scripts (points to the built release binary)
-            echo "BINARY_PATH=./target/release/edamame_posture${{ matrix.os == 'windows-latest' && '.exe' || '' }}" >> $GITHUB_ENV
+            echo "BINARY_PATH=./target/release/edamame_posture${{ matrix.os == 'edamame-large-runner-windows' && '.exe' || '' }}" >> $GITHUB_ENV
             # Set KEYCHAIN_PATH for scripts (path to the keychain)
             echo "KEYCHAIN_PATH=/tmp/app-signing.keychain-db" >> $GITHUB_ENV
 
@@ -169,13 +169,13 @@ jobs:
           ./macos/sign.sh $BINARY_PATH
 
       - name: Signing for Windows
-        if: matrix.os == 'windows-latest'
+        if: matrix.os == 'edamame-large-runner-windows'
         # We can't use bash here, as the AzureSignTool is a .NET tool
         run: AzureSignTool sign -kvt ${{ secrets.AZURE_SIGN_TENANT_ID }} -kvu ${{ secrets.AZURE_SIGN_KEY_VAULT_URI }} -kvi ${{ secrets.AZURE_SIGN_CLIENT_ID }} -kvs ${{ secrets.AZURE_SIGN_CLIENT_SECRET }} -kvc ${{ secrets.AZURE_SIGN_CERT_NAME }} -tr http://timestamp.digicert.com -v ./target/release/edamame_posture.exe
 
       - name: Pcap DLLs for Windows
         shell: bash
-        if: matrix.os == 'windows-latest'
+        if: matrix.os == 'edamame-large-runner-windows'
         run: |
           # For cargo tests
           mkdir -p ./target/debug
