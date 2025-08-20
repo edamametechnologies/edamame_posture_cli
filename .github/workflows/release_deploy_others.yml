@@ -14,7 +14,6 @@ permissions: write-all
 jobs:
 
   build:
-    runs-on: ${{ matrix.os }}-latest
     # We need to wait a long time for musl aarch64 due to the use of qemu
     timeout-minutes: 240
     strategy:
@@ -22,17 +21,22 @@ jobs:
       matrix:
         include:
           - os: ubuntu
+            runs-on: ubuntu-latest
             arch: x86_64
             target: x86_64-unknown-linux-musl
           - os: ubuntu
+            runs-on: ubuntu-24.04-arm
             arch: aarch64
             target: aarch64-unknown-linux-musl
           - os: macos
+            runs-on: macos-latest
             arch: universal
             target: universal-apple-darwin
           - os: windows
+            runs-on: vm-runner-windows
             arch: amd64
             target: x86_64-pc-windows-msvc
+    runs-on: ${{ matrix.runs-on }}
 
     env:
       EDAMAME_APP_SENTRY: ${{ secrets.EDAMAME_APP_SENTRY }}
@@ -57,6 +61,7 @@ jobs:
       CROSS_NO_WARNINGS: 0
 
     steps:
+
       - name: Setup EDAMAME Posture
         uses: edamametechnologies/edamame_posture_action@v0
         with:
@@ -111,6 +116,14 @@ jobs:
       # Install Rust
       - name: Install Rust
         if: matrix.os == 'ubuntu' && matrix.target != 'x86_64-unknown-linux-musl' && matrix.target != 'aarch64-unknown-linux-musl'
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      # Windows
+      # Install Rust
+      - name: Install Rust
+        if: matrix.os == 'windows'
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
@@ -199,7 +212,7 @@ jobs:
       # Build application for Windows
       - name: Build application for Windows
         if: matrix.os == 'windows'
-        run: cargo build --release --target ${{ matrix.target }}
+        run: cargo build --release --target ${{ matrix.target }} --verbose
 
       # Build application in debug mode for Windows
       - name: Build application in debug mode for Windows
