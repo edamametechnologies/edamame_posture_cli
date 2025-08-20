@@ -37,7 +37,7 @@ CI="${CI:-false}" # Default to false if CI env var is not set
 mkdir -p "$TEST_DIR"
 
 # --- OS Specific Adjustments ---
-if [[ "$RUNNER_OS" == "windows-latest" || "$OS" == "Windows_NT" || "$OS" == "MINGW"* || "$OS" == "CYGWIN"* ]]; then
+if [[ "$RUNNER_OS" == "windows" || "$OS" == "Windows_NT" || "$OS" == "MINGW"* || "$OS" == "CYGWIN"* ]]; then
     BINARY_NAME="edamame_posture.exe"
     BINARY_PATH="$(dirname "$BINARY_PATH")/$BINARY_NAME"
     SUDO_CMD=""
