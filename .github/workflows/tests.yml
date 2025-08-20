@@ -29,7 +29,8 @@ jobs:
             arch: x86_64
             target: x86_64-unknown-linux-gnu
           - os: macos
-            runs-on: macos-latest
+            # We can't use macos-latest here because of permissions issues in the network tests
+            runs-on: macos-14
             arch:
             target:
           - os: windows
