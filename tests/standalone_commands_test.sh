@@ -74,7 +74,7 @@ EDAMAME_LOG_LEVEL="${EDAMAME_LOG_LEVEL:-debug}"
 VERBOSE_FLAG="-v" # Add verbosity
 
 # Adjust binary path and sudo for Windows
-if [[ "$RUNNER_OS" == "windows-latest" || "$OS" == "Windows_NT" || "$OS" == "MINGW"* || "$OS" == "CYGWIN"* ]]; then
+if [[ "$RUNNER_OS" == "windows" || "$OS" == "Windows_NT" || "$OS" == "MINGW"* || "$OS" == "CYGWIN"* ]]; then
     BINARY_NAME="edamame_posture.exe"
     BINARY_PATH="$(dirname "$BINARY_PATH")/$BINARY_NAME" # Ensure .exe extension and correct dir
     SUDO_CMD="" # No sudo on Windows
