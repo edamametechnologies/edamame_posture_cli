@@ -115,10 +115,6 @@ jobs:
         with:
           dotnet-version: 8.0.x
 
-      - name: Setup MS Store CLI for Windows
-        if: matrix.os == 'windows'
-        uses: microsoft/setup-msstore-cli@v1
-
       - name: Install additional packages w/ Chocolatey for Windows
         if: matrix.os == 'windows'
         run: |
