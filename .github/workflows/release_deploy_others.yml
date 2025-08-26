@@ -34,7 +34,7 @@ jobs:
             arch: universal
             target: universal-apple-darwin
           - os: windows
-            runs-on: vm-runner-windows
+            runs-on: windows-latest
             arch: amd64
             target: x86_64-pc-windows-msvc
     runs-on: ${{ matrix.runs-on }}
