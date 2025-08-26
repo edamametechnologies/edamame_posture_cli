@@ -167,26 +167,6 @@ pub fn initialize_core(
         true,
         false,
     );
-
-    // Initialize network to autodetect (this will allow the core to detect the network interfaces and support whitelist operations)
-    set_network(NetworkAPI {
-        interfaces: vec![],
-        scanned_interfaces: vec![],
-        is_ethernet: true,
-        is_wifi: false,
-        is_vpn: false,
-        is_tethering: false,
-        is_mobile: false,
-        wifi_bssid: "".to_string(),
-        wifi_ip: "".to_string(),
-        wifi_submask: "".to_string(),
-        wifi_gateway: "".to_string(),
-        wifi_broadcast: "".to_string(),
-        wifi_name: "".to_string(),
-        wifi_ipv6: "".to_string(),
-        last_seen: "1970-01-01T00:00:00Z".to_string(),
-        last_name: "".to_string(),
-    });
 }
 
 fn print_completions<G: Generator>(gen: G, cmd: &mut Command) {
