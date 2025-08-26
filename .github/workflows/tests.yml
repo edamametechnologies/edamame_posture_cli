@@ -34,7 +34,7 @@ jobs:
             arch:
             target:
           - os: windows
-            runs-on: vm-runner-windows
+            runs-on: windows-latest
             arch:
             target:
           - os: ubuntu
