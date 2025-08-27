@@ -1,4 +1,3 @@
-use crate::background::background_get_threats_info;
 use crate::EDAMAME_CA_PEM;
 use crate::EDAMAME_CLIENT_KEY;
 use crate::EDAMAME_CLIENT_PEM;
@@ -27,8 +26,12 @@ pub fn background_process(
 
     // We are using the logger as we are in the background process
 
-    // Show threats info
-    background_get_threats_info();
+    // Show threats info (call core directly to avoid local RPC chatter)
+    let score = get_score(false);
+    println!(
+        "Threat model name: {}, date: {}, signature: {}",
+        score.model_name, score.model_date, score.model_signature
+    );
 
     // Set credentials if not empty, otherwise the core will load saved credentials
     if user != "" && domain != "" {
