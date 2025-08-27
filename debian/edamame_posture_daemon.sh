@@ -32,5 +32,5 @@ echo "  edamame_user: $edamame_user"
 echo "  edamame_domain: $edamame_domain"
 echo "  edamame_pin: $edamame_pin"
 
-# Execute the main binary in foreground mode (systemd manages daemonization)
-exec /usr/bin/edamame_posture foreground-start "$edamame_user" "$edamame_domain" "$edamame_pin"
+# Execute the main binary in foreground mode (systemd manages daemonization), verbose set to info
+exec /usr/bin/edamame_posture foreground-start -v "$edamame_user" "$edamame_domain" "$edamame_pin"
