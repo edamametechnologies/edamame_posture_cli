@@ -279,7 +279,7 @@ fn run_base() {
         Some(("get-score", _)) => {
             // Initialize the core with computing enabled
             initialize_core("".to_string(), true, false, false, false, verbose);
-            ensure_admin(); // Admin check here
+            ensure_admin();
             base_get_score(true);
         }
         Some(("lanscan", _)) => {
@@ -328,7 +328,7 @@ fn run_base() {
         Some(("capture", sub_matches)) => {
             // Initialize the core with all options disabled
             initialize_core("".to_string(), false, false, false, false, verbose);
-            ensure_admin(); // Admin check here
+            ensure_admin();
 
             let seconds = sub_matches.get_one::<u64>("SECONDS").unwrap_or(&900);
             let whitelist_name = sub_matches
