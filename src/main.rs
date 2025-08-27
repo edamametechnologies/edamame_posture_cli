@@ -213,6 +213,9 @@ pub fn run_background(
     // Verbose is set by the caller
     initialize_core(device_id, true, true, true, true, verbose);
 
+    // Admin check here (after core initialization)
+    ensure_admin();
+
     background_process(
         user,
         domain,
@@ -712,7 +715,6 @@ fn run_base() {
                 .get_one::<String>("PIN")
                 .expect("PIN not provided")
                 .to_string();
-            ensure_admin();
             // Directly call the background process
             run_background(
                 user,
