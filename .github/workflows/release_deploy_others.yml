@@ -109,18 +109,10 @@ jobs:
           choco install protoc wget
           dotnet tool install --global AzureSignTool
 
-      # Linux (not musl)
+      # Linux (not musl) and Windows
       # Install Rust
       - name: Install Rust
-        if: matrix.os == 'ubuntu' && matrix.target != 'x86_64-unknown-linux-musl' && matrix.target != 'aarch64-unknown-linux-musl'
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.target }}
-
-      # Windows
-      # Install Rust
-      - name: Install Rust
-        if: matrix.os == 'windows'
+        if: matrix.os == 'windows' || (matrix.os == 'ubuntu' && matrix.target != 'x86_64-unknown-linux-musl' && matrix.target != 'aarch64-unknown-linux-musl')  
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
