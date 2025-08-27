@@ -712,6 +712,7 @@ fn run_base() {
                 .get_one::<String>("PIN")
                 .expect("PIN not provided")
                 .to_string();
+            ensure_admin();
             // Directly call the background process
             run_background(
                 user,
