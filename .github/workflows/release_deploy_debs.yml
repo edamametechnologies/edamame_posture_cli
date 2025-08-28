@@ -34,7 +34,7 @@ jobs:
             target: x86_64-unknown-linux-gnu
             deb_arch: amd64
           - os: ubuntu
-            runs-on: ubuntu-24.04-arm
+            # ubuntu-24.04-arm breaks cross
             arch: aarch64
             target: aarch64-unknown-linux-gnu
             deb_arch: arm64         
