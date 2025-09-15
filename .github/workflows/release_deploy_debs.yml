@@ -35,7 +35,8 @@ jobs:
             deb_arch: amd64
           - os: ubuntu
             # ubuntu-24.04-arm breaks cross
-            arch: aarch64
+            runs-on: ubuntu-latest
+            arch: amd64
             target: aarch64-unknown-linux-gnu
             deb_arch: arm64         
     runs-on: ${{ matrix.runs-on }}
