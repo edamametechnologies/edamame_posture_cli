@@ -64,7 +64,7 @@ else
   LATEST_VERSION="" # Ensure LATEST_VERSION is empty if redirect fails
 fi
 
-HARDCODED_FALLBACK_VERSION="0.9.24" # Define hardcoded fallback
+HARDCODED_FALLBACK_VERSION="0.9.60" # Define hardcoded fallback
 
 # --- Set VERSION and FALLBACK_VERSION for Download ---
 if [[ -n "$LATEST_VERSION" ]]; then
