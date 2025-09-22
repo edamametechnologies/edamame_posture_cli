@@ -1,6 +1,6 @@
 [package]
 name = "edamame_posture"
-version = "0.9.65"
+version = "0.9.66"
 edition = "2021"
 description = "EDAMAME Security posture analysis and remediation"
 
@@ -20,7 +20,7 @@ serde_yaml_ng = "0.10"
 serde_json = "1.0.100"
 
 # System
-sysinfo = "0.36.1"
+sysinfo = "0.37.0"
 dirs = "6.0.0"
 
 # Machine UID
