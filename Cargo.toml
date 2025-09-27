@@ -1,6 +1,6 @@
 [package]
 name = "edamame_posture"
-version = "0.9.67"
+version = "0.9.68"
 edition = "2021"
 description = "EDAMAME Security posture analysis and remediation"
 
@@ -42,6 +42,7 @@ lazy_static = "1.4.0"
 mutex = "1.0.0"
 base64 = "0.22.1"
 uuid = "1.16.0"
+zip = { version = "2.2.0", default-features = false, features = ["deflate"] }
 
 # Linux and macOS 
 [target.'cfg(any(target_os = "macos", target_os = "linux"))'.dependencies]
