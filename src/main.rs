@@ -876,7 +876,9 @@ fn initialize_pcap() {
     #[cfg(target_os = "windows")]
     {
         if !flodbadd::npcap_utils::is_npcap_installed() {
-            eprintln!("Npcap required for packet capture functionality. Installing automatically...");
+            eprintln!(
+                "Npcap required for packet capture functionality. Installing automatically..."
+            );
             match flodbadd::npcap_utils::auto_install_npcap_silent(None) {
                 Ok(_) => println!("Npcap installed successfully"),
                 Err(e) => eprintln!("Error installing Npcap: {:?} - continuing anyway", e),
@@ -888,7 +890,9 @@ fn initialize_pcap() {
 
     // Windows: set DLL directory if Npcap is present so loader can find wpcap.dll/Packet.dll
     #[cfg(target_os = "windows")]
-    { let _ = flodbadd::npcap_utils::configure_npcap_runtime(); }
+    {
+        let _ = flodbadd::npcap_utils::configure_npcap_runtime();
+    }
 }
 
 pub fn main() {
