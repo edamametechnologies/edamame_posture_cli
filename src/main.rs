@@ -14,7 +14,6 @@ use edamame_core::api::api_core::*;
 use edamame_core::api::api_flodbadd::*;
 use edamame_core::api::api_trust::*;
 use envcrypt::envc;
-use flodbadd::capture::FlodbaddCapture;
 use lazy_static::lazy_static;
 use machine_uid;
 use regex::Regex;
@@ -108,6 +107,7 @@ pub fn initialize_core(
     reporting: bool,
     community: bool,
     server: bool,
+    capture: bool,
     verbose: bool,
 ) {
     // Set device ID
@@ -168,6 +168,10 @@ pub fn initialize_core(
         true,
         false,
     );
+
+    if capture {
+        initialize_pcap();
+    }
 }
 
 fn print_completions<G: Generator>(gen: G, cmd: &mut Command) {
@@ -212,7 +216,7 @@ pub fn run_background(
 ) {
     // Initialize the core with all options enabled
     // Verbose is set by the caller
-    initialize_core(device_id, true, true, true, true, verbose);
+    initialize_core(device_id, true, true, true, true, true, verbose);
 
     // Admin check here (after core initialization)
     ensure_admin();
@@ -279,13 +283,13 @@ fn run_base() {
         ////////////////
         Some(("get-score", _)) => {
             // Initialize the core with computing enabled
-            initialize_core("".to_string(), true, false, false, false, verbose);
+            initialize_core("".to_string(), true, false, false, false, false, verbose);
             ensure_admin();
             base_get_score(true);
         }
         Some(("lanscan", _)) => {
             // Initialize the core with all options disabled
-            initialize_core("".to_string(), false, false, false, false, verbose);
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
             ensure_admin();
             // Initialize network
             set_network(NetworkAPI {
@@ -328,7 +332,7 @@ fn run_base() {
         }
         Some(("capture", sub_matches)) => {
             // Initialize the core with all options disabled
-            initialize_core("".to_string(), false, false, false, false, verbose);
+            initialize_core("".to_string(), false, false, false, false, true, verbose);
             ensure_admin();
 
             let seconds = sub_matches.get_one::<u64>("SECONDS").unwrap_or(&900);
@@ -343,12 +347,12 @@ fn run_base() {
         }
         Some(("get-core-info", _)) => {
             // Initialize the core with all options disabled
-            initialize_core("".to_string(), false, false, false, false, verbose);
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
             base_get_core_info();
         }
         Some(("get-device-info", _)) => {
             // Initialize the core with all options disabled
-            initialize_core("".to_string(), false, false, false, false, verbose);
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
             ensure_admin();
             base_get_device_info();
         }
@@ -357,13 +361,13 @@ fn run_base() {
             let user = sub_matches.get_one::<String>("USER").unwrap().to_string();
             let domain = sub_matches.get_one::<String>("DOMAIN").unwrap().to_string();
             // Initialize the core with all options disabled
-            initialize_core("".to_string(), false, false, false, false, verbose);
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
             exit_code = base_request_pin(user, domain);
         }
         Some(("get-core-version", _)) => {
             // No admin check needed here
             // Initialize the core with all options disabled
-            initialize_core("".to_string(), false, false, false, false, verbose);
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
             base_get_core_version();
         }
         Some(("remediate-all-threats", sub_matches)) => {
@@ -372,13 +376,13 @@ fn run_base() {
                 .unwrap_or(&String::new())
                 .to_string();
             // Initialize the core with computing enabled
-            initialize_core("".to_string(), true, false, false, false, false);
+            initialize_core("".to_string(), true, false, false, false, false, verbose);
             ensure_admin();
             base_remediate(&remediations_to_skip)
         }
         Some(("remediate-all-threats-force", _)) => {
             // Initialize the core with computing enabled
-            initialize_core("".to_string(), true, false, false, false, false);
+            initialize_core("".to_string(), true, false, false, false, false, verbose);
             ensure_admin();
             base_remediate("");
         }
@@ -388,7 +392,7 @@ fn run_base() {
                 .expect("THREAT_ID not provided")
                 .to_string();
             // Initialize the core with computing enabled
-            initialize_core("".to_string(), true, false, false, false, false);
+            initialize_core("".to_string(), true, false, false, false, false, false);
             ensure_admin();
             exit_code = base_remediate_threat(threat_id);
         }
@@ -399,7 +403,7 @@ fn run_base() {
                 .unwrap()
                 .to_string();
             // Initialize the core with computing enabled
-            initialize_core("".to_string(), true, false, false, false, verbose);
+            initialize_core("".to_string(), true, false, false, false, false, verbose);
             // Needed as we will compute the score
             ensure_admin();
             exit_code = base_check_policy_for_domain(domain, policy_name);
@@ -415,7 +419,7 @@ fn run_base() {
                 .unwrap()
                 .to_string();
             // Initialize the core with all options disabled (we will not compute the score not rely on local score but rather call the backend)
-            initialize_core("".to_string(), false, false, false, false, verbose);
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
             exit_code = base_check_policy_for_domain_with_signature(signature, domain, policy_name);
         }
         Some(("check-policy", sub_matches)) => {
@@ -429,18 +433,18 @@ fn run_base() {
                 .map(|s| s.to_string())
                 .unwrap_or_else(|| String::new());
             // Initialize the core with computing enabled
-            initialize_core("".to_string(), true, false, false, false, verbose);
+            initialize_core("".to_string(), true, false, false, false, false, verbose);
             ensure_admin();
             exit_code = base_check_policy(minimum_score, threat_ids, tag_prefixes);
         }
         Some(("get-tag-prefixes", _)) => {
             // Initialize the core with computing enabled
-            initialize_core("".to_string(), true, false, false, false, verbose);
+            initialize_core("".to_string(), true, false, false, false, false, verbose);
             ensure_admin();
             base_get_tag_prefixes();
         }
         Some(("augment-custom-whitelists", _)) => {
-            initialize_core("".to_string(), false, false, false, false, verbose);
+            initialize_core("".to_string(), false, false, false, false, true, verbose);
             ensure_admin();
             exit_code = base_augment_custom_whitelists();
         }
@@ -453,7 +457,7 @@ fn run_base() {
                 .get_one::<String>("WHITELIST_JSON_2")
                 .expect("WHITELIST_JSON_2 not provided")
                 .to_string();
-            initialize_core("".to_string(), false, false, false, false, verbose);
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
             ensure_admin();
             exit_code = base_merge_custom_whitelists(wl1, wl2);
         }
@@ -470,7 +474,7 @@ fn run_base() {
                 std::fs::read_to_string(wl_file2),
             ) {
                 (Ok(wl1), Ok(wl2)) => {
-                    initialize_core("".to_string(), false, false, false, false, verbose);
+                    initialize_core("".to_string(), false, false, false, false, false, verbose);
                     ensure_admin();
                     exit_code = base_merge_custom_whitelists(wl1, wl2);
                 }
@@ -490,7 +494,7 @@ fn run_base() {
                 .expect("THREAT_ID not provided")
                 .to_string();
             // Initialize the core with computing enabled
-            initialize_core("".to_string(), true, false, false, false, false);
+            initialize_core("".to_string(), true, false, false, false, false, verbose);
             ensure_admin();
             exit_code = base_rollback_threat(threat_id);
         }
@@ -500,23 +504,23 @@ fn run_base() {
                 .expect("THREAT_ID not provided")
                 .to_string();
             // Initialize the core with computing enabled
-            initialize_core("".to_string(), true, false, false, false, verbose);
+            initialize_core("".to_string(), true, false, false, false, false, verbose);
             base_get_threat_info(threat_id);
         }
         Some(("list-threats", _)) => {
             // Initialize the core with computing enabled
-            initialize_core("".to_string(), true, false, false, false, verbose);
+            initialize_core("".to_string(), true, false, false, false, false, verbose);
             base_list_threats();
         }
         Some(("get-system-info", _)) => {
             // Initialize the core with all options disabled
-            initialize_core("".to_string(), false, false, false, false, verbose);
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
             ensure_admin();
             base_get_system_info();
         }
         Some(("request-signature", _)) => {
             // Initialize the core with computing enabled
-            initialize_core("".to_string(), true, false, false, false, false);
+            initialize_core("".to_string(), true, false, false, false, false, verbose);
             ensure_admin();
             // Display the score
             base_get_score(true);
@@ -530,7 +534,7 @@ fn run_base() {
                 .unwrap()
                 .to_string();
             // Initialize the core with all options disabled
-            initialize_core("".to_string(), false, false, false, false, verbose);
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
             exit_code = base_request_report(email, signature);
         }
         //////////////////////
@@ -538,7 +542,7 @@ fn run_base() {
         //////////////////////
         Some(("background-logs", _)) => {
             // Initialize the core with all options disabled
-            initialize_core("".to_string(), false, false, false, false, verbose);
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
 
             let logs = match rpc_get_all_logs(
                 &EDAMAME_CA_PEM,
@@ -564,7 +568,7 @@ fn run_base() {
                 }
             };
             // Initialize the core with all options disabled
-            initialize_core("".to_string(), false, false, false, false, verbose);
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
             is_background = true;
             exit_code = background_wait_for_connection(*timeout);
         }
@@ -584,7 +588,7 @@ fn run_base() {
                 .unwrap_or(&true);
 
             // Initialize the core with all options disabled
-            initialize_core("".to_string(), false, false, false, false, verbose);
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
             exit_code = background_get_sessions(
                 *zeek_format,
                 *local_traffic,
@@ -601,7 +605,7 @@ fn run_base() {
                 .unwrap_or(&false);
 
             // Initialize the core with all options disabled
-            initialize_core("".to_string(), false, false, false, false, verbose);
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
             exit_code = background_get_exceptions(*zeek_format, *local_traffic);
             is_background = true;
         }
@@ -609,7 +613,7 @@ fn run_base() {
             let zeek_format = sub_matches.get_one::<bool>("ZEEK_FORMAT").unwrap_or(&false);
 
             // Initialize the core with all options disabled
-            initialize_core("".to_string(), false, false, false, false, verbose);
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
             exit_code = background_get_anomalous_sessions(*zeek_format);
             is_background = true;
         }
@@ -617,20 +621,20 @@ fn run_base() {
             let zeek_format = sub_matches.get_one::<bool>("ZEEK_FORMAT").unwrap_or(&false);
 
             // Initialize the core with all options disabled
-            initialize_core("".to_string(), false, false, false, false, verbose);
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
             exit_code = background_get_blacklisted_sessions(*zeek_format);
             is_background = true;
         }
         Some(("background-threats-info", _)) => {
             // Initialize the core with all options disabled
-            initialize_core("".to_string(), false, false, false, false, verbose);
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
             ensure_admin();
             exit_code = background_get_threats_info();
             is_background = true;
         }
         Some(("background-get-history", _)) => {
             // Initialize the core with all options disabled
-            initialize_core("".to_string(), false, false, false, false, verbose);
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
             exit_code = background_get_history();
             is_background = true;
         }
@@ -663,7 +667,7 @@ fn run_base() {
                 .get_one::<bool>("LOCAL_TRAFFIC")
                 .unwrap_or(&false);
             // Initialize the core with all options disabled
-            initialize_core("".to_string(), false, false, false, false, verbose);
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
             ensure_admin();
             background_start(
                 user,
@@ -690,7 +694,7 @@ fn run_base() {
                 .unwrap_or(&false);
 
             // Initialize the core with all options disabled
-            initialize_core("".to_string(), false, false, false, false, verbose);
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
             ensure_admin();
             background_start(
                 "".to_string(),
@@ -730,19 +734,19 @@ fn run_base() {
         }
         Some(("background-stop", _)) => {
             // Initialize the core with all options disabled
-            initialize_core("".to_string(), false, false, false, false, verbose);
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
             exit_code = background_stop();
             is_background = true;
         }
         Some(("background-status", _)) => {
             // Initialize the core with all options disabled
-            initialize_core("".to_string(), false, false, false, false, verbose);
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
             exit_code = background_get_status();
             is_background = true;
         }
         Some(("background-last-report-signature", _)) => {
             // Initialize the core with all options disabled
-            initialize_core("".to_string(), false, false, false, false, verbose);
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
             exit_code = background_get_last_report_signature();
             is_background = true;
         }
@@ -752,7 +756,7 @@ fn run_base() {
                 .expect("WHITELIST_JSON not provided")
                 .to_string();
             // Initialize the core with all options disabled
-            initialize_core("".to_string(), false, false, false, false, verbose);
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
             exit_code = background_set_custom_whitelists(whitelist_json);
             is_background = true;
         }
@@ -763,7 +767,7 @@ fn run_base() {
             match std::fs::read_to_string(whitelist_file) {
                 Ok(whitelist_json) => {
                     // Initialize the core with all options disabled
-                    initialize_core("".to_string(), false, false, false, false, verbose);
+                    initialize_core("".to_string(), false, false, false, false, false, verbose);
                     exit_code = background_set_custom_whitelists(whitelist_json);
                     is_background = true;
                 }
@@ -779,7 +783,7 @@ fn run_base() {
                 .expect("BLACKLIST_JSON not provided")
                 .to_string();
             // Initialize the core with all options disabled
-            initialize_core("".to_string(), false, false, false, false, verbose);
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
             exit_code = background_set_custom_blacklists(blacklist_json);
             is_background = true;
         }
@@ -790,7 +794,7 @@ fn run_base() {
             match std::fs::read_to_string(blacklist_file) {
                 Ok(blacklist_json) => {
                     // Initialize the core with all options disabled
-                    initialize_core("".to_string(), false, false, false, false, verbose);
+                    initialize_core("".to_string(), false, false, false, false, false, verbose);
                     exit_code = background_set_custom_blacklists(blacklist_json);
                     is_background = true;
                 }
@@ -802,43 +806,43 @@ fn run_base() {
         }
         Some(("background-create-custom-whitelists", _)) => {
             // Initialize the core with all options disabled
-            initialize_core("".to_string(), false, false, false, false, verbose);
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
             exit_code = background_create_custom_whitelists();
             is_background = true;
         }
         Some(("background-create-and-set-custom-whitelists", _)) => {
             // Initialize the core with all options disabled
-            initialize_core("".to_string(), false, false, false, false, verbose);
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
             exit_code = background_create_and_set_custom_whitelists();
             is_background = true;
         }
         Some(("background-score", _)) => {
             // Initialize the core with all options disabled
-            initialize_core("".to_string(), false, false, false, false, verbose);
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
             exit_code = background_get_score();
             is_background = true;
         }
         Some(("background-get-blacklists", _)) => {
             // Initialize the core with all options disabled
-            initialize_core("".to_string(), false, false, false, false, verbose);
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
             exit_code = background_get_blacklists();
             is_background = true;
         }
         Some(("background-get-whitelists", _)) => {
             // Initialize the core with all options disabled
-            initialize_core("".to_string(), false, false, false, false, verbose);
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
             exit_code = background_get_whitelists();
             is_background = true;
         }
         Some(("background-get-whitelist-name", _)) => {
             // Initialize the core with all options disabled
-            initialize_core("".to_string(), false, false, false, false, verbose);
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
             exit_code = background_get_whitelist_name();
             is_background = true;
         }
         _ => {
             // Initialize the core with all options disabled
-            initialize_core("".to_string(), false, false, false, false, verbose);
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
             eprintln!("Invalid command, use --help for more information");
             exit_code = ERROR_CODE_PARAM;
         }
@@ -867,23 +871,26 @@ fn run_base() {
     exit(exit_code);
 }
 
-pub fn main() {
-    if FlodbaddCapture::check_pcap_installation().is_err() {
-        #[cfg(target_os = "windows")]
-        {
-            eprintln!(
-                "Npcap required for packet capture functionality. Installing automatically..."
-            );
-            match FlodbaddCapture::auto_install_npcap(None) {
+fn initialize_pcap() {
+    // On Windows, ensure Npcap is installed before setting DLL directory
+    #[cfg(target_os = "windows")]
+    {
+        if !flodbadd::npcap_utils::is_npcap_installed() {
+            eprintln!("Npcap required for packet capture functionality. Installing automatically...");
+            match flodbadd::npcap_utils::auto_install_npcap_silent(None) {
                 Ok(_) => println!("Npcap installed successfully"),
                 Err(e) => eprintln!("Error installing Npcap: {:?} - continuing anyway", e),
             }
-        }
-        #[cfg(not(target_os = "windows"))]
-        {
-            eprintln!("Pcap required for packet capture functionality.");
+        } else {
+            println!("Npcap is installed");
         }
     }
 
+    // Windows: set DLL directory if Npcap is present so loader can find wpcap.dll/Packet.dll
+    #[cfg(target_os = "windows")]
+    { let _ = flodbadd::npcap_utils::configure_npcap_runtime(); }
+}
+
+pub fn main() {
     run();
 }
