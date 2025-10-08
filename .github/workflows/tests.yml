@@ -165,23 +165,6 @@ jobs:
         # We can't use bash here, as the AzureSignTool is a .NET tool
         run: AzureSignTool sign -kvt ${{ secrets.AZURE_SIGN_TENANT_ID }} -kvu ${{ secrets.AZURE_SIGN_KEY_VAULT_URI }} -kvi ${{ secrets.AZURE_SIGN_CLIENT_ID }} -kvs ${{ secrets.AZURE_SIGN_CLIENT_SECRET }} -kvc ${{ secrets.AZURE_SIGN_CERT_NAME }} -tr http://timestamp.digicert.com -v ./target/release/edamame_posture.exe
 
-      - name: Pcap DLLs for Windows
-        shell: bash
-        if: matrix.os == 'windows'
-        run: |
-          # For cargo tests
-          mkdir -p ./target/debug
-          wget https://github.com/edamametechnologies/edamame_posture_cli/raw/refs/heads/main/windows/Packet.dll -O ./target/debug/Packet.dll
-          wget https://github.com/edamametechnologies/edamame_posture_cli/raw/refs/heads/main/windows/wpcap.dll -O ./target/debug/wpcap.dll
-          # For Standalone and Integration tests
-          mkdir -p ./target/release
-          cp -f ./target/debug/Packet.dll ./target/release/
-          cp -f ./target/debug/wpcap.dll ./target/release/
-          # For Integration tests
-          mkdir -p ./tests_temp
-          cp -f ./target/debug/Packet.dll ./tests_temp/
-          cp -f ./target/debug/wpcap.dll ./tests_temp/
-
       - name: Run Basic Cargo Tests
         id: cargo_tests
         shell: bash

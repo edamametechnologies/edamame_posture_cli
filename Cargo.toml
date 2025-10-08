@@ -1,12 +1,16 @@
 [package]
 name = "edamame_posture"
-version = "0.9.69"
+version = "0.9.71"
 edition = "2021"
 description = "EDAMAME Security posture analysis and remediation"
 
 [dependencies]
+# Local copy in order to allow rapid development/debug
 #edamame_core = { path = "../edamame_core", features = [ "standalone", "swiftrs" ] }
 edamame_core = { git = "https://github.com/edamametechnologies/edamame_core", branch = "main", features = [ "standalone", "swiftrs" ] }
+# Local copy in order to allow rapid development/debug
+#flodbadd = { path = "../flodbadd" }
+flodbadd = { git = "https://github.com/edamametechnologies/flodbadd", branch = "main" }
 
 # Error handling
 anyhow = "1.0.82"
