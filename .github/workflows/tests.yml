@@ -62,18 +62,18 @@ jobs:
 
     steps:
 
-      #- name: Setup EDAMAME Posture
-      #  uses: edamametechnologies/edamame_posture_action@v0
-      #  with:
-      #    edamame_user: ${{ vars.EDAMAME_POSTURE_USER }}
-      #    edamame_domain: ${{ vars.EDAMAME_POSTURE_DOMAIN }}
-      #    edamame_pin: ${{ secrets.EDAMAME_POSTURE_PIN }}
-      #    edamame_id: ${{ github.run_id }}-native-${{ matrix.os }}-${{ matrix.arch }} # Unique ID
-      #    checkout: true
+      - name: Setup EDAMAME Posture
+        uses: edamametechnologies/edamame_posture_action@v0
+        with:
+          edamame_user: ${{ vars.EDAMAME_POSTURE_USER }}
+          edamame_domain: ${{ vars.EDAMAME_POSTURE_DOMAIN }}
+          edamame_pin: ${{ secrets.EDAMAME_POSTURE_PIN }}
+          edamame_id: ${{ github.run_id }}-native-${{ matrix.os }}-${{ matrix.arch }} # Unique ID
+          checkout: true
           # We are using the token of the the private repo to checkout the public repo and properly wait for access to the private repo
-      #    token: ${{ secrets.DEV_GITHUB_TOKEN }}
-      #    wait_for_api: true
-      #    wait_for_https: true
+          token: ${{ secrets.DEV_GITHUB_TOKEN }}
+          wait_for_api: true
+          wait_for_https: true
 
       - name: Configure Git Authentication to import private crates
         run: |
