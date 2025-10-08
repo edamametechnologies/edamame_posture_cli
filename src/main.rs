@@ -14,6 +14,7 @@ use edamame_core::api::api_core::*;
 use edamame_core::api::api_flodbadd::*;
 use edamame_core::api::api_trust::*;
 use envcrypt::envc;
+use flodbadd::capture::FlodbaddCapture;
 use lazy_static::lazy_static;
 use machine_uid;
 use regex::Regex;
@@ -867,5 +868,22 @@ fn run_base() {
 }
 
 pub fn main() {
+    if FlodbaddCapture::check_pcap_installation().is_err() {
+        #[cfg(target_os = "windows")]
+        {
+            eprintln!(
+                "Npcap required for packet capture functionality. Installing automatically..."
+            );
+            match FlodbaddCapture::auto_install_npcap(None) {
+                Ok(_) => println!("Npcap installed successfully"),
+                Err(e) => eprintln!("Error installing Npcap: {:?} - continuing anyway", e),
+            }
+        }
+        #[cfg(not(target_os = "windows"))]
+        {
+            eprintln!("Pcap required for packet capture functionality.");
+        }
+    }
+
     run();
 }
