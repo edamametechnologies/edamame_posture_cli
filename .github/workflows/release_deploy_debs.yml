@@ -36,7 +36,7 @@ jobs:
           - os: ubuntu
             # ubuntu-24.04-arm breaks cross
             runs-on: ubuntu-latest
-            arch: amd64
+            arch: aarch64
             target: aarch64-unknown-linux-gnu
             deb_arch: arm64         
     runs-on: ${{ matrix.runs-on }}
@@ -133,6 +133,11 @@ jobs:
             echo "Installing aarch64-linux-gnu-binutils..."
             sudo apt-get install binutils-aarch64-linux-gnu
           fi
+
+          # Verify binutils installation
+          which objcopy || echo "Warning: objcopy not found"
+          which strip || echo "Warning: strip not found"
+
           # Install cargo-deb
           echo "Installing cargo-deb..."
           cargo install cargo-deb
