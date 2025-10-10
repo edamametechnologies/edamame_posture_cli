@@ -49,4 +49,5 @@ passthrough = [
     "EDAMAME_CLIENT_CA_PEM",
     "LAMBDA_SIGNATURE",
     "MIXPANEL_TOKEN",
+    "RUSTFLAGS",
 ]
