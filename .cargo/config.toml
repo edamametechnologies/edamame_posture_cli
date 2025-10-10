@@ -10,6 +10,7 @@ rustflags = ["-L/usr/local/musl/usr/lib"]
 
 [target.x86_64-unknown-linux-gnu]
 linker = "x86_64-linux-gnu-gcc"
+rustflags = ["-C", "link-self-contained=no"]
 
 [target.i686-unknown-linux-gnu]
 linker = "i686-linux-gnu-gcc"
