@@ -18,6 +18,9 @@ pub fn background_process(
     lan_scanning: bool,
     whitelist_name: String,
     local_traffic: bool,
+    agentic_mode: String,
+    agentic_provider: Option<String>,
+    agentic_interval: u64,
 ) {
     info!(
         "Starting background process with user: {}, domain: {}, lan_scanning: {}, local_traffic: {}",
@@ -102,10 +105,33 @@ pub fn background_process(
     // Request a score computation
     compute_score();
 
+    // Configure agentic AI if enabled
+    let agentic_enabled = agentic_mode != "disabled";
+    if agentic_enabled {
+        info!(
+            "AI Assistant enabled: mode={}, provider={:?}, interval={}s",
+            agentic_mode, agentic_provider, agentic_interval
+        );
+
+        // Set LLM configuration if provider specified
+        if let Some(provider) = &agentic_provider {
+            crate::background_configure_agentic(provider.clone());
+        }
+    }
+
     // Loop forever as background process is running
+    let mut agentic_counter = 0u64;
     loop {
         // Sleep for 5 seconds
         sleep(Duration::from_secs(5));
+        agentic_counter += 5;
+
+        // Periodically process todos if agentic mode enabled
+        if agentic_enabled && agentic_counter >= agentic_interval {
+            info!("AI Assistant: Processing security todos...");
+            crate::background_process_agentic(&agentic_mode);
+            agentic_counter = 0;
+        }
     }
 }
 
@@ -129,6 +155,9 @@ pub fn background_start(
     lan_scanning: bool,
     whitelist_name: String,
     local_traffic: bool,
+    agentic_mode: String,
+    agentic_provider: Option<String>,
+    agentic_interval: u64,
 ) {
     // Show core version
     base_get_core_version();
@@ -142,7 +171,8 @@ pub fn background_start(
         std::process::exit(1);
     }
 
-    println!("Starting background process with provided parameters, user: {}, domain: {}, device_id: {}, lan_scanning: {}, whitelist_name: {}, local_traffic: {}", user, domain, device_id, lan_scanning, whitelist_name, local_traffic);
+    println!("Starting background process with provided parameters, user: {}, domain: {}, device_id: {}, lan_scanning: {}, whitelist_name: {}, local_traffic: {}, agentic_mode: {}, agentic_interval: {}s", 
+             user, domain, device_id, lan_scanning, whitelist_name, local_traffic, agentic_mode, agentic_interval);
 
     #[cfg(unix)]
     {
@@ -169,6 +199,9 @@ pub fn background_start(
                     .arg(&lan_scanning.to_string())
                     .arg(&whitelist_name)
                     .arg(&local_traffic.to_string())
+                    .arg(&agentic_mode)
+                    .arg(agentic_provider.as_deref().unwrap_or("none"))
+                    .arg(&agentic_interval.to_string())
                     .output()
                     .expect("Failed to start background process");
                 std::process::exit(0);

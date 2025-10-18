@@ -298,9 +298,9 @@ Example (GitHub Actions):
 - name: Setup EDAMAME Posture
   run: |
     # Download and install EDAMAME Posture (Linux example)
-    curl -LO https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.71/edamame_posture-0.9.71-x86_64-unknown-linux-gnu
-    chmod +x edamame_posture-0.9.71-x86_64-unknown-linux-gnu
-    sudo mv edamame_posture-0.9.71-x86_64-unknown-linux-gnu /usr/local/bin/edamame_posture
+    curl -LO https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.72/edamame_posture-0.9.72-x86_64-unknown-linux-gnu
+    chmod +x edamame_posture-0.9.72-x86_64-unknown-linux-gnu
+    sudo mv edamame_posture-0.9.72-x86_64-unknown-linux-gnu /usr/local/bin/edamame_posture
 
     # Start background monitoring in disconnected mode (with LAN scanning enabled)
     sudo edamame_posture background-start-disconnected true github_ubuntu
@@ -311,9 +311,9 @@ Example (GitLab CI):
 setup_security:
   stage: setup
   script:
-    - curl -LO https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.71/edamame_posture-0.9.71-x86_64-unknown-linux-gnu
-    - chmod +x edamame_posture-0.9.71-x86_64-unknown-linux-gnu
-    - sudo mv edamame_posture-0.9.71-x86_64-unknown-linux-gnu /usr/local/bin/edamame_posture
+    - curl -LO https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.72/edamame_posture-0.9.72-x86_64-unknown-linux-gnu
+    - chmod +x edamame_posture-0.9.72-x86_64-unknown-linux-gnu
+    - sudo mv edamame_posture-0.9.72-x86_64-unknown-linux-gnu /usr/local/bin/edamame_posture
     - sudo edamame_posture background-start-disconnected true github_ubuntu
 ```
 
@@ -424,9 +424,9 @@ pipeline {
             steps {
                 sh '''
                 # Download and install EDAMAME Posture (Linux Jenkins agent example)
-                curl -LO https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.71/edamame_posture-0.9.71-x86_64-unknown-linux-gnu
-                chmod +x edamame_posture-0.9.71-x86_64-unknown-linux-gnu
-                sudo mv edamame_posture-0.9.71-x86_64-unknown-linux-gnu /usr/local/bin/edamame_posture
+                curl -LO https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.72/edamame_posture-0.9.72-x86_64-unknown-linux-gnu
+                chmod +x edamame_posture-0.9.72-x86_64-unknown-linux-gnu
+                sudo mv edamame_posture-0.9.72-x86_64-unknown-linux-gnu /usr/local/bin/edamame_posture
 
                 # Start background monitoring (disconnected mode with LAN scanning)
                 sudo edamame_posture background-start-disconnected true github_ubuntu
@@ -539,18 +539,18 @@ The easiest way to install on Debian-based distributions is via our APT reposito
 If you prefer not to add a repository, you can install the Debian package manually:
 
 1. **Download** the Debian package for your platform:
-   - **x86_64 (64-bit):** [edamame-posture_0.9.71-1_amd64.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.71/edamame-posture_0.9.71-1_amd64.deb)
-   - **i686 (32-bit):** [edamame-posture_0.9.71-1_i386.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.71/edamame-posture_0.9.71-1_i386.deb)
-   - **aarch64 (ARM 64-bit):** [edamame-posture_0.9.71-1_arm64.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.71/edamame-posture_0.9.71-1_arm64.deb)
-   - **armv7 (ARM 32-bit):** [edamame-posture_0.9.71-1_armhf.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.71/edamame-posture_0.9.71-1_armhf.deb)
+   - **x86_64 (64-bit):** [edamame-posture_0.9.72-1_amd64.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.72/edamame-posture_0.9.72-1_amd64.deb)
+   - **i686 (32-bit):** [edamame-posture_0.9.72-1_i386.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.72/edamame-posture_0.9.72-1_i386.deb)
+   - **aarch64 (ARM 64-bit):** [edamame-posture_0.9.72-1_arm64.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.72/edamame-posture_0.9.72-1_arm64.deb)
+   - **armv7 (ARM 32-bit):** [edamame-posture_0.9.72-1_armhf.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.72/edamame-posture_0.9.72-1_armhf.deb)
 
    > **Note**: These Debian packages have been tested on Linux Mint 20 and newer, and Ubuntu 20.04 and newer.
 
 2. **Install** the package using either method:
    ```bash
-   sudo apt install ./edamame-posture_0.9.71-1_amd64.deb
+   sudo apt install ./edamame-posture_0.9.72-1_amd64.deb
    # or
-   sudo dpkg -i edamame-posture_0.9.71-1_amd64.deb
+   sudo dpkg -i edamame-posture_0.9.72-1_amd64.deb
    ```
 
 3. **Configure** the service by editing the configuration file:
@@ -581,17 +581,17 @@ If you prefer not to add a repository, you can install the Debian package manual
 For other Linux distributions or portable installation:
 
 1. **Download Binary**: From the Releases page, download the binary for your architecture:
-   - **x86_64 (64-bit)**: [edamame_posture-0.9.71-x86_64-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.71/edamame_posture-0.9.71-x86_64-unknown-linux-gnu)  
-   - **i686 (32-bit)**: [edamame_posture-0.9.71-i686-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.71/edamame_posture-0.9.71-i686-unknown-linux-gnu)  
-   - **aarch64 (ARM 64-bit)**: [edamame_posture-0.9.71-aarch64-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.71/edamame_posture-0.9.71-aarch64-unknown-linux-gnu)  
-   - **armv7 (ARM 32-bit)**: [edamame_posture-0.9.71-armv7-unknown-linux-gnueabihf](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.71/edamame_posture-0.9.71-armv7-unknown-linux-gnueabihf)
-   - **x86_64 (64-bit) for Alpine Linux (musl)**: [edamame_posture-0.9.71-x86_64-unknown-linux-musl](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.71/edamame_posture-0.9.71-x86_64-unknown-linux-musl) 
-   - **aarch64 (ARM 64-bit) for Alpine Linux (musl)**: [edamame_posture-0.9.71-aarch64-unknown-linux-musl](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.71/edamame_posture-0.9.71-aarch64-unknown-linux-musl)
+   - **x86_64 (64-bit)**: [edamame_posture-0.9.72-x86_64-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.72/edamame_posture-0.9.72-x86_64-unknown-linux-gnu)  
+   - **i686 (32-bit)**: [edamame_posture-0.9.72-i686-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.72/edamame_posture-0.9.72-i686-unknown-linux-gnu)  
+   - **aarch64 (ARM 64-bit)**: [edamame_posture-0.9.72-aarch64-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.72/edamame_posture-0.9.72-aarch64-unknown-linux-gnu)  
+   - **armv7 (ARM 32-bit)**: [edamame_posture-0.9.72-armv7-unknown-linux-gnueabihf](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.72/edamame_posture-0.9.72-armv7-unknown-linux-gnueabihf)
+   - **x86_64 (64-bit) for Alpine Linux (musl)**: [edamame_posture-0.9.72-x86_64-unknown-linux-musl](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.72/edamame_posture-0.9.72-x86_64-unknown-linux-musl) 
+   - **aarch64 (ARM 64-bit) for Alpine Linux (musl)**: [edamame_posture-0.9.72-aarch64-unknown-linux-musl](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.72/edamame_posture-0.9.72-aarch64-unknown-linux-musl)
 
 2. **Install Binary**: Extract if needed and place the edamame_posture binary into a directory in your PATH (such as `/usr/local/bin`). For example:
 ```bash
-chmod +x edamame_posture-0.9.71-x86_64-unknown-linux-gnu  
-sudo mv edamame_posture-0.9.71-x86_64-unknown-linux-gnu /usr/local/bin/edamame_posture
+chmod +x edamame_posture-0.9.72-x86_64-unknown-linux-gnu  
+sudo mv edamame_posture-0.9.72-x86_64-unknown-linux-gnu /usr/local/bin/edamame_posture
 ```
 
 ### macOS
@@ -600,7 +600,7 @@ sudo mv edamame_posture-0.9.71-x86_64-unknown-linux-gnu /usr/local/bin/edamame_p
 For a developer workstation on macOS:
 
 1. **Download** the macOS universal binary:
-   - [edamame_posture-0.9.71-universal-apple-darwin](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.71/edamame_posture-0.9.71-universal-apple-darwin)  
+   - [edamame_posture-0.9.72-universal-apple-darwin](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.72/edamame_posture-0.9.72-universal-apple-darwin)  
 
 2. **Install** by placing the binary in your `PATH` and making it executable:
    ```bash
@@ -616,7 +616,7 @@ For a developer workstation on macOS:
 For a Windows workstation or server:
 
 1. **Download** the Windows binary:
-   - [edamame_posture-0.9.71-x86_64-pc-windows-msvc.exe](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.71/edamame_posture-0.9.71-x86_64-pc-windows-msvc.exe)
+   - [edamame_posture-0.9.72-x86_64-pc-windows-msvc.exe](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.72/edamame_posture-0.9.72-x86_64-pc-windows-msvc.exe)
 
 2. **Install Npcap** (Required for traffic capture feature):
    - Install [Npcap](https://npcap.com/#download), the packet capture library from the Nmap team
@@ -706,6 +706,172 @@ For completeness, here is a list of EDAMAME Posture CLI subcommands with detaile
 
 Each command may have additional options and flags; run `edamame_posture <command> --help` for detailed usage information on that command. Commands marked with *Requires admin privileges* need to be run with elevated permissions (sudo on Linux/macOS, Run as Administrator on Windows).
 
+## AI Assistant for Automated Security Management
+
+EDAMAME Posture includes an **AI Assistant** that provides automated "Do It For Me" functionality for security posture management. The AI assistant can automatically process security todos using LLM (Large Language Model) analysis, reducing manual security work while maintaining safety.
+
+### Background Daemon Integration (Recommended)
+
+The AI Assistant runs continuously as part of the background daemon, automatically processing security todos at regular intervals.
+
+#### Starting with AI Assistant
+
+```bash
+# Basic syntax
+edamame_posture start <USER> <DOMAIN> <PIN> [DEVICE_ID] [LAN_SCANNING] [WHITELIST_NAME] [LOCAL_TRAFFIC] [AGENTIC_MODE] [AGENTIC_PROVIDER] [AGENTIC_INTERVAL]
+```
+
+**Agentic Parameters:**
+- `AGENTIC_MODE`: `auto`, `semi`, `manual`, or `disabled` (default: `disabled`)
+- `AGENTIC_PROVIDER`: `claude`, `openai`, `ollama`, or `none`
+- `AGENTIC_INTERVAL`: Interval in seconds between processing runs (default: `300`)
+
+#### Example: Semi-Automatic with Claude
+
+```bash
+# Configure LLM via environment variable
+export EDAMAME_LLM_API_KEY=sk-ant-...
+
+# Start daemon with AI Assistant
+edamame_posture start myuser example.com 123456 "" true "" false semi claude 300
+
+# The AI will:
+# - Monitor security todos continuously
+# - Process them automatically every 5 minutes
+# - Auto-resolve low-risk items
+# - Escalate high-risk items for manual review
+```
+
+#### Example: Local Privacy Mode with Ollama
+
+```bash
+# Setup Ollama (one-time)
+brew install ollama
+ollama serve &
+ollama pull llama3.1
+
+# Start with local LLM (no API calls, zero cost)
+edamame_posture start myuser example.com 123456 "" true "" false semi ollama 300
+```
+
+### AI Assistant Modes
+
+| Mode | Behavior | Best For | Risk Level |
+|------|----------|----------|------------|
+| **auto** | Processes low and medium-risk todos automatically | Trusted environments, CI/CD | Higher automation |
+| **semi** ⭐ | Processes only low-risk todos automatically | Production servers | Balanced |
+| **manual** | Analyzes all todos but doesn't execute anything | Critical systems | Maximum control |
+| **disabled** | No AI processing | Manual management | No automation |
+
+### LLM Provider Options
+
+#### Claude (Anthropic) - Recommended ⭐
+```bash
+export EDAMAME_LLM_API_KEY=sk-ant-...
+# Default model for background: claude-4-5-haiku (fast/cheap)
+# Cost: ~$0.01 per run = ~$2.30/day with 5min interval
+```
+
+#### OpenAI
+```bash
+export EDAMAME_LLM_API_KEY=sk-proj-...
+# Default model for background: gpt-5-mini
+# Cost: ~$0.008 per run = ~$1.85/day with 5min interval
+```
+
+#### Ollama (Local) - Privacy First
+```bash
+brew install ollama && ollama pull llama3.1
+# No API key needed, runs locally
+# Cost: $0 (requires local resources)
+```
+
+#### None - Rule-Based
+```bash
+# No LLM, conservative rule-based decisions
+# Escalates most items for manual review
+# Cost: $0
+```
+
+### Configuration Details
+
+The AI Assistant configuration is passed to the background daemon through:
+1. **Environment Variables** (CLI input):
+   - `EDAMAME_LLM_API_KEY` - Your LLM API key
+   - `EDAMAME_LLM_MODEL` - Override default model (optional)
+   - `EDAMAME_LLM_BASE_URL` - Ollama base URL (optional, default: http://localhost:11434)
+
+2. **Command Parameters** (passed to core):
+   - The CLI reads env vars and passes config to edamame_core via API
+   - Config is stored in CoreManager state (in-memory, not persisted)
+   - More secure than storing API keys in environment variables within the daemon
+
+### Monitoring AI Activity
+
+```bash
+# View AI Assistant activity
+edamame_posture background-logs | grep "AI Assistant"
+
+# Expected output:
+# [INFO] AI Assistant enabled: mode=semi, provider=Some("claude"), interval=300s
+# [INFO] AI Assistant configured: claude / claude-4-5-haiku
+# [INFO] AI Assistant: Processed 5 todos - 4 auto-resolved, 1 escalated, 0 failed
+```
+
+### Systemd Integration
+
+```ini
+# /etc/systemd/system/edamame-posture.service
+
+[Unit]
+Description=EDAMAME Security Posture with AI Assistant
+After=network.target
+
+[Service]
+Type=forking
+Environment="EDAMAME_LLM_API_KEY=sk-ant-..."
+ExecStart=/usr/local/bin/edamame_posture start myuser example.com 123456 "" true "" false semi claude 600
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+```
+
+### Cost Analysis
+
+For 24/7 background operation:
+
+| Interval | Runs/Day | Claude Haiku | OpenAI mini | Ollama |
+|----------|----------|--------------|-------------|--------|
+| 5 min    | 288      | ~$2.88/day   | ~$2.30/day  | $0     |
+| 10 min   | 144      | ~$1.44/day   | ~$1.15/day  | $0     |
+| 30 min   | 48       | ~$0.48/day   | ~$0.38/day  | $0     |
+
+**Recommended**: Semi mode with 300-600s interval for balance of responsiveness and cost.
+
+### Handling Escalated Items
+
+When the AI escalates a todo (too risky or complex):
+1. **Remains in advisor** - Still visible in app/CLI
+2. **Logged for visibility** - Shows in background logs
+3. **Manual review needed** - Handle when convenient
+
+**Review via CLI:**
+```bash
+# Check what AI escalated
+edamame_posture background-logs | grep "escalated"
+
+# Review current todos
+edamame_posture background-score
+
+# Manually remediate if needed
+edamame_posture remediate-threat "threat-name"
+```
+
+**Review via App:**
+- Open edamame_app → Advisor tab → See escalated items with AI reasoning
+
 ## Exit Codes and CI/CD Pipelines
 EDAMAME Posture is designed to integrate seamlessly with CI/CD pipelines by using standardized exit codes that can control workflow execution. This allows for security-driven pipeline decisions without complex scripting.
 
@@ -731,9 +897,9 @@ jobs:
 
       - name: Install EDAMAME Posture
         run: |
-          curl -LO https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.71/edamame_posture-0.9.71-x86_64-unknown-linux-gnu
-          chmod +x edamame_posture-0.9.71-x86_64-unknown-linux-gnu
-          sudo mv edamame_posture-0.9.71-x86_64-unknown-linux-gnu /usr/local/bin/edamame_posture
+          curl -LO https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.72/edamame_posture-0.9.72-x86_64-unknown-linux-gnu
+          chmod +x edamame_posture-0.9.72-x86_64-unknown-linux-gnu
+          sudo mv edamame_posture-0.9.72-x86_64-unknown-linux-gnu /usr/local/bin/edamame_posture
 
       - name: Start background monitor in disconnected mode
         run: sudo edamame_posture background-start-disconnected true github_ubuntu
@@ -1360,9 +1526,9 @@ jobs:
 
       - name: Install EDAMAME Posture
         run: |
-          curl -LO https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.71/edamame_posture-0.9.71-x86_64-unknown-linux-gnu
-          chmod +x edamame_posture-0.9.71-x86_64-unknown-linux-gnu
-          sudo mv edamame_posture-0.9.71-x86_64-unknown-linux-gnu /usr/local/bin/edamame_posture
+          curl -LO https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.72/edamame_posture-0.9.72-x86_64-unknown-linux-gnu
+          chmod +x edamame_posture-0.9.72-x86_64-unknown-linux-gnu
+          sudo mv edamame_posture-0.9.72-x86_64-unknown-linux-gnu /usr/local/bin/edamame_posture
 
       - name: Extract and verify signature from last commit
         run: |

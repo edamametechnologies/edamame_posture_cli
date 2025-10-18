@@ -1,7 +1,6 @@
 #[cfg(target_os = "windows")]
 use flodbadd::windows_npcap;
 
-
 use std::env;
 use vergen_gitcl::*;
 
