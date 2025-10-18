@@ -258,6 +258,23 @@ pub fn build_cli() -> Command {
                     // String with digits only
                     .value_parser(parse_digits_only),
             )
+            .arg(
+                arg!([AGENTIC_MODE] "AI assistant mode: auto, semi, manual, or disabled")
+                    .required(false)
+                    .default_value("disabled")
+                    .value_parser(["auto", "semi", "manual", "disabled"]),
+            )
+            .arg(
+                arg!([AGENTIC_PROVIDER] "LLM provider: claude, openai, ollama, none")
+                    .required(false)
+                    .value_parser(["claude", "openai", "ollama", "none"]),
+            )
+            .arg(
+                arg!([AGENTIC_INTERVAL] "Interval in seconds for automated todo processing (default: 300)")
+                    .required(false)
+                    .default_value("300")
+                    .value_parser(clap::value_parser!(u64)),
+            )
     )
     .subcommand(
         Command::new("background-start")
@@ -300,6 +317,23 @@ pub fn build_cli() -> Command {
                     .required(false)
                     .default_value("false")
                     .value_parser(clap::value_parser!(bool)),
+            )
+            .arg(
+                arg!([AGENTIC_MODE] "AI assistant mode for automated todo processing: auto, semi, manual, or disabled")
+                    .required(false)
+                    .default_value("disabled")
+                    .value_parser(["auto", "semi", "manual", "disabled"]),
+            )
+            .arg(
+                arg!([AGENTIC_PROVIDER] "LLM provider for AI assistant: claude, openai, ollama, none")
+                    .required(false)
+                    .value_parser(["claude", "openai", "ollama", "none"]),
+            )
+            .arg(
+                arg!([AGENTIC_INTERVAL] "Interval in seconds for automated todo processing (default: 300)")
+                    .required(false)
+                    .default_value("300")
+                    .value_parser(clap::value_parser!(u64)),
             )
     )
     .subcommand(Command::new("background-stop").alias("stop").about("Stop reporting background process"))

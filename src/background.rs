@@ -7,6 +7,7 @@ use crate::ERROR_CODE_MISMATCH;
 use crate::ERROR_CODE_PARAM;
 use crate::ERROR_CODE_SERVER_ERROR;
 use crate::ERROR_CODE_TIMEOUT;
+use edamame_core::api::api_agentic::*;
 use edamame_core::api::api_core::*;
 use edamame_core::api::api_flodbadd::*;
 use edamame_core::api::api_score::*;
@@ -15,6 +16,7 @@ use edamame_core::api::api_score_threats::*;
 use edamame_core::api::api_trust::*;
 use std::thread::sleep;
 use std::time::Duration;
+use tracing::{error, info};
 
 pub fn background_get_sessions(
     zeek_format: bool,
@@ -662,6 +664,108 @@ pub fn background_get_whitelist_name() -> i32 {
         Err(e) => {
             eprintln!("Error getting whitelist name: {}", e);
             ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+/// Configure agentic LLM provider for background process
+#[allow(unused_variables)]
+pub fn background_configure_agentic(provider: String) {
+    use edamame_core::api::api_agentic::*;
+
+    info!("Configuring AI Assistant provider: {}", provider);
+
+    let api_key = std::env::var("EDAMAME_LLM_API_KEY").unwrap_or_default();
+    let model = std::env::var("EDAMAME_LLM_MODEL").unwrap_or_else(|_| {
+        match provider.as_str() {
+            "claude" => "claude-4-5-haiku".to_string(), // Use Haiku for background (faster/cheaper)
+            "openai" => "gpt-5-mini-2025-08-07".to_string(),
+            "ollama" => "llama3.1".to_string(),
+            _ => String::new(),
+        }
+    });
+    let base_url = std::env::var("EDAMAME_LLM_BASE_URL").unwrap_or_default();
+
+    if agentic_set_llm_config(provider.clone(), api_key.clone(), model.clone(), base_url) {
+        info!("AI Assistant configured: {} / {}", provider, model);
+    } else {
+        error!("Failed to configure AI Assistant. Check EDAMAME_LLM_API_KEY environment variable.");
+    }
+}
+
+/// Process security todos with AI in background mode
+#[allow(unused_variables)]
+pub fn background_process_agentic(mode: &str) {
+    info!(
+        "AI Assistant: Starting automated todo processing (mode: {})",
+        mode
+    );
+
+    let confirmation_level = match mode {
+        "auto" => 0,
+        "semi" => 1,
+        "manual" => 2,
+        _ => return, // disabled or invalid
+    };
+
+    // Process todos
+    let results = agentic_process_todos(confirmation_level, false);
+
+    // Log results
+    {
+        let total = results.auto_resolved.len()
+            + results.confirmed.len()
+            + results.escalated.len()
+            + results.failed.len();
+
+        if total > 0 {
+            info!(
+                "AI Assistant: Processed {} todos - {} auto-resolved, {} escalated, {} failed",
+                total,
+                results.auto_resolved.len(),
+                results.escalated.len(),
+                results.failed.len()
+            );
+
+            // Log escalated items for visibility
+            if !results.escalated.is_empty() {
+                info!(
+                    "AI Assistant: {} escalated todos need manual attention:",
+                    results.escalated.len()
+                );
+                for result in &results.escalated {
+                    info!(
+                        "  → {} - {}",
+                        result.advice_type,
+                        result
+                            .decision
+                            .reasoning
+                            .chars()
+                            .take(100)
+                            .collect::<String>()
+                    );
+                }
+            }
+
+            // Log failures
+            if !results.failed.is_empty() {
+                error!(
+                    "AI Assistant: {} todos failed processing:",
+                    results.failed.len()
+                );
+                for result in &results.failed {
+                    error!(
+                        "  → {} - {}",
+                        result.advice_type,
+                        result
+                            .error
+                            .as_ref()
+                            .unwrap_or(&"Unknown error".to_string())
+                    );
+                }
+            }
+        } else {
+            info!("AI Assistant: No todos to process");
         }
     }
 }
