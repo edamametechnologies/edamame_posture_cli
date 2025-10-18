@@ -183,19 +183,30 @@ fn run() {
 
     if args.len() > 1 && args[1] == "background-process" {
         // Don't call ensure_admin() here, the core is not initialized yet
-        if args.len() == 9 {
+        if args.len() == 12 {
             run_background(
-                args[2].to_string(),
-                args[3].to_string(),
-                args[4].to_string(),
-                args[5].to_string(),
-                args[6].to_string() == "true",
-                args[7].to_string(),
-                args[8].to_string() == "true",
-                false,
+                args[2].to_string(),           // user
+                args[3].to_string(),           // domain
+                args[4].to_string(),           // pin
+                args[5].to_string(),           // device_id
+                args[6].to_string() == "true", // lan_scanning
+                args[7].to_string(),           // whitelist_name
+                args[8].to_string() == "true", // local_traffic
+                false,                         // verbose
+                args[9].to_string(),           // agentic_mode
+                if args[10] == "none" {
+                    None
+                } else {
+                    Some(args[10].to_string())
+                }, // agentic_provider
+                args[11].parse().unwrap_or(300), // agentic_interval
             );
         } else {
-            eprintln!("Invalid arguments for background process: {:?}", args);
+            eprintln!(
+                "Invalid arguments for background process: {:?} (expected 12, got {})",
+                args,
+                args.len()
+            );
             // Exit with an error code
             std::process::exit(1);
         }
@@ -213,6 +224,9 @@ pub fn run_background(
     whitelist_name: String,
     local_traffic: bool,
     verbose: bool,
+    agentic_mode: String,
+    agentic_provider: Option<String>,
+    agentic_interval: u64,
 ) {
     // Initialize the core with all options enabled
     // Verbose is set by the caller
@@ -228,6 +242,9 @@ pub fn run_background(
         lan_scanning,
         whitelist_name,
         local_traffic,
+        agentic_mode,
+        agentic_provider,
+        agentic_interval,
     );
 }
 
@@ -666,6 +683,16 @@ fn run_base() {
             let local_traffic = sub_matches
                 .get_one::<bool>("LOCAL_TRAFFIC")
                 .unwrap_or(&false);
+            // Agentic parameters
+            let agentic_mode = sub_matches
+                .get_one::<String>("AGENTIC_MODE")
+                .map_or("disabled", |v| v.as_str());
+            let agentic_provider = sub_matches
+                .get_one::<String>("AGENTIC_PROVIDER")
+                .map(|v| v.to_string());
+            let agentic_interval = sub_matches
+                .get_one::<u64>("AGENTIC_INTERVAL")
+                .unwrap_or(&300);
             // Initialize the core with all options disabled
             initialize_core("".to_string(), false, false, false, false, false, verbose);
             ensure_admin();
@@ -677,6 +704,9 @@ fn run_base() {
                 *lan_scanning,
                 whitelist_name,
                 *local_traffic,
+                agentic_mode.to_string(),
+                agentic_provider,
+                *agentic_interval,
             );
             is_background = true;
         }
@@ -704,6 +734,9 @@ fn run_base() {
                 *lan_scanning,
                 whitelist_name,
                 *local_traffic,
+                "disabled".to_string(), // No agentic in disconnected mode
+                None,
+                300,
             );
             is_background = true;
         }
@@ -720,6 +753,16 @@ fn run_base() {
                 .get_one::<String>("PIN")
                 .expect("PIN not provided")
                 .to_string();
+            // Agentic parameters
+            let agentic_mode = sub_matches
+                .get_one::<String>("AGENTIC_MODE")
+                .map_or("disabled", |v| v.as_str());
+            let agentic_provider = sub_matches
+                .get_one::<String>("AGENTIC_PROVIDER")
+                .map(|v| v.to_string());
+            let agentic_interval = sub_matches
+                .get_one::<u64>("AGENTIC_INTERVAL")
+                .unwrap_or(&300);
             // Directly call the background process
             run_background(
                 user,
@@ -730,6 +773,9 @@ fn run_base() {
                 "".to_string(),
                 false,
                 verbose,
+                agentic_mode.to_string(),
+                agentic_provider,
+                *agentic_interval,
             );
         }
         Some(("background-stop", _)) => {
