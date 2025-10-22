@@ -847,7 +847,7 @@ pub fn background_process_agentic(mode: &str) {
     // Log results
     {
         let total = results.auto_resolved.len()
-            + results.confirmed.len()
+            + results.requires_confirmation.len()
             + results.escalated.len()
             + results.failed.len();
 
