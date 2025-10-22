@@ -886,6 +886,33 @@ fn run_base() {
             exit_code = background_get_whitelist_name();
             is_background = true;
         }
+        // MCP Server commands
+        Some(("mcp-generate-psk", _)) => {
+            // No core initialization needed - pure function
+            exit_code = background_mcp_generate_psk();
+            is_background = true;
+        }
+        Some(("mcp-start", sub_matches)) => {
+            let port = *sub_matches.get_one::<u16>("PORT").unwrap_or(&3000);
+            let psk = sub_matches.get_one::<String>("PSK").cloned();
+
+            // Initialize core (MCP server needs core manager)
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_mcp_start(port, psk);
+            is_background = true;
+        }
+        Some(("mcp-stop", _)) => {
+            // Initialize core
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_mcp_stop();
+            is_background = true;
+        }
+        Some(("mcp-status", _)) => {
+            // Initialize core
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_mcp_status();
+            is_background = true;
+        }
         _ => {
             // Initialize the core with all options disabled
             initialize_core("".to_string(), false, false, false, false, false, verbose);
