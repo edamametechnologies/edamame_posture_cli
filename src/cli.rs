@@ -337,6 +337,26 @@ pub fn build_cli() -> Command {
             )
     )
     .subcommand(Command::new("background-stop").alias("stop").about("Stop reporting background process"))
+    ////////////////
+    // MCP Server commands
+    ////////////////
+    .subcommand(
+        Command::new("background-mcp-start").alias("mcp-start").about("Start MCP server for external AI clients (e.g., Claude Desktop)")
+            .arg(
+                arg!([PORT] "Port to listen on")
+                    .required(false)
+                    .default_value("3000")
+                    .value_parser(clap::value_parser!(u16)),
+            )
+            .arg(
+                arg!([PSK] "Pre-shared key for authentication (min 32 chars)")
+                    .required(false)
+                    .value_parser(clap::value_parser!(String)),
+            )
+    )
+    .subcommand(Command::new("background-mcp-stop").alias("mcp-stop").about("Stop MCP server"))
+    .subcommand(Command::new("background-mcp-status").alias("mcp-status").about("Get MCP server status"))
+    .subcommand(Command::new("background-mcp-generate-psk").alias("mcp-generate-psk").about("Generate a secure PSK for MCP server"))
     .subcommand(Command::new("background-status").alias("status").about("Get status of reporting background process"))
     .subcommand(Command::new("background-last-report-signature").alias("get-last-report-signature").about("Get last report signature of background process"))
     .subcommand(Command::new("background-get-history").alias("get-history").about("Get history of score modifications"))

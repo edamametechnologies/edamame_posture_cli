@@ -680,16 +680,149 @@ pub fn background_configure_agentic(provider: String) {
         match provider.as_str() {
             "claude" => "claude-4-5-haiku".to_string(), // Use Haiku for background (faster/cheaper)
             "openai" => "gpt-5-mini-2025-08-07".to_string(),
-            "ollama" => "llama3.1".to_string(),
+            "ollama" => "llama4".to_string(),
             _ => String::new(),
         }
     });
     let base_url = std::env::var("EDAMAME_LLM_BASE_URL").unwrap_or_default();
 
-    if agentic_set_llm_config(provider.clone(), api_key.clone(), model.clone(), base_url) {
+    // MCP PSK not needed for background mode (no external AI clients)
+    let mcp_psk = String::new();
+
+    if agentic_set_llm_config(
+        provider.clone(),
+        api_key.clone(),
+        model.clone(),
+        base_url,
+        mcp_psk,
+    ) {
         info!("AI Assistant configured: {} / {}", provider, model);
     } else {
         error!("Failed to configure AI Assistant. Check EDAMAME_LLM_API_KEY environment variable.");
+    }
+}
+
+// ============================================================================
+// MCP Server Control (for headless/daemon mode)
+// ============================================================================
+
+pub fn background_mcp_generate_psk() -> i32 {
+    let psk = mcp_generate_psk();
+    println!("{}", psk);
+    println!("# Save this PSK securely - it's required for MCP client authentication");
+    0
+}
+
+pub fn background_mcp_start(port: u16, psk: Option<String>) -> i32 {
+    use edamame_core::api::api_agentic::mcp_start_server;
+
+    // Use provided PSK or generate new one
+    let actual_psk = psk.unwrap_or_else(|| {
+        let generated = mcp_generate_psk();
+        println!("# Generated new PSK: {}", generated);
+        println!("# Save this PSK - you'll need it to connect MCP clients");
+        generated
+    });
+
+    if actual_psk.len() < 32 {
+        eprintln!("Error: PSK must be at least 32 characters");
+        eprintln!("Generate one with: edamame_posture mcp-generate-psk");
+        return ERROR_CODE_PARAM;
+    }
+
+    match mcp_start_server(port, actual_psk.clone(), false) {
+        result => {
+            let json: serde_json::Value = match serde_json::from_str(&result) {
+                Ok(v) => v,
+                Err(e) => {
+                    eprintln!("Error parsing result: {}", e);
+                    return ERROR_CODE_SERVER_ERROR;
+                }
+            };
+
+            if json["success"].as_bool().unwrap_or(false) {
+                println!("✅ MCP server started successfully");
+                println!("   Port: {}", json["port"]);
+                println!("   URL: {}", json["url"].as_str().unwrap_or(""));
+                println!("   PSK: {}", actual_psk);
+                println!("\nClaude Desktop config:");
+                println!(
+                    r#"{{
+  "mcpServers": {{
+    "edamame": {{
+      "transport": {{
+        "type": "sse",
+        "url": "http://127.0.0.1:{}/mcp/sse",
+        "headers": {{
+          "Authorization": "Bearer {}"
+        }}
+      }}
+    }}
+  }}
+}}"#,
+                    port, actual_psk
+                );
+                0
+            } else {
+                eprintln!(
+                    "Failed to start MCP server: {}",
+                    json["error"].as_str().unwrap_or("Unknown")
+                );
+                ERROR_CODE_SERVER_ERROR
+            }
+        }
+    }
+}
+
+pub fn background_mcp_stop() -> i32 {
+    use edamame_core::api::api_agentic::mcp_stop_server;
+
+    match mcp_stop_server() {
+        result => {
+            let json: serde_json::Value = match serde_json::from_str(&result) {
+                Ok(v) => v,
+                Err(e) => {
+                    eprintln!("Error parsing result: {}", e);
+                    return ERROR_CODE_SERVER_ERROR;
+                }
+            };
+
+            if json["success"].as_bool().unwrap_or(false) {
+                println!("✅ MCP server stopped");
+                0
+            } else {
+                eprintln!(
+                    "Failed to stop MCP server: {}",
+                    json["error"].as_str().unwrap_or("Unknown")
+                );
+                ERROR_CODE_SERVER_ERROR
+            }
+        }
+    }
+}
+
+pub fn background_mcp_status() -> i32 {
+    use edamame_core::api::api_agentic::mcp_get_server_status;
+
+    match mcp_get_server_status() {
+        result => {
+            let json: serde_json::Value = match serde_json::from_str(&result) {
+                Ok(v) => v,
+                Err(e) => {
+                    eprintln!("Error parsing result: {}", e);
+                    return ERROR_CODE_SERVER_ERROR;
+                }
+            };
+
+            if json["running"].as_bool().unwrap_or(false) {
+                println!("✅ MCP server is running");
+                println!("   Port: {}", json["port"]);
+                println!("   URL: {}", json["url"].as_str().unwrap_or(""));
+            } else {
+                println!("○ MCP server is not running");
+            }
+            0
+        }
     }
 }
 

@@ -276,6 +276,9 @@ _arguments "${_arguments_options[@]}" : \
 ':USER -- User name:_default' \
 ':DOMAIN -- Domain name:_default' \
 ':PIN -- PIN:_default' \
+'::AGENTIC_MODE -- AI assistant mode\: auto, semi, manual, or disabled:(auto semi manual disabled)' \
+'::AGENTIC_PROVIDER -- LLM provider\: claude, openai, ollama, none:(claude openai ollama none)' \
+'::AGENTIC_INTERVAL -- Interval in seconds for automated todo processing (default\: 300):_default' \
 && ret=0
 ;;
 (background-start)
@@ -291,9 +294,46 @@ _arguments "${_arguments_options[@]}" : \
 '::LAN_SCANNING -- LAN scanning enabled:(true false)' \
 '::WHITELIST_NAME -- Whitelist name:_default' \
 '::LOCAL_TRAFFIC -- Include local traffic:(true false)' \
+'::AGENTIC_MODE -- AI assistant mode for automated todo processing\: auto, semi, manual, or disabled:(auto semi manual disabled)' \
+'::AGENTIC_PROVIDER -- LLM provider for AI assistant\: claude, openai, ollama, none:(claude openai ollama none)' \
+'::AGENTIC_INTERVAL -- Interval in seconds for automated todo processing (default\: 300):_default' \
 && ret=0
 ;;
 (background-stop)
+_arguments "${_arguments_options[@]}" : \
+'*-v[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'*--verbose[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(background-mcp-start)
+_arguments "${_arguments_options[@]}" : \
+'*-v[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'*--verbose[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'-h[Print help]' \
+'--help[Print help]' \
+'::PORT -- Port to listen on:_default' \
+'::PSK -- Pre-shared key for authentication (min 32 chars):_default' \
+&& ret=0
+;;
+(background-mcp-stop)
+_arguments "${_arguments_options[@]}" : \
+'*-v[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'*--verbose[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(background-mcp-status)
+_arguments "${_arguments_options[@]}" : \
+'*-v[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'*--verbose[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(background-mcp-generate-psk)
 _arguments "${_arguments_options[@]}" : \
 '*-v[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
 '*--verbose[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
@@ -594,6 +634,22 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
+(background-mcp-start)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(background-mcp-stop)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(background-mcp-status)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(background-mcp-generate-psk)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
 (background-status)
 _arguments "${_arguments_options[@]}" : \
 && ret=0
@@ -715,6 +771,10 @@ _edamame_posture_commands() {
 'foreground-start:Start reporting in the foreground (used by the systemd service)' \
 'background-start:Start reporting background process' \
 'background-stop:Stop reporting background process' \
+'background-mcp-start:Start MCP server for external AI clients (e.g., Claude Desktop)' \
+'background-mcp-stop:Stop MCP server' \
+'background-mcp-status:Get MCP server status' \
+'background-mcp-generate-psk:Generate a secure PSK for MCP server' \
 'background-status:Get status of reporting background process' \
 'background-last-report-signature:Get last report signature of background process' \
 'background-get-history:Get history of score modifications' \
@@ -802,6 +862,26 @@ _edamame_posture__background-last-report-signature_commands() {
 _edamame_posture__background-logs_commands() {
     local commands; commands=()
     _describe -t commands 'edamame_posture background-logs commands' commands "$@"
+}
+(( $+functions[_edamame_posture__background-mcp-generate-psk_commands] )) ||
+_edamame_posture__background-mcp-generate-psk_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture background-mcp-generate-psk commands' commands "$@"
+}
+(( $+functions[_edamame_posture__background-mcp-start_commands] )) ||
+_edamame_posture__background-mcp-start_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture background-mcp-start commands' commands "$@"
+}
+(( $+functions[_edamame_posture__background-mcp-status_commands] )) ||
+_edamame_posture__background-mcp-status_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture background-mcp-status commands' commands "$@"
+}
+(( $+functions[_edamame_posture__background-mcp-stop_commands] )) ||
+_edamame_posture__background-mcp-stop_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture background-mcp-stop commands' commands "$@"
 }
 (( $+functions[_edamame_posture__background-score_commands] )) ||
 _edamame_posture__background-score_commands() {
@@ -955,6 +1035,10 @@ _edamame_posture__help_commands() {
 'foreground-start:Start reporting in the foreground (used by the systemd service)' \
 'background-start:Start reporting background process' \
 'background-stop:Stop reporting background process' \
+'background-mcp-start:Start MCP server for external AI clients (e.g., Claude Desktop)' \
+'background-mcp-stop:Stop MCP server' \
+'background-mcp-status:Get MCP server status' \
+'background-mcp-generate-psk:Generate a secure PSK for MCP server' \
 'background-status:Get status of reporting background process' \
 'background-last-report-signature:Get last report signature of background process' \
 'background-get-history:Get history of score modifications' \
@@ -1042,6 +1126,26 @@ _edamame_posture__help__background-last-report-signature_commands() {
 _edamame_posture__help__background-logs_commands() {
     local commands; commands=()
     _describe -t commands 'edamame_posture help background-logs commands' commands "$@"
+}
+(( $+functions[_edamame_posture__help__background-mcp-generate-psk_commands] )) ||
+_edamame_posture__help__background-mcp-generate-psk_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture help background-mcp-generate-psk commands' commands "$@"
+}
+(( $+functions[_edamame_posture__help__background-mcp-start_commands] )) ||
+_edamame_posture__help__background-mcp-start_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture help background-mcp-start commands' commands "$@"
+}
+(( $+functions[_edamame_posture__help__background-mcp-status_commands] )) ||
+_edamame_posture__help__background-mcp-status_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture help background-mcp-status commands' commands "$@"
+}
+(( $+functions[_edamame_posture__help__background-mcp-stop_commands] )) ||
+_edamame_posture__help__background-mcp-stop_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture help background-mcp-stop commands' commands "$@"
 }
 (( $+functions[_edamame_posture__help__background-score_commands] )) ||
 _edamame_posture__help__background-score_commands() {

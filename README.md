@@ -689,6 +689,10 @@ For completeness, here is a list of EDAMAME Posture CLI subcommands with detaile
 - **get-blacklists** (alias for **background-get-blacklists**) – Get the current blacklists from the background process.
 - **get-whitelists** (alias for **background-get-whitelists**) – Get the current whitelists from the background process.
 - **get-whitelist-name** (alias for **background-get-whitelist-name**) – Get the name of the current active whitelist from the background process.
+- **mcp-generate-psk** – Generate a cryptographically secure 32-character PSK for MCP server authentication.
+- **mcp-start** `[PORT]` `[PSK]` – Start MCP server for external AI clients (e.g., Claude Desktop). Port defaults to 3000. If PSK not provided, one is auto-generated.
+- **mcp-stop** – Stop the running MCP server.
+- **mcp-status** – Check MCP server status (running/stopped, port, URL).
 - **request-signature** – Generate a cryptographic signature of current posture. *Requires admin privileges*.
 - **get-last-report-signature** (alias for **background-last-report-signature**) – Retrieve the last posture signature from the background service.
 - **request-report** `<EMAIL>` `<SIGNATURE>` – Generate a full security report. Returns non-zero exit code for invalid signature parameter.
@@ -748,7 +752,7 @@ edamame_posture start myuser example.com 123456 "" true "" false semi claude 300
 # Setup Ollama (one-time)
 brew install ollama
 ollama serve &
-ollama pull llama3.1
+ollama pull llama4
 
 # Start with local LLM (no API calls, zero cost)
 edamame_posture start myuser example.com 123456 "" true "" false semi ollama 300
@@ -781,7 +785,7 @@ export EDAMAME_LLM_API_KEY=sk-proj-...
 
 #### Ollama (Local) - Privacy First
 ```bash
-brew install ollama && ollama pull llama3.1
+brew install ollama && ollama pull llama4
 # No API key needed, runs locally
 # Cost: $0 (requires local resources)
 ```
@@ -871,6 +875,201 @@ edamame_posture remediate-threat "threat-name"
 
 **Review via App:**
 - Open edamame_app → Advisor tab → See escalated items with AI reasoning
+
+## MCP Server for External AI Assistants
+
+EDAMAME Posture can start an **MCP (Model Context Protocol) server** that allows external AI assistants like Claude Desktop to access EDAMAME's security automation tools remotely.
+
+### What is MCP?
+
+MCP (Model Context Protocol) is an open standard from Anthropic that enables AI assistants to interact with external tools and services. By enabling the MCP server in EDAMAME, you can:
+
+- Ask Claude Desktop to analyze your security posture
+- Automate security fixes through conversational AI
+- Access all 17 EDAMAME security tools via natural language
+- Process security todos with AI reasoning
+
+### MCP Server Commands
+
+#### Generate PSK (Authentication Key)
+
+```bash
+edamame_posture mcp-generate-psk
+
+# Output:
+# RJgYkzfteQGu0JIS4DWDl9cH8+ENeI0M
+# # Save this PSK securely - it's required for MCP client authentication
+```
+
+Generates a cryptographically secure 32-character Pre-Shared Key (PSK) for authenticating MCP clients.
+
+#### Start MCP Server
+
+```bash
+# With auto-generated PSK:
+edamame_posture mcp-start
+
+# With custom port:
+edamame_posture mcp-start 3000
+
+# With specific PSK:
+edamame_posture mcp-start 3000 "your-32-char-psk-here"
+
+# Output:
+# ✅ MCP server started successfully
+#    Port: 3000
+#    URL: http://127.0.0.1:3000/mcp/
+#    PSK: RJgYkzfteQGu...
+# 
+# Claude Desktop config:
+# {
+#   "mcpServers": {
+#     "edamame": {
+#       "transport": {
+#         "type": "sse",
+#         "url": "http://127.0.0.1:3000/mcp/sse",
+#         "headers": {
+#           "Authorization": "Bearer RJgYkzfteQGu..."
+#         }
+#       }
+#     }
+#   }
+# }
+```
+
+Starts the MCP server on specified port (default: 3000). If no PSK is provided, one is generated automatically and displayed.
+
+**Security Note**: The server binds to localhost (127.0.0.1) only and is not accessible from the network.
+
+#### Stop MCP Server
+
+```bash
+edamame_posture mcp-stop
+
+# Output:
+# ✅ MCP server stopped
+```
+
+Stops the running MCP server.
+
+#### Check Server Status
+
+```bash
+edamame_posture mcp-status
+
+# Output when running:
+# ✅ MCP server is running
+#    Port: 3000
+#    URL: http://127.0.0.1:3000/mcp/
+
+# Output when stopped:
+# ○ MCP server is not running
+```
+
+Displays the current status of the MCP server.
+
+### Available MCP Tools
+
+When connected via MCP, AI assistants have access to 17 security automation tools:
+
+**Advisor Tools (4):**
+- `advisor.get_todos` - List security action items
+- `advisor.get_action_history` - View AI action history with undo info
+- `advisor.undo_action` - Undo a specific AI action
+- `advisor.undo_all_actions` - Undo all AI actions (panic button)
+
+**Agentic Tools (3):**
+- `agentic.process_todos` - **"Do It For Me" workflow** - processes all security items
+- `agentic.execute_action` - Execute a pending action
+- `agentic.get_workflow_status` - Get processing status
+
+**Threat Tools (2):**
+- `threats.remediate` - Fix security threats
+- `threats.rollback` - Undo threat remediation
+
+**Network Tools (5):**
+- `network.dismiss_device_port` - Mark a port as safe
+- `network.undismiss_device_port` - Re-flag a dismissed port
+- `network.undismiss_all_device_ports` - Re-flag all ports on device
+- `network.dismiss_session` - Dismiss a network session
+- `network.dismiss_session_process` - Dismiss all sessions from a process
+
+**Breach + Score Tools (3):**
+- `pwned.toggle_breach` - Dismiss/un-dismiss data breach
+- `score.get` - Get current security score
+- `score.compute` - Trigger score recomputation
+
+### Claude Desktop Integration
+
+1. **Start MCP Server:**
+   ```bash
+   # Generate and save PSK
+   PSK=$(edamame_posture mcp-generate-psk | head -1)
+   echo "PSK: $PSK" > ~/.edamame_mcp_psk
+   
+   # Start server
+   edamame_posture mcp-start 3000 "$PSK"
+   ```
+
+2. **Configure Claude Desktop:**
+   
+   Edit `~/Library/Application Support/Claude/claude_desktop_config.json`:
+   ```json
+   {
+     "mcpServers": {
+       "edamame": {
+         "transport": {
+           "type": "sse",
+           "url": "http://127.0.0.1:3000/mcp/sse",
+           "headers": {
+             "Authorization": "Bearer <your-psk-here>"
+           }
+         }
+       }
+     }
+   }
+   ```
+
+3. **Restart Claude Desktop**
+
+4. **Ask Claude:**
+   ```
+   "Check my security posture and fix any safe issues"
+   
+   Claude will:
+   - Call advisor.get_todos to see security items
+   - Call agentic.process_todos to automatically handle safe items
+   - Report: "Fixed 8 items, 2 need your review"
+   ```
+
+### MCP Use Cases
+
+**Headless Server Mode:**
+```bash
+# Start daemon + MCP server
+edamame_posture background-start user@domain.com 123456 &
+edamame_posture mcp-start 3000 "$PSK"
+
+# Now remote AI can manage security via MCP
+```
+
+**CI/CD Automation:**
+```bash
+#!/bin/bash
+# Generate PSK from environment
+PSK="${MCP_PSK:-$(edamame_posture mcp-generate-psk | head -1)}"
+
+# Start MCP server
+edamame_posture mcp-start 3000 "$PSK"
+
+# Run Python/Node MCP client for automated security checks
+python3 ./security/mcp_client.py --psk "$PSK"
+
+# Stop server
+edamame_posture mcp-stop
+```
+
+**Security Note**: MCP server uses HTTP on localhost with PSK authentication. This is secure for local-only access (same security model as Jupyter Notebook, VS Code Server, Docker API). The server is NOT accessible from the network.
 
 ## Exit Codes and CI/CD Pipelines
 EDAMAME Posture is designed to integrate seamlessly with CI/CD pipelines by using standardized exit codes that can control workflow execution. This allows for security-driven pipeline decisions without complex scripting.
