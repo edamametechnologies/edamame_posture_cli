@@ -16,7 +16,7 @@ use edamame_core::api::api_score_threats::*;
 use edamame_core::api::api_trust::*;
 use std::thread::sleep;
 use std::time::Duration;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
 pub fn background_get_sessions(
     zeek_format: bool,
@@ -860,22 +860,19 @@ pub fn background_process_agentic(mode: &str) {
                 results.failed.len()
             );
 
-            // Log escalated items for visibility
+            // Log escalated items with full details at WARN level for visibility
             if !results.escalated.is_empty() {
-                info!(
+                warn!(
                     "AI Assistant: {} escalated todos need manual attention:",
                     results.escalated.len()
                 );
                 for result in &results.escalated {
-                    info!(
-                        "  → {} - {}",
+                    warn!(
+                        "  ESCALATED {}: todo_id={}, risk_score={:.2}, reasoning={}",
                         result.advice_type,
-                        result
-                            .decision
-                            .reasoning
-                            .chars()
-                            .take(100)
-                            .collect::<String>()
+                        result.todo_id,
+                        result.decision.risk_score,
+                        result.decision.reasoning
                     );
                 }
             }
