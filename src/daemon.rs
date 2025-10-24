@@ -228,8 +228,9 @@ pub fn background_start(
             .display()
             .to_string();
         // Format the command line string, we must quote all strings
+        // Must match the 12-arg format expected by background-process handler
         let cmd = format!(
-            "\"{}\" background-process \"{}\" \"{}\" \"{}\" \"{}\" {} \"{}\" {}",
+            "\"{}\" background-process \"{}\" \"{}\" \"{}\" \"{}\" {} \"{}\" {} \"{}\" \"{}\" {}",
             exe,
             user,
             domain,
@@ -237,7 +238,10 @@ pub fn background_start(
             device_id,
             lan_scanning.to_string(),
             whitelist_name,
-            local_traffic.to_string()
+            local_traffic.to_string(),
+            agentic_mode,
+            agentic_provider.as_deref().unwrap_or("none"),
+            agentic_interval.to_string()
         );
 
         // Add CREATE_NEW_CONSOLE and CREATE_NO_WINDOW flags
