@@ -379,6 +379,12 @@ pub fn build_cli() -> Command {
                     .default_value("false")
                     .value_parser(clap::value_parser!(bool)),
             )
+            .arg(
+                arg!([AGENTIC_MODE] "AI assistant mode for automated todo processing: auto, semi, manual, or disabled")
+                    .required(false)
+                    .default_value("disabled")
+                    .value_parser(["auto", "semi", "manual", "disabled"]),
+            )
     )
     .subcommand(
         Command::new("background-set-custom-whitelists")

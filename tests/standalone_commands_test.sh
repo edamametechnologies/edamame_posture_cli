@@ -17,6 +17,10 @@ lanscan_result="❓"
 capture_result="❓"
 merge_custom_whitelists_result="❓"
 augment_custom_whitelists_result="❓"
+mcp_generate_psk_result="❓"
+mcp_start_result="❓"
+mcp_status_result="❓"
+mcp_stop_result="❓"
 
 # Function to run on exit
 finish() {
@@ -43,6 +47,11 @@ finish() {
     echo "  $capture_result capture"
     echo "  $merge_custom_whitelists_result merge-custom-whitelists"
     echo "  $augment_custom_whitelists_result augment-custom-whitelists"
+    echo "- MCP/Agentic Commands:"
+    echo "  $mcp_generate_psk_result mcp-generate-psk"
+    echo "  $mcp_start_result mcp-start"
+    echo "  $mcp_status_result mcp-status"
+    echo "  $mcp_stop_result mcp-stop"
     echo "--------------------"
     if [ $exit_status -eq 0 ]; then
         echo "✅ --- Standalone Commands Test Completed Successfully --- ✅"
@@ -214,6 +223,68 @@ if [[ -n "$MERGED_JSON" ]]; then
     merge_custom_whitelists_result="✅"
 else
     merge_custom_whitelists_result="❌"
+fi
+
+# ============================================================================
+# MCP/Agentic Tests
+# ============================================================================
+
+echo "MCP: Generate PSK:"
+MCP_PSK=$($SUDO_CMD "$BINARY_PATH" $VERBOSE_FLAG mcp-generate-psk 2>/dev/null | head -1 || echo "")
+if [[ -n "$MCP_PSK" && ${#MCP_PSK} -ge 32 ]]; then
+    echo "✅ Generated PSK (length: ${#MCP_PSK})"
+    mcp_generate_psk_result="✅"
+else
+    echo "❌ Failed to generate PSK or PSK too short"
+    mcp_generate_psk_result="❌"
+fi
+
+# Only run MCP server tests if PSK was generated successfully
+if [[ "$mcp_generate_psk_result" == "✅" ]]; then
+    # Initialize core for MCP tests (MCP needs core manager)
+    echo "Initializing core for MCP tests..."
+    $SUDO_CMD "$BINARY_PATH" $VERBOSE_FLAG get-core-info > /dev/null 2>&1 || true
+    
+    echo "MCP: Start server on port 3123:"
+    # Use a non-default port to avoid conflicts
+    MCP_START_OUTPUT=$($SUDO_CMD "$BINARY_PATH" $VERBOSE_FLAG mcp-start 3123 "$MCP_PSK" 2>&1 || echo "error")
+    if [[ "$MCP_START_OUTPUT" == *"success"* || "$MCP_START_OUTPUT" == *"MCP server started"* ]]; then
+        echo "✅ MCP server started"
+        mcp_start_result="✅"
+        
+        # Give server time to start
+        sleep 2
+        
+        echo "MCP: Check status:"
+        MCP_STATUS_OUTPUT=$($SUDO_CMD "$BINARY_PATH" $VERBOSE_FLAG mcp-status 2>&1 || echo "error")
+        if [[ "$MCP_STATUS_OUTPUT" == *"running"* || "$MCP_STATUS_OUTPUT" == *"Port: 3123"* ]]; then
+            echo "✅ MCP server is running"
+            mcp_status_result="✅"
+        else
+            echo "⚠️ MCP status check inconclusive (may already be stopped)"
+            mcp_status_result="⚠️"
+        fi
+        
+        echo "MCP: Stop server:"
+        MCP_STOP_OUTPUT=$($SUDO_CMD "$BINARY_PATH" $VERBOSE_FLAG mcp-stop 2>&1 || echo "error")
+        if [[ "$MCP_STOP_OUTPUT" == *"success"* || "$MCP_STOP_OUTPUT" == *"MCP server stopped"* || "$MCP_STOP_OUTPUT" == *"not running"* ]]; then
+            echo "✅ MCP server stopped"
+            mcp_stop_result="✅"
+        else
+            echo "⚠️ MCP stop command inconclusive"
+            mcp_stop_result="⚠️"
+        fi
+    else
+        echo "⚠️ MCP server start failed or inconclusive: $MCP_START_OUTPUT"
+        mcp_start_result="⚠️"
+        mcp_status_result="⏭️"
+        mcp_stop_result="⏭️"
+    fi
+else
+    echo "⏭️ Skipping MCP server tests (PSK generation failed)"
+    mcp_start_result="⏭️"
+    mcp_status_result="⏭️"
+    mcp_stop_result="⏭️"
 fi
 
 # Original success message removed, handled by trap

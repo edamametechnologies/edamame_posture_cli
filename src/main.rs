@@ -722,6 +722,10 @@ fn run_base() {
             let local_traffic = sub_matches
                 .get_one::<bool>("LOCAL_TRAFFIC")
                 .unwrap_or(&false);
+            // Agentic mode (defaults to disabled in disconnected mode)
+            let agentic_mode = sub_matches
+                .get_one::<String>("AGENTIC_MODE")
+                .map_or("disabled", |v| v.as_str());
 
             // Initialize the core with all options disabled
             initialize_core("".to_string(), false, false, false, false, false, verbose);
@@ -734,9 +738,9 @@ fn run_base() {
                 *lan_scanning,
                 whitelist_name,
                 *local_traffic,
-                "disabled".to_string(), // No agentic in disconnected mode
-                None,
-                300,
+                agentic_mode.to_string(),
+                None, // No provider in disconnected mode (would need API key)
+                300,  // Default interval
             );
             is_background = true;
         }
