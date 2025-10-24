@@ -667,10 +667,10 @@ if [ "$CI" = "true" ]; then
     EDAMAME_PIN="${EDAMAME_PIN:?🔴 Error: EDAMAME_PIN must be set for CI mode}"
     EDAMAME_ID="${EDAMAME_ID:-test-run-$(date +%s)}" # Default if not provided
 
-    # Start posture in connected mode with agentic disabled (for basic tests)
+    # Start posture in connected mode (agentic defaults to disabled)
     echo "Starting posture in connected mode (LAN Scan: true, Whitelist: $WHITELIST_SOURCE)..."
     echo "User: $EDAMAME_USER, Domain: $EDAMAME_DOMAIN, ID: $EDAMAME_ID"
-    $SUDO_CMD "$BINARY_DEST" $VERBOSE_FLAG start "$EDAMAME_USER" "$EDAMAME_DOMAIN" "$EDAMAME_PIN" "$EDAMAME_ID" true $WHITELIST_SOURCE disabled &
+    $SUDO_CMD "$BINARY_DEST" $VERBOSE_FLAG start "$EDAMAME_USER" "$EDAMAME_DOMAIN" "$EDAMAME_PIN" "$EDAMAME_ID" true $WHITELIST_SOURCE &
     POSTURE_PID=$!
     echo "Posture starting in background with PID $POSTURE_PID. Waiting for connection..."
 
@@ -746,9 +746,9 @@ if [ "$CI" = "true" ]; then
 else
     echo "--- Running DISCONNECTED Mode Integration Tests ---"
 
-    # Start posture in disconnected mode with agentic disabled (for basic tests)
+    # Start posture in disconnected mode (agentic defaults to disabled)
     echo "Starting posture in disconnected mode (LAN Scan: true, Whitelist: $WHITELIST_SOURCE)..."
-    $SUDO_CMD "$BINARY_DEST" $VERBOSE_FLAG background-start-disconnected true $WHITELIST_SOURCE disabled &
+    $SUDO_CMD "$BINARY_DEST" $VERBOSE_FLAG background-start-disconnected true $WHITELIST_SOURCE &
     POSTURE_PID=$!
     echo "Posture started in background with PID $POSTURE_PID. Waiting for it to initialize..."
     sleep 15 # Give it ample time to start up and initialize network monitoring
