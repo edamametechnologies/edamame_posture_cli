@@ -183,27 +183,32 @@ fn run() {
 
     if args.len() > 1 && args[1] == "background-process" {
         // Don't call ensure_admin() here, the core is not initialized yet
-        if args.len() == 12 {
+        if args.len() == 17 {
             run_background(
-                args[2].to_string(),           // user
-                args[3].to_string(),           // domain
-                args[4].to_string(),           // pin
-                args[5].to_string(),           // device_id
-                args[6].to_string() == "true", // lan_scanning
-                args[7].to_string(),           // whitelist_name
-                args[8].to_string() == "true", // local_traffic
-                false,                         // verbose
-                args[9].to_string(),           // agentic_mode
-                if args[10] == "none" {
+                args[2].to_string(),            // user
+                args[3].to_string(),            // domain
+                args[4].to_string(),            // pin
+                args[5].to_string(),            // device_id
+                args[6].to_string() == "true",  // lan_scanning
+                args[7].to_string() == "true",  // packet_capture
+                args[8].to_string(),            // whitelist_name
+                args[9].to_string() == "true",  // fail_on_whitelist
+                args[10].to_string() == "true", // fail_on_blacklist
+                args[11].to_string() == "true", // fail_on_anomalous
+                args[12].to_string() == "true", // cancel_on_violation
+                args[13].to_string() == "true", // local_traffic
+                false,                          // verbose
+                args[14].to_string(),           // agentic_mode
+                if args[15] == "none" {
                     None
                 } else {
-                    Some(args[10].to_string())
+                    Some(args[15].to_string())
                 }, // agentic_provider
-                args[11].parse().unwrap_or(300), // agentic_interval
+                args[16].parse().unwrap_or(300), // agentic_interval
             );
         } else {
             eprintln!(
-                "Invalid arguments for background process: {:?} (expected 12, got {})",
+                "Invalid arguments for background process: {:?} (expected 17, got {})",
                 args,
                 args.len()
             );
@@ -221,16 +226,28 @@ pub fn run_background(
     pin: String,
     device_id: String,
     lan_scanning: bool,
+    packet_capture: bool,
     whitelist_name: String,
+    fail_on_whitelist: bool,
+    fail_on_blacklist: bool,
+    fail_on_anomalous: bool,
+    cancel_on_violation: bool,
     local_traffic: bool,
     verbose: bool,
     agentic_mode: String,
     agentic_provider: Option<String>,
     agentic_interval: u64,
 ) {
+    if fail_on_whitelist && whitelist_name.is_empty() {
+        eprintln!(
+            "Whitelist fail handling requires a whitelist name. Provide --whitelist <NAME> along with --fail-on-whitelist."
+        );
+        std::process::exit(ERROR_CODE_PARAM);
+    }
+
     // Initialize the core with all options enabled
     // Verbose is set by the caller
-    initialize_core(device_id, true, true, true, true, true, verbose);
+    initialize_core(device_id, true, true, true, true, packet_capture, verbose);
 
     // Admin check here (after core initialization)
     ensure_admin();
@@ -240,7 +257,12 @@ pub fn run_background(
         domain,
         pin,
         lan_scanning,
+        packet_capture,
         whitelist_name,
+        fail_on_whitelist,
+        fail_on_blacklist,
+        fail_on_anomalous,
+        cancel_on_violation,
         local_traffic,
         agentic_mode,
         agentic_provider,
@@ -412,6 +434,45 @@ fn run_base() {
             initialize_core("".to_string(), true, false, false, false, false, false);
             ensure_admin();
             exit_code = base_remediate_threat(threat_id);
+        }
+        Some(("dismiss-device", sub_matches)) => {
+            let ip_address = sub_matches
+                .get_one::<String>("IP_ADDRESS")
+                .expect("IP_ADDRESS not provided")
+                .to_string();
+            initialize_core("".to_string(), true, false, false, false, true, verbose);
+            ensure_admin();
+            exit_code = base_dismiss_device(ip_address);
+        }
+        Some(("dismiss-device-port", sub_matches)) => {
+            let ip_address = sub_matches
+                .get_one::<String>("IP_ADDRESS")
+                .expect("IP_ADDRESS not provided")
+                .to_string();
+            let port = *sub_matches
+                .get_one::<u16>("PORT")
+                .expect("PORT not provided");
+            initialize_core("".to_string(), true, false, false, false, true, verbose);
+            ensure_admin();
+            exit_code = base_dismiss_device_port(ip_address, port);
+        }
+        Some(("dismiss-session", sub_matches)) => {
+            let session_uid = sub_matches
+                .get_one::<String>("SESSION_UID")
+                .expect("SESSION_UID not provided")
+                .to_string();
+            initialize_core("".to_string(), true, false, false, false, true, verbose);
+            ensure_admin();
+            exit_code = base_dismiss_session(session_uid);
+        }
+        Some(("dismiss-session-process", sub_matches)) => {
+            let session_uid = sub_matches
+                .get_one::<String>("SESSION_UID")
+                .expect("SESSION_UID not provided")
+                .to_string();
+            initialize_core("".to_string(), true, false, false, false, true, verbose);
+            ensure_admin();
+            exit_code = base_dismiss_session_process(session_uid);
         }
         Some(("check-policy-for-domain", sub_matches)) => {
             let domain = sub_matches.get_one::<String>("DOMAIN").unwrap().to_string();
@@ -590,28 +651,20 @@ fn run_base() {
             exit_code = background_wait_for_connection(*timeout);
         }
         Some(("background-get-sessions", sub_matches)) => {
-            let zeek_format = sub_matches.get_one::<bool>("ZEEK_FORMAT").unwrap_or(&false);
-            let local_traffic = sub_matches
-                .get_one::<bool>("LOCAL_TRAFFIC")
-                .unwrap_or(&false);
-            let check_anomalous = sub_matches
-                .get_one::<bool>("CHECK_ANOMALOUS")
-                .unwrap_or(&false);
-            let check_blacklisted = sub_matches
-                .get_one::<bool>("CHECK_BLACKLIST")
-                .unwrap_or(&true);
-            let check_whitelisted = sub_matches
-                .get_one::<bool>("CHECK_WHITELIST")
-                .unwrap_or(&true);
+            let zeek_format = sub_matches.get_flag("zeek-format");
+            let local_traffic = sub_matches.get_flag("include-local-traffic");
+            let fail_on_anomalous = sub_matches.get_flag("fail-on-anomalous");
+            let fail_on_blacklist = sub_matches.get_flag("fail-on-blacklist");
+            let fail_on_whitelist = sub_matches.get_flag("fail-on-whitelist");
 
             // Initialize the core with all options disabled
             initialize_core("".to_string(), false, false, false, false, false, verbose);
             exit_code = background_get_sessions(
-                *zeek_format,
-                *local_traffic,
-                *check_anomalous,
-                *check_blacklisted,
-                *check_whitelisted,
+                zeek_format,
+                local_traffic,
+                fail_on_anomalous,
+                fail_on_blacklist,
+                fail_on_whitelist,
             );
             is_background = true;
         }
@@ -657,42 +710,43 @@ fn run_base() {
         }
         Some(("background-start", sub_matches)) => {
             let user = sub_matches
-                .get_one::<String>("USER")
-                .expect("USER not provided")
+                .get_one::<String>("user")
+                .expect("user not provided")
                 .to_string();
             let domain = sub_matches
-                .get_one::<String>("DOMAIN")
-                .expect("DOMAIN not provided")
+                .get_one::<String>("domain")
+                .expect("domain not provided")
                 .to_string();
             let pin = sub_matches
-                .get_one::<String>("PIN")
-                .expect("PIN not provided")
+                .get_one::<String>("pin")
+                .expect("pin not provided")
                 .to_string();
-            // If no device ID is provided, use an empty string
             let device_id = sub_matches
-                .get_one::<String>("DEVICE_ID")
-                .map_or("".to_string(), |v| v.to_string());
-            // Default to false if not provided
-            let lan_scanning = sub_matches
-                .get_one::<bool>("LAN_SCANNING")
-                .unwrap_or(&false);
+                .get_one::<String>("device_id")
+                .cloned()
+                .unwrap_or_default();
+            let network_scan = sub_matches.get_flag("network_scan");
+            let packet_capture = sub_matches.get_flag("packet_capture");
             let whitelist_name = sub_matches
-                .get_one::<String>("WHITELIST_NAME")
-                .map_or("", |v| v)
-                .to_string();
-            let local_traffic = sub_matches
-                .get_one::<bool>("LOCAL_TRAFFIC")
-                .unwrap_or(&false);
-            // Agentic parameters
+                .get_one::<String>("whitelist")
+                .map_or_else(|| "".to_string(), |v| v.to_string());
+            let fail_on_whitelist =
+                sub_matches.get_flag("fail_on_whitelist") || !whitelist_name.is_empty();
+            let fail_on_blacklist = sub_matches.get_flag("fail_on_blacklist");
+            let fail_on_anomalous = sub_matches.get_flag("fail_on_anomalous");
+            let cancel_on_violation = sub_matches.get_flag("cancel_on_violation");
+            let include_local_traffic = sub_matches.get_flag("include_local_traffic");
             let agentic_mode = sub_matches
-                .get_one::<String>("AGENTIC_MODE")
-                .map_or("disabled", |v| v.as_str());
+                .get_one::<String>("agentic_mode")
+                .map_or("disabled", |v| v.as_str())
+                .to_string();
             let agentic_provider = sub_matches
-                .get_one::<String>("AGENTIC_PROVIDER")
+                .get_one::<String>("agentic_provider")
                 .map(|v| v.to_string());
-            let agentic_interval = sub_matches
-                .get_one::<u64>("AGENTIC_INTERVAL")
-                .unwrap_or(&300);
+            let agentic_interval = *sub_matches
+                .get_one::<u64>("agentic_interval")
+                .unwrap_or(&3600);
+
             // Initialize the core with all options disabled
             initialize_core("".to_string(), false, false, false, false, false, verbose);
             ensure_admin();
@@ -701,31 +755,36 @@ fn run_base() {
                 domain,
                 pin,
                 device_id,
-                *lan_scanning,
+                network_scan,
+                packet_capture,
                 whitelist_name,
-                *local_traffic,
-                agentic_mode.to_string(),
+                fail_on_whitelist,
+                fail_on_blacklist,
+                fail_on_anomalous,
+                cancel_on_violation,
+                include_local_traffic,
+                agentic_mode,
                 agentic_provider,
-                *agentic_interval,
+                agentic_interval,
             );
             is_background = true;
         }
         Some(("background-start-disconnected", sub_matches)) => {
-            // Default to false if not provided
-            let lan_scanning = sub_matches
-                .get_one::<bool>("LAN_SCANNING")
-                .unwrap_or(&false);
+            let network_scan = sub_matches.get_flag("network_scan");
+            let packet_capture = sub_matches.get_flag("packet_capture");
             let whitelist_name = sub_matches
-                .get_one::<String>("WHITELIST_NAME")
-                .map_or("", |v| v)
-                .to_string();
-            let local_traffic = sub_matches
-                .get_one::<bool>("LOCAL_TRAFFIC")
-                .unwrap_or(&false);
-            // Agentic mode (defaults to disabled in disconnected mode)
+                .get_one::<String>("whitelist")
+                .map_or_else(|| "".to_string(), |v| v.to_string());
+            let fail_on_whitelist =
+                sub_matches.get_flag("fail_on_whitelist") || !whitelist_name.is_empty();
+            let fail_on_blacklist = sub_matches.get_flag("fail_on_blacklist");
+            let fail_on_anomalous = sub_matches.get_flag("fail_on_anomalous");
+            let cancel_on_violation = sub_matches.get_flag("cancel_on_violation");
+            let include_local_traffic = sub_matches.get_flag("include_local_traffic");
             let agentic_mode = sub_matches
-                .get_one::<String>("AGENTIC_MODE")
-                .map_or("disabled", |v| v.as_str());
+                .get_one::<String>("agentic_mode")
+                .map_or("disabled", |v| v.as_str())
+                .to_string();
 
             // Initialize the core with all options disabled
             initialize_core("".to_string(), false, false, false, false, false, verbose);
@@ -735,10 +794,15 @@ fn run_base() {
                 "".to_string(),
                 "".to_string(),
                 "".to_string(),
-                *lan_scanning,
+                network_scan,
+                packet_capture,
                 whitelist_name,
-                *local_traffic,
-                agentic_mode.to_string(),
+                fail_on_whitelist,
+                fail_on_blacklist,
+                fail_on_anomalous,
+                cancel_on_violation,
+                include_local_traffic,
+                agentic_mode,
                 None, // No provider in disconnected mode (would need API key)
                 300,  // Default interval
             );
@@ -746,40 +810,61 @@ fn run_base() {
         }
         Some(("foreground-start", sub_matches)) => {
             let user = sub_matches
-                .get_one::<String>("USER")
-                .expect("USER not provided")
+                .get_one::<String>("user")
+                .expect("user not provided")
                 .to_string();
             let domain = sub_matches
-                .get_one::<String>("DOMAIN")
-                .expect("DOMAIN not provided")
+                .get_one::<String>("domain")
+                .expect("domain not provided")
                 .to_string();
             let pin = sub_matches
-                .get_one::<String>("PIN")
-                .expect("PIN not provided")
+                .get_one::<String>("pin")
+                .expect("pin not provided")
                 .to_string();
-            // Agentic parameters
+            let device_id = sub_matches
+                .get_one::<String>("device_id")
+                .cloned()
+                .unwrap_or_default();
+            let network_scan = sub_matches.get_flag("network_scan");
+            let packet_capture = sub_matches.get_flag("packet_capture");
+            let whitelist_name = sub_matches
+                .get_one::<String>("whitelist")
+                .map_or_else(|| "".to_string(), |v| v.to_string());
+            let fail_on_whitelist =
+                sub_matches.get_flag("fail_on_whitelist") || !whitelist_name.is_empty();
+            let fail_on_blacklist = sub_matches.get_flag("fail_on_blacklist");
+            let fail_on_anomalous = sub_matches.get_flag("fail_on_anomalous");
+            let cancel_on_violation = sub_matches.get_flag("cancel_on_violation");
+            let include_local_traffic = sub_matches.get_flag("include_local_traffic");
             let agentic_mode = sub_matches
-                .get_one::<String>("AGENTIC_MODE")
-                .map_or("disabled", |v| v.as_str());
+                .get_one::<String>("agentic_mode")
+                .map_or("disabled", |v| v.as_str())
+                .to_string();
             let agentic_provider = sub_matches
-                .get_one::<String>("AGENTIC_PROVIDER")
+                .get_one::<String>("agentic_provider")
                 .map(|v| v.to_string());
-            let agentic_interval = sub_matches
-                .get_one::<u64>("AGENTIC_INTERVAL")
-                .unwrap_or(&300);
+            let agentic_interval = *sub_matches
+                .get_one::<u64>("agentic_interval")
+                .unwrap_or(&3600);
+
             // Directly call the background process
             run_background(
                 user,
                 domain,
                 pin,
-                "".to_string(),
-                false,
-                "".to_string(),
-                false,
+                device_id,
+                network_scan,
+                packet_capture,
+                whitelist_name,
+                fail_on_whitelist,
+                fail_on_blacklist,
+                fail_on_anomalous,
+                cancel_on_violation,
+                include_local_traffic,
                 verbose,
-                agentic_mode.to_string(),
+                agentic_mode,
                 agentic_provider,
-                *agentic_interval,
+                agentic_interval,
             );
         }
         Some(("background-stop", _)) => {

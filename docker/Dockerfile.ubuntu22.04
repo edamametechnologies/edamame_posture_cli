@@ -1,0 +1,33 @@
+FROM ubuntu:22.04
+
+# Avoid prompts during package installation
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install base dependencies and git
+RUN apt-get update -y && \
+    apt-get install -y --no-install-recommends \
+    git \
+    curl \
+    build-essential \
+    protobuf-compiler \
+    libpcap-dev \
+    psmisc \
+    ca-certificates && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install Rust
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+# Create app directory and copy entrypoint
+WORKDIR /app
+COPY ./docker/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+# Copy project source into the container
+COPY . /app
+
+# Set the entrypoint
+ENTRYPOINT ["/entrypoint.sh"]
+

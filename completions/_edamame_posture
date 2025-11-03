@@ -242,11 +242,11 @@ _arguments "${_arguments_options[@]}" : \
 '*--verbose[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
 '-h[Print help]' \
 '--help[Print help]' \
-'::ZEEK_FORMAT -- Zeek format:(true false)' \
-'::LOCAL_TRAFFIC -- Include local traffic:(true false)' \
-'::CHECK_WHITELIST -- Exit with code 1 if any whitelist exception is detected:(true false)' \
-'::CHECK_BLACKLIST -- Exit with code 1 if blacklisted sessions are detected:(true false)' \
-'::CHECK_ANOMALOUS -- Exit with code 1 if anomalous sessions are detected:(true false)' \
+'--zeek-format[Output sessions in Zeek format]' \
+'--include-local-traffic[Include local traffic in the output]' \
+'--fail-on-whitelist[Exit with code 1 if whitelist violations are detected]' \
+'--fail-on-blacklist[Exit with code 1 if blacklisted sessions are detected]' \
+'--fail-on-anomalous[Exit with code 1 if anomalous sessions are detected]' \
 && ret=0
 ;;
 (background-get-exceptions)
@@ -276,8 +276,12 @@ _arguments "${_arguments_options[@]}" : \
 ':USER -- User name:_default' \
 ':DOMAIN -- Domain name:_default' \
 ':PIN -- PIN:_default' \
-'::AGENTIC_MODE -- AI assistant mode\: auto, semi, manual, or disabled:(auto semi manual disabled)' \
-'::AGENTIC_PROVIDER -- LLM provider\: claude, openai, ollama, none:(claude openai ollama none)' \
+'::DEVICE_ID -- Device ID in the form of a string, this will be used as a suffix to the detected hardware ID. When non empty, the endpoint will be flagged as a CI/CD runner.:_default' \
+'::LAN_SCANNING -- LAN scanning enabled:(true false)' \
+'::WHITELIST_NAME -- Whitelist name:_default' \
+'::LOCAL_TRAFFIC -- Include local traffic:(true false)' \
+'::AGENTIC_MODE -- AI assistant mode for automated todo processing\: auto, semi, manual, or disabled:(auto semi manual disabled)' \
+'::AGENTIC_PROVIDER -- LLM provider for AI assistant\: claude, openai, ollama, none:(claude openai ollama none)' \
 '::AGENTIC_INTERVAL -- Interval in seconds for automated todo processing (default\: 300):_default' \
 && ret=0
 ;;
