@@ -8,6 +8,7 @@ use edamame_core::api::api_score_threats::*;
 use edamame_core::api::api_trust::*;
 use indicatif::{ProgressBar, ProgressStyle};
 use serde_json;
+use std::net::IpAddr;
 use std::thread::sleep;
 use std::time::Duration;
 use sysinfo::{Disks, Networks, System};
@@ -135,6 +136,52 @@ pub fn base_remediate_threat(threat_id: String) -> i32 {
         eprintln!("Error remediating threat: {}", threat_id);
         1
     }
+}
+
+pub fn base_dismiss_device(ip_address: String) -> i32 {
+    if ip_address.parse::<IpAddr>().is_err() {
+        eprintln!("Invalid IP address: {}", ip_address);
+        return ERROR_CODE_PARAM;
+    }
+
+    dismiss_all_device_ports(ip_address.clone());
+    println!("Dismissed device {} (all ports)", ip_address);
+    0
+}
+
+pub fn base_dismiss_device_port(ip_address: String, port: u16) -> i32 {
+    if ip_address.parse::<IpAddr>().is_err() {
+        eprintln!("Invalid IP address: {}", ip_address);
+        return ERROR_CODE_PARAM;
+    }
+
+    dismiss_device_port(ip_address.clone(), port);
+    println!("Dismissed port {} on {}", port, ip_address);
+    0
+}
+
+pub fn base_dismiss_session(uid: String) -> i32 {
+    if uid.trim().is_empty() {
+        eprintln!("Session UID cannot be empty");
+        return ERROR_CODE_PARAM;
+    }
+
+    let uid = uid.trim().to_string();
+    add_dismiss_rule_from_session(uid.clone());
+    println!("Dismissed session {}", uid);
+    0
+}
+
+pub fn base_dismiss_session_process(uid: String) -> i32 {
+    if uid.trim().is_empty() {
+        eprintln!("Session UID cannot be empty");
+        return ERROR_CODE_PARAM;
+    }
+
+    let uid = uid.trim().to_string();
+    add_dismiss_rule_from_process(uid.clone());
+    println!("Dismissed future sessions for process {}", uid);
+    0
 }
 
 pub fn base_rollback_threat(threat_id: String) -> i32 {
