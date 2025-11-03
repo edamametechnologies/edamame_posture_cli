@@ -14,7 +14,7 @@ use edamame_core::api::api_trust::*;
 use std::env;
 use std::thread::sleep;
 use std::time::Duration;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
 pub fn background_process(
     user: String,
@@ -160,6 +160,10 @@ pub fn background_process(
         }
     }
 
+    if !crate::background_set_agentic_loop(agentic_enabled, agentic_interval, &agentic_mode) {
+        warn!("Failed to configure AI Assistant background loop");
+    }
+
     // Initial processing of todos if agentic mode enabled
     if agentic_enabled {
         info!("AI Assistant: Processing security todos...");
@@ -167,21 +171,12 @@ pub fn background_process(
     }
 
     // Loop forever as background process is running
-    let mut agentic_counter = 0u64;
     let mut violation_check_counter = 0u64;
     const VIOLATION_CHECK_INTERVAL: u64 = 30; // seconds
     loop {
         // Sleep for 5 seconds
         sleep(Duration::from_secs(5));
-        agentic_counter += 5;
         violation_check_counter += 5;
-
-        // Periodically process todos if agentic mode enabled
-        if agentic_enabled && agentic_counter >= agentic_interval {
-            info!("AI Assistant: Processing security todos...");
-            crate::background_process_agentic(&agentic_mode);
-            agentic_counter = 0;
-        }
 
         if cancel_on_violation && violation_check_counter >= VIOLATION_CHECK_INTERVAL {
             violation_check_counter = 0;
@@ -486,9 +481,9 @@ pub fn background_start(
             .display()
             .to_string();
         // Format the command line string, we must quote all strings
-        // Must match the 13-arg format expected by background-process handler
+        // Must match the 15-arg format expected by background-process handler
         let cmd = format!(
-            "\"{}\" background-process \"{}\" \"{}\" \"{}\" \"{}\" {} {} \"{}\" {} {} {} {} \"{}\" \"{}\" {}",
+            "\"{}\" background-process \"{}\" \"{}\" \"{}\" \"{}\" {} {} \"{}\" {} {} {} {} {} \"{}\" \"{}\" {}",
             exe,
             user,
             domain,
