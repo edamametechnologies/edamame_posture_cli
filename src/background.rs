@@ -306,7 +306,7 @@ pub fn background_wait_for_connection(timeout: u64) -> i32 {
         );
     }
 
-    if timeout <= 0 || !connection_status.is_connected {
+    if timeout == 0 || !connection_status.is_connected {
         eprintln!("Timeout waiting for background process to connect to domain...");
         return ERROR_CODE_TIMEOUT;
     } else {
@@ -963,4 +963,39 @@ pub fn background_process_agentic(mode: &str) {
             info!("AI Assistant: No todos to process");
         }
     }
+}
+
+pub fn background_set_agentic_loop(enabled: bool, interval_secs: u64, mode: &str) -> bool {
+    use edamame_core::api::api_agentic::agentic_set_auto_processing;
+
+    let confirmation_level = match mode {
+        "auto" => 0,
+        "analyze" => 1,
+        "disabled" => 1,
+        other => {
+            warn!(
+                "AI Assistant: Unsupported mode '{}' for auto-processing loop",
+                other
+            );
+            return false;
+        }
+    };
+
+    let success = agentic_set_auto_processing(enabled, interval_secs, confirmation_level);
+    if success {
+        if enabled {
+            info!(
+                "AI Assistant: Background loop enabled (interval={}s, mode={})",
+                interval_secs, mode
+            );
+        } else {
+            info!("AI Assistant: Background loop disabled");
+        }
+    } else {
+        error!(
+            "AI Assistant: Failed to {} background loop",
+            if enabled { "enable" } else { "disable" }
+        );
+    }
+    success
 }
