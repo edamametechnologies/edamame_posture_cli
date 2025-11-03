@@ -171,15 +171,17 @@ This command also returns a non-zero exit code when the policy is not met, allow
 The `start` command initiates a background process that continuously monitors the device's security posture and can enable conditional access controls as defined in the EDAMAME Hub:
 
 ```
-edamame_posture start <USER> <DOMAIN> <PIN> [DEVICE_ID] [LAN_SCANNING] [WHITELIST_NAME] [LOCAL_TRAFFIC]
+edamame_posture start --user <USER> --domain <DOMAIN> --pin <PIN> [--device-id <DEVICE_ID>] [--network-scan] [--packet-capture] [--whitelist <NAME>] [--check-whitelist] [--no-check-blacklist] [--no-check-anomalous] [--include-local-traffic] [--cancel-on-violation] [--agentic-mode MODE] [--agentic-provider PROVIDER] [--agentic-interval SECONDS]
 ```
 
 Example:
 ```
-edamame_posture start user example.com 123456
+edamame_posture start --user user --domain example.com --pin 123456
 ```
 
 This mode runs persistently (until stopped) and enforces policies in real-time, providing active protection of the environment.
+
+> Tip: combine `--check-whitelist` (and related checks) with `--cancel-on-violation` to automatically cancel CI pipelines whenever policy violations are detected.
 
 ## Threat Models and Security Assessment
 EDAMAME Posture's security assessment capabilities are powered by comprehensive threat models that evaluate security across five key dimensions:
@@ -247,10 +249,19 @@ This approach provides:
 For maximum protection, use the background continuous monitoring with conditional access control via the `start` command:
 
 ```
-edamame_posture start <USER> <DOMAIN> <PIN> "<DEVICE_ID>" true <WHITELIST_NAME>
+edamame_posture start \
+  --user <USER> \
+  --domain <DOMAIN> \
+  --pin <PIN> \
+  --device-id "<DEVICE_ID>" \
+  --network-scan \
+  --packet-capture \
+  --whitelist <WHITELIST_NAME> \
+  --check-whitelist \
+  --cancel-on-violation
 ```
 
-(In practice, `<DEVICE_ID>`, LAN_SCANNING (true/false), and `<WHITELIST_NAME>` may be provided as needed for your setup.) This provides the most comprehensive CI/CD security controls:
+(In practice, `--device-id`, `--network-scan`, `--packet-capture`, and `--whitelist` should be provided as needed for your setup. Additional flags such as `--no-check-blacklist`, `--no-check-anomalous`, or `--include-local-traffic` can further tailor behaviour.) This provides the most comprehensive CI/CD security controls:
 - Real-time posture monitoring throughout the pipeline execution
 - Dynamic access controls (e.g., block secrets/code access) based on current security posture
 - Continuous conformance reporting to EDAMAME Hub (if connected)
@@ -259,12 +270,13 @@ edamame_posture start <USER> <DOMAIN> <PIN> "<DEVICE_ID>" true <WHITELIST_NAME>
 For environments where connecting to a domain or central service isn't possible or desired, you can run the background monitor in disconnected mode:
 
 ```
-edamame_posture background-start-disconnected [LAN_SCANNING] [WHITELIST_NAME] [LOCAL_TRAFFIC]
+edamame_posture background-start-disconnected [--network-scan] [--packet-capture] [--whitelist <NAME>] [--check-whitelist] [--no-check-blacklist] [--no-check-anomalous] [--include-local-traffic] [--cancel-on-violation] [--agentic-mode MODE]
 ```
 
 This enables all the monitoring and whitelist enforcement capabilities locally without requiring a registered domain:
-- Fully local, real-time monitoring and network traffic capture
+- Fully local, real-time monitoring and network traffic capture (enable with `--packet-capture`)
 - Whitelist enforcement without any external connectivity
+- AI Assistant support (if AGENTIC_MODE is set; note: provider config requires environment variables)
 - Ideal for sensitive environments or isolated runners where external communication is not allowed
 
 ## Preventing Supply Chain Attacks
@@ -302,8 +314,8 @@ Example (GitHub Actions):
     chmod +x edamame_posture-0.9.72-x86_64-unknown-linux-gnu
     sudo mv edamame_posture-0.9.72-x86_64-unknown-linux-gnu /usr/local/bin/edamame_posture
 
-    # Start background monitoring in disconnected mode (with LAN scanning enabled)
-    sudo edamame_posture background-start-disconnected true github_ubuntu
+    # Start background monitoring in disconnected mode (with LAN scanning + capture enabled)
+    sudo edamame_posture background-start-disconnected --network-scan --packet-capture --whitelist github_ubuntu
 ```
 
 Example (GitLab CI):
@@ -314,10 +326,10 @@ setup_security:
     - curl -LO https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.72/edamame_posture-0.9.72-x86_64-unknown-linux-gnu
     - chmod +x edamame_posture-0.9.72-x86_64-unknown-linux-gnu
     - sudo mv edamame_posture-0.9.72-x86_64-unknown-linux-gnu /usr/local/bin/edamame_posture
-    - sudo edamame_posture background-start-disconnected true github_ubuntu
+    - sudo edamame_posture background-start-disconnected --network-scan --packet-capture --whitelist github_ubuntu
 ```
 
-Important: In the above examples, the `true` parameter for background-start-disconnected enables LAN scanning. This is required for full network traffic capture and whitelist enforcement. Omitting this (or using false) will limit network monitoring capabilities.
+Important: In the above examples, `--network-scan` enables LAN discovery and `--packet-capture` starts traffic capture/whitelist enforcement. Omitting either flag limits network visibility.
 
 ### 2. Perform Initial Assessment and Remediation
 Right after setup, assess the runner's security posture and optionally remediate any issues. This catches obvious problems early:
@@ -376,17 +388,14 @@ After build and tests, verify that no unauthorized network connections occurred 
 
 ```bash
 # Fail the workflow if any network traffic violated the whitelist
-# Also fail if any blacklisted connections are detected (default behavior)
-edamame_posture get-sessions
+# Also fail if any blacklisted connections are detected (default behaviour)
+edamame_posture get-sessions --fail-on-whitelist --fail-on-blacklist
 
-# To also check for anomalous connections (using machine learning detection)
-edamame_posture get-sessions false false true true true
+# To also fail when anomalous connections (machine learning detection) are observed
+edamame_posture get-sessions --fail-on-whitelist --fail-on-blacklist --fail-on-anomalous
 
-# To explicitly check only for blacklisted connections but not anomalous ones
-edamame_posture get-sessions false false true true false
-
-# To check only whitelist conformance and disable both anomalous and blacklisted checks
-edamame_posture get-sessions false false true false false
+# To check only whitelist conformance and ignore blacklist/anomaly signals
+edamame_posture get-sessions --fail-on-whitelist
 ```
 
 Example (GitHub Actions):
@@ -395,10 +404,10 @@ Example (GitHub Actions):
   run: |
     # Fail the workflow if any network traffic violated the whitelist
     # or if any blacklisted connections are detected
-    edamame_posture get-sessions
+    edamame_posture get-sessions --fail-on-whitelist --fail-on-blacklist
     
     # Optionally check for anomalous connections too
-    # edamame_posture get-sessions false false true true true
+    # edamame_posture get-sessions --fail-on-whitelist --fail-on-blacklist --fail-on-anomalous
 ```
 
 Example (GitLab CI):
@@ -429,7 +438,7 @@ pipeline {
                 sudo mv edamame_posture-0.9.72-x86_64-unknown-linux-gnu /usr/local/bin/edamame_posture
 
                 # Start background monitoring (disconnected mode with LAN scanning)
-                sudo edamame_posture background-start-disconnected true github_ubuntu
+                sudo edamame_posture background-start-disconnected --network-scan --packet-capture --whitelist github_ubuntu
 
                 # Initial posture assessment and optional remediation
                 sudo edamame_posture score
@@ -638,11 +647,13 @@ Once installed, EDAMAME Posture is invoked via the `edamame_posture` command. Mo
 ### Common Commands
 - **score**: Evaluate the current system security posture and output a score along with a summary of detected issues. This is a read-only check; it does not change system state. Use this regularly to gauge your security status.
 - **remediate**: Automatically fix common security issues that have been detected. This may enable OS security features, adjust configurations, or apply patches as feasible. Always review what remediations are performed (the tool will log them) – it addresses issues that have known safe fixes.
+- **dismiss-device** `<IP_ADDRESS>` / **dismiss-device-port** `<IP_ADDRESS>` `<PORT>`: Mark an entire device (or a single port) as intentionally allowed. These commands add the relevant dismiss rules so future network scans treat the traffic as expected—ideal when you intentionally allow a service but still want posture reporting for everything else.
+- **dismiss-session** `<SESSION_UID>` / **dismiss-session-process** `<SESSION_UID>`: Silence a specific network session or every future session spawned by the same process. Use these commands after reviewing agentic/Slack summaries to acknowledge expected but noisy connections.
 - **check-policy** `<min_score>` `"<threat_ids>"` `"[tag_prefixes]"`: Check whether the system meets a specified security policy. You provide a minimum score threshold, a comma-separated list of critical threat IDs to ensure are not present (or have specific states), and optional tag prefixes for compliance frameworks. This command exits with code 0 if the policy is met, or non-zero if not met (making it perfect for CI gating).
 - **check-policy-for-domain** `<domain>` `<policy_name>`: Similar to check-policy, but retrieves the policy requirements from EDAMAME Hub for the given domain and policy name. This allows centralized policies to be enforced on the local machine. Requires that the machine is enrolled (or at least has a policy cached) for that domain.
-- **start** `<USER>` `<DOMAIN>` `<PIN>` `[DEVICE_ID]` `[LAN_SCANNING]` `[WHITELIST_NAME]` `[LOCAL_TRAFFIC]`: Start continuous monitoring and conditional access control. Typically run as a background service or daemon. You must supply your Hub user/email, domain, and one-time PIN (from Hub) to register the device session. Optional parameters: a custom device identifier, whether to enable LAN scanning (true/false for capturing local traffic), a named whitelist to enforce, and a flag for allowing local traffic. This will keep running until stopped and enforce policy/network rules in real-time (e.g., locking down access if posture degrades).
-- **background-start-disconnected** `[LAN_SCANNING]` `[WHITELIST_NAME]` `[LOCAL_TRAFFIC]`: Start the background monitoring in a local-only mode (no connection to EDAMAME Hub). It will monitor security posture and network traffic, and enforce the provided whitelist. This is useful for CI runners or standalone usage where you want monitoring without cloud integration. This process runs until killed; typically you'd run it in a screen/tmux or as a service.
-- **get-sessions** `[ZEEK_FORMAT]` `[LOCAL_TRAFFIC]` `[CHECK_WHITELIST]` `[CHECK_BLACKLIST]` `[CHECK_ANOMALOUS]`: Report network sessions and enforce whitelist compliance. The parameters control whether to use Zeek format output, include local traffic, check whitelist conformance (default true), check for blacklisted connections (default true), and check for anomalous connections (default false). Returns exit code 0 if successful, non-zero if whitelist violation or if anomalous/blacklisted sessions are detected (when those checks are enabled).
+- **start** `<USER>` `<DOMAIN>` `<PIN>` `[DEVICE_ID]` `[LAN_SCANNING]` `[WHITELIST_NAME]` `[LOCAL_TRAFFIC]` `[AGENTIC_MODE]` `[AGENTIC_PROVIDER]` `[AGENTIC_INTERVAL]`: Start continuous monitoring and conditional access control. Typically run as a background service or daemon. You must supply your Hub user/email, domain, and one-time PIN (from Hub) to register the device session. Optional parameters: a custom device identifier, whether to enable LAN scanning (true/false for capturing local traffic), a named whitelist to enforce, a flag for allowing local traffic, AI Assistant mode (`auto`/`analyze`/`disabled`), LLM provider (claude/openai/ollama/none), and processing interval in seconds. This will keep running until stopped and enforce policy/network rules in real-time (e.g., locking down access if posture degrades).
+- **background-start-disconnected** `[--network-scan]` `[--packet-capture]` `[--whitelist <NAME>]` `[--include-local-traffic]` `[--agentic-mode MODE]`: Start the background monitoring in a local-only mode (no connection to EDAMAME Hub). Combine `--network-scan` for LAN discovery with `--packet-capture` when you need traffic capture + whitelist enforcement. Optional AI Assistant mode (`auto`/`analyze`/`disabled`) can be enabled (requires EDAMAME_LLM_API_KEY environment variable for cloud providers). This is useful for CI runners or standalone usage where you want monitoring without cloud integration. This process runs until killed; typically you'd run it in a screen/tmux or as a service.
+- **get-sessions** `--fail-on-whitelist` `--fail-on-blacklist` `--fail-on-anomalous` `--zeek-format` `--include-local-traffic`: Report network sessions from the background process. Use the `--fail-on-*` flags to cause a non-zero exit code when violations are detected, optionally format output as Zeek, and include local traffic if desired. Returns exit code 0 when no fatal violations are detected.
 - **flodbadd**: Perform a quick scan of the local network (LAN) to identify other devices on your subnet. This can reveal potential rogue devices or just provide situational awareness. It lists IP addresses and basic host info for devices it can detect.
 - **request-signature**: Generate a security posture signature for the current device state. The output is a cryptographic signature (token) that represents the current posture (including all threat checks and scores). This signature can be stored or embedded (for example, in a Git commit message) as proof of posture at a point in time.
 - **get-last-report-signature**: If the background process (start or background-start-disconnected) is running, this command fetches the most recently generated posture signature from that background monitor. This is useful to avoid generating a new one if one was already produced at the end of a build or a scheduled interval.
@@ -662,6 +673,10 @@ For completeness, here is a list of EDAMAME Posture CLI subcommands with detaile
 - **remediate** (alias for **remediate-all-threats**) – Apply recommended fixes to improve security posture (skips remote login and local firewall by default). *Requires admin privileges*.
 - **remediate-all-threats-force** – Apply all fixes including those that could lock you out of the system (use with caution). *Requires admin privileges*.
 - **remediate-threat** `<THREAT_ID>` – Remediate a specific threat by its threat ID. *Requires admin privileges*. Returns non-zero exit code if remediation fails.
+- **dismiss-device** `<IP_ADDRESS>` – Dismiss every observed port on a device. Useful when you intentionally allow traffic from a host but still want other network violations to surface. *Requires admin privileges*.
+- **dismiss-device-port** `<IP_ADDRESS>` `<PORT>` – Dismiss a single device port instead of the entire host. *Requires admin privileges*.
+- **dismiss-session** `<SESSION_UID>` – Dismiss a specific session UID (as shown in `get-sessions` or agentic reports) so future runs treat it as expected. *Requires admin privileges*.
+- **dismiss-session-process** `<SESSION_UID>` – Dismiss all future sessions spawned by the process behind the given session UID. *Requires admin privileges*.
 - **rollback-threat** `<THREAT_ID>` – Roll back remediation for a specific threat by its threat ID. *Requires admin privileges*. Returns non-zero exit code if invalid parameters.
 - **list-threats** – List all threat names available in the system. *Requires admin privileges*.
 - **get-threat-info** `<THREAT_ID>` – Get detailed information about a specific threat. *Requires admin privileges*.
@@ -670,12 +685,13 @@ For completeness, here is a list of EDAMAME Posture CLI subcommands with detaile
 - **check-policy** `<MINIMUM_SCORE>` `"<THREAT_IDS>"` `"[TAG_PREFIXES]"` – Local policy compliance check. *Requires admin privileges*. Returns non-zero exit code if policy not met.
 - **check-policy-for-domain** `<DOMAIN>` `<POLICY_NAME>` – Policy check against a Hub-defined domain policy. *Requires admin privileges*. Returns non-zero exit code if policy not met.
 - **check-policy-for-domain-with-signature** `"<SIGNATURE>"` `<DOMAIN>` `<POLICY_NAME>` – Verify a stored posture signature against a domain policy (for historical verification).
-- **start** (alias for **background-start**) – Start continuous monitoring and Hub integration. *Requires admin privileges*.
-- **background-start-disconnected** `[LAN_SCANNING]` `[WHITELIST_NAME]` `[LOCAL_TRAFFIC]` – Start continuous monitoring in offline mode. *Requires admin privileges*.
+- **start** (alias for **background-start**) `<USER>` `<DOMAIN>` `<PIN>` `[DEVICE_ID]` `[LAN_SCANNING]` `[WHITELIST_NAME]` `[LOCAL_TRAFFIC]` `[AGENTIC_MODE]` `[AGENTIC_PROVIDER]` `[AGENTIC_INTERVAL]` – Start continuous monitoring and Hub integration as a background daemon. *Requires admin privileges*.
+- **foreground-start** `<USER>` `<DOMAIN>` `<PIN>` `[DEVICE_ID]` `[LAN_SCANNING]` `[WHITELIST_NAME]` `[LOCAL_TRAFFIC]` `[AGENTIC_MODE]` `[AGENTIC_PROVIDER]` `[AGENTIC_INTERVAL]` – Start continuous monitoring in the foreground (used by systemd services). Accepts the same parameters as `background-start` for device labeling, network configuration, and AI assistant behavior. *Requires admin privileges*.
+- **background-start-disconnected** `[--network-scan]` `[--packet-capture]` `[--whitelist <NAME>]` `[--include-local-traffic]` `[--agentic-mode MODE]` – Start continuous monitoring in offline mode without Hub connection. *Requires admin privileges*.
 - **stop** (alias for **background-stop**) – Stop a running background monitoring process.
 - **status** (alias for **background-status**) – Check the status of the background monitoring process.
 - **logs** (alias for **background-logs**) – Display logs from the background process.
-- **get-sessions** (alias for **background-get-sessions**) `[ZEEK_FORMAT]` `[LOCAL_TRAFFIC]` `[CHECK_WHITELIST]` `[CHECK_BLACKLIST]` `[CHECK_ANOMALOUS]` – Report network sessions and enforce whitelist compliance. The parameters control whether to use Zeek format output, include local traffic, check whitelist conformance (default true), check for blacklisted connections (default true), and check for anomalous connections (default false). Returns exit code 0 if successful, 1 if whitelist violation or if anomalous/blacklisted sessions are detected (when those checks are enabled), 3 if no active sessions found.
+- **get-sessions** (alias for **background-get-sessions**) `--fail-on-whitelist` `--fail-on-blacklist` `--fail-on-anomalous` – Report network sessions and optionally fail the command when violations are detected. Combine with `--zeek-format` or `--include-local-traffic` to adjust output. Returns exit code 0 when no fatal violations are detected, 1 when any selected fail-on condition is met, and 3 if no active sessions are available.
 - **get-exceptions** (alias for **background-get-exceptions**) `[ZEEK_FORMAT]` `[LOCAL_TRAFFIC]` – Report network sessions that don't conform to whitelist rules.
 - **get-background-score** (alias for **background-score**) – Get the current security score from the background process.
 - **create-custom-whitelists** (alias for **background-create-custom-whitelists**) – Output template or current whitelist JSON.
@@ -701,6 +717,7 @@ For completeness, here is a list of EDAMAME Posture CLI subcommands with detaile
 - **get-system-info** – Get system information. *Requires admin privileges*.
 - **get-core-version** – Get the core version of EDAMAME Posture.
 - **get-tag-prefixes** – Retrieve threat model tag prefixes. *Requires admin privileges*.
+- **augment-custom-whitelists** – Augment the current custom whitelist locally using current whitelist exceptions. Outputs JSON to stdout. *Requires admin privileges*.
 - **merge-custom-whitelists** `<WHITELIST_JSON_1>` `<WHITELIST_JSON_2>` – Merge two custom whitelist JSON strings into one consolidated whitelist.
 - **merge-custom-whitelists-from-files** `<WHITELIST_FILE_1>` `<WHITELIST_FILE_2>` – Merge two custom whitelist JSON files into one consolidated whitelist.
 - **request-pin** `<USER>` `<DOMAIN>` – Request a PIN for domain connection. Returns non-zero exit code for invalid parameters.
@@ -722,29 +739,112 @@ The AI Assistant runs continuously as part of the background daemon, automatical
 
 ```bash
 # Basic syntax
-edamame_posture start <USER> <DOMAIN> <PIN> [DEVICE_ID] [LAN_SCANNING] [WHITELIST_NAME] [LOCAL_TRAFFIC] [AGENTIC_MODE] [AGENTIC_PROVIDER] [AGENTIC_INTERVAL]
+edamame_posture start \
+  --user <USER> \
+  --domain <DOMAIN> \
+  --pin <PIN> \
+  [--device-id <DEVICE_ID>] \
+  [--network-scan] \
+  [--packet-capture] \
+  [--whitelist <NAME>] \
+  [--check-whitelist] \
+  [--no-check-blacklist] \
+  [--no-check-anomalous] \
+  [--include-local-traffic] \
+  [--agentic-mode MODE] \
+  [--agentic-provider PROVIDER] \
+  [--agentic-interval SECONDS]
 ```
 
 **Agentic Parameters:**
-- `AGENTIC_MODE`: `auto`, `semi`, `manual`, or `disabled` (default: `disabled`)
+- `AGENTIC_MODE`: `auto`, `analyze`, or `disabled` (default: `disabled`)
 - `AGENTIC_PROVIDER`: `claude`, `openai`, `ollama`, or `none`
-- `AGENTIC_INTERVAL`: Interval in seconds between processing runs (default: `300`)
+- `AGENTIC_INTERVAL`: Interval in seconds between processing runs (default: `3600`)
 
-#### Example: Semi-Automatic with Claude
+**Note:** CLI/daemon context supports `auto` (execute) and `analyze` (analyze & recommend without execution) in addition to `disabled`. The `semi` and `manual` modes still require interactive confirmation and remain exclusive to the GUI app (edamame_security).
+
+#### Example: Automatic Mode with Claude
 
 ```bash
 # Configure LLM via environment variable
 export EDAMAME_LLM_API_KEY=sk-ant-...
 
 # Start daemon with AI Assistant
-edamame_posture start myuser example.com 123456 "" true "" false semi claude 300
+edamame_posture start \
+  --user myuser \
+  --domain example.com \
+  --pin 123456 \
+  --network-scan \
+  --packet-capture \
+  --agentic-mode auto \
+  --agentic-provider claude \
+  --cancel-on-violation \
+  --agentic-interval 300
 
 # The AI will:
 # - Monitor security todos continuously
 # - Process them automatically every 5 minutes
-# - Auto-resolve low-risk items
-# - Escalate high-risk items for manual review
+# - Auto-resolve safe/low-risk items immediately
+# - Escalate high-risk or complex items for manual review (logged in background-logs)
 ```
+
+#### Example: Analyze Mode (Recommendations Only)
+
+```bash
+# Configure LLM via environment variable
+export EDAMAME_LLM_API_KEY=sk-ant-...
+
+# Start daemon in analyze mode
+edamame_posture start \
+  --user myuser \
+  --domain example.com \
+  --pin 123456 \
+  --network-scan \
+  --packet-capture \
+  --agentic-mode analyze \
+  --agentic-provider claude \
+  --cancel-on-violation \
+  --agentic-interval 600
+
+# The AI will:
+# - Review todos using the LLM every 10 minutes
+# - Record decisions as "requires confirmation" without executing
+# - Post the same Slack summaries as auto mode (actions + escalations)
+# - Leave execution to a later manual approval step
+```
+
+#### Example: Slack Notifications
+
+```bash
+# Configure LLM via environment variable
+export EDAMAME_LLM_API_KEY=sk-ant-...
+
+# Configure Slack bot and channels (use channel IDs such as C01234567)
+export EDAMAME_AGENTIC_SLACK_BOT_TOKEN="xoxb-your-slack-bot-token"
+export EDAMAME_AGENTIC_SLACK_ACTIONS_CHANNEL="C01234567"
+export EDAMAME_AGENTIC_SLACK_ESCALATIONS_CHANNEL="C07654321"  # Optional
+
+# Start daemon
+edamame_posture start \
+  --user myuser \
+  --domain example.com \
+  --pin 123456 \
+  --network-scan \
+  --packet-capture \
+  --agentic-mode auto \
+  --agentic-provider claude \
+  --cancel-on-violation \
+  --agentic-interval 300
+
+# The AI will:
+# - Monitor security todos continuously
+# - Process them automatically every 5 minutes
+# - Auto-resolve safe/low-risk items immediately
+# - Escalate high-risk or complex items for manual review (logged in background-logs)
+# - Post summaries to your Slack channels (actions + escalations)
+```
+
+> Tip: If you only want alerts on failures, omit `EDAMAME_AGENTIC_SLACK_ACTIONS_CHANNEL` and set `EDAMAME_AGENTIC_SLACK_ESCALATIONS_CHANNEL` only.
 
 #### Example: Local Privacy Mode with Ollama
 
@@ -755,17 +855,27 @@ ollama serve &
 ollama pull llama4
 
 # Start with local LLM (no API calls, zero cost)
-edamame_posture start myuser example.com 123456 "" true "" false semi ollama 300
+edamame_posture start \
+  --user myuser \
+  --domain example.com \
+  --pin 123456 \
+  --network-scan \
+  --packet-capture \
+  --agentic-mode auto \
+  --agentic-provider ollama \
+  --cancel-on-violation \
+  --agentic-interval 300
 ```
 
 ### AI Assistant Modes
 
-| Mode | Behavior | Best For | Risk Level |
-|------|----------|----------|------------|
-| **auto** | Processes low and medium-risk todos automatically | Trusted environments, CI/CD | Higher automation |
-| **semi** ⭐ | Processes only low-risk todos automatically | Production servers | Balanced |
-| **manual** | Analyzes all todos but doesn't execute anything | Critical systems | Maximum control |
-| **disabled** | No AI processing | Manual management | No automation |
+| Mode | Behavior | Best For |
+|------|----------|----------|
+| **auto** ⭐ | Automatically processes and resolves safe/low-risk todos; escalates high-risk items | CI/CD pipelines, development workstations, automated security management |
+| **analyze** | Gathers LLM recommendations without executing changes; every decision is recorded as "requires confirmation" and posted to the actions Slack channel | Review workflows where humans approve actions, compliance-driven environments |
+| **disabled** | No AI processing; all security items require manual review | When you want complete manual control |
+
+**Note:** The GUI app (edamame_security) supports additional modes (`semi` and `manual`) that allow for user review before execution. These are not available in the CLI/daemon as there's no interactive UI for confirmation.
 
 ### LLM Provider Options
 
@@ -799,16 +909,70 @@ brew install ollama && ollama pull llama4
 
 ### Configuration Details
 
-The AI Assistant configuration is passed to the background daemon through:
-1. **Environment Variables** (CLI input):
-   - `EDAMAME_LLM_API_KEY` - Your LLM API key
-   - `EDAMAME_LLM_MODEL` - Override default model (optional)
-   - `EDAMAME_LLM_BASE_URL` - Ollama base URL (optional, default: http://localhost:11434)
+The AI Assistant configuration is passed to the background daemon through environment variables:
 
-2. **Command Parameters** (passed to core):
-   - The CLI reads env vars and passes config to edamame_core via API
-   - Config is stored in CoreManager state (in-memory, not persisted)
-   - More secure than storing API keys in environment variables within the daemon
+**Environment Variables:**
+- `EDAMAME_LLM_API_KEY` - Your LLM API key (required for Claude/OpenAI, not needed for Ollama)
+- `EDAMAME_LLM_MODEL` - Override default model (optional)
+  - Default for Claude: `claude-4-5-haiku`
+  - Default for OpenAI: `gpt-5-mini-2025-08-07`
+  - Default for Ollama: `llama4`
+- `EDAMAME_LLM_BASE_URL` - Ollama base URL (optional, default: `http://localhost:11434`)
+- `EDAMAME_AGENTIC_SLACK_BOT_TOKEN` - Slack bot token used for direct notifications (required for Slack integration)
+- `EDAMAME_AGENTIC_SLACK_ACTIONS_CHANNEL` - Slack channel ID for routine summaries (optional)
+- `EDAMAME_AGENTIC_SLACK_ESCALATIONS_CHANNEL` - Slack channel ID for escalations/alerts (optional)
+
+**How it works:**
+1. Set environment variables in the shell before starting the daemon
+2. The daemon process inherits these environment variables
+3. The daemon reads the env vars and configures the LLM provider via `agentic_set_llm_config`
+4. Config is stored in CoreManager state (in-memory, not persisted to disk)
+
+**Security Notes:**
+- API keys are stored in the daemon's environment and memory during runtime
+- Keys are never written to disk or log files
+- For production deployments, consider using systemd's `LoadCredential=` or secrets management solutions
+- When the daemon stops, all credentials are cleared from memory
+
+
+
+### Slack Notifications
+
+The AI Assistant now posts updates directly to Slack using the `chat.postMessage` API—no custom webhooks required.
+
+**Environment variables**
+- `EDAMAME_AGENTIC_SLACK_BOT_TOKEN` *(required)* – Slack bot token that starts with `xoxb-`. Create a Slack app, grant it `chat:write` (and optionally `chat:write.public`), install it in your workspace, and copy the bot token.
+- `EDAMAME_AGENTIC_SLACK_ACTIONS_CHANNEL` *(optional)* – Channel ID for routine summaries (actions + pending reviews). Leave empty to disable daily chatter.
+- `EDAMAME_AGENTIC_SLACK_ESCALATIONS_CHANNEL` *(optional)* – Channel ID for escalations/alerts. If omitted, escalations are sent to the actions channel when one is configured.
+
+Each Slack card now includes the exact `edamame_posture` command needed to reproduce or acknowledge the action (for example, `dismiss-session-process` for a noisy process or `remediate-threat` for a targeted fix). Copy/paste it into any terminal with the CLI installed to apply the same remediation the agent suggested.
+
+> Channel IDs look like `C01234567`. In Slack, open the channel → *Channel details* → *More* → *Copy channel ID*.
+
+**Setup example**
+
+```bash
+export EDAMAME_AGENTIC_SLACK_BOT_TOKEN="xoxb-your-slack-bot-token"
+export EDAMAME_AGENTIC_SLACK_ACTIONS_CHANNEL="C01234567"
+export EDAMAME_AGENTIC_SLACK_ESCALATIONS_CHANNEL="C07654321"  # Optional
+
+edamame_posture start --user myuser --domain example.com --pin 123456 --network-scan --packet-capture --agentic-mode auto --agentic-provider claude --agentic-interval 300
+```
+
+Messages include the same rich markdown payload used previously for webhooks, so Slack renders emojis, headings, and summaries automatically. Escalation alerts are only sent when items require attention.
+
+**Validation & troubleshooting**
+
+```bash
+edamame_posture logs | grep -i "Slack"
+```
+
+- Make sure the bot has been invited to each target channel (`/invite @YourBot`).
+- Confirm the bot token has the `chat:write` scope and is not expired.
+- If nothing arrives, double-check that you're using channel IDs (not names) and that the daemon was restarted after exporting the variables.
+- Use `curl -X POST https://slack.com/api/chat.postMessage` with your token to verify connectivity if needed.
+
+Once the Slack integration is configured you can use Slack workflows or connectors to forward notifications to PagerDuty, email, or ticketing systems if desired.
 
 ### Monitoring AI Activity
 
@@ -817,7 +981,7 @@ The AI Assistant configuration is passed to the background daemon through:
 edamame_posture background-logs | grep "AI Assistant"
 
 # Expected output:
-# [INFO] AI Assistant enabled: mode=semi, provider=Some("claude"), interval=300s
+# [INFO] AI Assistant enabled: mode=auto, provider=Some("claude"), interval=300s
 # [INFO] AI Assistant configured: claude / claude-4-5-haiku
 # [INFO] AI Assistant: Processed 5 todos - 4 auto-resolved, 1 escalated, 0 failed
 ```
@@ -834,7 +998,11 @@ After=network.target
 [Service]
 Type=forking
 Environment="EDAMAME_LLM_API_KEY=sk-ant-..."
-ExecStart=/usr/local/bin/edamame_posture start myuser example.com 123456 "" true "" false semi claude 600
+Environment="EDAMAME_AGENTIC_SLACK_BOT_TOKEN=xoxb-your-bot-token"
+Environment="EDAMAME_AGENTIC_SLACK_ACTIONS_CHANNEL=C01234567"
+# Optional escalation-only channel (omit to reuse the actions channel)
+Environment="EDAMAME_AGENTIC_SLACK_ESCALATIONS_CHANNEL=C07654321"
+ExecStart=/usr/local/bin/edamame_posture start --user myuser --domain example.com --pin 123456 --network-scan --packet-capture --agentic-mode auto --agentic-provider claude --agentic-interval 600
 Restart=always
 RestartSec=10
 
@@ -852,7 +1020,7 @@ For 24/7 background operation:
 | 10 min   | 144      | ~$1.44/day   | ~$1.15/day  | $0     |
 | 30 min   | 48       | ~$0.48/day   | ~$0.38/day  | $0     |
 
-**Recommended**: Semi mode with 300-600s interval for balance of responsiveness and cost.
+**Recommended**: Auto mode with 300-600s interval for balance of responsiveness and cost.
 
 ### Handling Escalated Items
 
@@ -1101,7 +1269,7 @@ jobs:
           sudo mv edamame_posture-0.9.72-x86_64-unknown-linux-gnu /usr/local/bin/edamame_posture
 
       - name: Start background monitor in disconnected mode
-        run: sudo edamame_posture background-start-disconnected true github_ubuntu
+        run: sudo edamame_posture background-start-disconnected --network-scan --packet-capture --whitelist github_ubuntu
 
       - name: Run build steps
         run: |
@@ -1325,7 +1493,7 @@ The most effective way to use EDAMAME's whitelist system is to build a comprehen
 
 ```bash
 # GitHub Actions / CI environment
-sudo edamame_posture background-start-disconnected true github_ubuntu
+sudo edamame_posture background-start-disconnected --network-scan --packet-capture --whitelist github_ubuntu
 
 # Your build process here - let it run normally
 npm install
@@ -1408,7 +1576,7 @@ $ edamame_posture get-sessions
 # .github/workflows/build-whitelist.yml
 - name: Learning Mode Build
   run: |
-    sudo edamame_posture background-start-disconnected true github_ubuntu
+    sudo edamame_posture background-start-disconnected --network-scan --packet-capture --whitelist github_ubuntu
     npm install && npm run build && npm test
     
 - name: Update Baseline Whitelist  
@@ -1431,7 +1599,7 @@ $ edamame_posture get-sessions
 # Regular CI/CD workflow
 - name: Security Enforcement
   run: |
-    sudo edamame_posture background-start-disconnected true github_ubuntu
+    sudo edamame_posture background-start-disconnected --network-scan --packet-capture --whitelist github_ubuntu
     sudo edamame_posture set-custom-whitelists-from-file security/baseline_whitelist.json
     
 - name: Build Application
@@ -1552,10 +1720,10 @@ To use these embedded whitelists, specify the whitelist name when starting EDAMA
 
 ```bash
 # For a macOS GitHub workflow environment
-edamame_posture start user example.com 123456 "" true github_macos
+edamame_posture start --user user --domain example.com --pin 123456 --network-scan --packet-capture --whitelist github_macos --check-whitelist --cancel-on-violation
 
 # For a basic development environment
-edamame_posture start user example.com 123456 "" true builder
+edamame_posture start --user user --domain example.com --pin 123456 --network-scan --packet-capture --whitelist builder --check-whitelist --cancel-on-violation
 ```
 
 ## Blacklist System

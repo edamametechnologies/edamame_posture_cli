@@ -21,9 +21,9 @@ use tracing::{error, info, warn};
 pub fn background_get_sessions(
     zeek_format: bool,
     local_traffic: bool,
-    check_anomalous: bool,
-    check_blacklisted: bool,
-    check_whitelisted: bool,
+    fail_on_anomalous: bool,
+    fail_on_blacklist: bool,
+    fail_on_whitelisted: bool,
 ) -> i32 {
     let sessions = match rpc_get_lan_sessions(
         true,
@@ -46,7 +46,7 @@ pub fn background_get_sessions(
     let mut exit_code = 0;
 
     // Always check whitelist conformance
-    if check_whitelisted {
+    if fail_on_whitelisted {
         let whitelist_conformance = match rpc_get_whitelist_conformance(
             &EDAMAME_CA_PEM,
             &EDAMAME_CLIENT_PEM,
@@ -67,7 +67,7 @@ pub fn background_get_sessions(
     }
 
     // Check for anomalous sessions if requested
-    if check_anomalous {
+    if fail_on_anomalous {
         let anomalous_status = match rpc_get_anomalous_status(
             &EDAMAME_CA_PEM,
             &EDAMAME_CLIENT_PEM,
@@ -88,7 +88,7 @@ pub fn background_get_sessions(
     }
 
     // Check for blacklisted sessions if requested
-    if check_blacklisted {
+    if fail_on_blacklist {
         let blacklisted_status = match rpc_get_blacklisted_status(
             &EDAMAME_CA_PEM,
             &EDAMAME_CLIENT_PEM,
@@ -685,9 +685,48 @@ pub fn background_configure_agentic(provider: String) {
         }
     });
     let base_url = std::env::var("EDAMAME_LLM_BASE_URL").unwrap_or_default();
+    let slack_bot_token = std::env::var("EDAMAME_AGENTIC_SLACK_BOT_TOKEN")
+        .or_else(|_| std::env::var("EDAMAME_AGENTIC_WEBHOOK_ACTIONS_TOKEN"))
+        .unwrap_or_default();
+    let slack_actions_channel =
+        std::env::var("EDAMAME_AGENTIC_SLACK_ACTIONS_CHANNEL").unwrap_or_default();
+    let slack_escalations_channel =
+        std::env::var("EDAMAME_AGENTIC_SLACK_ESCALATIONS_CHANNEL").unwrap_or_default();
+
+    // Legacy webhook environment variables are deprecated but we still surface a warning
+    let legacy_actions_url =
+        std::env::var("EDAMAME_AGENTIC_WEBHOOK_ACTIONS_URL").unwrap_or_default();
+    let legacy_escalations_url =
+        std::env::var("EDAMAME_AGENTIC_WEBHOOK_ESCALATIONS_URL").unwrap_or_default();
+
+    if !legacy_actions_url.is_empty() || !legacy_escalations_url.is_empty() {
+        warn!(
+            "EDAMAME_AGENTIC_WEBHOOK_* environment variables are deprecated – use EDAMAME_AGENTIC_SLACK_* instead"
+        );
+    }
 
     // MCP PSK not needed for background mode (no external AI clients)
     let mcp_psk = String::new();
+
+    if slack_bot_token.is_empty()
+        && (!slack_actions_channel.is_empty() || !slack_escalations_channel.is_empty())
+    {
+        warn!("Slack notifications requested but EDAMAME_AGENTIC_SLACK_BOT_TOKEN is missing");
+    }
+
+    if !slack_actions_channel.is_empty() {
+        info!(
+            "AI Assistant Slack actions channel configured: {}",
+            slack_actions_channel
+        );
+    }
+
+    if !slack_escalations_channel.is_empty() {
+        info!(
+            "AI Assistant Slack escalations channel configured: {}",
+            slack_escalations_channel
+        );
+    }
 
     if agentic_set_llm_config(
         provider.clone(),
@@ -695,6 +734,9 @@ pub fn background_configure_agentic(provider: String) {
         model.clone(),
         base_url,
         mcp_psk,
+        slack_bot_token,
+        slack_actions_channel,
+        slack_escalations_channel,
     ) {
         info!("AI Assistant configured: {} / {}", provider, model);
     } else {
@@ -827,22 +869,32 @@ pub fn background_mcp_status() -> i32 {
 }
 
 /// Process security todos with AI in background mode
-#[allow(unused_variables)]
 pub fn background_process_agentic(mode: &str) {
     info!(
         "AI Assistant: Starting automated todo processing (mode: {})",
         mode
     );
 
+    // Supported CLI/daemon modes: auto (execute) or analyze (recommendations only)
     let confirmation_level = match mode {
         "auto" => 0,
-        "semi" => 1,
-        "manual" => 2,
-        _ => return, // disabled or invalid
+        "analyze" => 1,
+        _ => {
+            warn!(
+                "AI Assistant: Unsupported mode '{}', valid options are 'auto', 'analyze', or 'disabled'",
+                mode
+            );
+            return;
+        }
     };
 
-    // Process todos
-    let results = agentic_process_todos(confirmation_level, false);
+    let results = agentic_process_todos(confirmation_level);
+
+    if mode == "analyze" {
+        info!(
+            "AI Assistant: Analyze mode completed – actions recorded for confirmation, no automatic execution performed"
+        );
+    }
 
     // Log results
     {
@@ -853,12 +905,25 @@ pub fn background_process_agentic(mode: &str) {
 
         if total > 0 {
             info!(
-                "AI Assistant: Processed {} todos - {} auto-resolved, {} escalated, {} failed",
+                "AI Assistant: Processed {} todos - {} auto-resolved, {} require confirmation, {} escalated, {} failed",
                 total,
                 results.auto_resolved.len(),
+                results.requires_confirmation.len(),
                 results.escalated.len(),
                 results.failed.len()
             );
+
+            if !results.requires_confirmation.is_empty() {
+                for result in &results.requires_confirmation {
+                    info!(
+                        "  PENDING {}: todo_id={}, risk_score={:.2}, reasoning={}",
+                        result.advice_type,
+                        result.todo_id,
+                        result.decision.risk_score,
+                        result.decision.reasoning
+                    );
+                }
+            }
 
             // Log escalated items with full details at WARN level for visibility
             if !results.escalated.is_empty() {

@@ -10,27 +10,43 @@ IMAGE_NAME="edamame-posture-test:${UBUNTU_VERSION}"
 # Check if Dockerfile exists
 if [ ! -f "$DOCKERFILE" ]; then
     echo "Error: Dockerfile not found at ${DOCKERFILE}"
-    echo "Usage: $0 [ubuntu20.04|ubuntu18.04]"
+    echo "Usage: $0 [ubuntu25.04|ubuntu24.04|ubuntu20.04|ubuntu18.04]"
     exit 1
 fi
 
-# Check for required environment variables for integration tests
-if [ -z "$EDAMAME_USER" ] || [ -z "$EDAMAME_DOMAIN" ] || [ -z "$EDAMAME_PIN" ]; then
-  echo "Warning: EDAMAME_USER, EDAMAME_DOMAIN, or EDAMAME_PIN environment variables are not set."
-  echo "Integration tests will be skipped inside the container."
-  echo "Set them before running this script to include integration tests."
-  # Example:
-  # export EDAMAME_USER="your_user"
-  # export EDAMAME_DOMAIN="your_domain"
-  # export EDAMAME_PIN="your_pin"
-  # export DEV_GITHUB_TOKEN="your_github_token" # Optional
+# Load all secrets from ../secrets/*.env
+for env_file in ../secrets/*.env; do
+    if [ -f "$env_file" ]; then
+        echo "Sourcing secrets from ${env_file}"
+        # shellcheck disable=SC1090
+        source "$env_file"
+    fi
+done
+
+required_vars=(
+  EDAMAME_USER
+  EDAMAME_DOMAIN
+  EDAMAME_PIN
+  DEV_GITHUB_TOKEN
+)
+
+missing_vars=()
+for var in "${required_vars[@]}"; do
+  if [ -z "${!var:-}" ]; then
+    missing_vars+=("${var}")
+  fi
+done
+
+if [ ${#missing_vars[@]} -ne 0 ]; then
+  echo "Error: The following required environment variables are missing: ${missing_vars[*]}" >&2
+  echo "Populate them in ../secrets/*.env or export them before running this script." >&2
+  exit 1
 fi
 
-# Optional: Check for Git token
-if [ -z "$DEV_GITHUB_TOKEN" ]; then
-    echo "Info: DEV_GITHUB_TOKEN is not set. Git authentication will be skipped in the container."
-    echo "Set this if your build requires private GitHub repositories."
-fi
+# Export required vars so docker run -e VAR picks them up without leaking values into the command line
+for var in "${required_vars[@]}"; do
+  export "$var"
+done
 
 # --- Build Docker Image ---
 echo "Building Docker image ${IMAGE_NAME} using ${DOCKERFILE}..."
@@ -41,34 +57,45 @@ docker build -t "${IMAGE_NAME}" -f "${DOCKERFILE}" .
 # --- Run Docker Container ---
 echo "Running container tests in ${IMAGE_NAME}..."
 
-# Prepare environment variables to pass to the container
-# Only pass variables if they are set
-ENV_VARS=""
-[ -n "$EDAMAME_USER" ] && ENV_VARS="$ENV_VARS -e EDAMAME_USER=$EDAMAME_USER"
-[ -n "$EDAMAME_DOMAIN" ] && ENV_VARS="$ENV_VARS -e EDAMAME_DOMAIN=$EDAMAME_DOMAIN"
-[ -n "$EDAMAME_PIN" ] && ENV_VARS="$ENV_VARS -e EDAMAME_PIN=$EDAMAME_PIN"
-[ -n "$DEV_GITHUB_TOKEN" ] && ENV_VARS="$ENV_VARS -e DEV_GITHUB_TOKEN=$DEV_GITHUB_TOKEN"
-# Add other environment variables from the workflow file if needed by tests
-[ -n "$EDAMAME_APP_SENTRY" ] && ENV_VARS="$ENV_VARS -e EDAMAME_APP_SENTRY=$EDAMAME_APP_SENTRY"
-[ -n "$PWNED_API_KEY" ] && ENV_VARS="$ENV_VARS -e PWNED_API_KEY=$PWNED_API_KEY"
-[ -n "$EDAMAME_TARGET" ] && ENV_VARS="$ENV_VARS -e EDAMAME_TARGET=$EDAMAME_TARGET"
-[ -n "$EDAMAME_CORE_TARGET" ] && ENV_VARS="$ENV_VARS -e EDAMAME_CORE_TARGET=$EDAMAME_CORE_TARGET"
-[ -n "$EDAMAME_CORE_SERVER" ] && ENV_VARS="$ENV_VARS -e EDAMAME_CORE_SERVER=$EDAMAME_CORE_SERVER"
-[ -n "$EDAMAME_CA_PEM" ] && ENV_VARS="$ENV_VARS -e EDAMAME_CA_PEM=$EDAMAME_CA_PEM"
-[ -n "$EDAMAME_CLIENT_PEM" ] && ENV_VARS="$ENV_VARS -e EDAMAME_CLIENT_PEM=$EDAMAME_CLIENT_PEM"
-[ -n "$EDAMAME_CLIENT_KEY" ] && ENV_VARS="$ENV_VARS -e EDAMAME_CLIENT_KEY=$EDAMAME_CLIENT_KEY"
-[ -n "$EDAMAME_SERVER_PEM" ] && ENV_VARS="$ENV_VARS -e EDAMAME_SERVER_PEM=$EDAMAME_SERVER_PEM"
-[ -n "$EDAMAME_SERVER_KEY" ] && ENV_VARS="$ENV_VARS -e EDAMAME_SERVER_KEY=$EDAMAME_SERVER_KEY"
-[ -n "$EDAMAME_CLIENT_CA_PEM" ] && ENV_VARS="$ENV_VARS -e EDAMAME_CLIENT_CA_PEM=$EDAMAME_CLIENT_CA_PEM"
-[ -n "$LAMBDA_SIGNATURE" ] && ENV_VARS="$ENV_VARS -e LAMBDA_SIGNATURE=$LAMBDA_SIGNATURE"
-[ -n "$MIXPANEL_TOKEN" ] && ENV_VARS="$ENV_VARS -e MIXPANEL_TOKEN=$MIXPANEL_TOKEN"
-ENV_VARS="$ENV_VARS -e EDAMAME_LOG_LEVEL=debug"
+docker_args=(
+    --rm
+    -it
+    --cap-add=NET_ADMIN
+    --cap-add=NET_RAW
+)
 
-docker run --rm -it \
-    --cap-add=NET_ADMIN \
-    --cap-add=NET_RAW \
-    $ENV_VARS \
-    "${IMAGE_NAME}"
+add_env_if_set() {
+    local var_name="$1"
+    if [ -n "${!var_name:-}" ]; then
+        export "$var_name"
+        docker_args+=(-e "$var_name")
+    fi
+}
+
+for var in "${required_vars[@]}"; do
+    add_env_if_set "$var"
+done
+
+add_env_if_set EDAMAME_APP_SENTRY
+add_env_if_set PWNED_API_KEY
+add_env_if_set EDAMAME_TARGET
+add_env_if_set EDAMAME_CORE_TARGET
+add_env_if_set EDAMAME_CORE_SERVER
+add_env_if_set EDAMAME_CA_PEM
+add_env_if_set EDAMAME_CLIENT_PEM
+add_env_if_set EDAMAME_CLIENT_KEY
+add_env_if_set EDAMAME_SERVER_PEM
+add_env_if_set EDAMAME_SERVER_KEY
+add_env_if_set EDAMAME_CLIENT_CA_PEM
+add_env_if_set LAMBDA_SIGNATURE
+add_env_if_set MIXPANEL_TOKEN
+
+export EDAMAME_LOG_LEVEL=${EDAMAME_LOG_LEVEL:-debug}
+add_env_if_set EDAMAME_LOG_LEVEL
+
+docker_args+=("${IMAGE_NAME}")
+
+docker run "${docker_args[@]}"
 
 EXIT_CODE=$?
 

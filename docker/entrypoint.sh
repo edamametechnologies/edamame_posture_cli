@@ -28,6 +28,41 @@ cargo --version
 echo "Building application..."
 cargo build --release
 
+if [ "${AGENTIC_TEST_MODE:-0}" = "1" ]; then
+  echo "Agentic test mode enabled – skipping standard test suite"
+  export SUDO_CMD=""
+
+  # Determine provider (allow overrides via env)
+  AGENTIC_PROVIDER="${EDAMAME_AGENTIC_PROVIDER:-${AGENTIC_PROVIDER:-}}"
+  if [ -z "${AGENTIC_PROVIDER}" ]; then
+    if [[ "${EDAMAME_LLM_MODEL:-}" =~ [Cc]laude ]]; then
+      AGENTIC_PROVIDER="claude"
+    elif [[ "${EDAMAME_LLM_MODEL:-}" =~ gpt ]]; then
+      AGENTIC_PROVIDER="openai"
+    elif [ -n "${EDAMAME_LLM_BASE_URL:-}" ]; then
+      AGENTIC_PROVIDER="ollama"
+    else
+      AGENTIC_PROVIDER="claude"
+    fi
+  fi
+
+  AGENTIC_INTERVAL="${EDAMAME_AGENTIC_INTERVAL:-${AGENTIC_INTERVAL:-30}}"
+
+  echo "Running agentic analysis (mode=analyze, provider=${AGENTIC_PROVIDER}, interval=${AGENTIC_INTERVAL}s..."
+
+  set +e
+  /app/target/release/edamame_posture foreground-start \
+    --user "" \
+    --domain "" \
+    --pin "" \
+    --device-id "" \
+    --network-scan \
+    --packet-capture \
+    --agentic-mode analyze \
+    --agentic-provider "${AGENTIC_PROVIDER}" \
+    --agentic-interval "${AGENTIC_INTERVAL}"
+fi
+
 # --- Run Tests ---
 # Environment variables required by test scripts (passed via docker run -e)
 # EDAMAME_USER, EDAMAME_DOMAIN, EDAMAME_PIN are needed for integration_test.sh

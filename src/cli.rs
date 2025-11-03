@@ -4,7 +4,7 @@ use crate::parse_fqdn;
 use crate::parse_signature;
 use crate::parse_username;
 use crate::CORE_VERSION;
-use clap::{arg, ArgAction, Command};
+use clap::{arg, Arg, ArgAction, Command};
 use clap_complete::Shell;
 
 pub fn build_cli() -> Command {
@@ -91,6 +91,47 @@ pub fn build_cli() -> Command {
             .required(true)
             .value_parser(clap::value_parser!(String)),
     ))
+    .subcommand(
+        Command::new("dismiss-device")
+            .about("Dismiss all ports on a device")
+            .arg(
+                arg!(<IP_ADDRESS> "Device IP address")
+                    .required(true)
+                    .value_parser(clap::value_parser!(String)),
+            ),
+    )
+    .subcommand(
+        Command::new("dismiss-device-port")
+            .about("Dismiss a specific device port")
+            .arg(
+                arg!(<IP_ADDRESS> "Device IP address")
+                    .required(true)
+                    .value_parser(clap::value_parser!(String)),
+            )
+            .arg(
+                arg!(<PORT> "Port number")
+                    .required(true)
+                    .value_parser(clap::value_parser!(u16)),
+            ),
+    )
+    .subcommand(
+        Command::new("dismiss-session")
+            .about("Dismiss a session by UID")
+            .arg(
+                arg!(<SESSION_UID> "Session UID")
+                    .required(true)
+                    .value_parser(clap::value_parser!(String)),
+            ),
+    )
+    .subcommand(
+        Command::new("dismiss-session-process")
+            .about("Dismiss future sessions for a process by UID")
+            .arg(
+                arg!(<SESSION_UID> "Session or process UID")
+                    .required(true)
+                    .value_parser(clap::value_parser!(String)),
+            ),
+    )
     .subcommand(Command::new("rollback-threat").about("Rollback a threat").arg(
         arg!(<THREAT_ID> "Threat ID")
             .required(true)
@@ -191,33 +232,29 @@ pub fn build_cli() -> Command {
             .alias("get-sessions")
             .about("Get connections from the background process")
             .arg(
-                arg!([ZEEK_FORMAT] "Zeek format")
+                arg!(--"zeek-format" "Output sessions in Zeek format")
                     .required(false)
-                    .value_parser(clap::value_parser!(bool)),
+                    .action(ArgAction::SetTrue),
             )
             .arg(
-                arg!([LOCAL_TRAFFIC] "Include local traffic")
+                arg!(--"include-local-traffic" "Include local traffic in the output")
                     .required(false)
-                    .default_value("false")
-                    .value_parser(clap::value_parser!(bool)),
+                    .action(ArgAction::SetTrue),
             )
             .arg(
-                arg!([CHECK_WHITELIST] "Exit with code 1 if any whitelist exception is detected")
+                arg!(--"fail-on-whitelist" "Exit with code 1 if whitelist violations are detected")
                     .required(false)
-                    .default_value("true")
-                    .value_parser(clap::value_parser!(bool)),
+                    .action(ArgAction::SetTrue),
             )
             .arg(
-                arg!([CHECK_BLACKLIST] "Exit with code 1 if blacklisted sessions are detected")
+                arg!(--"fail-on-blacklist" "Exit with code 1 if blacklisted sessions are detected")
                     .required(false)
-                    .default_value("true")
-                    .value_parser(clap::value_parser!(bool)),
+                    .action(ArgAction::SetTrue),
             )
             .arg(
-                arg!([CHECK_ANOMALOUS] "Exit with code 1 if anomalous sessions are detected")
+                arg!(--"fail-on-anomalous" "Exit with code 1 if anomalous sessions are detected")
                     .required(false)
-                    .default_value("false")
-                    .value_parser(clap::value_parser!(bool)),
+                    .action(ArgAction::SetTrue),
             ),
     )
     .subcommand(
@@ -240,101 +277,13 @@ pub fn build_cli() -> Command {
     .subcommand(
         Command::new("foreground-start")
             .about("Start reporting in the foreground (used by the systemd service)")
-            .arg(
-                arg!(<USER> "User name")
-                    .required(true)
-                    // Throw an error if the string is an email address
-                    .value_parser(parse_username)
-            )
-            .arg(
-                arg!(<DOMAIN> "Domain name")
-                    .required(true)
-                    // FQDN only
-                    .value_parser(parse_fqdn),
-            )
-            .arg(
-                arg!(<PIN> "PIN")
-                    .required(true)
-                    // String with digits only
-                    .value_parser(parse_digits_only),
-            )
-            .arg(
-                arg!([AGENTIC_MODE] "AI assistant mode: auto, semi, manual, or disabled")
-                    .required(false)
-                    .default_value("disabled")
-                    .value_parser(["auto", "semi", "manual", "disabled"]),
-            )
-            .arg(
-                arg!([AGENTIC_PROVIDER] "LLM provider: claude, openai, ollama, none")
-                    .required(false)
-                    .value_parser(["claude", "openai", "ollama", "none"]),
-            )
-            .arg(
-                arg!([AGENTIC_INTERVAL] "Interval in seconds for automated todo processing (default: 300)")
-                    .required(false)
-                    .default_value("300")
-                    .value_parser(clap::value_parser!(u64)),
-            )
+            .args(start_common_args()),
     )
     .subcommand(
         Command::new("background-start")
             .alias("start")
             .about("Start reporting background process")
-            .arg(
-                arg!(<USER> "User name")
-                    .required(true)
-                    .value_parser(parse_username),
-            )
-            .arg(
-                arg!(<DOMAIN> "Domain name")
-                    .required(true)
-                    // FQDN only
-                    .value_parser(parse_fqdn),
-            )
-            .arg(
-                arg!(<PIN> "PIN")
-                    .required(true)
-                    // String with digits only
-                    .value_parser(parse_digits_only),
-            )
-            .arg(
-                arg!([DEVICE_ID] "Device ID in the form of a string, this will be used as a suffix to the detected hardware ID. When non empty, the endpoint will be flagged as a CI/CD runner.")
-                    .required(false)
-                    .value_parser(clap::value_parser!(String)),
-            )
-            .arg(
-                arg!([LAN_SCANNING] "LAN scanning enabled")
-                    .required(false)
-                    .value_parser(clap::value_parser!(bool)),
-            )
-            .arg(
-                arg!([WHITELIST_NAME] "Whitelist name")
-                    .required(false)
-                    .value_parser(clap::value_parser!(String)),
-            )
-            .arg(
-                arg!([LOCAL_TRAFFIC] "Include local traffic")
-                    .required(false)
-                    .default_value("false")
-                    .value_parser(clap::value_parser!(bool)),
-            )
-            .arg(
-                arg!([AGENTIC_MODE] "AI assistant mode for automated todo processing: auto, semi, manual, or disabled")
-                    .required(false)
-                    .default_value("disabled")
-                    .value_parser(["auto", "semi", "manual", "disabled"]),
-            )
-            .arg(
-                arg!([AGENTIC_PROVIDER] "LLM provider for AI assistant: claude, openai, ollama, none")
-                    .required(false)
-                    .value_parser(["claude", "openai", "ollama", "none"]),
-            )
-            .arg(
-                arg!([AGENTIC_INTERVAL] "Interval in seconds for automated todo processing (default: 300)")
-                    .required(false)
-                    .default_value("300")
-                    .value_parser(clap::value_parser!(u64)),
-            )
+            .args(start_common_args()),
     )
     .subcommand(Command::new("background-stop").alias("stop").about("Stop reporting background process"))
     ////////////////
@@ -363,28 +312,7 @@ pub fn build_cli() -> Command {
     .subcommand(
         Command::new("background-start-disconnected")
             .about("Start the background process in disconnected mode (without domain authentication)")
-            .arg(
-                arg!([LAN_SCANNING] "LAN scanning enabled")
-                    .required(false)
-                    .value_parser(clap::value_parser!(bool)),
-            )
-            .arg(
-                arg!([WHITELIST_NAME] "Whitelist name")
-                    .required(false)
-                    .value_parser(clap::value_parser!(String)),
-            )
-            .arg(
-                arg!([LOCAL_TRAFFIC] "Include local traffic")
-                    .required(false)
-                    .default_value("false")
-                    .value_parser(clap::value_parser!(bool)),
-            )
-            .arg(
-                arg!([AGENTIC_MODE] "AI assistant mode for automated todo processing: auto, semi, manual, or disabled")
-                    .required(false)
-                    .default_value("disabled")
-                    .value_parser(["auto", "semi", "manual", "disabled"]),
-            )
+            .args(disconnected_start_args()),
     )
     .subcommand(
         Command::new("background-set-custom-whitelists")
@@ -481,4 +409,264 @@ pub fn build_cli() -> Command {
         .arg(arg!(<WHITELIST_FILE_2> "Second whitelist JSON file path")
             .required(true)
             .value_parser(clap::value_parser!(String))))
+}
+
+fn start_common_args() -> Vec<Arg> {
+    vec![
+        Arg::new("user")
+            .long("user")
+            .short('u')
+            .value_name("USER")
+            .help("User name")
+            .value_parser(parse_username)
+            .default_value(""),
+        Arg::new("domain")
+            .long("domain")
+            .short('d')
+            .value_name("DOMAIN")
+            .help("Domain name")
+            .value_parser(parse_fqdn)
+            .default_value(""),
+        Arg::new("pin")
+            .long("pin")
+            .short('p')
+            .value_name("PIN")
+            .help("PIN")
+            .value_parser(parse_digits_only)
+            .default_value(""),
+        Arg::new("device_id")
+            .long("device-id")
+            .value_name("DEVICE_ID")
+            .help("Device ID suffix to flag the endpoint as a CI/CD runner when provided")
+            .value_parser(clap::value_parser!(String)),
+        Arg::new("network_scan")
+            .long("network-scan")
+            .alias("lan-scan")
+            .alias("lan-scanning")
+            .short('n')
+            .help("Enable LAN scanning")
+            .action(ArgAction::SetTrue),
+        Arg::new("packet_capture")
+            .long("packet-capture")
+            .alias("capture")
+            .short('c')
+            .help("Enable packet capture")
+            .action(ArgAction::SetTrue),
+        Arg::new("whitelist")
+            .long("whitelist")
+            .value_name("WHITELIST")
+            .help("Whitelist name to enforce during capture")
+            .value_parser(clap::value_parser!(String)),
+        Arg::new("fail_on_whitelist")
+            .long("fail-on-whitelist")
+            .help("Treat whitelist violations as fatal (defaults to true when --whitelist is provided)")
+            .action(ArgAction::SetTrue),
+        Arg::new("fail_on_blacklist")
+            .long("fail-on-blacklist")
+            .help("Treat blacklist violations as fatal")
+            .action(ArgAction::SetTrue),
+        Arg::new("fail_on_anomalous")
+            .long("fail-on-anomalous")
+            .help("Treat anomalous sessions as fatal")
+            .action(ArgAction::SetTrue),
+        Arg::new("include_local_traffic")
+            .long("include-local-traffic")
+            .alias("local-traffic")
+            .help("Include local traffic in capture output")
+            .action(ArgAction::SetTrue),
+        Arg::new("agentic_mode")
+            .long("agentic-mode")
+            .value_name("MODE")
+            .help("AI assistant mode: auto, analyze or disabled")
+            .default_value("disabled")
+            .value_parser(["auto", "analyze", "disabled"]),
+        Arg::new("agentic_provider")
+            .long("agentic-provider")
+            .value_name("PROVIDER")
+            .help("LLM provider: claude, openai, ollama, none")
+            .value_parser(["claude", "openai", "ollama", "none"]),
+        Arg::new("agentic_interval")
+            .long("agentic-interval")
+            .value_name("SECONDS")
+            .help("Interval in seconds for automated todo processing (default: 3600)")
+            .default_value("3600")
+            .value_parser(clap::value_parser!(u64)),
+        Arg::new("cancel_on_violation")
+            .long("cancel-on-violation")
+            .help("Attempt to cancel the current CI pipeline when policy violations are detected")
+            .action(ArgAction::SetTrue),
+    ]
+}
+
+fn disconnected_start_args() -> Vec<Arg> {
+    vec![
+        Arg::new("network_scan")
+            .long("network-scan")
+            .alias("lan-scan")
+            .alias("lan-scanning")
+            .short('n')
+            .help("Enable LAN scanning")
+            .action(ArgAction::SetTrue),
+        Arg::new("packet_capture")
+            .long("packet-capture")
+            .alias("capture")
+            .short('c')
+            .help("Enable packet capture")
+            .action(ArgAction::SetTrue),
+        Arg::new("whitelist")
+            .long("whitelist")
+            .value_name("WHITELIST")
+            .help("Whitelist name to enforce during capture")
+            .value_parser(clap::value_parser!(String)),
+        Arg::new("fail_on_whitelist")
+            .long("fail-on-whitelist")
+            .help("Treat whitelist violations as fatal (defaults to true when --whitelist is provided)")
+            .action(ArgAction::SetTrue),
+        Arg::new("fail_on_blacklist")
+            .long("fail-on-blacklist")
+            .help("Treat blacklist violations as fatal")
+            .action(ArgAction::SetTrue),
+        Arg::new("fail_on_anomalous")
+            .long("fail-on-anomalous")
+            .help("Treat anomalous sessions as fatal")
+            .action(ArgAction::SetTrue),
+        Arg::new("include_local_traffic")
+            .long("include-local-traffic")
+            .alias("local-traffic")
+            .help("Include local traffic in capture output")
+            .action(ArgAction::SetTrue),
+        Arg::new("agentic_mode")
+            .long("agentic-mode")
+            .value_name("MODE")
+            .help("AI assistant mode for automated todo processing: auto, analyze or disabled")
+            .default_value("disabled")
+            .value_parser(["auto", "analyze", "disabled"]),
+        Arg::new("cancel_on_violation")
+            .long("cancel-on-violation")
+            .help("Attempt to cancel the current CI pipeline when policy violations are detected")
+            .action(ArgAction::SetTrue),
+    ]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::build_cli;
+
+    #[test]
+    fn foreground_start_accepts_background_parameters() {
+        let matches = build_cli()
+            .try_get_matches_from([
+                "edamame_posture",
+                "foreground-start",
+                "--user",
+                "runner",
+                "--domain",
+                "example.com",
+                "--pin",
+                "123456",
+                "--device-id",
+                "ci-node",
+                "--network-scan",
+                "--whitelist",
+                "custom_whitelist",
+                "--fail-on-whitelist",
+                "--fail-on-blacklist",
+                "--fail-on-anomalous",
+                "--include-local-traffic",
+                "--cancel-on-violation",
+                "--agentic-mode",
+                "auto",
+                "--agentic-provider",
+                "ollama",
+                "--agentic-interval",
+                "600",
+            ])
+            .expect("foreground-start should accept the same arguments as background-start");
+
+        let (subcommand, sub_matches) = matches
+            .subcommand()
+            .expect("expected a subcommand for foreground-start");
+        assert_eq!(subcommand, "foreground-start");
+
+        assert_eq!(
+            sub_matches.get_one::<String>("user").map(String::as_str),
+            Some("runner")
+        );
+        assert_eq!(
+            sub_matches.get_one::<String>("domain").map(String::as_str),
+            Some("example.com")
+        );
+        assert_eq!(
+            sub_matches.get_one::<String>("pin").map(String::as_str),
+            Some("123456")
+        );
+        assert_eq!(
+            sub_matches
+                .get_one::<String>("device_id")
+                .map(String::as_str),
+            Some("ci-node")
+        );
+        assert!(sub_matches.get_flag("network_scan"));
+        assert!(sub_matches.get_flag("fail_on_whitelist"));
+        assert!(sub_matches.get_flag("fail_on_blacklist"));
+        assert!(sub_matches.get_flag("fail_on_anomalous"));
+        assert!(sub_matches.get_flag("include_local_traffic"));
+        assert!(sub_matches.get_flag("cancel_on_violation"));
+        assert_eq!(
+            sub_matches
+                .get_one::<String>("whitelist")
+                .map(String::as_str),
+            Some("custom_whitelist")
+        );
+        assert_eq!(
+            sub_matches
+                .get_one::<String>("agentic_mode")
+                .map(String::as_str),
+            Some("auto")
+        );
+        assert_eq!(
+            sub_matches
+                .get_one::<String>("agentic_provider")
+                .map(String::as_str),
+            Some("ollama")
+        );
+        assert_eq!(sub_matches.get_one::<u64>("agentic_interval"), Some(&600));
+    }
+
+    #[test]
+    fn foreground_start_defaults_align_with_background() {
+        let matches = build_cli()
+            .try_get_matches_from([
+                "edamame_posture",
+                "foreground-start",
+                "--user",
+                "runner",
+                "--domain",
+                "example.com",
+                "--pin",
+                "123456",
+            ])
+            .expect("foreground-start parsing with defaults");
+
+        let (_, sub_matches) = matches
+            .subcommand()
+            .expect("expected foreground-start subcommand");
+
+        assert!(sub_matches.get_one::<String>("device_id").is_none());
+        assert!(!sub_matches.get_flag("network_scan"));
+        assert_eq!(sub_matches.get_one::<String>("whitelist"), None);
+        assert!(!sub_matches.get_flag("fail_on_whitelist"));
+        assert!(!sub_matches.get_flag("fail_on_blacklist"));
+        assert!(!sub_matches.get_flag("fail_on_anomalous"));
+        assert!(!sub_matches.get_flag("cancel_on_violation"));
+        assert!(!sub_matches.get_flag("include_local_traffic"));
+        assert_eq!(
+            sub_matches
+                .get_one::<String>("agentic_mode")
+                .map(String::as_str),
+            Some("disabled")
+        );
+        assert_eq!(sub_matches.get_one::<String>("agentic_provider"), None);
+        assert_eq!(sub_matches.get_one::<u64>("agentic_interval"), Some(&3600));
+    }
 }
