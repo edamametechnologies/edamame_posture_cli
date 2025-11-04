@@ -1764,7 +1764,7 @@ dependencies = [
 [[package]]
 name = "edamame_backend"
 version = "0.3.5"
-source = "git+https://github.com/edamametechnologies/edamame_backend?branch=main#643ea85dcc0ff783d2322bf8cb7c8a67dee20b35"
+source = "git+https://github.com/edamametechnologies/edamame_backend?branch=main#5519a30676bd30d68898259b3349e56717fe6d07"
 dependencies = [
  "anyhow",
  "blake3",
@@ -1778,7 +1778,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "0.9.72"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#f4ae306a852316ae787ad3f1835d826b782f896e"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#327e10d40b4ee342c38f7d5a3f510bf04c018bab"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1860,7 +1860,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "0.9.72"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#5dc8afddcbfc63f347016bd72e02aff2126f5d35"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#8e8e5078498c8551e17992951563e4bab205b3ff"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -3258,9 +3258,9 @@ dependencies = [
 
 [[package]]
 name = "iri-string"
-version = "0.7.8"
+version = "0.7.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dbc5ebe9c3a1a7a5127f920a418f7585e9e758e911d0466ed004f393b0e380b2"
+checksum = "4f867b9d1d896b67beb18518eda36fdb77a32ea590de864f1325b294a6d14397"
 dependencies = [
  "memchr",
  "serde",
@@ -5504,9 +5504,9 @@ dependencies = [
 
 [[package]]
 name = "rustls"
-version = "0.23.34"
+version = "0.23.35"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a9586e9ee2b4f8fab52a0048ca7334d7024eef48e2cb9407e3497bb7cab7fa7"
+checksum = "533f54bc6a7d4f647e46ad909549eda97bf5afc1585190ef692b4286b198bd8f"
 dependencies = [
  "log",
  "once_cell",
