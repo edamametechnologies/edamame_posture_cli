@@ -1764,7 +1764,7 @@ dependencies = [
 [[package]]
 name = "edamame_backend"
 version = "0.3.5"
-source = "git+https://github.com/edamametechnologies/edamame_backend?branch=main#5519a30676bd30d68898259b3349e56717fe6d07"
+source = "git+https://github.com/edamametechnologies/edamame_backend?branch=main#3ac8248e38d64f60ad67b1b2720164fec682b250"
 dependencies = [
  "anyhow",
  "blake3",
@@ -1778,7 +1778,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "0.9.72"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#bdc9c2c3775adcdadfbc7d86f7aa721669dbc390"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#8a9fd49f0e67b38f700dfc31011e97f615eec37f"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1859,7 +1859,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "0.9.72"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#9fa2079be8ab1472d6773d3efe3815a086bc87e8"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#282f92f0ea00619a08a744af07ebff32b3e5dbce"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -5371,7 +5371,7 @@ dependencies = [
  "pin-project-lite",
  "rand 0.9.2",
  "rmcp-macros",
- "schemars 1.0.5",
+ "schemars 1.1.0",
  "serde",
  "serde_json",
  "sse-stream",
@@ -5600,9 +5600,9 @@ dependencies = [
 
 [[package]]
 name = "schemars"
-version = "1.0.5"
+version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1317c3bf3e7df961da95b0a56a172a02abead31276215a0497241a7624b487ce"
+checksum = "9558e172d4e8533736ba97870c4b2cd63f84b382a3d6eb063da41b91cce17289"
 dependencies = [
  "chrono",
  "dyn-clone",
@@ -5614,9 +5614,9 @@ dependencies = [
 
 [[package]]
 name = "schemars_derive"
-version = "1.0.5"
+version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5f760a6150d45dd66ec044983c124595ae76912e77ed0b44124cb3e415cce5d9"
+checksum = "301858a4023d78debd2353c7426dc486001bddc91ae31a76fb1f55132f7e2633"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -5800,7 +5800,7 @@ dependencies = [
  "indexmap 1.9.3",
  "indexmap 2.12.0",
  "schemars 0.9.0",
- "schemars 1.0.5",
+ "schemars 1.1.0",
  "serde_core",
  "serde_json",
  "serde_with_macros",
