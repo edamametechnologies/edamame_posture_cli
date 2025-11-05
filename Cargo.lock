@@ -1778,7 +1778,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "0.9.72"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#a60b611d4bce4d3a6492c17b12e03c173fcf3072"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#bdc9c2c3775adcdadfbc7d86f7aa721669dbc390"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1841,7 +1841,6 @@ dependencies = [
  "swift-rs",
  "tokio",
  "tokio-stream",
- "tokio-util",
  "tonic 0.14.2",
  "tonic-prost",
  "tonic-prost-build",
@@ -1860,7 +1859,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "0.9.72"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#7133b9507fcae3203e4033fd192fbda82ffe6400"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#9fa2079be8ab1472d6773d3efe3815a086bc87e8"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -5357,11 +5356,10 @@ dependencies = [
 
 [[package]]
 name = "rmcp"
-version = "0.8.3"
+version = "0.8.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1fdad1258f7259fdc0f2dfc266939c82c3b5d1fd72bcde274d600cdc27e60243"
+checksum = "e5947688160b56fb6c827e3c20a72c90392a1d7e9dec74749197aa1780ac42ca"
 dependencies = [
- "axum 0.8.6",
  "base64 0.22.1",
  "bytes",
  "chrono",
@@ -5388,9 +5386,9 @@ dependencies = [
 
 [[package]]
 name = "rmcp-macros"
-version = "0.8.3"
+version = "0.8.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ede0589a208cc7ce81d1be68aa7e74b917fcd03c81528408bab0457e187dcd9b"
+checksum = "01263441d3f8635c628e33856c468b96ebbce1af2d3699ea712ca71432d4ee7a"
 dependencies = [
  "darling 0.21.3",
  "proc-macro2",
