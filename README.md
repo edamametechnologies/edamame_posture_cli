@@ -1093,13 +1093,13 @@ edamame_posture mcp-start 3000 "your-32-char-psk-here"
 # {
 #   "mcpServers": {
 #     "edamame": {
-#       "transport": {
-#         "type": "sse",
-#         "url": "http://127.0.0.1:3000/mcp/sse",
-#         "headers": {
-#           "Authorization": "Bearer RJgYkzfteQGu..."
-#         }
-#       }
+#       "command": "npx",
+#       "args": [
+#         "mcp-remote",
+#         "http://127.0.0.1:3000/mcp",
+#         "--header",
+#         "Authorization: Bearer RJgYkzfteQGu..."
+#       ]
 #     }
 #   }
 # }
@@ -1186,13 +1186,13 @@ When connected via MCP, AI assistants have access to 17 security automation tool
    {
      "mcpServers": {
        "edamame": {
-         "transport": {
-           "type": "sse",
-           "url": "http://127.0.0.1:3000/mcp/sse",
-           "headers": {
-             "Authorization": "Bearer <your-psk-here>"
-           }
-         }
+         "command": "npx",
+         "args": [
+           "mcp-remote",
+           "http://127.0.0.1:3000/mcp",
+           "--header",
+           "Authorization: Bearer <your-psk-here>"
+         ]
        }
      }
    }

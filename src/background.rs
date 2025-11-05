@@ -792,13 +792,13 @@ pub fn background_mcp_start(port: u16, psk: Option<String>) -> i32 {
                     r#"{{
   "mcpServers": {{
     "edamame": {{
-      "transport": {{
-        "type": "sse",
-        "url": "http://127.0.0.1:{}/mcp/sse",
-        "headers": {{
-          "Authorization": "Bearer {}"
-        }}
-      }}
+      "command": "npx",
+      "args": [
+        "mcp-remote",
+        "http://127.0.0.1:{}/mcp",
+        "--header",
+        "Authorization: Bearer {}"
+      ]
     }}
   }}
 }}"#,
