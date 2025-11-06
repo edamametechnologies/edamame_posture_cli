@@ -1778,7 +1778,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "0.9.72"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#d657aafa6f590d342b2bce4b9e72e4be7e2cea36"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#3a7f99790eabb90432386f947834eb4752a14ae7"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -5089,9 +5089,9 @@ dependencies = [
 
 [[package]]
 name = "quote"
-version = "1.0.41"
+version = "1.0.42"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ce25767e7b499d1b604768e7cde645d14cc8584231ea6b295e9c9eb22c02e1d1"
+checksum = "a338cc41d27e6cc6dce6cefc13a0729dfbb81c262b1f519331575dd80ef3067f"
 dependencies = [
  "proc-macro2",
 ]
