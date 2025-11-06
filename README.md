@@ -1054,7 +1054,7 @@ MCP (Model Context Protocol) is an open standard from Anthropic that enables AI 
 
 - Ask Claude Desktop to analyze your security posture
 - Automate security fixes through conversational AI
-- Access all 17 EDAMAME security tools via natural language
+- Access all 9 EDAMAME security automation tools via natural language
 - Process security todos with AI reasoning
 
 ### MCP Server Commands
@@ -1138,34 +1138,22 @@ Displays the current status of the MCP server.
 
 ### Available MCP Tools
 
-When connected via MCP, AI assistants have access to 17 security automation tools:
+When connected via MCP, AI assistants have access to 9 security automation tools:
 
 **Advisor Tools (4):**
-- `advisor.get_todos` - List security action items
-- `advisor.get_action_history` - View AI action history with undo info
-- `advisor.undo_action` - Undo a specific AI action
-- `advisor.undo_all_actions` - Undo all AI actions (panic button)
+- `advisor_get_todos` - List security action items
+- `advisor_get_action_history` - View AI action history with undo info
+- `advisor_undo_action` - Undo a specific AI action
+- `advisor_undo_all_actions` - Undo all AI actions (panic button)
 
 **Agentic Tools (3):**
-- `agentic.process_todos` - **"Do It For Me" workflow** - processes all security items
-- `agentic.execute_action` - Execute a pending action
-- `agentic.get_workflow_status` - Get processing status
+- `agentic_process_todos` - **"Do It For Me" workflow** - processes all security items
+- `agentic_execute_action` - Execute a pending action
+- `agentic_get_workflow_status` - Get processing status
 
-**Threat Tools (2):**
-- `threats.remediate` - Fix security threats
-- `threats.rollback` - Undo threat remediation
-
-**Network Tools (5):**
-- `network.dismiss_device_port` - Mark a port as safe
-- `network.undismiss_device_port` - Re-flag a dismissed port
-- `network.undismiss_all_device_ports` - Re-flag all ports on device
-- `network.dismiss_session` - Dismiss a network session
-- `network.dismiss_session_process` - Dismiss all sessions from a process
-
-**Breach + Score Tools (3):**
-- `pwned.toggle_breach` - Dismiss/un-dismiss data breach
-- `score.get` - Get current security score
-- `score.compute` - Trigger score recomputation
+**Score Tools (2):**
+- `score_get` - Get current security score
+- `score_compute` - Trigger score recomputation
 
 ### Claude Desktop Integration
 
