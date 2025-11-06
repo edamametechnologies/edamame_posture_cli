@@ -171,7 +171,7 @@ This command also returns a non-zero exit code when the policy is not met, allow
 The `start` command initiates a background process that continuously monitors the device's security posture and can enable conditional access controls as defined in the EDAMAME Hub:
 
 ```
-edamame_posture start --user <USER> --domain <DOMAIN> --pin <PIN> [--device-id <DEVICE_ID>] [--network-scan] [--packet-capture] [--whitelist <NAME>] [--check-whitelist] [--no-check-blacklist] [--no-check-anomalous] [--include-local-traffic] [--cancel-on-violation] [--agentic-mode MODE] [--agentic-provider PROVIDER] [--agentic-interval SECONDS]
+edamame_posture start --user <USER> --domain <DOMAIN> --pin <PIN> [--device-id <DEVICE_ID>] [--network-scan] [--packet-capture] [--whitelist <NAME>] [--fail-on-whitelist] [--fail-on-blacklist] [--fail-on-anomalous] [--include-local-traffic] [--cancel-on-violation] [--agentic-mode MODE] [--agentic-provider PROVIDER] [--agentic-interval SECONDS]
 ```
 
 Example:
@@ -181,7 +181,7 @@ edamame_posture start --user user --domain example.com --pin 123456
 
 This mode runs persistently (until stopped) and enforces policies in real-time, providing active protection of the environment.
 
-> Tip: combine `--check-whitelist` (and related checks) with `--cancel-on-violation` to automatically cancel CI pipelines whenever policy violations are detected.
+> Tip: combine `--fail-on-whitelist` (and related checks) with `--cancel-on-violation` to automatically cancel CI pipelines whenever policy violations are detected.
 
 ## Threat Models and Security Assessment
 EDAMAME Posture's security assessment capabilities are powered by comprehensive threat models that evaluate security across five key dimensions:
@@ -257,11 +257,12 @@ edamame_posture start \
   --network-scan \
   --packet-capture \
   --whitelist <WHITELIST_NAME> \
-  --check-whitelist \
+  --fail-on-whitelist \
+  --fail-on-blacklist \
   --cancel-on-violation
 ```
 
-(In practice, `--device-id`, `--network-scan`, `--packet-capture`, and `--whitelist` should be provided as needed for your setup. Additional flags such as `--no-check-blacklist`, `--no-check-anomalous`, or `--include-local-traffic` can further tailor behaviour.) This provides the most comprehensive CI/CD security controls:
+(In practice, `--device-id`, `--network-scan`, `--packet-capture`, and `--whitelist` should be provided as needed for your setup. Additional flags such as `--fail-on-anomalous` or `--include-local-traffic` can further tailor behaviour.) This provides the most comprehensive CI/CD security controls:
 - Real-time posture monitoring throughout the pipeline execution
 - Dynamic access controls (e.g., block secrets/code access) based on current security posture
 - Continuous conformance reporting to EDAMAME Hub (if connected)
@@ -270,7 +271,7 @@ edamame_posture start \
 For environments where connecting to a domain or central service isn't possible or desired, you can run the background monitor in disconnected mode:
 
 ```
-edamame_posture background-start-disconnected [--network-scan] [--packet-capture] [--whitelist <NAME>] [--check-whitelist] [--no-check-blacklist] [--no-check-anomalous] [--include-local-traffic] [--cancel-on-violation] [--agentic-mode MODE]
+edamame_posture background-start-disconnected [--network-scan] [--packet-capture] [--whitelist <NAME>] [--fail-on-whitelist] [--fail-on-blacklist] [--fail-on-anomalous] [--include-local-traffic] [--cancel-on-violation] [--agentic-mode MODE]
 ```
 
 This enables all the monitoring and whitelist enforcement capabilities locally without requiring a registered domain:
@@ -651,7 +652,7 @@ Once installed, EDAMAME Posture is invoked via the `edamame_posture` command. Mo
 - **dismiss-session** `<SESSION_UID>` / **dismiss-session-process** `<SESSION_UID>`: Silence a specific network session or every future session spawned by the same process. Use these commands after reviewing agentic/Slack summaries to acknowledge expected but noisy connections.
 - **check-policy** `<min_score>` `"<threat_ids>"` `"[tag_prefixes]"`: Check whether the system meets a specified security policy. You provide a minimum score threshold, a comma-separated list of critical threat IDs to ensure are not present (or have specific states), and optional tag prefixes for compliance frameworks. This command exits with code 0 if the policy is met, or non-zero if not met (making it perfect for CI gating).
 - **check-policy-for-domain** `<domain>` `<policy_name>`: Similar to check-policy, but retrieves the policy requirements from EDAMAME Hub for the given domain and policy name. This allows centralized policies to be enforced on the local machine. Requires that the machine is enrolled (or at least has a policy cached) for that domain.
-- **start** `<USER>` `<DOMAIN>` `<PIN>` `[DEVICE_ID]` `[LAN_SCANNING]` `[WHITELIST_NAME]` `[LOCAL_TRAFFIC]` `[AGENTIC_MODE]` `[AGENTIC_PROVIDER]` `[AGENTIC_INTERVAL]`: Start continuous monitoring and conditional access control. Typically run as a background service or daemon. You must supply your Hub user/email, domain, and one-time PIN (from Hub) to register the device session. Optional parameters: a custom device identifier, whether to enable LAN scanning (true/false for capturing local traffic), a named whitelist to enforce, a flag for allowing local traffic, AI Assistant mode (`auto`/`analyze`/`disabled`), LLM provider (claude/openai/ollama/none), and processing interval in seconds. This will keep running until stopped and enforce policy/network rules in real-time (e.g., locking down access if posture degrades).
+- **start** `--user <USER>` `--domain <DOMAIN>` `--pin <PIN>` `[--device-id <ID>]` `[--network-scan]` `[--packet-capture]` `[--whitelist <NAME>]` `[--fail-on-whitelist]` `[--fail-on-blacklist]` `[--fail-on-anomalous]` `[--include-local-traffic]` `[--cancel-on-violation]` `[--agentic-mode <MODE>]` `[--agentic-provider <PROVIDER>]` `[--agentic-interval <SECONDS>]`: Start continuous monitoring and conditional access control. Typically run as a background service or daemon. You must supply your Hub user/email, domain, and one-time PIN (from Hub) to register the device session. Optional flags enable LAN scanning, packet capture, whitelist enforcement with failure conditions, local traffic inclusion, AI Assistant automation, and pipeline cancellation on violations. This will keep running until stopped and enforce policy/network rules in real-time (e.g., locking down access if posture degrades).
 - **background-start-disconnected** `[--network-scan]` `[--packet-capture]` `[--whitelist <NAME>]` `[--include-local-traffic]` `[--agentic-mode MODE]`: Start the background monitoring in a local-only mode (no connection to EDAMAME Hub). Combine `--network-scan` for LAN discovery with `--packet-capture` when you need traffic capture + whitelist enforcement. Optional AI Assistant mode (`auto`/`analyze`/`disabled`) can be enabled (requires EDAMAME_LLM_API_KEY environment variable for cloud providers). This is useful for CI runners or standalone usage where you want monitoring without cloud integration. This process runs until killed; typically you'd run it in a screen/tmux or as a service.
 - **get-sessions** `--fail-on-whitelist` `--fail-on-blacklist` `--fail-on-anomalous` `--zeek-format` `--include-local-traffic`: Report network sessions from the background process. Use the `--fail-on-*` flags to cause a non-zero exit code when violations are detected, optionally format output as Zeek, and include local traffic if desired. Returns exit code 0 when no fatal violations are detected.
 - **flodbadd**: Perform a quick scan of the local network (LAN) to identify other devices on your subnet. This can reveal potential rogue devices or just provide situational awareness. It lists IP addresses and basic host info for devices it can detect.
@@ -685,8 +686,8 @@ For completeness, here is a list of EDAMAME Posture CLI subcommands with detaile
 - **check-policy** `<MINIMUM_SCORE>` `"<THREAT_IDS>"` `"[TAG_PREFIXES]"` – Local policy compliance check. *Requires admin privileges*. Returns non-zero exit code if policy not met.
 - **check-policy-for-domain** `<DOMAIN>` `<POLICY_NAME>` – Policy check against a Hub-defined domain policy. *Requires admin privileges*. Returns non-zero exit code if policy not met.
 - **check-policy-for-domain-with-signature** `"<SIGNATURE>"` `<DOMAIN>` `<POLICY_NAME>` – Verify a stored posture signature against a domain policy (for historical verification).
-- **start** (alias for **background-start**) `<USER>` `<DOMAIN>` `<PIN>` `[DEVICE_ID]` `[LAN_SCANNING]` `[WHITELIST_NAME]` `[LOCAL_TRAFFIC]` `[AGENTIC_MODE]` `[AGENTIC_PROVIDER]` `[AGENTIC_INTERVAL]` – Start continuous monitoring and Hub integration as a background daemon. *Requires admin privileges*.
-- **foreground-start** `<USER>` `<DOMAIN>` `<PIN>` `[DEVICE_ID]` `[LAN_SCANNING]` `[WHITELIST_NAME]` `[LOCAL_TRAFFIC]` `[AGENTIC_MODE]` `[AGENTIC_PROVIDER]` `[AGENTIC_INTERVAL]` – Start continuous monitoring in the foreground (used by systemd services). Accepts the same parameters as `background-start` for device labeling, network configuration, and AI assistant behavior. *Requires admin privileges*.
+- **start** (alias for **background-start**) `--user <USER>` `--domain <DOMAIN>` `--pin <PIN>` `[--device-id <ID>]` `[--network-scan]` `[--packet-capture]` `[--whitelist <NAME>]` `[--fail-on-whitelist]` `[--fail-on-blacklist]` `[--fail-on-anomalous]` `[--include-local-traffic]` `[--cancel-on-violation]` `[--agentic-mode <MODE>]` `[--agentic-provider <PROVIDER>]` `[--agentic-interval <SECONDS>]` – Start continuous monitoring and Hub integration as a background daemon. *Requires admin privileges*.
+- **foreground-start** – Start continuous monitoring in the foreground (used by systemd services). Accepts the same flags as `background-start` for device labeling, network configuration, and AI assistant behavior. *Requires admin privileges*.
 - **background-start-disconnected** `[--network-scan]` `[--packet-capture]` `[--whitelist <NAME>]` `[--include-local-traffic]` `[--agentic-mode MODE]` – Start continuous monitoring in offline mode without Hub connection. *Requires admin privileges*.
 - **stop** (alias for **background-stop**) – Stop a running background monitoring process.
 - **status** (alias for **background-status**) – Check the status of the background monitoring process.
@@ -747,10 +748,11 @@ edamame_posture start \
   [--network-scan] \
   [--packet-capture] \
   [--whitelist <NAME>] \
-  [--check-whitelist] \
-  [--no-check-blacklist] \
-  [--no-check-anomalous] \
+  [--fail-on-whitelist] \
+  [--fail-on-blacklist] \
+  [--fail-on-anomalous] \
   [--include-local-traffic] \
+  [--cancel-on-violation] \
   [--agentic-mode MODE] \
   [--agentic-provider PROVIDER] \
   [--agentic-interval SECONDS]
@@ -1203,7 +1205,7 @@ When connected via MCP, AI assistants have access to 9 security automation tools
 **Headless Server Mode:**
 ```bash
 # Start daemon + MCP server
-edamame_posture background-start user@domain.com 123456 &
+edamame_posture start --user user --domain domain.com --pin 123456 &
 edamame_posture mcp-start 3000 "$PSK"
 
 # Now remote AI can manage security via MCP
@@ -1708,10 +1710,10 @@ To use these embedded whitelists, specify the whitelist name when starting EDAMA
 
 ```bash
 # For a macOS GitHub workflow environment
-edamame_posture start --user user --domain example.com --pin 123456 --network-scan --packet-capture --whitelist github_macos --check-whitelist --cancel-on-violation
+edamame_posture start --user user --domain example.com --pin 123456 --network-scan --packet-capture --whitelist github_macos --fail-on-whitelist --fail-on-blacklist --cancel-on-violation
 
 # For a basic development environment
-edamame_posture start --user user --domain example.com --pin 123456 --network-scan --packet-capture --whitelist builder --check-whitelist --cancel-on-violation
+edamame_posture start --user user --domain example.com --pin 123456 --network-scan --packet-capture --whitelist builder --fail-on-whitelist --fail-on-blacklist --cancel-on-violation
 ```
 
 ## Blacklist System
