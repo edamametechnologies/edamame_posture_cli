@@ -20,6 +20,13 @@ EDAMAME Posture is a lightweight, developer-friendly security posture assessment
   - [Compliance Frameworks](#compliance-frameworks)
   - [Assessment Methods](#assessment-methods)
   - [Whitelist Database](#whitelist-database)
+- [Automation Options](#automation-options)
+  - [Overview of Automation Capabilities](#overview-of-automation-capabilities)
+  - [1. Auto-Remediation (One-Shot)](#1-auto-remediation-one-shot)
+  - [2. AI Assistant (Continuous Remediation)](#2-ai-assistant-continuous-remediation)
+  - [3. Network Violation Detection & Exit Codes](#3-network-violation-detection--exit-codes)
+  - [4. Pipeline Cancellation (Real-Time)](#4-pipeline-cancellation-real-time)
+  - [Combining Automation Options](#combining-automation-options)
 - [CI/CD Integration and Workflow Controls](#cicd-integration-and-workflow-controls)
   - [1. Local-Only Assessment](#1-local-only-assessment)
   - [2. Domain-Based Policy Management](#2-domain-based-policy-management)
@@ -217,6 +224,218 @@ Network security assessments leverage comprehensive whitelist databases that def
 - **Platform-Specific Whitelists**: Tailored allowed endpoints for macOS, Linux, and Windows.
 
 Note: The whitelist system supports advanced pattern matching for domains, IP addresses (including CIDR ranges), ports, and protocols, enabling precise control over network communications.
+
+## Automation Options
+
+EDAMAME Posture provides multiple automation capabilities that can be combined to create a comprehensive, hands-off security workflow. These options range from one-time remediation to continuous AI-powered management and automatic pipeline enforcement.
+
+### Overview of Automation Capabilities
+
+| Capability | Type | Trigger | Scope | Use Case |
+|-----------|------|---------|-------|----------|
+| **Auto-Remediation** | One-shot | Manual command | Security posture | Fix security issues before/during build |
+| **AI Assistant (Agentic)** | Continuous | Background daemon | Security todos | Automated "Do It For Me" security management |
+| **Network Violation Detection** | One-shot | Command exit | Network traffic | Detect supply chain attacks, unauthorized connections |
+| **Pipeline Cancellation** | Real-time | Violation detected | CI/CD pipeline | Stop builds immediately on security violations |
+
+### 1. Auto-Remediation (One-Shot)
+
+**Purpose**: Automatically fix common security issues in a single pass.
+
+**How it works**: The `remediate` command scans for security threats and applies known-safe fixes immediately.
+
+```bash
+# Fix all security issues except remote login and firewall
+edamame_posture remediate
+
+# Fix ALL issues including potentially disruptive ones
+edamame_posture remediate-all-threats-force
+
+# Fix a specific threat by ID
+edamame_posture remediate-threat "threat-id"
+```
+
+**Best for**:
+- CI/CD pipeline initialization (harden the runner before build)
+- Quick security posture improvement
+- Automated compliance enforcement
+
+**Limitations**:
+- One-time action only (doesn't monitor for new issues)
+- Skips potentially disruptive fixes by default (remote login, local firewall)
+
+### 2. AI Assistant (Continuous Remediation)
+
+**Purpose**: Continuous "Do It For Me" security management using LLM intelligence.
+
+**How it works**: The background daemon monitors security todos and automatically processes them using AI reasoning.
+
+**Modes**:
+- **`auto`**: Automatically resolves safe/low-risk items; escalates high-risk items
+- **`analyze`**: Provides recommendations without executing actions
+- **`disabled`**: No AI processing (default)
+
+```bash
+# Continuous automated security management
+edamame_posture start \
+  --user myuser \
+  --domain example.com \
+  --pin 123456 \
+  --network-scan \
+  --packet-capture \
+  --agentic-mode auto \
+  --agentic-provider claude \
+  --agentic-interval 300
+
+# Or in disconnected mode (no Hub connection)
+edamame_posture background-start-disconnected \
+  --network-scan \
+  --packet-capture \
+  --agentic-mode auto
+```
+
+**Environment Variables**:
+```bash
+export EDAMAME_LLM_API_KEY="sk-ant-..."
+export EDAMAME_AGENTIC_SLACK_BOT_TOKEN="xoxb-..."
+export EDAMAME_AGENTIC_SLACK_ACTIONS_CHANNEL="C01234567"
+export EDAMAME_AGENTIC_SLACK_ESCALATIONS_CHANNEL="C07654321"
+```
+
+**Best for**:
+- Long-running workstations or CI/CD runners
+- Environments that need continuous security adaptation
+- Teams wanting to reduce manual security work
+
+**Cost**: ~$1-3/day for 24/7 operation with cloud LLMs; $0 with Ollama (local)
+
+### 3. Network Violation Detection & Exit Codes
+
+**Purpose**: Detect unauthorized network connections and fail pipelines when violations occur.
+
+**How it works**: Compares captured network traffic against whitelists/blacklists and exits with non-zero code on violations.
+
+**Detection Flags**:
+```bash
+# Fail if traffic doesn't conform to whitelist
+edamame_posture get-sessions --fail-on-whitelist
+
+# Fail if blacklisted IPs are contacted
+edamame_posture get-sessions --fail-on-blacklist
+
+# Fail if ML detects anomalous connections
+edamame_posture get-sessions --fail-on-anomalous
+
+# Combine all checks
+edamame_posture get-sessions \
+  --fail-on-whitelist \
+  --fail-on-blacklist \
+  --fail-on-anomalous
+```
+
+**Prevention During Capture**: You can also enable these checks when starting the background process:
+```bash
+edamame_posture start \
+  --user myuser \
+  --domain example.com \
+  --pin 123456 \
+  --network-scan \
+  --packet-capture \
+  --whitelist github_ubuntu \
+  --fail-on-whitelist \
+  --fail-on-blacklist \
+  --fail-on-anomalous
+```
+
+**Exit Codes**:
+- `0`: No violations detected
+- `1`: Violation detected (whitelist/blacklist/anomalous as specified)
+- `3`: No active sessions available
+
+**Best for**:
+- Supply chain attack prevention (like CVE-2025-30066)
+- Zero-trust CI/CD networking
+- Detecting malicious dependencies or compromised build steps
+
+### 4. Pipeline Cancellation (Real-Time)
+
+**Purpose**: Immediately stop CI/CD pipelines when security violations are detected during execution.
+
+**How it works**: When `--cancel-on-violation` is enabled, EDAMAME actively monitors traffic in real-time and attempts to cancel the pipeline if violations occur.
+
+```bash
+# Start with automatic cancellation on violation
+edamame_posture start \
+  --user myuser \
+  --domain example.com \
+  --pin 123456 \
+  --network-scan \
+  --packet-capture \
+  --whitelist github_ubuntu \
+  --fail-on-whitelist \
+  --fail-on-blacklist \
+  --cancel-on-violation
+
+# Or in disconnected mode
+edamame_posture background-start-disconnected \
+  --network-scan \
+  --packet-capture \
+  --whitelist github_ubuntu \
+  --fail-on-whitelist \
+  --cancel-on-violation
+```
+
+**Best for**:
+- High-security environments where violations must stop immediately
+- Preventing data exfiltration in progress
+- Reducing wasted compute time on compromised builds
+
+**Note**: This provides defense-in-depth beyond exit code checking at workflow end.
+
+### Combining Automation Options
+
+You can combine these capabilities for comprehensive automation:
+
+```bash
+# Example: Full automation workflow
+
+# 1. One-shot remediation at workflow start
+edamame_posture remediate
+
+# 2. Start continuous monitoring with AI assistant and real-time cancellation
+edamame_posture start \
+  --user myuser \
+  --domain example.com \
+  --pin 123456 \
+  --network-scan \
+  --packet-capture \
+  --whitelist github_ubuntu \
+  --fail-on-whitelist \
+  --fail-on-blacklist \
+  --fail-on-anomalous \
+  --cancel-on-violation \
+  --agentic-mode auto \
+  --agentic-provider claude \
+  --agentic-interval 600
+
+# 3. Run your build/test steps
+# ...
+
+# 4. Final verification with network violation detection
+edamame_posture get-sessions \
+  --fail-on-whitelist \
+  --fail-on-blacklist \
+  --fail-on-anomalous
+```
+
+**Recommended Patterns**:
+
+| Environment | Remediation | AI Assistant | Network Detection | Cancellation |
+|------------|-------------|--------------|-------------------|--------------|
+| **Personal Workstation** | Manual | `auto` mode | Optional | No |
+| **Development CI** | Auto | `analyze` mode | `--fail-on-whitelist` | No |
+| **Production CI** | Auto | `disabled` | All flags | Yes |
+| **Air-Gapped CI** | Auto | `auto` (Ollama) | `--fail-on-whitelist` | Yes |
 
 ## CI/CD Integration and Workflow Controls
 EDAMAME Posture offers multiple levels of security controls for CI/CD environments, allowing for gradual adoption and integration:
