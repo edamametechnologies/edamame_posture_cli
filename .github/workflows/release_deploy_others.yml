@@ -77,6 +77,12 @@ jobs:
       #    token: ${{ secrets.DEV_GITHUB_TOKEN }}
       #    wait_for_api: true
       #    wait_for_https: true
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          repository: edamametechnologies/edamame_posture_action
+          path: edamame_posture_action
+          token: ${{ secrets.DEV_GITHUB_TOKEN }}
 
       - name: Configure Git Authentication to import private crates
         run: |
