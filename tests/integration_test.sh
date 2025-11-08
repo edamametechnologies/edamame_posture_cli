@@ -900,7 +900,7 @@ EOF
         
         # Check if stable (should be 16.67% = 2/12)
         THRESHOLD=0
-        if (( $(echo "$DIFF_PERCENT <= $THRESHOLD" | bc -l) )); then
+        if [ "$(awk -v diff="$DIFF_PERCENT" -v thresh="$THRESHOLD" 'BEGIN { print (diff <= thresh) ? 1 : 0 }')" = "1" ]; then
             echo "Incrementing stable count..."
             STABLE_COUNT=$((AUTO_WHITELIST_STABLE_COUNT + 1))
             echo "$STABLE_COUNT" > auto_whitelist_stable_count.txt
@@ -943,7 +943,7 @@ EOF
         echo "Whitelist difference: ${DIFF_PERCENT}%"
         
         THRESHOLD=0
-        if (( $(echo "$DIFF_PERCENT <= $THRESHOLD" | bc -l) )); then
+        if [ "$(awk -v diff="$DIFF_PERCENT" -v thresh="$THRESHOLD" 'BEGIN { print (diff <= thresh) ? 1 : 0 }')" = "1" ]; then
             STABLE_COUNT=$((AUTO_WHITELIST_STABLE_COUNT + 1))
             echo "$STABLE_COUNT" > auto_whitelist_stable_count.txt
             echo "✅ No changes detected - stable_count incremented to $STABLE_COUNT"
@@ -1144,12 +1144,8 @@ test_auto_whitelist_full_workflow() {
     STABILITY_THRESHOLD=0.0
     CONSECUTIVE_REQUIRED=3
     
-    # Use bc for floating point comparison if available, otherwise use awk
-    if command -v bc &> /dev/null; then
-        IS_STABLE=$(echo "$DIFF_PERCENT_2 <= $STABILITY_THRESHOLD" | bc -l)
-    else
-        IS_STABLE=$(awk -v diff="$DIFF_PERCENT_2" -v thresh="$STABILITY_THRESHOLD" 'BEGIN { print (diff <= thresh) ? 1 : 0 }')
-    fi
+    # Use awk for floating point comparison
+    IS_STABLE=$(awk -v diff="$DIFF_PERCENT_2" -v thresh="$STABILITY_THRESHOLD" 'BEGIN { print (diff <= thresh) ? 1 : 0 }')
     
     # Simulate consecutive stable runs tracking
     STABLE_COUNT=0
