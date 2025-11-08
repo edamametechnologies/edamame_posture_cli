@@ -135,6 +135,43 @@ _arguments "${_arguments_options[@]}" : \
 ':THREAT_ID -- Threat ID:_default' \
 && ret=0
 ;;
+(dismiss-device)
+_arguments "${_arguments_options[@]}" : \
+'*-v[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'*--verbose[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'-h[Print help]' \
+'--help[Print help]' \
+':IP_ADDRESS -- Device IP address:_default' \
+&& ret=0
+;;
+(dismiss-device-port)
+_arguments "${_arguments_options[@]}" : \
+'*-v[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'*--verbose[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'-h[Print help]' \
+'--help[Print help]' \
+':IP_ADDRESS -- Device IP address:_default' \
+':PORT -- Port number:_default' \
+&& ret=0
+;;
+(dismiss-session)
+_arguments "${_arguments_options[@]}" : \
+'*-v[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'*--verbose[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'-h[Print help]' \
+'--help[Print help]' \
+':SESSION_UID -- Session UID:_default' \
+&& ret=0
+;;
+(dismiss-session-process)
+_arguments "${_arguments_options[@]}" : \
+'*-v[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'*--verbose[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'-h[Print help]' \
+'--help[Print help]' \
+':SESSION_UID -- Session or process UID:_default' \
+&& ret=0
+;;
 (rollback-threat)
 _arguments "${_arguments_options[@]}" : \
 '*-v[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
@@ -238,15 +275,15 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (background-get-sessions)
 _arguments "${_arguments_options[@]}" : \
-'*-v[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
-'*--verbose[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
-'-h[Print help]' \
-'--help[Print help]' \
 '--zeek-format[Output sessions in Zeek format]' \
 '--include-local-traffic[Include local traffic in the output]' \
 '--fail-on-whitelist[Exit with code 1 if whitelist violations are detected]' \
 '--fail-on-blacklist[Exit with code 1 if blacklisted sessions are detected]' \
 '--fail-on-anomalous[Exit with code 1 if anomalous sessions are detected]' \
+'*-v[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'*--verbose[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'-h[Print help]' \
+'--help[Print help]' \
 && ret=0
 ;;
 (background-get-exceptions)
@@ -269,38 +306,58 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (foreground-start)
 _arguments "${_arguments_options[@]}" : \
+'-u+[User name]:USER:_default' \
+'--user=[User name]:USER:_default' \
+'-d+[Domain name]:DOMAIN:_default' \
+'--domain=[Domain name]:DOMAIN:_default' \
+'-p+[PIN]:PIN:_default' \
+'--pin=[PIN]:PIN:_default' \
+'--device-id=[Device ID suffix to flag the endpoint as a CI/CD runner when provided]:DEVICE_ID:_default' \
+'--whitelist=[Whitelist name to enforce during capture]:WHITELIST:_default' \
+'--agentic-mode=[AI assistant mode\: auto, analyze or disabled]:MODE:(auto analyze disabled)' \
+'--agentic-provider=[LLM provider\: claude, openai, ollama, none]:PROVIDER:(claude openai ollama none)' \
+'--agentic-interval=[Interval in seconds for automated todo processing (default\: 3600)]:SECONDS:_default' \
+'-n[Enable LAN scanning]' \
+'--network-scan[Enable LAN scanning]' \
+'-c[Enable packet capture]' \
+'--packet-capture[Enable packet capture]' \
+'--fail-on-whitelist[Treat whitelist violations as fatal (defaults to true when --whitelist is provided)]' \
+'--fail-on-blacklist[Treat blacklist violations as fatal]' \
+'--fail-on-anomalous[Treat anomalous sessions as fatal]' \
+'--include-local-traffic[Include local traffic in capture output]' \
+'--cancel-on-violation[Attempt to cancel the current CI pipeline when policy violations are detected]' \
 '*-v[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
 '*--verbose[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
 '-h[Print help]' \
 '--help[Print help]' \
-':USER -- User name:_default' \
-':DOMAIN -- Domain name:_default' \
-':PIN -- PIN:_default' \
-'::DEVICE_ID -- Device ID in the form of a string, this will be used as a suffix to the detected hardware ID. When non empty, the endpoint will be flagged as a CI/CD runner.:_default' \
-'::LAN_SCANNING -- LAN scanning enabled:(true false)' \
-'::WHITELIST_NAME -- Whitelist name:_default' \
-'::LOCAL_TRAFFIC -- Include local traffic:(true false)' \
-'::AGENTIC_MODE -- AI assistant mode for automated todo processing\: auto, semi, manual, or disabled:(auto semi manual disabled)' \
-'::AGENTIC_PROVIDER -- LLM provider for AI assistant\: claude, openai, ollama, none:(claude openai ollama none)' \
-'::AGENTIC_INTERVAL -- Interval in seconds for automated todo processing (default\: 300):_default' \
 && ret=0
 ;;
 (background-start)
 _arguments "${_arguments_options[@]}" : \
+'-u+[User name]:USER:_default' \
+'--user=[User name]:USER:_default' \
+'-d+[Domain name]:DOMAIN:_default' \
+'--domain=[Domain name]:DOMAIN:_default' \
+'-p+[PIN]:PIN:_default' \
+'--pin=[PIN]:PIN:_default' \
+'--device-id=[Device ID suffix to flag the endpoint as a CI/CD runner when provided]:DEVICE_ID:_default' \
+'--whitelist=[Whitelist name to enforce during capture]:WHITELIST:_default' \
+'--agentic-mode=[AI assistant mode\: auto, analyze or disabled]:MODE:(auto analyze disabled)' \
+'--agentic-provider=[LLM provider\: claude, openai, ollama, none]:PROVIDER:(claude openai ollama none)' \
+'--agentic-interval=[Interval in seconds for automated todo processing (default\: 3600)]:SECONDS:_default' \
+'-n[Enable LAN scanning]' \
+'--network-scan[Enable LAN scanning]' \
+'-c[Enable packet capture]' \
+'--packet-capture[Enable packet capture]' \
+'--fail-on-whitelist[Treat whitelist violations as fatal (defaults to true when --whitelist is provided)]' \
+'--fail-on-blacklist[Treat blacklist violations as fatal]' \
+'--fail-on-anomalous[Treat anomalous sessions as fatal]' \
+'--include-local-traffic[Include local traffic in capture output]' \
+'--cancel-on-violation[Attempt to cancel the current CI pipeline when policy violations are detected]' \
 '*-v[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
 '*--verbose[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
 '-h[Print help]' \
 '--help[Print help]' \
-':USER -- User name:_default' \
-':DOMAIN -- Domain name:_default' \
-':PIN -- PIN:_default' \
-'::DEVICE_ID -- Device ID in the form of a string, this will be used as a suffix to the detected hardware ID. When non empty, the endpoint will be flagged as a CI/CD runner.:_default' \
-'::LAN_SCANNING -- LAN scanning enabled:(true false)' \
-'::WHITELIST_NAME -- Whitelist name:_default' \
-'::LOCAL_TRAFFIC -- Include local traffic:(true false)' \
-'::AGENTIC_MODE -- AI assistant mode for automated todo processing\: auto, semi, manual, or disabled:(auto semi manual disabled)' \
-'::AGENTIC_PROVIDER -- LLM provider for AI assistant\: claude, openai, ollama, none:(claude openai ollama none)' \
-'::AGENTIC_INTERVAL -- Interval in seconds for automated todo processing (default\: 300):_default' \
 && ret=0
 ;;
 (background-stop)
@@ -371,13 +428,21 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (background-start-disconnected)
 _arguments "${_arguments_options[@]}" : \
+'--whitelist=[Whitelist name to enforce during capture]:WHITELIST:_default' \
+'--agentic-mode=[AI assistant mode for automated todo processing\: auto, analyze or disabled]:MODE:(auto analyze disabled)' \
+'-n[Enable LAN scanning]' \
+'--network-scan[Enable LAN scanning]' \
+'-c[Enable packet capture]' \
+'--packet-capture[Enable packet capture]' \
+'--fail-on-whitelist[Treat whitelist violations as fatal (defaults to true when --whitelist is provided)]' \
+'--fail-on-blacklist[Treat blacklist violations as fatal]' \
+'--fail-on-anomalous[Treat anomalous sessions as fatal]' \
+'--include-local-traffic[Include local traffic in capture output]' \
+'--cancel-on-violation[Attempt to cancel the current CI pipeline when policy violations are detected]' \
 '*-v[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
 '*--verbose[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
 '-h[Print help]' \
 '--help[Print help]' \
-'::LAN_SCANNING -- LAN scanning enabled:(true false)' \
-'::WHITELIST_NAME -- Whitelist name:_default' \
-'::LOCAL_TRAFFIC -- Include local traffic:(true false)' \
 && ret=0
 ;;
 (background-set-custom-whitelists)
@@ -570,6 +635,22 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
+(dismiss-device)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(dismiss-device-port)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(dismiss-session)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(dismiss-session-process)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
 (rollback-threat)
 _arguments "${_arguments_options[@]}" : \
 && ret=0
@@ -758,6 +839,10 @@ _edamame_posture_commands() {
 'remediate-all-threats:Remediate all threats but excluding remote login enabled and local firewall disabled as well as other threats specified in the comma separated list' \
 'remediate-all-threats-force:Remediate all threats, including threats that could lock you out of the system, use with caution!' \
 'remediate-threat:Remediate a threat' \
+'dismiss-device:Dismiss all ports on a device' \
+'dismiss-device-port:Dismiss a specific device port' \
+'dismiss-session:Dismiss a session by UID' \
+'dismiss-session-process:Dismiss future sessions for a process by UID' \
 'rollback-threat:Rollback a threat' \
 'list-threats:List all threat names' \
 'get-threat-info:Get threat information' \
@@ -967,6 +1052,26 @@ _edamame_posture__completion_commands() {
     local commands; commands=()
     _describe -t commands 'edamame_posture completion commands' commands "$@"
 }
+(( $+functions[_edamame_posture__dismiss-device_commands] )) ||
+_edamame_posture__dismiss-device_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture dismiss-device commands' commands "$@"
+}
+(( $+functions[_edamame_posture__dismiss-device-port_commands] )) ||
+_edamame_posture__dismiss-device-port_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture dismiss-device-port commands' commands "$@"
+}
+(( $+functions[_edamame_posture__dismiss-session_commands] )) ||
+_edamame_posture__dismiss-session_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture dismiss-session commands' commands "$@"
+}
+(( $+functions[_edamame_posture__dismiss-session-process_commands] )) ||
+_edamame_posture__dismiss-session-process_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture dismiss-session-process commands' commands "$@"
+}
 (( $+functions[_edamame_posture__foreground-start_commands] )) ||
 _edamame_posture__foreground-start_commands() {
     local commands; commands=()
@@ -1022,6 +1127,10 @@ _edamame_posture__help_commands() {
 'remediate-all-threats:Remediate all threats but excluding remote login enabled and local firewall disabled as well as other threats specified in the comma separated list' \
 'remediate-all-threats-force:Remediate all threats, including threats that could lock you out of the system, use with caution!' \
 'remediate-threat:Remediate a threat' \
+'dismiss-device:Dismiss all ports on a device' \
+'dismiss-device-port:Dismiss a specific device port' \
+'dismiss-session:Dismiss a session by UID' \
+'dismiss-session-process:Dismiss future sessions for a process by UID' \
 'rollback-threat:Rollback a threat' \
 'list-threats:List all threat names' \
 'get-threat-info:Get threat information' \
@@ -1230,6 +1339,26 @@ _edamame_posture__help__check-policy-for-domain-with-signature_commands() {
 _edamame_posture__help__completion_commands() {
     local commands; commands=()
     _describe -t commands 'edamame_posture help completion commands' commands "$@"
+}
+(( $+functions[_edamame_posture__help__dismiss-device_commands] )) ||
+_edamame_posture__help__dismiss-device_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture help dismiss-device commands' commands "$@"
+}
+(( $+functions[_edamame_posture__help__dismiss-device-port_commands] )) ||
+_edamame_posture__help__dismiss-device-port_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture help dismiss-device-port commands' commands "$@"
+}
+(( $+functions[_edamame_posture__help__dismiss-session_commands] )) ||
+_edamame_posture__help__dismiss-session_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture help dismiss-session commands' commands "$@"
+}
+(( $+functions[_edamame_posture__help__dismiss-session-process_commands] )) ||
+_edamame_posture__help__dismiss-session-process_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture help dismiss-session-process commands' commands "$@"
 }
 (( $+functions[_edamame_posture__help__foreground-start_commands] )) ||
 _edamame_posture__help__foreground-start_commands() {
