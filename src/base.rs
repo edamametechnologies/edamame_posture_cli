@@ -609,3 +609,10 @@ pub fn base_merge_custom_whitelists(whitelist1_json: String, whitelist2_json: St
         }
     }
 }
+
+pub fn base_compare_custom_whitelists(whitelist1_json: String, whitelist2_json: String) -> i32 {
+    let diff_percentage = compare_custom_whitelists(whitelist1_json, whitelist2_json);
+
+    println!("{:.2}%", diff_percentage);
+    0
+}
