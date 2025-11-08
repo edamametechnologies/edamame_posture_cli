@@ -883,9 +883,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.2.44"
+version = "1.2.45"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "37521ac7aabe3d13122dc382493e20c9416f299d2ccd5b3a5340a2570cdeb0f3"
+checksum = "35900b6c8d709fb1d854671ae27aeaa9eec2f8b01b364e1619a40da3e6fe2afe"
 dependencies = [
  "find-msvc-tools",
  "jobserver",
@@ -1777,8 +1777,8 @@ dependencies = [
 
 [[package]]
 name = "edamame_core"
-version = "0.9.72"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#3a7f99790eabb90432386f947834eb4752a14ae7"
+version = "0.9.73"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#80f67fb67249fea77e8f61e5dc68921c872cabb9"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1858,8 +1858,8 @@ dependencies = [
 
 [[package]]
 name = "edamame_foundation"
-version = "0.9.72"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#a3ff1b8754834787e6526c1179eb3abbe726d65f"
+version = "0.9.73"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#27b6752e7779730163302e1f271f3f79fedbea97"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1935,7 +1935,7 @@ dependencies = [
 
 [[package]]
 name = "edamame_posture"
-version = "0.9.72"
+version = "0.9.73"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -2242,8 +2242,8 @@ dependencies = [
 
 [[package]]
 name = "flodbadd"
-version = "0.9.72"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#c74ee65c75d49a90943e8c6d1fa13ce07e49a070"
+version = "0.9.73"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#a14535fc61f2dec0ba0b58ecd5b0011159739d3b"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -5516,15 +5516,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rustls-pemfile"
-version = "2.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dce314e5fee3f39953d46bb63bb8a46d40c2f8fb7cc5a3b6cab2bde9721d6e50"
-dependencies = [
- "rustls-pki-types",
-]
-
-[[package]]
 name = "rustls-pki-types"
 version = "1.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6882,15 +6873,14 @@ checksum = "6d49784317cd0d1ee7ec5c716dd598ec5b4483ea832a2dced265471cc0f690ae"
 
 [[package]]
 name = "ureq"
-version = "3.1.2"
+version = "3.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "99ba1025f18a4a3fc3e9b48c868e9beb4f24f4b4b1a325bada26bd4119f46537"
+checksum = "d39cb1dbab692d82a977c0392ffac19e188bd9186a9f32806f0aaa859d75585a"
 dependencies = [
  "base64 0.22.1",
  "log",
  "percent-encoding",
  "rustls",
- "rustls-pemfile",
  "rustls-pki-types",
  "ureq-proto",
  "utf-8",
