@@ -530,9 +530,9 @@ Example (GitHub Actions):
 - name: Setup EDAMAME Posture
   run: |
     # Download and install EDAMAME Posture (Linux example)
-    curl -LO https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.72/edamame_posture-0.9.72-x86_64-unknown-linux-gnu
-    chmod +x edamame_posture-0.9.72-x86_64-unknown-linux-gnu
-    sudo mv edamame_posture-0.9.72-x86_64-unknown-linux-gnu /usr/local/bin/edamame_posture
+    curl -LO https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.73/edamame_posture-0.9.73-x86_64-unknown-linux-gnu
+    chmod +x edamame_posture-0.9.73-x86_64-unknown-linux-gnu
+    sudo mv edamame_posture-0.9.73-x86_64-unknown-linux-gnu /usr/local/bin/edamame_posture
 
     # Start background monitoring in disconnected mode (with LAN scanning + capture enabled)
     sudo edamame_posture background-start-disconnected --network-scan --packet-capture --whitelist github_ubuntu
@@ -543,9 +543,9 @@ Example (GitLab CI):
 setup_security:
   stage: setup
   script:
-    - curl -LO https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.72/edamame_posture-0.9.72-x86_64-unknown-linux-gnu
-    - chmod +x edamame_posture-0.9.72-x86_64-unknown-linux-gnu
-    - sudo mv edamame_posture-0.9.72-x86_64-unknown-linux-gnu /usr/local/bin/edamame_posture
+    - curl -LO https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.73/edamame_posture-0.9.73-x86_64-unknown-linux-gnu
+    - chmod +x edamame_posture-0.9.73-x86_64-unknown-linux-gnu
+    - sudo mv edamame_posture-0.9.73-x86_64-unknown-linux-gnu /usr/local/bin/edamame_posture
     - sudo edamame_posture background-start-disconnected --network-scan --packet-capture --whitelist github_ubuntu
 ```
 
@@ -653,9 +653,9 @@ pipeline {
             steps {
                 sh '''
                 # Download and install EDAMAME Posture (Linux Jenkins agent example)
-                curl -LO https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.72/edamame_posture-0.9.72-x86_64-unknown-linux-gnu
-                chmod +x edamame_posture-0.9.72-x86_64-unknown-linux-gnu
-                sudo mv edamame_posture-0.9.72-x86_64-unknown-linux-gnu /usr/local/bin/edamame_posture
+                curl -LO https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.73/edamame_posture-0.9.73-x86_64-unknown-linux-gnu
+                chmod +x edamame_posture-0.9.73-x86_64-unknown-linux-gnu
+                sudo mv edamame_posture-0.9.73-x86_64-unknown-linux-gnu /usr/local/bin/edamame_posture
 
                 # Start background monitoring (disconnected mode with LAN scanning)
                 sudo edamame_posture background-start-disconnected --network-scan --packet-capture --whitelist github_ubuntu
@@ -768,18 +768,18 @@ The easiest way to install on Debian-based distributions is via our APT reposito
 If you prefer not to add a repository, you can install the Debian package manually:
 
 1. **Download** the Debian package for your platform:
-   - **x86_64 (64-bit):** [edamame-posture_0.9.72-1_amd64.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.72/edamame-posture_0.9.72-1_amd64.deb)
-   - **i686 (32-bit):** [edamame-posture_0.9.72-1_i386.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.72/edamame-posture_0.9.72-1_i386.deb)
-   - **aarch64 (ARM 64-bit):** [edamame-posture_0.9.72-1_arm64.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.72/edamame-posture_0.9.72-1_arm64.deb)
-   - **armv7 (ARM 32-bit):** [edamame-posture_0.9.72-1_armhf.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.72/edamame-posture_0.9.72-1_armhf.deb)
+   - **x86_64 (64-bit):** [edamame-posture_0.9.73-1_amd64.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.73/edamame-posture_0.9.73-1_amd64.deb)
+   - **i686 (32-bit):** [edamame-posture_0.9.73-1_i386.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.73/edamame-posture_0.9.73-1_i386.deb)
+   - **aarch64 (ARM 64-bit):** [edamame-posture_0.9.73-1_arm64.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.73/edamame-posture_0.9.73-1_arm64.deb)
+   - **armv7 (ARM 32-bit):** [edamame-posture_0.9.73-1_armhf.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.73/edamame-posture_0.9.73-1_armhf.deb)
 
    > **Note**: These Debian packages have been tested on Linux Mint 20 and newer, and Ubuntu 20.04 and newer.
 
 2. **Install** the package using either method:
    ```bash
-   sudo apt install ./edamame-posture_0.9.72-1_amd64.deb
+   sudo apt install ./edamame-posture_0.9.73-1_amd64.deb
    # or
-   sudo dpkg -i edamame-posture_0.9.72-1_amd64.deb
+   sudo dpkg -i edamame-posture_0.9.73-1_amd64.deb
    ```
 
 3. **Configure** the service by editing the configuration file:
@@ -810,17 +810,17 @@ If you prefer not to add a repository, you can install the Debian package manual
 For other Linux distributions or portable installation:
 
 1. **Download Binary**: From the Releases page, download the binary for your architecture:
-   - **x86_64 (64-bit)**: [edamame_posture-0.9.72-x86_64-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.72/edamame_posture-0.9.72-x86_64-unknown-linux-gnu)  
-   - **i686 (32-bit)**: [edamame_posture-0.9.72-i686-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.72/edamame_posture-0.9.72-i686-unknown-linux-gnu)  
-   - **aarch64 (ARM 64-bit)**: [edamame_posture-0.9.72-aarch64-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.72/edamame_posture-0.9.72-aarch64-unknown-linux-gnu)  
-   - **armv7 (ARM 32-bit)**: [edamame_posture-0.9.72-armv7-unknown-linux-gnueabihf](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.72/edamame_posture-0.9.72-armv7-unknown-linux-gnueabihf)
-   - **x86_64 (64-bit) for Alpine Linux (musl)**: [edamame_posture-0.9.72-x86_64-unknown-linux-musl](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.72/edamame_posture-0.9.72-x86_64-unknown-linux-musl) 
-   - **aarch64 (ARM 64-bit) for Alpine Linux (musl)**: [edamame_posture-0.9.72-aarch64-unknown-linux-musl](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.72/edamame_posture-0.9.72-aarch64-unknown-linux-musl)
+   - **x86_64 (64-bit)**: [edamame_posture-0.9.73-x86_64-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.73/edamame_posture-0.9.73-x86_64-unknown-linux-gnu)  
+   - **i686 (32-bit)**: [edamame_posture-0.9.73-i686-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.73/edamame_posture-0.9.73-i686-unknown-linux-gnu)  
+   - **aarch64 (ARM 64-bit)**: [edamame_posture-0.9.73-aarch64-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.73/edamame_posture-0.9.73-aarch64-unknown-linux-gnu)  
+   - **armv7 (ARM 32-bit)**: [edamame_posture-0.9.73-armv7-unknown-linux-gnueabihf](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.73/edamame_posture-0.9.73-armv7-unknown-linux-gnueabihf)
+   - **x86_64 (64-bit) for Alpine Linux (musl)**: [edamame_posture-0.9.73-x86_64-unknown-linux-musl](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.73/edamame_posture-0.9.73-x86_64-unknown-linux-musl) 
+   - **aarch64 (ARM 64-bit) for Alpine Linux (musl)**: [edamame_posture-0.9.73-aarch64-unknown-linux-musl](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.73/edamame_posture-0.9.73-aarch64-unknown-linux-musl)
 
 2. **Install Binary**: Extract if needed and place the edamame_posture binary into a directory in your PATH (such as `/usr/local/bin`). For example:
 ```bash
-chmod +x edamame_posture-0.9.72-x86_64-unknown-linux-gnu  
-sudo mv edamame_posture-0.9.72-x86_64-unknown-linux-gnu /usr/local/bin/edamame_posture
+chmod +x edamame_posture-0.9.73-x86_64-unknown-linux-gnu  
+sudo mv edamame_posture-0.9.73-x86_64-unknown-linux-gnu /usr/local/bin/edamame_posture
 ```
 
 ### macOS
@@ -829,7 +829,7 @@ sudo mv edamame_posture-0.9.72-x86_64-unknown-linux-gnu /usr/local/bin/edamame_p
 For a developer workstation on macOS:
 
 1. **Download** the macOS universal binary:
-   - [edamame_posture-0.9.72-universal-apple-darwin](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.72/edamame_posture-0.9.72-universal-apple-darwin)  
+   - [edamame_posture-0.9.73-universal-apple-darwin](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.73/edamame_posture-0.9.73-universal-apple-darwin)  
 
 2. **Install** by placing the binary in your `PATH` and making it executable:
    ```bash
@@ -845,7 +845,7 @@ For a developer workstation on macOS:
 For a Windows workstation or server:
 
 1. **Download** the Windows binary:
-   - [edamame_posture-0.9.72-x86_64-pc-windows-msvc.exe](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.72/edamame_posture-0.9.72-x86_64-pc-windows-msvc.exe)
+   - [edamame_posture-0.9.73-x86_64-pc-windows-msvc.exe](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.73/edamame_posture-0.9.73-x86_64-pc-windows-msvc.exe)
 
 2. **Install Npcap** (Required for traffic capture feature):
    - Install [Npcap](https://npcap.com/#download), the packet capture library from the Nmap team
@@ -883,6 +883,8 @@ Once installed, EDAMAME Posture is invoked via the `edamame_posture` command. Mo
 - **set-custom-whitelists-from-file** `<file_path>`: Loads a custom whitelist directly from a JSON file. This is more convenient than the string version when you have whitelist configuration files: `edamame_posture set-custom-whitelists-from-file whitelist.json`.
 - **set-custom-blacklists-from-file** `<file_path>`: Loads a custom blacklist directly from a JSON file, similar to the whitelist file command.
 - **merge-custom-whitelists-from-files** `<file1>` `<file2>`: Merges two whitelist JSON files into one consolidated whitelist, outputting the result to stdout. This is useful for combining base whitelists with environment-specific additions.
+- **compare-custom-whitelists** `<whitelist_json_1>` `<whitelist_json_2>`: Compares two whitelist JSON strings and outputs the percentage difference. Returns 0 exit code. Useful for detecting whitelist stability during iterative refinement.
+- **compare-custom-whitelists-from-files** `<file1>` `<file2>`: Compares two whitelist JSON files and outputs the percentage difference. Returns 0 exit code. Used by auto-whitelist mode to determine when baseline is stable.
 - **get-anomalous-sessions** `[ZEEK_FORMAT]`: Display only anomalous network connections detected by the NBAD system. Returns non-zero exit code if anomalous sessions are found.
 - **get-blacklisted-sessions** `[ZEEK_FORMAT]`: Display only blacklisted network connections. Returns non-zero exit code if blacklisted sessions are found.
 
@@ -940,6 +942,8 @@ For completeness, here is a list of EDAMAME Posture CLI subcommands with detaile
 - **augment-custom-whitelists** – Augment the current custom whitelist locally using current whitelist exceptions. Outputs JSON to stdout. *Requires admin privileges*.
 - **merge-custom-whitelists** `<WHITELIST_JSON_1>` `<WHITELIST_JSON_2>` – Merge two custom whitelist JSON strings into one consolidated whitelist.
 - **merge-custom-whitelists-from-files** `<WHITELIST_FILE_1>` `<WHITELIST_FILE_2>` – Merge two custom whitelist JSON files into one consolidated whitelist.
+- **compare-custom-whitelists** `<WHITELIST_JSON_1>` `<WHITELIST_JSON_2>` – Compare two custom whitelist JSON strings and output percentage difference.
+- **compare-custom-whitelists-from-files** `<WHITELIST_FILE_1>` `<WHITELIST_FILE_2>` – Compare two custom whitelist JSON files and output percentage difference.
 - **request-pin** `<USER>` `<DOMAIN>` – Request a PIN for domain connection. Returns non-zero exit code for invalid parameters.
 - **wait-for-connection** (alias for **background-wait-for-connection**) `[TIMEOUT]` – Wait for connection of the background process with optional timeout. Returns exit code 4 for timeout.
 - **completion** `<SHELL>` – Generate shell completion scripts for various shells (bash, zsh, fish, etc.).
@@ -1473,9 +1477,9 @@ jobs:
 
       - name: Install EDAMAME Posture
         run: |
-          curl -LO https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.72/edamame_posture-0.9.72-x86_64-unknown-linux-gnu
-          chmod +x edamame_posture-0.9.72-x86_64-unknown-linux-gnu
-          sudo mv edamame_posture-0.9.72-x86_64-unknown-linux-gnu /usr/local/bin/edamame_posture
+          curl -LO https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.73/edamame_posture-0.9.73-x86_64-unknown-linux-gnu
+          chmod +x edamame_posture-0.9.73-x86_64-unknown-linux-gnu
+          sudo mv edamame_posture-0.9.73-x86_64-unknown-linux-gnu /usr/local/bin/edamame_posture
 
       - name: Start background monitor in disconnected mode
         run: sudo edamame_posture background-start-disconnected --network-scan --packet-capture --whitelist github_ubuntu
@@ -1823,6 +1827,118 @@ $ edamame_posture get-sessions
     edamame_posture get-sessions
 ```
 
+#### Automated Baseline Building with GitHub Actions (Auto-Whitelist Mode)
+
+The EDAMAME Posture GitHub Action includes an **auto-whitelist mode** that fully automates the baseline building process. This feature:
+
+- **First run**: Operates in listen-only mode, capturing all network traffic without enforcement
+- **Subsequent runs**: Automatically refines the whitelist by adding newly discovered endpoints
+- **Stability detection**: Compares iterations and declares the whitelist stable when changes fall below a threshold
+- **Enforcement**: Once stable, automatically enforces the whitelist and fails on violations
+
+**Example GitHub Actions Workflow**:
+
+```yaml
+name: Build with Auto-Whitelist
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup EDAMAME with Auto-Whitelist
+        uses: edamametechnologies/edamame_posture_action@main
+        with:
+          disconnected_mode: true
+          network_scan: true
+          packet_capture: true
+          auto_whitelist: true
+          auto_whitelist_artifact_name: my-project-whitelist
+          # auto_whitelist_stability_threshold: 0  # Default: 0% (no new endpoints)
+          # auto_whitelist_max_iterations: 10      # Default: 10 iterations
+          dump_sessions_log: true
+      
+      - name: Build and Test
+        run: |
+          npm install
+          npm run build
+          npm test
+```
+
+**How it works**:
+
+1. **Run 1** (Listen-Only):
+   - Captures all network traffic during your build
+   - Creates initial whitelist with all observed endpoints
+   - Saves to GitHub artifact: `my-project-whitelist`
+   - Does NOT enforce violations (exit code 0)
+
+2. **Run 2-N** (Refinement):
+   - Downloads previous whitelist from artifact
+   - Applies it before your build starts
+   - Captures traffic and discovers any new endpoints
+   - Augments whitelist with new discoveries
+   - Compares with previous iteration: `compare-custom-whitelists`
+   - If difference > 0%: saves updated whitelist, resets stability counter, continues refining
+   - If difference = 0%: increments consecutive stable runs counter
+   - Declares stable only after N consecutive runs with 0% change (default: 3 runs)
+
+3. **Stable State**:
+   - Enforces whitelist with `--fail-on-whitelist`
+   - Fails workflow on any unauthorized connections
+   - Provides supply chain attack protection
+
+**Configuration Options**:
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `auto_whitelist` | Enable auto-whitelist mode | `false` |
+| `auto_whitelist_artifact_name` | GitHub artifact name for storing state | `edamame-auto-whitelist` |
+| `auto_whitelist_stability_threshold` | Percentage change threshold for stability (0 = no new endpoints) | `0` |
+| `auto_whitelist_stability_consecutive_runs` | Number of consecutive runs with 0% change required for stability | `3` |
+| `auto_whitelist_max_iterations` | Maximum refinement iterations | `10` |
+
+**Monitoring Progress**:
+
+The action provides clear console output showing the progression to stability:
+
+```
+=== Iteration 5 ===
+Whitelist difference: 0.00%
+✅ Whitelist is STABLE for this run (diff: 0.00% <= threshold: 0%)
+   Consecutive stable runs: 1 / 3 required
+🔄 Whitelist is stable for this run, but need more consecutive confirmations
+
+=== Iteration 6 ===
+Whitelist difference: 0.00%
+✅ Whitelist is STABLE for this run (diff: 0.00% <= threshold: 0%)
+   Consecutive stable runs: 2 / 3 required
+🔄 Whitelist is stable for this run, but need more consecutive confirmations
+
+=== Iteration 7 ===
+Whitelist difference: 0.00%
+✅ Whitelist is STABLE for this run (diff: 0.00% <= threshold: 0%)
+   Consecutive stable runs: 3 / 3 required
+🎉 Whitelist is FULLY STABLE (3 consecutive runs with no changes)
+
+✅ Whitelist has stabilized!
+   Achieved 3 consecutive runs with no changes.
+   Future runs will enforce this whitelist and fail on violations.
+```
+
+**Advantages over Manual Baseline Building**:
+
+- **Zero manual intervention**: Fully automated from first run to enforcement
+- **Artifact-based storage**: No repository commits needed during learning phase
+- **Per-workflow isolation**: Different workflows can have different whitelists
+- **Automatic stability detection**: Requires multiple consecutive runs with 0% change for true stability
+- **Gradual enforcement**: Only enforces after high confidence is established
+- **False positive prevention**: Consecutive runs requirement prevents premature enforcement
+- **Deterministic behavior**: Only stable when network patterns are truly consistent
+
 #### Best Practices for Baseline Management
 
 1. **Version Control Your Baselines**: Store whitelist JSON files in your repository under version control
@@ -1830,6 +1946,7 @@ $ edamame_posture get-sessions
 3. **Regular Updates**: Review and update baselines when you intentionally add new dependencies
 4. **Security Review Process**: Require security team approval for baseline changes
 5. **Monitoring and Alerting**: Set up alerts for any whitelist violations in production builds
+6. **Use Auto-Whitelist for New Projects**: Let automated mode build the initial baseline, then export to version control once stable
 
 ### Testing and Validation
 To validate your whitelist configurations before enforcing them in production:
@@ -2102,9 +2219,9 @@ jobs:
 
       - name: Install EDAMAME Posture
         run: |
-          curl -LO https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.72/edamame_posture-0.9.72-x86_64-unknown-linux-gnu
-          chmod +x edamame_posture-0.9.72-x86_64-unknown-linux-gnu
-          sudo mv edamame_posture-0.9.72-x86_64-unknown-linux-gnu /usr/local/bin/edamame_posture
+          curl -LO https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.73/edamame_posture-0.9.73-x86_64-unknown-linux-gnu
+          chmod +x edamame_posture-0.9.73-x86_64-unknown-linux-gnu
+          sudo mv edamame_posture-0.9.73-x86_64-unknown-linux-gnu /usr/local/bin/edamame_posture
 
       - name: Extract and verify signature from last commit
         run: |

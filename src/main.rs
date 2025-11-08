@@ -566,6 +566,46 @@ fn run_base() {
                 }
             }
         }
+        Some(("compare-custom-whitelists", sub_matches)) => {
+            let wl1 = sub_matches
+                .get_one::<String>("WHITELIST_JSON_1")
+                .expect("WHITELIST_JSON_1 not provided")
+                .to_string();
+            let wl2 = sub_matches
+                .get_one::<String>("WHITELIST_JSON_2")
+                .expect("WHITELIST_JSON_2 not provided")
+                .to_string();
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            // No admin required for comparison
+            exit_code = base_compare_custom_whitelists(wl1, wl2);
+        }
+        Some(("compare-custom-whitelists-from-files", sub_matches)) => {
+            let wl_file1 = sub_matches
+                .get_one::<String>("WHITELIST_FILE_1")
+                .expect("WHITELIST_FILE_1 not provided");
+            let wl_file2 = sub_matches
+                .get_one::<String>("WHITELIST_FILE_2")
+                .expect("WHITELIST_FILE_2 not provided");
+
+            match (
+                std::fs::read_to_string(wl_file1),
+                std::fs::read_to_string(wl_file2),
+            ) {
+                (Ok(wl1), Ok(wl2)) => {
+                    initialize_core("".to_string(), false, false, false, false, false, verbose);
+                    // No admin required for comparison
+                    exit_code = base_compare_custom_whitelists(wl1, wl2);
+                }
+                (Err(e), _) => {
+                    eprintln!("Error reading whitelist file '{}': {}", wl_file1, e);
+                    exit_code = ERROR_CODE_PARAM;
+                }
+                (_, Err(e)) => {
+                    eprintln!("Error reading whitelist file '{}': {}", wl_file2, e);
+                    exit_code = ERROR_CODE_PARAM;
+                }
+            }
+        }
         Some(("rollback-threat", sub_matches)) => {
             let threat_id = sub_matches
                 .get_one::<String>("THREAT_ID")

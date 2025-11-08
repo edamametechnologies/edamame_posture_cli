@@ -409,6 +409,22 @@ pub fn build_cli() -> Command {
         .arg(arg!(<WHITELIST_FILE_2> "Second whitelist JSON file path")
             .required(true)
             .value_parser(clap::value_parser!(String))))
+    .subcommand(Command::new("compare-custom-whitelists")
+        .about("Compare two custom whitelist JSON strings and return percentage difference")
+        .arg(arg!(<WHITELIST_JSON_1> "First whitelist JSON string")
+            .required(true)
+            .value_parser(clap::value_parser!(String)))
+        .arg(arg!(<WHITELIST_JSON_2> "Second whitelist JSON string")
+            .required(true)
+            .value_parser(clap::value_parser!(String))))
+    .subcommand(Command::new("compare-custom-whitelists-from-files")
+        .about("Compare two custom whitelist JSON files and return percentage difference")
+        .arg(arg!(<WHITELIST_FILE_1> "First whitelist JSON file path")
+            .required(true)
+            .value_parser(clap::value_parser!(String)))
+        .arg(arg!(<WHITELIST_FILE_2> "Second whitelist JSON file path")
+            .required(true)
+            .value_parser(clap::value_parser!(String))))
 }
 
 fn start_common_args() -> Vec<Arg> {
