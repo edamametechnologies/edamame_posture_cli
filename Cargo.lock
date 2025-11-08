@@ -1778,7 +1778,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "0.9.73"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#07957b096aa5e1930d4a70caa9792c175782845e"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#a2222a9a1af54c7f7f4a6abcfbc100aad17a5226"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1859,7 +1859,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "0.9.73"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#82ace4555037f5a4d0abfb0d891d0a21a3f0122d"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#2bce61fade4ff32c162bd326026247af28721354"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -2243,7 +2243,7 @@ dependencies = [
 [[package]]
 name = "flodbadd"
 version = "0.9.73"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#f7403cf7d59c7c83c1b483f02ddab1d24cb5427f"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#c4885609f213ad8a2a1108638b02e6a9a473997a"
 dependencies = [
  "anyhow",
  "arc-swap",
