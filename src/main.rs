@@ -522,9 +522,10 @@ fn run_base() {
             base_get_tag_prefixes();
         }
         Some(("augment-custom-whitelists", _)) => {
-            initialize_core("".to_string(), false, false, false, false, true, verbose);
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
             ensure_admin();
-            exit_code = base_augment_custom_whitelists();
+            exit_code = background_augment_custom_whitelists();
+            is_background = true;
         }
         Some(("merge-custom-whitelists", sub_matches)) => {
             let wl1 = sub_matches
