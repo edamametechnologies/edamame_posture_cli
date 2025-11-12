@@ -550,7 +550,7 @@ dependencies = [
  "http 1.3.1",
  "http-body 1.0.1",
  "http-body-util",
- "hyper 1.7.0",
+ "hyper 1.8.0",
  "hyper-util",
  "itoa",
  "matchit 0.8.4",
@@ -1778,7 +1778,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "0.9.74"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#67277863c6d98346bd908093b6c254eea96b6651"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#46261187eb35d658c74a3710e527f08b89138f09"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1806,6 +1806,7 @@ dependencies = [
  "hmac",
  "hostname",
  "http 1.3.1",
+ "humansize",
  "ipnet",
  "jni",
  "lazy_static",
@@ -1859,7 +1860,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "0.9.74"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#840d958d68bc0d576b815d839a2006d33b2b98d4"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#c474ce81e66027c6471f8cb315efac3491637342"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -2243,7 +2244,7 @@ dependencies = [
 [[package]]
 name = "flodbadd"
 version = "0.9.74"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#97e0b08b5fc153cad7e6e6520f8264feadde8e6f"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#ab3672e30cb6dc945ddae0aa1bf6341182f676ab"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -2847,6 +2848,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "df3b46402a9d5adb4c86a0cf463f42e19994e3ee891101b1841f30a545cb49a9"
 
 [[package]]
+name = "humansize"
+version = "2.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6cb51c9a029ddc91b07a787f1d86b53ccfa49b0e86688c946ebe8d3555685dd7"
+dependencies = [
+ "libm",
+]
+
+[[package]]
 name = "humantime"
 version = "2.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2877,9 +2887,9 @@ dependencies = [
 
 [[package]]
 name = "hyper"
-version = "1.7.0"
+version = "1.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eb3aa54a13a0dfe7fbe3a59e0c76093041720fdc77b110cc0fc260fafb4dc51e"
+checksum = "1744436df46f0bde35af3eda22aeaba453aada65d8f1c171cd8a5f59030bd69f"
 dependencies = [
  "atomic-waker",
  "bytes",
@@ -2905,7 +2915,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e3c93eb611681b207e1fe55d5a71ecf91572ec8a6705cdb6857f7d8d5242cf58"
 dependencies = [
  "http 1.3.1",
- "hyper 1.7.0",
+ "hyper 1.8.0",
  "hyper-util",
  "rustls",
  "rustls-pki-types",
@@ -2935,7 +2945,7 @@ version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2b90d566bffbce6a75bd8b09a05aa8c2cb1fabb6cb348f8840c9e4c90a0d83b0"
 dependencies = [
- "hyper 1.7.0",
+ "hyper 1.8.0",
  "hyper-util",
  "pin-project-lite",
  "tokio",
@@ -2955,7 +2965,7 @@ dependencies = [
  "futures-util",
  "http 1.3.1",
  "http-body 1.0.1",
- "hyper 1.7.0",
+ "hyper 1.8.0",
  "ipnet",
  "libc",
  "percent-encoding",
@@ -3154,7 +3164,7 @@ dependencies = [
  "futures",
  "http 1.3.1",
  "http-body-util",
- "hyper 1.7.0",
+ "hyper 1.8.0",
  "hyper-util",
  "log",
  "rand 0.9.2",
@@ -5307,7 +5317,7 @@ dependencies = [
  "http 1.3.1",
  "http-body 1.0.1",
  "http-body-util",
- "hyper 1.7.0",
+ "hyper 1.8.0",
  "hyper-rustls",
  "hyper-util",
  "js-sys",
@@ -5639,9 +5649,9 @@ dependencies = [
 
 [[package]]
 name = "sentry"
-version = "0.43.0"
+version = "0.45.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cc02afbba55340d6394968cb621384dbb9a0ad72d1b45e3e403099702a8bcf61"
+checksum = "48b85e25e8a1fc13928885e8bf13abe8a09e15c46993aed05d6405f7755d6e20"
 dependencies = [
  "httpdate",
  "reqwest",
@@ -5653,9 +5663,9 @@ dependencies = [
 
 [[package]]
 name = "sentry-core"
-version = "0.43.0"
+version = "0.45.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "67600a47b5aa005cb701454d56a289135a80654eebf1c1d9f076c3817a249bb8"
+checksum = "d3b6729c8e71ac968edbe9bf2dd4109c162e552b52bacd2b07e24ede1aba84a5"
 dependencies = [
  "rand 0.9.2",
  "sentry-types",
@@ -5666,9 +5676,9 @@ dependencies = [
 
 [[package]]
 name = "sentry-tracing"
-version = "0.43.0"
+version = "0.45.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5c044617771f460a3c2ca7cf8f516c3341ba886ca38d53cb550997d8bf636a3c"
+checksum = "428f780866a613142dcc81b7f8551ae4d1c056f4df22b6d7ddd9154a9974eb03"
 dependencies = [
  "bitflags 2.10.0",
  "sentry-core",
@@ -5678,9 +5688,9 @@ dependencies = [
 
 [[package]]
 name = "sentry-types"
-version = "0.43.0"
+version = "0.45.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aa369b6dc823ba5bddd69d16620f19229eb5df865b9483cf4dabb608891bb9c2"
+checksum = "2c19d1d1967b55659c358886d0f1aa3076488d445f84c7d727d384c675adaec1"
 dependencies = [
  "debugid",
  "hex",
@@ -6467,7 +6477,7 @@ dependencies = [
  "http 1.3.1",
  "http-body 1.0.1",
  "http-body-util",
- "hyper 1.7.0",
+ "hyper 1.8.0",
  "hyper-timeout",
  "hyper-util",
  "percent-encoding",
@@ -6496,7 +6506,7 @@ dependencies = [
  "http 1.3.1",
  "http-body 1.0.1",
  "http-body-util",
- "hyper 1.7.0",
+ "hyper 1.8.0",
  "hyper-timeout",
  "hyper-util",
  "percent-encoding",
