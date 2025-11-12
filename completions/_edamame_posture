@@ -575,6 +575,26 @@ _arguments "${_arguments_options[@]}" : \
 ':WHITELIST_FILE_2 -- Second whitelist JSON file path:_default' \
 && ret=0
 ;;
+(compare-custom-whitelists)
+_arguments "${_arguments_options[@]}" : \
+'*-v[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'*--verbose[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'-h[Print help]' \
+'--help[Print help]' \
+':WHITELIST_JSON_1 -- First whitelist JSON string:_default' \
+':WHITELIST_JSON_2 -- Second whitelist JSON string:_default' \
+&& ret=0
+;;
+(compare-custom-whitelists-from-files)
+_arguments "${_arguments_options[@]}" : \
+'*-v[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'*--verbose[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'-h[Print help]' \
+'--help[Print help]' \
+':WHITELIST_FILE_1 -- First whitelist JSON file path:_default' \
+':WHITELIST_FILE_2 -- Second whitelist JSON file path:_default' \
+&& ret=0
+;;
 (help)
 _arguments "${_arguments_options[@]}" : \
 ":: :_edamame_posture__help_commands" \
@@ -811,6 +831,14 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
+(compare-custom-whitelists)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(compare-custom-whitelists-from-files)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
 (help)
 _arguments "${_arguments_options[@]}" : \
 && ret=0
@@ -883,6 +911,8 @@ _edamame_posture_commands() {
 'augment-custom-whitelists:Augment the current custom whitelist locally using current whitelist exceptions' \
 'merge-custom-whitelists:Merge two custom whitelist JSON strings into one consolidated whitelist' \
 'merge-custom-whitelists-from-files:Merge two custom whitelist JSON files into one consolidated whitelist' \
+'compare-custom-whitelists:Compare two custom whitelist JSON strings and return percentage difference' \
+'compare-custom-whitelists-from-files:Compare two custom whitelist JSON files and return percentage difference' \
 'help:Print this message or the help of the given subcommand(s)' \
     )
     _describe -t commands 'edamame_posture commands' commands "$@"
@@ -1047,6 +1077,16 @@ _edamame_posture__check-policy-for-domain-with-signature_commands() {
     local commands; commands=()
     _describe -t commands 'edamame_posture check-policy-for-domain-with-signature commands' commands "$@"
 }
+(( $+functions[_edamame_posture__compare-custom-whitelists_commands] )) ||
+_edamame_posture__compare-custom-whitelists_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture compare-custom-whitelists commands' commands "$@"
+}
+(( $+functions[_edamame_posture__compare-custom-whitelists-from-files_commands] )) ||
+_edamame_posture__compare-custom-whitelists-from-files_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture compare-custom-whitelists-from-files commands' commands "$@"
+}
 (( $+functions[_edamame_posture__completion_commands] )) ||
 _edamame_posture__completion_commands() {
     local commands; commands=()
@@ -1171,6 +1211,8 @@ _edamame_posture__help_commands() {
 'augment-custom-whitelists:Augment the current custom whitelist locally using current whitelist exceptions' \
 'merge-custom-whitelists:Merge two custom whitelist JSON strings into one consolidated whitelist' \
 'merge-custom-whitelists-from-files:Merge two custom whitelist JSON files into one consolidated whitelist' \
+'compare-custom-whitelists:Compare two custom whitelist JSON strings and return percentage difference' \
+'compare-custom-whitelists-from-files:Compare two custom whitelist JSON files and return percentage difference' \
 'help:Print this message or the help of the given subcommand(s)' \
     )
     _describe -t commands 'edamame_posture help commands' commands "$@"
@@ -1334,6 +1376,16 @@ _edamame_posture__help__check-policy-for-domain_commands() {
 _edamame_posture__help__check-policy-for-domain-with-signature_commands() {
     local commands; commands=()
     _describe -t commands 'edamame_posture help check-policy-for-domain-with-signature commands' commands "$@"
+}
+(( $+functions[_edamame_posture__help__compare-custom-whitelists_commands] )) ||
+_edamame_posture__help__compare-custom-whitelists_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture help compare-custom-whitelists commands' commands "$@"
+}
+(( $+functions[_edamame_posture__help__compare-custom-whitelists-from-files_commands] )) ||
+_edamame_posture__help__compare-custom-whitelists-from-files_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture help compare-custom-whitelists-from-files commands' commands "$@"
 }
 (( $+functions[_edamame_posture__help__completion_commands] )) ||
 _edamame_posture__help__completion_commands() {
