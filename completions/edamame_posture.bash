@@ -112,6 +112,12 @@ _edamame_posture() {
             edamame_posture,check-policy-for-domain-with-signature)
                 cmd="edamame_posture__check__policy__for__domain__with__signature"
                 ;;
+            edamame_posture,compare-custom-whitelists)
+                cmd="edamame_posture__compare__custom__whitelists"
+                ;;
+            edamame_posture,compare-custom-whitelists-from-files)
+                cmd="edamame_posture__compare__custom__whitelists__from__files"
+                ;;
             edamame_posture,completion)
                 cmd="edamame_posture__completion"
                 ;;
@@ -283,6 +289,12 @@ _edamame_posture() {
             edamame_posture__help,check-policy-for-domain-with-signature)
                 cmd="edamame_posture__help__check__policy__for__domain__with__signature"
                 ;;
+            edamame_posture__help,compare-custom-whitelists)
+                cmd="edamame_posture__help__compare__custom__whitelists"
+                ;;
+            edamame_posture__help,compare-custom-whitelists-from-files)
+                cmd="edamame_posture__help__compare__custom__whitelists__from__files"
+                ;;
             edamame_posture__help,completion)
                 cmd="edamame_posture__help__completion"
                 ;;
@@ -365,7 +377,7 @@ _edamame_posture() {
 
     case "${cmd}" in
         edamame_posture)
-            opts="-v -h -V --verbose --help --version completion get-score lanscan capture get-core-info get-device-info get-system-info request-pin get-core-version remediate-all-threats remediate-all-threats-force remediate-threat dismiss-device dismiss-device-port dismiss-session dismiss-session-process rollback-threat list-threats get-threat-info request-signature request-report check-policy-for-domain check-policy-for-domain-with-signature check-policy get-tag-prefixes background-logs background-wait-for-connection background-get-sessions background-get-exceptions background-threats-info foreground-start background-start background-stop background-mcp-start background-mcp-stop background-mcp-status background-mcp-generate-psk background-status background-last-report-signature background-get-history background-start-disconnected background-set-custom-whitelists background-set-custom-whitelists-from-file background-create-custom-whitelists background-create-and-set-custom-whitelists background-set-custom-blacklists background-set-custom-blacklists-from-file background-score background-get-anomalous-sessions background-get-blacklisted-sessions background-get-blacklists background-get-whitelists background-get-whitelist-name augment-custom-whitelists merge-custom-whitelists merge-custom-whitelists-from-files help"
+            opts="-v -h -V --verbose --help --version completion get-score lanscan capture get-core-info get-device-info get-system-info request-pin get-core-version remediate-all-threats remediate-all-threats-force remediate-threat dismiss-device dismiss-device-port dismiss-session dismiss-session-process rollback-threat list-threats get-threat-info request-signature request-report check-policy-for-domain check-policy-for-domain-with-signature check-policy get-tag-prefixes background-logs background-wait-for-connection background-get-sessions background-get-exceptions background-threats-info foreground-start background-start background-stop background-mcp-start background-mcp-stop background-mcp-status background-mcp-generate-psk background-status background-last-report-signature background-get-history background-start-disconnected background-set-custom-whitelists background-set-custom-whitelists-from-file background-create-custom-whitelists background-create-and-set-custom-whitelists background-set-custom-blacklists background-set-custom-blacklists-from-file background-score background-get-anomalous-sessions background-get-blacklisted-sessions background-get-blacklists background-get-whitelists background-get-whitelist-name augment-custom-whitelists merge-custom-whitelists merge-custom-whitelists-from-files compare-custom-whitelists compare-custom-whitelists-from-files help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -878,6 +890,34 @@ _edamame_posture() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
+        edamame_posture__compare__custom__whitelists)
+            opts="-v -h --verbose --help <WHITELIST_JSON_1> <WHITELIST_JSON_2>"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        edamame_posture__compare__custom__whitelists__from__files)
+            opts="-v -h --verbose --help <WHITELIST_FILE_1> <WHITELIST_FILE_2>"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
         edamame_posture__completion)
             opts="-v -h --verbose --help bash elvish fish powershell zsh"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
@@ -1105,7 +1145,7 @@ _edamame_posture() {
             return 0
             ;;
         edamame_posture__help)
-            opts="completion get-score lanscan capture get-core-info get-device-info get-system-info request-pin get-core-version remediate-all-threats remediate-all-threats-force remediate-threat dismiss-device dismiss-device-port dismiss-session dismiss-session-process rollback-threat list-threats get-threat-info request-signature request-report check-policy-for-domain check-policy-for-domain-with-signature check-policy get-tag-prefixes background-logs background-wait-for-connection background-get-sessions background-get-exceptions background-threats-info foreground-start background-start background-stop background-mcp-start background-mcp-stop background-mcp-status background-mcp-generate-psk background-status background-last-report-signature background-get-history background-start-disconnected background-set-custom-whitelists background-set-custom-whitelists-from-file background-create-custom-whitelists background-create-and-set-custom-whitelists background-set-custom-blacklists background-set-custom-blacklists-from-file background-score background-get-anomalous-sessions background-get-blacklisted-sessions background-get-blacklists background-get-whitelists background-get-whitelist-name augment-custom-whitelists merge-custom-whitelists merge-custom-whitelists-from-files help"
+            opts="completion get-score lanscan capture get-core-info get-device-info get-system-info request-pin get-core-version remediate-all-threats remediate-all-threats-force remediate-threat dismiss-device dismiss-device-port dismiss-session dismiss-session-process rollback-threat list-threats get-threat-info request-signature request-report check-policy-for-domain check-policy-for-domain-with-signature check-policy get-tag-prefixes background-logs background-wait-for-connection background-get-sessions background-get-exceptions background-threats-info foreground-start background-start background-stop background-mcp-start background-mcp-stop background-mcp-status background-mcp-generate-psk background-status background-last-report-signature background-get-history background-start-disconnected background-set-custom-whitelists background-set-custom-whitelists-from-file background-create-custom-whitelists background-create-and-set-custom-whitelists background-set-custom-blacklists background-set-custom-blacklists-from-file background-score background-get-anomalous-sessions background-get-blacklisted-sessions background-get-blacklists background-get-whitelists background-get-whitelist-name augment-custom-whitelists merge-custom-whitelists merge-custom-whitelists-from-files compare-custom-whitelists compare-custom-whitelists-from-files help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -1553,6 +1593,34 @@ _edamame_posture() {
             return 0
             ;;
         edamame_posture__help__check__policy__for__domain__with__signature)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        edamame_posture__help__compare__custom__whitelists)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        edamame_posture__help__compare__custom__whitelists__from__files)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )

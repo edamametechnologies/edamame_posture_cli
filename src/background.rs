@@ -668,6 +668,44 @@ pub fn background_get_whitelist_name() -> i32 {
     }
 }
 
+// Function to augment custom whitelists from the background process
+pub fn background_augment_custom_whitelists() -> i32 {
+    match rpc_augment_custom_whitelists_info(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok((whitelist_json, percent_changed)) => {
+            if whitelist_json.is_empty() {
+                eprintln!("Failed to augment custom whitelists");
+                return ERROR_CODE_SERVER_ERROR;
+            }
+
+            // Informational: report % of changes to stderr so stdout remains JSON-only
+            eprintln!("Percent of changes: {:.2}", percent_changed);
+
+            match serde_json::from_str::<serde_json::Value>(&whitelist_json) {
+                Ok(json_value) => {
+                    match serde_json::to_string_pretty(&json_value) {
+                        Ok(pretty_json) => println!("{}", pretty_json),
+                        Err(_) => println!("{}", whitelist_json),
+                    }
+                    0
+                }
+                Err(e) => {
+                    eprintln!("Error parsing augmented whitelist JSON: {}", e);
+                    ERROR_CODE_PARAM
+                }
+            }
+        }
+        Err(e) => {
+            eprintln!("Error augmenting custom whitelists: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
 /// Configure agentic LLM provider for background process
 #[allow(unused_variables)]
 pub fn background_configure_agentic(provider: String) {
