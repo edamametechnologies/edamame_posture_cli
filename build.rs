@@ -1,6 +1,3 @@
-#[cfg(target_os = "windows")]
-use flodbadd::windows_npcap;
-
 use std::env;
 use vergen_gitcl::*;
 
@@ -16,19 +13,7 @@ fn dump_cfg() {
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Windows-specific linking/runtime assistance
     #[cfg(target_os = "windows")]
-    {
-        #[cfg(target_env = "msvc")]
-        {
-            println!("cargo:rustc-link-arg=/DELAYLOAD:wpcap.dll");
-            println!("cargo:rustc-link-arg=/DELAYLOAD:Packet.dll");
-            println!("cargo:rustc-link-lib=dylib=delayimp");
-        }
-        let npcap_dir = windows_npcap::get_npcap_dir();
-        if npcap_dir.exists() {
-            let _ = windows_npcap::copy_npcap_dlls_next_to_binaries();
-            println!("cargo:rustc-link-search=native={}", npcap_dir.display());
-        }
-    }
+    flodbadd::windows_npcap::configure_build_linking_from_metadata();
 
     // Emit the instructions
     let build = BuildBuilder::all_build()?;
