@@ -202,9 +202,17 @@ jobs:
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
 
-      - name: Dump the logs
+      - name: Dump the logs (Non-Windows)
+        if: always() && runner.os != 'Windows'
         shell: bash
-        if: always()
+        run: |
+          echo "--- Dumping Native Logs (${{ matrix.os }}-${{ matrix.arch }}) --- "
+          find . -name "edamame_*.2*-*-*" -exec echo "--- {} ---" \; -exec sudo cat {} \; || echo "No logs found in default directory"
+          echo "--- Native Log Dump Complete ---"
+
+      - name: Dump the logs (Windows)
+        if: always() && runner.os == 'Windows'
+        shell: bash
         run: |
           echo "--- Dumping Native Logs (${{ matrix.os }}-${{ matrix.arch }}) --- "
           find . -name "edamame_*.2*-*-*" -exec echo "--- {} ---" \; -exec cat {} \; || echo "No logs found in default directory"
@@ -349,7 +357,7 @@ jobs:
         if: always()
         run: |
           echo "--- Dumping Container Logs (${{ matrix.container_name }}) --- "
-          find . -name "edamame_*.2*-*-*" -exec echo "--- {} ---" \; -exec cat {} \; || echo "No logs found in default directory"
+          find . -name "edamame_*.2*-*-*" -exec echo "--- {} ---" \; -exec sudo cat {} \; || echo "No logs found in default directory"
           echo "--- Container Log Dump Complete ---"
 
       - name: Slack alerts
@@ -548,7 +556,7 @@ jobs:
       - name: Dump the logs
         if: always()
         run: |
-          echo "--- Dumping Alpine Logs (${{ matrix.arch }}) --- "
+          echo "--- Dumping Alpine Logs (${{ matrix.arch }}-${{ matrix.target }}) --- "
           find . -name "edamame_*.2*-*-*" -exec echo "--- {} ---" \; -exec cat {} \; || echo "No logs found in default directory"
           echo "--- Alpine Log Dump Complete ---"
         shell: alpine.sh --root {0}

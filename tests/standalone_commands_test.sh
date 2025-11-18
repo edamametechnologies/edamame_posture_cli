@@ -186,7 +186,7 @@ $SUDO_CMD "$BINARY_PATH" $VERBOSE_FLAG check-policy 1.0 "encrypted disk disabled
 # Test check-policy-for-domain command
 echo "Check policy (with domain):"
 # Domain value from tests.yml: edamame.tech, Context: Github
-$SUDO_CMD "$BINARY_PATH" $VERBOSE_FLAG check-policy-for-domain "edamame.tech" "Github" && check_policy_for_domain_result="✅" || check_policy_for_domain_result="❌"
+$SUDO_CMD "$BINARY_PATH" $VERBOSE_FLAG check-policy-for-domain "edamame.tech" "Github & Gitlab" && check_policy_for_domain_result="✅" || check_policy_for_domain_result="❌"
 
 # Get device info
 echo "Device info:"

@@ -33,4 +33,4 @@ echo "  edamame_domain: $edamame_domain"
 echo "  edamame_pin: $edamame_pin"
 
 # Execute the main binary in foreground mode (systemd manages daemonization)
-exec /usr/bin/edamame_posture foreground-start --user "$edamame_user" --domain "$edamame_domain" --pin "$edamame_pin"
+exec /usr/bin/edamame_posture foreground-start --user "$edamame_user" --domain "$edamame_domain" --pin "$edamame_pin" -v
