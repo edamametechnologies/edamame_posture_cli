@@ -385,10 +385,42 @@ edamame_posture background-start-disconnected \
   --cancel-on-violation
 ```
 
+**Security Model**: The daemon executes an external cancellation script instead of having direct token access:
+- **Script Location**: `$HOME/cancel_pipeline.sh` (default) or custom path via `EDAMAME_CANCEL_PIPELINE_SCRIPT`
+- **Environment**: Script inherits original CI environment including `GITHUB_TOKEN` or `GITLAB_TOKEN`
+- **Cross-Platform**: Uses bash even on Windows (Git Bash), macOS, and Linux
+- **Auto-Detection**: Script automatically detects GitHub Actions vs GitLab CI and uses appropriate cancellation method
+- **Secure by Design**: Daemon never has direct access to authentication tokens
+
+**Environment Variables**:
+- `EDAMAME_CANCEL_PIPELINE_SCRIPT`: Path to custom cancellation script (optional)
+  - Default: `$HOME/cancel_pipeline.sh`
+  - Script receives violation reason as first argument: `$1`
+  - Must be executable (`chmod +x`)
+  - Should exit 0 on success, non-zero on failure
+
+**Example Custom Script**:
+```bash
+#!/bin/bash
+# Custom cancellation with Slack notification
+REASON="$1"
+
+# Send alert to Slack
+curl -X POST https://hooks.slack.com/... \
+  -d "{\"text\":\"🚨 Pipeline cancelled: $REASON\"}"
+
+# Cancel the pipeline
+if [[ -n "$GITHUB_ACTIONS" ]]; then
+  gh run cancel "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY"
+fi
+```
+
 **Best for**:
 - High-security environments where violations must stop immediately
 - Preventing data exfiltration in progress
 - Reducing wasted compute time on compromised builds
+
+**Detection Interval**: The daemon checks for violations every 10 seconds, so cancellation typically occurs within 10-15 seconds of a violation.
 
 **Note**: This provides defense-in-depth beyond exit code checking at workflow end.
 
