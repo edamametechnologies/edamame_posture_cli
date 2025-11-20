@@ -172,7 +172,7 @@ pub fn background_process(
 
     // Loop forever as background process is running
     let mut violation_check_counter = 0u64;
-    const VIOLATION_CHECK_INTERVAL: u64 = 30; // seconds
+    const VIOLATION_CHECK_INTERVAL: u64 = 10; // seconds (reduced from 30 for faster response)
     loop {
         // Sleep for 5 seconds
         sleep(Duration::from_secs(5));
@@ -293,6 +293,46 @@ fn collect_policy_violations(
 }
 
 fn halt_ci_pipeline(reason: &str) -> Result<(), String> {
+    // Check for custom cancellation script first (most secure - no token passing to daemon)
+    // The script is created by the CI action and has access to original environment including tokens
+    let cancel_script_path = if let Ok(custom_path) = env::var("EDAMAME_CANCEL_PIPELINE_SCRIPT") {
+        custom_path
+    } else {
+        // Default to $HOME/cancel_pipeline.sh
+        let home = env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
+        format!("{}/cancel_pipeline.sh", home)
+    };
+
+    // Try external script first if it exists
+    if std::path::Path::new(&cancel_script_path).exists() {
+        info!(
+            "Using external cancellation script: {} (reason: {})",
+            cancel_script_path, reason
+        );
+
+        let status = std::process::Command::new("bash")
+            .arg(&cancel_script_path)
+            .arg(reason)
+            .status()
+            .map_err(|e| format!("Failed to execute cancellation script: {}", e))?;
+
+        if status.success() {
+            info!("Pipeline cancelled successfully via script");
+            return Ok(());
+        } else {
+            return Err(format!(
+                "Cancellation script failed (exit code = {:?})",
+                status.code()
+            ));
+        }
+    }
+
+    // Fallback to built-in cancellation logic
+    info!(
+        "No cancellation script found at {}, using built-in logic",
+        cancel_script_path
+    );
+
     if env::var("GITHUB_ACTIONS").is_ok() {
         let run_id = env::var("GITHUB_RUN_ID")
             .map_err(|_| "GITHUB_RUN_ID environment variable not set".to_string())?;
@@ -304,8 +344,33 @@ fn halt_ci_pipeline(reason: &str) -> Result<(), String> {
             run_id, repo, reason
         );
 
-        let status = std::process::Command::new("gh")
-            .args(["run", "cancel", &run_id, "--repo", &repo])
+        // Check for GitHub token from file first (more secure), then environment variable
+        let gh_token = if let Ok(token_file) = env::var("GH_TOKEN_FILE") {
+            match std::fs::read_to_string(&token_file) {
+                Ok(token) => {
+                    info!("Using GitHub token from secure file: {}", token_file);
+                    Some(token.trim().to_string())
+                }
+                Err(e) => {
+                    warn!("GH_TOKEN_FILE specified but couldn't read file: {}", e);
+                    env::var("GH_TOKEN").ok()
+                }
+            }
+        } else {
+            env::var("GH_TOKEN").ok()
+        };
+
+        let mut cmd = std::process::Command::new("gh");
+        cmd.args(["run", "cancel", &run_id, "--repo", &repo]);
+
+        // Set GH_TOKEN environment variable for gh CLI if we found a token
+        if let Some(token) = gh_token {
+            cmd.env("GH_TOKEN", token);
+        } else {
+            warn!("No GitHub token found (GH_TOKEN_FILE or GH_TOKEN). Cancellation may fail if authentication is required.");
+        }
+
+        let status = cmd
             .status()
             .map_err(|e| format!("Failed to execute 'gh' command: {}", e))?;
 
