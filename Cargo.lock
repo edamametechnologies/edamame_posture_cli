@@ -883,9 +883,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.2.46"
+version = "1.2.47"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b97463e1064cb1b1c1384ad0a0b9c8abd0988e2a91f52606c80ef14aadb63e36"
+checksum = "cd405d82c84ff7f35739f175f67d8b9fb7687a0e84ccdc78bd3568839827cf07"
 dependencies = [
  "find-msvc-tools",
  "jobserver",
@@ -1778,7 +1778,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "0.9.78"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#58accc6f5f1f497698a63fb31945f1c1a5c7b07e"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#4a0b58a335fb913f7c89bda96e1f1acee043597b"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1860,7 +1860,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "0.9.78"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#a3e79940fbff8257fc8e6cee229155c125a2331d"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#c9a7b3f373e852cf6ea8fbf26653c71f223b5456"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -2244,7 +2244,7 @@ dependencies = [
 [[package]]
 name = "flodbadd"
 version = "0.9.78"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#d731fb5ecd76499fbe7ff5ce98f638ea98fe6fc4"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#ef54b32dbff4d29b23b76d38e950cca3c8e27b7c"
 dependencies = [
  "anyhow",
  "arc-swap",
