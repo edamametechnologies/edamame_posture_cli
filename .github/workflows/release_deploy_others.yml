@@ -106,8 +106,11 @@ jobs:
         if: matrix.os == 'windows'
         run: |
           choco install protoc wget
-          dotnet tool install --global AzureSignTool
-
+          # Only install AzureSignTool if not already installed
+          if ! dotnet tool list --global | grep -q "AzureSignTool"; then
+            dotnet tool install --global AzureSignTool
+          fi
+          
       # Linux (not musl) and Windows
       # Install Rust
       - name: Install Rust
