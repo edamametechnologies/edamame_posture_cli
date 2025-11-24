@@ -112,10 +112,10 @@ jobs:
         run: |
           choco install protoc wget
           # Only install AzureSignTool if not already installed
-          if ! dotnet tool list --global | grep -q "AzureSignTool"; then
+          if (-not (dotnet tool list --global | Select-String -Pattern "AzureSignTool")) {
             dotnet tool install --global AzureSignTool
-          fi
-             
+          }
+
       - name: Set environment variables
         shell: bash
         run: |
