@@ -17,8 +17,7 @@ permissions: read-all
 
 jobs:
   test-native:
-    # We need to wait a long time for aarch64 due to the use of qemu
-    timeout-minutes: 240
+    timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
@@ -112,8 +111,11 @@ jobs:
         if: matrix.os == 'windows'
         run: |
           choco install protoc wget
-          dotnet tool install --global AzureSignTool
-   
+          # Only install AzureSignTool if not already installed
+          if ! dotnet tool list --global | grep -q "AzureSignTool"; then
+            dotnet tool install --global AzureSignTool
+          fi
+             
       - name: Set environment variables
         shell: bash
         run: |
