@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
+  <metadata>
+    <id>edamame-posture</id>
+    <version>0.9.81</version>
+    <title>EDAMAME Posture</title>
+    <authors>EDAMAME Technologies</authors>
+    <projectUrl>https://edamame.tech</projectUrl>
+    <tags>edamame security posture cli</tags>
+    <summary>EDAMAME Security posture analysis and remediation</summary>
+    <description>EDAMAME Posture is a lightweight, developer-friendly security posture assessment and remediation tool.</description>
+    <licenseUrl>https://github.com/edamametechnologies/edamame_posture_cli/blob/main/LICENSE</licenseUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <releaseNotes>https://github.com/edamametechnologies/edamame_posture_cli/releases</releaseNotes>
+  </metadata>
+  <files>
+    <file src="tools\**" target="tools" />
+  </files>
+</package>
+
+
+

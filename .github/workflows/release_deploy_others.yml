@@ -363,3 +363,78 @@ jobs:
         uses: edamametechnologies/edamame_posture_action@v0
         with:
           dump_sessions_log: true
+
+  publish-package-managers:
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get Version
+        id: get_version
+        run: |
+          VERSION=$(grep '^version =' ./Cargo.toml | awk '{print $3}' | tr -d '"')
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+      - name: Download Release Assets
+        run: |
+          # Wait a bit to ensure assets are available
+          sleep 30
+          wget -q https://github.com/${{ github.repository }}/releases/download/v${{ env.VERSION }}/edamame_posture-${{ env.VERSION }}-universal-apple-darwin
+          wget -q https://github.com/${{ github.repository }}/releases/download/v${{ env.VERSION }}/edamame_posture-${{ env.VERSION }}-x86_64-pc-windows-msvc.exe
+
+      - name: Calculate SHA256
+        id: shasum
+        run: |
+          echo "SHA_MACOS=$(sha256sum edamame_posture-${{ env.VERSION }}-universal-apple-darwin | awk '{print $1}')" >> $GITHUB_ENV
+          echo "SHA_WIN=$(sha256sum edamame_posture-${{ env.VERSION }}-x86_64-pc-windows-msvc.exe | awk '{print $1}')" >> $GITHUB_ENV
+
+      - name: Update Homebrew Formula
+        run: |
+          sed -i "s|url \".*\"|url \"https://github.com/${{ github.repository }}/releases/download/v${{ env.VERSION }}/edamame_posture-${{ env.VERSION }}-universal-apple-darwin\"|g" homebrew/edamame-posture.rb
+          sed -i "s|sha256 \".*\"|sha256 \"${{ env.SHA_MACOS }}\"|g" homebrew/edamame-posture.rb
+          sed -i "s|version \".*\"|version \"${{ env.VERSION }}\"|g" homebrew/edamame-posture.rb
+
+      - name: Update Chocolatey Package
+        run: |
+          sed -i "s|<version>.*</version>|<version>${{ env.VERSION }}</version>|g" chocolatey/edamame-posture.nuspec
+          sed -i "s|\$url64 = '.*'|\$url64 = 'https://github.com/${{ github.repository }}/releases/download/v${{ env.VERSION }}/edamame_posture-${{ env.VERSION }}-x86_64-pc-windows-msvc.exe'|g" chocolatey/tools/chocolateyInstall.ps1
+          sed -i "s|\$checksum64 = '.*'|\$checksum64 = '${{ env.SHA_WIN }}'|g" chocolatey/tools/chocolateyInstall.ps1
+
+      - name: Publish to Homebrew Tap
+        if: env.SHA_MACOS != ''
+        env:
+          GH_TOKEN: ${{ secrets.DEV_GITHUB_TOKEN }}
+        run: |
+          # Only run if token is present
+          if [ -n "${{ secrets.DEV_GITHUB_TOKEN }}" ]; then
+            git clone https://oauth2:${{ secrets.DEV_GITHUB_TOKEN }}@github.com/edamametechnologies/homebrew-tap.git tap
+            mkdir -p tap/Formula
+            cp homebrew/edamame-posture.rb tap/Formula/edamame-posture.rb
+            cd tap
+            git config user.name "EDAMAME Bot"
+            git config user.email "bot@edamame.tech"
+            git add .
+            # Check if there are changes
+            if ! git diff-index --quiet HEAD; then
+              git commit -m "Update edamame-posture to ${{ env.VERSION }}"
+              git push
+            else
+              echo "No changes to commit"
+            fi
+          else
+            echo "Skipping Homebrew publish: DEV_GITHUB_TOKEN not set"
+          fi
+
+      - name: Pack Chocolatey
+        if: env.SHA_WIN != ''
+        uses: crazy-max/ghaction-chocolatey@v3
+        with:
+          args: pack chocolatey/edamame-posture.nuspec
+
+      - name: Publish to Chocolatey
+        if: env.SHA_WIN != '' && ${{ secrets.CHOCOLATEY_API_KEY }} != ''
+        uses: crazy-max/ghaction-chocolatey@v3
+        with:
+          args: push edamame-posture.${{ env.VERSION }}.nupkg -s https://push.chocolatey.org/ -k ${{ secrets.CHOCOLATEY_API_KEY }}
