@@ -434,7 +434,7 @@ jobs:
           args: pack chocolatey/edamame-posture.nuspec
 
       - name: Publish to Chocolatey
-        if: env.SHA_WIN != '' && secrets.CHOCOLATEY_API_KEY != ''
+        if: env.SHA_WIN != '' && ${{ secrets.CHOCOLATEY_API_KEY }} != ''
         uses: crazy-max/ghaction-chocolatey@v3
         with:
           args: push edamame-posture.${{ env.VERSION }}.nupkg -s https://push.chocolatey.org/ -k ${{ secrets.CHOCOLATEY_API_KEY }}
