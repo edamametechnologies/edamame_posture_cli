@@ -139,12 +139,30 @@ jobs:
           apk add --no-cache \
             build-base \
             protobuf-dev \
-            libpcap-dev \
             git \
             curl \
             pkgconf \
             eudev-dev \
-            perl
+            perl \
+            flex \
+            bison
+          
+          # For aarch64, we need to build libpcap from source with -fPIC
+          # The Alpine libpcap-dev package doesn't have -fPIC on aarch64
+          if [[ "${{ matrix.arch }}" == "aarch64" ]]; then
+            echo "Building libpcap from source with -fPIC for aarch64..."
+            cd /tmp
+            wget https://www.tcpdump.org/release/libpcap-1.10.5.tar.gz
+            tar xzf libpcap-1.10.5.tar.gz
+            cd libpcap-1.10.5
+            CFLAGS="-fPIC" ./configure --prefix=/usr --disable-shared --enable-static
+            make -j$(nproc)
+            make install
+            echo "libpcap installed to /usr/lib/libpcap.a"
+          else
+            echo "Installing libpcap-dev from Alpine package..."
+            apk add --no-cache libpcap-dev
+          fi
         shell: alpine.sh --root {0}
 
       # Install Rust
