@@ -148,7 +148,7 @@ jobs:
         shell: alpine.sh --root {0}
 
       # Install Rust
-      - name: Install Rust
+      - name: Install Rust for Alpine
         if: matrix.os == 'ubuntu' && matrix.target == 'x86_64-unknown-linux-musl' || matrix.target == 'aarch64-unknown-linux-musl'
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
@@ -468,6 +468,8 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_REGION: ${{ secrets.AWS_REGION }}
         run: |
+          set -e
+          
           # Get version
           VERSION=$(grep '^version =' ./Cargo.toml | awk '{print $3}' | tr -d '"')
           
@@ -482,26 +484,51 @@ jobs:
             s3://edamame/${REPO_PATH}/edamame-posture-${VERSION}-r1.apk \
             --acl public-read
           
-          # Download existing APKINDEX.tar.gz if it exists
-          aws s3 cp s3://edamame/${REPO_PATH}/APKINDEX.tar.gz /tmp/APKINDEX.tar.gz || true
+          # Create a working directory for index generation
+          WORK_DIR="/tmp/apk-index-work"
+          mkdir -p "$WORK_DIR"
+          cd "$WORK_DIR"
           
-          # Generate/update APKINDEX
-          cd target/${{ matrix.target }}/apk
-          if [ -f /tmp/APKINDEX.tar.gz ]; then
-            tar -xzf /tmp/APKINDEX.tar.gz
-          fi
+          # Download existing packages from S3 to include in index
+          echo "Downloading existing packages from S3..."
+          aws s3 sync s3://edamame/${REPO_PATH}/ . --exclude "*" --include "*.apk" || echo "No existing packages found"
+          
+          # List all APK files to include in index
+          echo "APK files to include in index:"
+          ls -lh *.apk || echo "No APK files found"
+          
+          # Generate APKINDEX from all APK files
+          echo "Generating APKINDEX..."
           apk index -o APKINDEX.unsigned.tar.gz *.apk
           
           # Sign the index
+          echo "Signing APKINDEX..."
           abuild-sign -k ~/.abuild/*.rsa APKINDEX.unsigned.tar.gz
-          mv APKINDEX.unsigned.tar.gz.sig APKINDEX.tar.gz
+          
+          # The signed index is created as APKINDEX.tar.gz (abuild-sign renames it)
+          if [ -f APKINDEX.tar.gz ]; then
+            echo "Signed index created successfully"
+          elif [ -f APKINDEX.unsigned.tar.gz ]; then
+            # If abuild-sign didn't rename it, do it manually
+            echo "Renaming unsigned index to signed index"
+            mv APKINDEX.unsigned.tar.gz APKINDEX.tar.gz
+          else
+            echo "ERROR: No APKINDEX file found after signing!"
+            ls -la
+            exit 1
+          fi
           
           # Upload APKINDEX
+          echo "Uploading APKINDEX to S3..."
           aws s3 cp APKINDEX.tar.gz s3://edamame/${REPO_PATH}/APKINDEX.tar.gz --acl public-read
           
           # Upload public key
+          echo "Uploading public key to S3..."
           cp ~/.abuild/*.rsa.pub /tmp/edamame.rsa.pub
           aws s3 cp /tmp/edamame.rsa.pub s3://edamame/${REPO_PATH}/edamame.rsa.pub --acl public-read
+          
+          echo "APK repository update complete!"
+          echo "Repository URL: https://edamame.s3.eu-west-1.amazonaws.com/${REPO_PATH}"
         shell: alpine.sh --root {0}
 
       ############################################################################################
