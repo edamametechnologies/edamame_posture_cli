@@ -1,0 +1,101 @@
+name: Update Alpine APK Repository Index
+
+on:
+  workflow_call:
+    secrets:
+      AWS_ACCESS_KEY_ID:
+        required: true
+      AWS_SECRET_ACCESS_KEY:
+        required: true
+      AWS_REGION:
+        required: true
+  workflow_dispatch:
+
+jobs:
+  update-index:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        arch: [x86_64, aarch64]
+    
+    steps:
+      - name: Setup Alpine Linux
+        uses: jirutka/setup-alpine@v1
+        with:
+          arch: ${{ matrix.arch }}
+          branch: v3.15
+
+      - name: Update APK repository index
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+        run: |
+          set -e
+          
+          # Install required tools
+          apk add --no-cache aws-cli alpine-sdk
+          
+          # Setup abuild signing key
+          abuild-keygen -a -i -n
+          
+          # Setup repository path
+          REPO_PATH="repo/alpine/v3.15/${{ matrix.arch }}"
+          WORK_DIR="/tmp/apk-index"
+          mkdir -p "$WORK_DIR"
+          cd "$WORK_DIR"
+          
+          # Download ALL existing APK packages from S3
+          # This includes packages from all projects: edamame-cli, edamame-posture, etc.
+          echo "Downloading all packages from S3 repository..."
+          aws s3 sync s3://edamame/${REPO_PATH}/ . --exclude "*" --include "*.apk" || echo "No existing packages found"
+          
+          # List all packages to include in index
+          echo "Packages to include in index:"
+          ls -lh *.apk 2>/dev/null || echo "No APK files found"
+          
+          # Count packages
+          PKG_COUNT=$(ls -1 *.apk 2>/dev/null | wc -l)
+          echo "Total packages in repository: $PKG_COUNT"
+          
+          if [ "$PKG_COUNT" -eq 0 ]; then
+            echo "ERROR: No packages found in repository!"
+            exit 1
+          fi
+          
+          # Generate APKINDEX from all packages
+          # Use --allow-untrusted because packages may be signed with different keys
+          echo "Generating APKINDEX for all $PKG_COUNT packages..."
+          apk index --allow-untrusted -o APKINDEX.unsigned.tar.gz *.apk
+          
+          # Sign the index with current key
+          echo "Signing APKINDEX..."
+          abuild-sign -k ~/.abuild/*.rsa APKINDEX.unsigned.tar.gz
+          
+          # Verify signed index was created
+          if [ -f APKINDEX.tar.gz ]; then
+            echo "Signed index created successfully"
+          elif [ -f APKINDEX.unsigned.tar.gz ]; then
+            mv APKINDEX.unsigned.tar.gz APKINDEX.tar.gz
+            echo "Index file renamed to APKINDEX.tar.gz"
+          else
+            echo "ERROR: No APKINDEX file found!"
+            ls -la
+            exit 1
+          fi
+          
+          # Upload APKINDEX to S3
+          echo "Uploading APKINDEX to S3..."
+          aws s3 cp APKINDEX.tar.gz s3://edamame/${REPO_PATH}/APKINDEX.tar.gz --acl public-read
+          
+          # Upload public signing key
+          echo "Uploading public key to S3..."
+          KEY_FILE=$(ls ~/.abuild/*.rsa.pub | head -1)
+          aws s3 cp "$KEY_FILE" s3://edamame/${REPO_PATH}/edamame.rsa.pub --acl public-read
+          
+          echo ""
+          echo "=== APK Repository Index Update Complete ==="
+          echo "Repository: https://edamame.s3.eu-west-1.amazonaws.com/${REPO_PATH}"
+          echo "Packages indexed: $PKG_COUNT"
+        shell: alpine.sh --root {0}
+
