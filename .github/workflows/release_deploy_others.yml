@@ -244,10 +244,13 @@ jobs:
           url="https://github.com/edamametechnologies/edamame_posture"
           arch="ARCH_PLACEHOLDER"
           license="Proprietary"
+          depends="bash"
           options="!check"
           
           package() {
               install -Dm755 "$startdir/edamame_posture" "$pkgdir/usr/bin/edamame_posture"
+              install -Dm755 "$startdir/edamame_posture_daemon.sh" "$pkgdir/usr/bin/edamame_posture_daemon.sh"
+              install -Dm755 "$startdir/edamame_posture.init" "$pkgdir/etc/init.d/edamame_posture"
           }
           EOF
           
@@ -264,8 +267,14 @@ jobs:
           echo "Target directory: $(pwd)"
           ls -la "$WORKSPACE_PATH/target/${{ matrix.target }}/release/" | grep edamame_posture || echo "Binary not found!"
           cp "$WORKSPACE_PATH/target/${{ matrix.target }}/release/edamame_posture" ./edamame_posture
+          
+          # Copy service scripts
+          echo "Copying service scripts..."
+          cp "$WORKSPACE_PATH/edamame_posture/debian/edamame_posture_daemon.sh" ./edamame_posture_daemon.sh
+          cp "$WORKSPACE_PATH/edamame_posture/alpine/edamame_posture.init" ./edamame_posture.init
+          
           ls -la ./edamame_posture
-          echo "Binary copied successfully"
+          echo "Files copied successfully"
           
           # Setup abuild
           abuild-keygen -a -i -n

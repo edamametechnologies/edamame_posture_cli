@@ -15,7 +15,6 @@
 #   --slack-bot-token TOKEN        Slack bot token
 #   --slack-actions-channel ID     Slack actions channel ID
 #   --slack-escalations-channel ID Slack escalations channel ID
-#   --start-service                Start/restart systemd service after configuration
 #
 # Example:
 #   curl -sSf https://raw.githubusercontent.com/.../install.sh | sh -s -- \
@@ -44,6 +43,366 @@ error() {
     exit 1
 }
 
+detect_platform() {
+    local uname_out
+    uname_out=$(uname -s 2>/dev/null || echo "unknown")
+    case "$uname_out" in
+        Linux) echo "linux" ;;
+        Darwin) echo "macos" ;;
+        MINGW*|MSYS*|CYGWIN*) echo "windows" ;;
+        *) echo "unknown" ;;
+    esac
+}
+
+download_file() {
+    # $1 -> url, $2 -> destination
+    if command -v curl >/dev/null 2>&1; then
+        curl -fsSL "$1" -o "$2"
+    elif command -v wget >/dev/null 2>&1; then
+        wget -q "$1" -O "$2"
+    else
+        return 1
+    fi
+}
+
+version_lt() {
+    # returns 0 if $1 < $2
+    [ "$1" = "$2" ] && return 1
+    local smallest
+    smallest=$(printf '%s\n%s\n' "$1" "$2" | sort -V | head -n1)
+    [ "$smallest" = "$1" ] && [ "$1" != "$2" ]
+}
+
+detect_glibc_version() {
+    if command -v getconf >/dev/null 2>&1; then
+        getconf GNU_LIBC_VERSION 2>/dev/null | awk '{print $2}'
+    else
+        echo ""
+    fi
+}
+
+REPO_BASE_URL="https://github.com/edamametechnologies/edamame_posture_cli"
+FALLBACK_VERSION="0.9.75"
+
+fetch_latest_version() {
+    local api_url="${REPO_BASE_URL}/releases/latest"
+    local json=""
+    if command -v curl >/dev/null 2>&1; then
+        json=$(curl -fsSL "$api_url" 2>/dev/null || echo "")
+    elif command -v wget >/dev/null 2>&1; then
+        json=$(wget -q -O - "$api_url" 2>/dev/null || echo "")
+    fi
+    echo "$json" | grep -m1 '"tag_name"' | sed -E 's/.*"v?([^"]+)".*/\1/' | sed 's/^v//'
+}
+
+determine_linux_suffix() {
+    # $1 -> arch, $2 -> libc flavor (gnu|musl)
+    local arch="$1"
+    local libc="$2"
+    case "$arch" in
+        x86_64)
+            if [ "$libc" = "musl" ]; then
+                echo "x86_64-unknown-linux-musl"
+            else
+                echo "x86_64-unknown-linux-gnu"
+            fi
+            ;;
+        i686)
+            echo "i686-unknown-linux-gnu"
+            ;;
+        aarch64)
+            if [ "$libc" = "musl" ]; then
+                echo "aarch64-unknown-linux-musl"
+            else
+                echo "aarch64-unknown-linux-gnu"
+            fi
+            ;;
+        armv7|armv7l|armhf)
+            echo "armv7-unknown-linux-gnueabihf"
+            ;;
+        *)
+            error "Unsupported Linux architecture: $arch"
+            ;;
+    esac
+}
+
+prepare_binary_artifact() {
+    # Sets ARTIFACT_NAME, ARTIFACT_URL, ARTIFACT_FALLBACK_NAME, ARTIFACT_FALLBACK_URL, ARTIFACT_EXT
+    local platform="$1"
+    local libc_flavor="$2"
+    ARTIFACT_EXT=""
+    local suffix=""
+    local version=""
+
+    case "$platform" in
+        linux)
+            suffix=$(determine_linux_suffix "$LINUX_ARCH_NORMALIZED" "$libc_flavor")
+            ;;
+        macos)
+            suffix="universal-apple-darwin"
+            ;;
+        windows)
+            suffix="x86_64-pc-windows-msvc"
+            ARTIFACT_EXT=".exe"
+            ;;
+        *)
+            error "Unsupported platform for binary installation: $platform"
+            ;;
+    esac
+
+    if [ "$CONFIG_DEBUG_BUILD" = "true" ]; then
+        version=$(fetch_latest_version)
+        if [ -z "$version" ]; then
+            warn "Failed to determine latest release version, using $FALLBACK_VERSION"
+            version="$FALLBACK_VERSION"
+        fi
+        ARTIFACT_NAME="edamame_posture-${version}-${suffix}-debug${ARTIFACT_EXT}"
+        ARTIFACT_FALLBACK_NAME="edamame_posture-${FALLBACK_VERSION}-${suffix}-debug${ARTIFACT_EXT}"
+        ARTIFACT_URL="${REPO_BASE_URL}/releases/download/v${version}/${ARTIFACT_NAME}"
+        ARTIFACT_FALLBACK_URL="${REPO_BASE_URL}/releases/download/v${FALLBACK_VERSION}/${ARTIFACT_FALLBACK_NAME}"
+    else
+        ARTIFACT_NAME="edamame_posture-${suffix}${ARTIFACT_EXT}"
+        ARTIFACT_FALLBACK_NAME="edamame_posture-${FALLBACK_VERSION}-${suffix}${ARTIFACT_EXT}"
+        ARTIFACT_URL="${REPO_BASE_URL}/releases/latest/download/${ARTIFACT_NAME}"
+        ARTIFACT_FALLBACK_URL="${REPO_BASE_URL}/releases/download/v${FALLBACK_VERSION}/${ARTIFACT_FALLBACK_NAME}"
+    fi
+}
+
+install_binary_release() {
+    local platform="$1"
+    local libc_flavor="$2"
+    prepare_binary_artifact "$platform" "$libc_flavor"
+
+    local tmp_bin
+    tmp_bin=$(mktemp)
+
+    if ! download_file "$ARTIFACT_URL" "$tmp_bin"; then
+        warn "Primary binary download failed, attempting fallback..."
+        if ! download_file "$ARTIFACT_FALLBACK_URL" "$tmp_bin"; then
+            rm -f "$tmp_bin"
+            error "Failed to download EDAMAME Posture binary."
+        fi
+    fi
+
+    if [ "$platform" != "windows" ]; then
+        chmod +x "$tmp_bin" || true
+    fi
+
+    local target_dir="$INSTALL_DIR"
+    if [ -z "$target_dir" ]; then
+        target_dir="$HOME"
+    fi
+
+    local target_name="edamame_posture${ARTIFACT_EXT}"
+    local target_path="$target_dir/$target_name"
+
+    if [ "$platform" = "windows" ]; then
+        mkdir -p "$target_dir"
+        cp "$tmp_bin" "$target_path"
+        chmod +x "$target_path" 2>/dev/null || true
+    else
+        if [ -n "$SUDO" ]; then
+            $SUDO mkdir -p "$target_dir"
+            if command -v install >/dev/null 2>&1; then
+                $SUDO install -m 755 "$tmp_bin" "$target_path"
+            else
+                $SUDO cp "$tmp_bin" "$target_path"
+                $SUDO chmod 755 "$target_path"
+            fi
+        else
+            mkdir -p "$target_dir"
+            if command -v install >/dev/null 2>&1; then
+                install -m 755 "$tmp_bin" "$target_path"
+            else
+                cp "$tmp_bin" "$target_path"
+                chmod 755 "$target_path"
+            fi
+        fi
+    fi
+
+    rm -f "$tmp_bin"
+
+    FINAL_BINARY_PATH="$target_path"
+    BINARY_PATH="$target_path"
+    INSTALL_METHOD="binary"
+    INSTALLED_VIA_PACKAGE_MANAGER="false"
+    info "Binary installed at $target_path"
+}
+
+ci_stop_services() {
+    if [ "$CONFIG_CI_MODE" != "true" ]; then
+        return 0
+    fi
+    info "CI mode enabled - stopping packaged edamame_posture service"
+    if command -v systemctl >/dev/null 2>&1; then
+        $SUDO systemctl stop edamame_posture.service 2>/dev/null || true
+        $SUDO systemctl disable edamame_posture.service 2>/dev/null || true
+    fi
+    if command -v rc-service >/dev/null 2>&1; then
+        $SUDO rc-service edamame_posture stop 2>/dev/null || true
+    fi
+}
+
+write_state_file() {
+    if [ -z "$STATE_FILE" ]; then
+        return 0
+    fi
+    local state_dir
+    state_dir=$(dirname "$STATE_FILE")
+    mkdir -p "$state_dir" 2>/dev/null || true
+    cat > "$STATE_FILE" <<EOF
+binary_path=${BINARY_PATH}
+install_method=${INSTALL_METHOD:-unknown}
+installed_via_package_manager=${INSTALLED_VIA_PACKAGE_MANAGER:-false}
+binary_already_present=${BINARY_ALREADY_PRESENT}
+platform=${PLATFORM}
+EOF
+}
+
+install_linux_via_apk() {
+    info "Installing via Alpine APK..."
+
+    REPO_URL="https://edamame.s3.eu-west-1.amazonaws.com/repo/alpine/v3.15/main"
+
+    if ! grep -q "$REPO_URL" /etc/apk/repositories 2>/dev/null; then
+        info "Adding EDAMAME APK repository..."
+
+        if command -v wget >/dev/null 2>&1; then
+            wget -q -O /tmp/edamame.rsa.pub "https://edamame.s3.eu-west-1.amazonaws.com/repo/alpine/v3.15/${ARCH}/edamame.rsa.pub" || \
+                warn "Failed to download signing key"
+        elif command -v curl >/dev/null 2>&1; then
+            curl -sL -o /tmp/edamame.rsa.pub "https://edamame.s3.eu-west-1.amazonaws.com/repo/alpine/v3.15/${ARCH}/edamame.rsa.pub" || \
+                warn "Failed to download signing key"
+        else
+            error "Neither wget nor curl found. Please install one of them."
+        fi
+
+        if [ -f /tmp/edamame.rsa.pub ]; then
+            $SUDO cp /tmp/edamame.rsa.pub /etc/apk/keys/edamame.rsa.pub
+            info "Signing key installed"
+        fi
+
+        echo "$REPO_URL" | $SUDO tee -a /etc/apk/repositories >/dev/null
+        info "Repository added"
+    fi
+
+    info "Updating package list..."
+    $SUDO apk update
+
+    info "Installing edamame-posture..."
+    $SUDO apk add edamame-posture
+
+    info "Installation complete!"
+    BINARY_PATH=$(command -v edamame_posture 2>/dev/null || echo "/usr/bin/edamame_posture")
+    FINAL_BINARY_PATH="$BINARY_PATH"
+}
+
+install_linux_via_apt() {
+    info "Installing via APT..."
+
+    if ! grep -q "edamame.s3.eu-west-1.amazonaws.com/repo" /etc/apt/sources.list.d/edamame.list 2>/dev/null; then
+        info "Adding EDAMAME APT repository..."
+
+        if ! command -v gpg >/dev/null 2>&1; then
+            info "Installing gnupg..."
+            $SUDO apt-get update -qq
+            $SUDO apt-get install -y gnupg
+        fi
+
+        if ! command -v wget >/dev/null 2>&1 && ! command -v curl >/dev/null 2>&1; then
+            info "Installing wget..."
+            $SUDO apt-get update -qq
+            $SUDO apt-get install -y wget
+        fi
+
+        if command -v wget >/dev/null 2>&1; then
+            wget -q -O - https://edamame.s3.eu-west-1.amazonaws.com/repo/public.key | \
+                $SUDO gpg --dearmor -o /usr/share/keyrings/edamame.gpg
+        else
+            curl -sL https://edamame.s3.eu-west-1.amazonaws.com/repo/public.key | \
+                $SUDO gpg --dearmor -o /usr/share/keyrings/edamame.gpg
+        fi
+        info "GPG key imported"
+
+        DEB_ARCH=$(dpkg --print-architecture 2>/dev/null || echo "amd64")
+        echo "deb [arch=${DEB_ARCH} signed-by=/usr/share/keyrings/edamame.gpg] https://edamame.s3.eu-west-1.amazonaws.com/repo stable main" | \
+            $SUDO tee /etc/apt/sources.list.d/edamame.list >/dev/null
+        info "Repository added"
+    fi
+
+    info "Updating package list..."
+    $SUDO apt-get update -qq
+
+    info "Installing edamame-posture..."
+    $SUDO apt-get install -y edamame-posture
+
+    info "Installation complete!"
+    info "Configure /etc/edamame_posture.conf and restart service, or run 'edamame_posture --help'"
+    BINARY_PATH=$(command -v edamame_posture 2>/dev/null || echo "/usr/bin/edamame_posture")
+    FINAL_BINARY_PATH="$BINARY_PATH"
+}
+
+install_windows_via_choco() {
+    if ! command -v choco >/dev/null 2>&1; then
+        return 1
+    fi
+
+    info "Installing via Chocolatey..."
+    if choco list --local-only --exact edamame-posture 2>/dev/null | grep -q "^edamame-posture "; then
+        info "edamame-posture already present via Chocolatey, attempting upgrade..."
+        if ! choco upgrade edamame-posture -y 2>/dev/null; then
+            warn "Chocolatey upgrade failed, continuing..."
+        fi
+    else
+        if ! choco install edamame-posture -y 2>/dev/null; then
+            warn "Chocolatey installation failed"
+            return 1
+        fi
+    fi
+
+    BINARY_PATH=$(command -v edamame_posture.exe 2>/dev/null || command -v edamame_posture 2>/dev/null || echo "")
+    if [ -z "$BINARY_PATH" ]; then
+        BINARY_PATH="C:/ProgramData/chocolatey/bin/edamame_posture.exe"
+    fi
+    FINAL_BINARY_PATH="$BINARY_PATH"
+    INSTALL_METHOD="chocolatey"
+    INSTALLED_VIA_PACKAGE_MANAGER="true"
+    info "Chocolatey installation complete"
+    return 0
+}
+
+install_macos_via_brew() {
+    if ! command -v brew >/dev/null 2>&1; then
+        return 1
+    fi
+
+    info "Installing via Homebrew..."
+
+    if ! brew tap | grep -q "edamametechnologies/tap"; then
+        if ! brew tap edamametechnologies/tap >/dev/null 2>&1; then
+            warn "Failed to tap edamametechnologies/tap"
+            return 1
+        fi
+    fi
+
+    if brew list edamame-posture >/dev/null 2>&1; then
+        info "edamame-posture already installed via Homebrew, attempting upgrade..."
+        brew upgrade edamame-posture >/dev/null 2>&1 || true
+    else
+        if ! brew install edamame-posture >/dev/null 2>&1; then
+            warn "Homebrew installation failed"
+            return 1
+        fi
+    fi
+
+    BINARY_PATH=$(command -v edamame_posture 2>/dev/null || echo "/usr/local/bin/edamame_posture")
+    FINAL_BINARY_PATH="$BINARY_PATH"
+    INSTALL_METHOD="homebrew"
+    INSTALLED_VIA_PACKAGE_MANAGER="true"
+    info "Homebrew installation complete"
+    return 0
+}
+
 # Parse command line arguments
 CONFIG_USER=""
 CONFIG_DOMAIN=""
@@ -56,7 +415,11 @@ CONFIG_AGENTIC_INTERVAL="3600"
 CONFIG_SLACK_BOT_TOKEN=""
 CONFIG_SLACK_ACTIONS_CHANNEL=""
 CONFIG_SLACK_ESCALATIONS_CHANNEL=""
-START_SERVICE=false
+CONFIG_INSTALL_DIR=""
+CONFIG_STATE_FILE=""
+CONFIG_FORCE_BINARY="false"
+CONFIG_DEBUG_BUILD="false"
+CONFIG_CI_MODE="false"
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -109,8 +472,25 @@ while [ $# -gt 0 ]; do
             CONFIG_SLACK_ESCALATIONS_CHANNEL="$2"
             shift 2
             ;;
-        --start-service)
-            START_SERVICE=true
+        --install-dir)
+            CONFIG_INSTALL_DIR="$2"
+            shift 2
+            ;;
+        --state-file)
+            CONFIG_STATE_FILE="$2"
+            shift 2
+            ;;
+        --binary-only|--force-binary)
+            CONFIG_FORCE_BINARY="true"
+            shift
+            ;;
+        --debug-build)
+            CONFIG_DEBUG_BUILD="true"
+            CONFIG_FORCE_BINARY="true"
+            shift
+            ;;
+        --ci-mode)
+            CONFIG_CI_MODE="true"
             shift
             ;;
         *)
@@ -120,128 +500,173 @@ while [ $# -gt 0 ]; do
     esac
 done
 
-# Check if running as root
-if [ "$(id -u)" -eq 0 ]; then
-    SUDO=""
-else
+PLATFORM=$(detect_platform)
+ARCH=$(uname -m 2>/dev/null || echo "unknown")
+LINUX_ARCH_NORMALIZED="$ARCH"
+LINUX_LIBC_FLAVOR="gnu"
+STATE_FILE="$CONFIG_STATE_FILE"
+INSTALL_DIR="$CONFIG_INSTALL_DIR"
+INSTALL_METHOD=""
+INSTALLED_VIA_PACKAGE_MANAGER="false"
+FINAL_BINARY_PATH=""
+BINARY_PATH=""
+
+case "$PLATFORM" in
+    linux)
+        if [ ! -f /etc/os-release ]; then
+            error "/etc/os-release not found. Unable to detect Linux distribution."
+        fi
+        . /etc/os-release
+        case "$ARCH" in
+            armv7l|armhf)
+                LINUX_ARCH_NORMALIZED="armv7"
+                ;;
+            *)
+                LINUX_ARCH_NORMALIZED="$ARCH"
+                ;;
+        esac
+        if [ "$ID" = "alpine" ]; then
+            LINUX_LIBC_FLAVOR="musl"
+        else
+            GLIBC_VERSION=$(detect_glibc_version)
+            if [ -n "$GLIBC_VERSION" ] && version_lt "$GLIBC_VERSION" "2.29"; then
+                LINUX_LIBC_FLAVOR="musl"
+            fi
+        fi
+        ;;
+    macos)
+        ID="macos"
+        ;;
+    windows)
+        ID="windows"
+        ;;
+    *)
+        error "Unsupported platform detected."
+        ;;
+esac
+
+if [ -z "$INSTALL_DIR" ]; then
+    case "$PLATFORM" in
+        linux|macos)
+            INSTALL_DIR="/usr/local/bin"
+            ;;
+        windows)
+            INSTALL_DIR="$HOME"
+            ;;
+        *)
+            INSTALL_DIR="$HOME"
+            ;;
+    esac
+fi
+
+BINARY_ALREADY_PRESENT="false"
+if command -v edamame_posture >/dev/null 2>&1; then
+    BINARY_ALREADY_PRESENT="true"
+fi
+
+ensure_privileged_runner() {
+    if [ "$PLATFORM" = "windows" ]; then
+        SUDO=""
+        return 0
+    fi
+
+    if [ "$(id -u)" -eq 0 ]; then
+        SUDO=""
+        return 0
+    fi
+
     if command -v sudo >/dev/null 2>&1; then
         SUDO="sudo"
-    else
-        error "This script requires sudo privileges. Please install sudo or run as root."
+        return 0
     fi
-fi
+
+    if command -v doas >/dev/null 2>&1; then
+        SUDO="doas"
+        return 0
+    fi
+
+    if command -v su >/dev/null 2>&1; then
+        if command -v apk >/dev/null 2>&1; then
+            info "sudo not found. Attempting to install via apk (requires root credentials)..."
+            if su -c "apk add --no-cache sudo" >/dev/null 2>&1; then
+                SUDO="sudo"
+                return 0
+            else
+                warn "Automatic sudo installation via apk failed."
+            fi
+        elif command -v apt-get >/dev/null 2>&1; then
+            info "sudo not found. Attempting to install via apt-get (requires root credentials)..."
+            if su -c "apt-get update -qq && apt-get install -y sudo" >/dev/null; then
+                SUDO="sudo"
+                return 0
+            else
+                warn "Automatic sudo installation via apt-get failed."
+            fi
+        fi
+    fi
+
+    error "This script requires sudo/doas privileges. Please install sudo (e.g., 'apk add sudo') or run as root."
+}
+
+ensure_privileged_runner
 
 info "EDAMAME Posture Installer"
 info "========================="
-
-# Detect OS
-if [ ! -f /etc/os-release ]; then
-    error "/etc/os-release not found. Unable to detect Linux distribution."
+info "Platform: $PLATFORM"
+info "Architecture: $ARCH"
+if [ "$PLATFORM" = "linux" ]; then
+    info "Detected OS: $ID"
 fi
 
-. /etc/os-release
+if [ "$PLATFORM" = "linux" ]; then
+    linux_pkg_installed="false"
 
-info "Detected OS: $ID"
-ARCH=$(uname -m)
-info "Architecture: $ARCH"
+    if [ "$CONFIG_FORCE_BINARY" != "true" ]; then
+        case "$ID" in
+            "alpine")
+                if install_linux_via_apk; then
+                    linux_pkg_installed="true"
+                    INSTALL_METHOD="apk"
+                    INSTALLED_VIA_PACKAGE_MANAGER="true"
+                    ci_stop_services
+                fi
+                ;;
+            "ubuntu"|"debian"|"raspbian"|"pop"|"linuxmint"|"elementary"|"zorin")
+                if install_linux_via_apt; then
+                    linux_pkg_installed="true"
+                    INSTALL_METHOD="apt"
+                    INSTALLED_VIA_PACKAGE_MANAGER="true"
+                    ci_stop_services
+                fi
+                ;;
+            *)
+                warn "Unsupported distribution for package installation: $ID"
+                ;;
+        esac
+    fi
 
-# Install based on distribution
-case "$ID" in
-    "alpine")
-        info "Installing via Alpine APK..."
-        
-        # Determine Alpine repository URL
-        REPO_URL="https://edamame.s3.eu-west-1.amazonaws.com/repo/alpine/v3.15/main"
-        
-        # Check if repository is already configured
-        if ! grep -q "$REPO_URL" /etc/apk/repositories 2>/dev/null; then
-            info "Adding EDAMAME APK repository..."
-            
-            # Download and install signing key
-            if command -v wget >/dev/null 2>&1; then
-                wget -q -O /tmp/edamame.rsa.pub "https://edamame.s3.eu-west-1.amazonaws.com/repo/alpine/v3.15/${ARCH}/edamame.rsa.pub" || \
-                    warn "Failed to download signing key"
-            elif command -v curl >/dev/null 2>&1; then
-                curl -sL -o /tmp/edamame.rsa.pub "https://edamame.s3.eu-west-1.amazonaws.com/repo/alpine/v3.15/${ARCH}/edamame.rsa.pub" || \
-                    warn "Failed to download signing key"
-            else
-                error "Neither wget nor curl found. Please install one of them."
-            fi
-            
-            if [ -f /tmp/edamame.rsa.pub ]; then
-                $SUDO cp /tmp/edamame.rsa.pub /etc/apk/keys/edamame.rsa.pub
-                info "Signing key installed"
-            fi
-            
-            # Add repository
-            echo "$REPO_URL" | $SUDO tee -a /etc/apk/repositories >/dev/null
-            info "Repository added"
-        fi
-        
-        # Update package list
-        info "Updating package list..."
-        $SUDO apk update
-        
-        # Install edamame-posture
-        info "Installing edamame-posture..."
-        $SUDO apk add edamame-posture
-        
-        info "Installation complete!"
-        ;;
-    
-    "ubuntu"|"debian"|"raspbian"|"pop"|"linuxmint"|"elementary"|"zorin")
-        info "Installing via APT..."
-        
-        # Check if repository is already configured
-        if ! grep -q "edamame.s3.eu-west-1.amazonaws.com/repo" /etc/apt/sources.list.d/edamame.list 2>/dev/null; then
-            info "Adding EDAMAME APT repository..."
-            
-            # Install required tools
-            if ! command -v gpg >/dev/null 2>&1; then
-                info "Installing gnupg..."
-                $SUDO apt-get update -qq
-                $SUDO apt-get install -y gnupg
-            fi
-            
-            if ! command -v wget >/dev/null 2>&1 && ! command -v curl >/dev/null 2>&1; then
-                info "Installing wget..."
-                $SUDO apt-get update -qq
-                $SUDO apt-get install -y wget
-            fi
-            
-            # Import GPG key
-            if command -v wget >/dev/null 2>&1; then
-                wget -q -O - https://edamame.s3.eu-west-1.amazonaws.com/repo/public.key | \
-                    $SUDO gpg --dearmor -o /usr/share/keyrings/edamame.gpg
-            else
-                curl -sL https://edamame.s3.eu-west-1.amazonaws.com/repo/public.key | \
-                    $SUDO gpg --dearmor -o /usr/share/keyrings/edamame.gpg
-            fi
-            info "GPG key imported"
-            
-            # Add repository
-            DEB_ARCH=$(dpkg --print-architecture 2>/dev/null || echo "amd64")
-            echo "deb [arch=${DEB_ARCH} signed-by=/usr/share/keyrings/edamame.gpg] https://edamame.s3.eu-west-1.amazonaws.com/repo stable main" | \
-                $SUDO tee /etc/apt/sources.list.d/edamame.list >/dev/null
-            info "Repository added"
-        fi
-        
-        # Update package list
-        info "Updating package list..."
-        $SUDO apt-get update -qq
-        
-        # Install edamame-posture
-        info "Installing edamame-posture..."
-        $SUDO apt-get install -y edamame-posture
-        
-        info "Installation complete!"
-        info "Configure /etc/edamame_posture.conf and restart service, or run 'edamame_posture --help'"
-        ;;
-    
-    *)
-        error "Unsupported distribution: $ID. Supported: Alpine, Debian, Ubuntu and derivatives."
-        ;;
-esac
+    if [ "$linux_pkg_installed" != "true" ]; then
+        warn "Using direct binary installation for Linux..."
+        install_binary_release "linux" "$LINUX_LIBC_FLAVOR"
+    fi
+elif [ "$PLATFORM" = "macos" ]; then
+    if [ "$CONFIG_FORCE_BINARY" != "true" ] && install_macos_via_brew; then
+        :
+    else
+        warn "Using direct binary installation for macOS..."
+        install_binary_release "macos" ""
+    fi
+elif [ "$PLATFORM" = "windows" ]; then
+    if [ "$CONFIG_FORCE_BINARY" != "true" ] && install_windows_via_choco; then
+        :
+    else
+        warn "Using direct binary installation for Windows..."
+        install_binary_release "windows" ""
+    fi
+else
+    info "Installing via direct binary download for $PLATFORM..."
+    install_binary_release "$PLATFORM" ""
+fi
 
 # Configure service if configuration parameters were provided
 configure_service() {
@@ -339,13 +764,21 @@ EOF
     
     info "✓ Service configuration updated at $CONF_FILE"
     
-    # Start or restart service if requested
-    if [ "$START_SERVICE" = true ]; then
-        info "Starting/restarting EDAMAME Posture service..."
-        
-        case "$ID" in
+    # Start or restart service
+    info "Starting/restarting EDAMAME Posture service..."
+    
+    case "$ID" in
             "alpine")
                 if command -v rc-service >/dev/null 2>&1; then
+                    if command -v rc-update >/dev/null 2>&1; then
+                        if rc-update show default 2>/dev/null | grep -q "edamame_posture"; then
+                            info "EDAMAME Posture already enabled in OpenRC default runlevel"
+                        else
+                            info "Enabling EDAMAME Posture in OpenRC default runlevel..."
+                            $SUDO rc-update add edamame_posture default 2>/dev/null || \
+                                warn "Failed to add service to OpenRC default runlevel"
+                        fi
+                    fi
                     $SUDO rc-service edamame_posture restart 2>/dev/null || \
                     $SUDO rc-service edamame_posture start 2>/dev/null || \
                     warn "Failed to start service via rc-service"
@@ -376,35 +809,49 @@ EOF
                 fi
                 ;;
         esac
-    fi
 }
 
 # Verify installation
 info ""
 info "Verifying installation..."
-if command -v edamame_posture >/dev/null 2>&1; then
-    VERSION=$(edamame_posture get-core-version 2>/dev/null || echo "unknown")
-    info "✓ EDAMAME Posture installed successfully!"
-    info "  Version: $VERSION"
-    info "  Location: $(command -v edamame_posture)"
-    
-    # Configure service if parameters provided
+RESOLVED_BINARY_PATH=$(command -v edamame_posture 2>/dev/null || true)
+if [ -z "$RESOLVED_BINARY_PATH" ] && [ -n "$BINARY_PATH" ] && [ -x "$BINARY_PATH" ]; then
+    RESOLVED_BINARY_PATH="$BINARY_PATH"
+fi
+
+if [ -z "$RESOLVED_BINARY_PATH" ]; then
+    error "Installation verification failed. edamame_posture command not found."
+fi
+
+BINARY_PATH="$RESOLVED_BINARY_PATH"
+VERSION=$("$RESOLVED_BINARY_PATH" get-core-version 2>/dev/null || echo "unknown")
+info "✓ EDAMAME Posture installed successfully!"
+info "  Version: $VERSION"
+info "  Location: $RESOLVED_BINARY_PATH"
+
+if [ "$PLATFORM" = "linux" ]; then
     configure_service
-    
-    info ""
-    info "Quick Start:"
+fi
+
+info ""
+info "Quick Start:"
+if [ "$PLATFORM" = "windows" ]; then
+    info "  ${BINARY_PATH} score                 # Check security posture"
+    info "  ${BINARY_PATH} remediate             # Auto-fix security issues"
+    info "  ${BINARY_PATH} --help                # See all commands"
+else
     info "  sudo edamame_posture score          # Check security posture"
     info "  sudo edamame_posture remediate      # Auto-fix security issues"
     info "  edamame_posture --help              # See all commands"
-    
-    if [ -f "/etc/edamame_posture.conf" ]; then
-        info ""
-        info "Service Management:"
-        info "  sudo systemctl status edamame_posture   # Check service status"
-        info "  sudo systemctl restart edamame_posture  # Restart service"
-        info "  sudo nano /etc/edamame_posture.conf     # Edit configuration"
-    fi
-else
-    error "Installation verification failed. edamame_posture command not found."
 fi
+
+if [ -f "/etc/edamame_posture.conf" ]; then
+    info ""
+    info "Service Management:"
+    info "  sudo systemctl status edamame_posture   # Check service status"
+    info "  sudo systemctl restart edamame_posture  # Restart service"
+    info "  sudo nano /etc/edamame_posture.conf     # Edit configuration"
+fi
+
+write_state_file
 

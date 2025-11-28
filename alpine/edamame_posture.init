@@ -1,0 +1,15 @@
+#!/sbin/openrc-run
+
+name="edamame_posture"
+description="EDAMAME Security posture analysis and remediation"
+command="/usr/bin/edamame_posture_daemon.sh"
+command_background=true
+pidfile="/run/${RC_SVCNAME}.pid"
+output_log="/var/log/${RC_SVCNAME}.log"
+error_log="/var/log/${RC_SVCNAME}.err"
+
+depend() {
+    need net
+    after firewall
+}
+

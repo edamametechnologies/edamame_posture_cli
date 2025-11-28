@@ -14,22 +14,37 @@ fi
 # Extract a configuration value by key from a YAML-formatted file.
 get_config_value() {
   local key="$1"
-  grep -E "^${key}:" "$CONF" | head -n1 | sed -E "s/^${key}:[[:space:]]*\"?([^\"\n]+)\"?.*/\1/"
+  awk -v search="$key" '
+    $0 ~ "^" search ":[[:space:]]*" {
+      line=$0
+      sub("^" search ":[[:space:]]*", "", line)
+      if (line ~ /^"/) {
+        match(line, /^"([^"]*)"/, captured)
+        val=captured[1]
+      } else {
+        sub(/[[:space:]]+#.*$/, "", line)
+        val=line
+      }
+      gsub(/^[[:space:]]+|[[:space:]]+$/, "", val)
+      print val
+      exit
+    }
+  ' "$CONF"
 }
 
-edamame_user="$(get_config_value "edamame_user" | xargs)"
-edamame_domain="$(get_config_value "edamame_domain" | xargs)"
-edamame_pin="$(get_config_value "edamame_pin" | xargs)"
+edamame_user="$(get_config_value "edamame_user")"
+edamame_domain="$(get_config_value "edamame_domain")"
+edamame_pin="$(get_config_value "edamame_pin")"
 
 # Agentic configuration
-agentic_mode="$(get_config_value "agentic_mode" | xargs)"
-agentic_interval="$(get_config_value "agentic_interval" | xargs)"
-claude_api_key="$(get_config_value "claude_api_key" | xargs)"
-openai_api_key="$(get_config_value "openai_api_key" | xargs)"
-ollama_base_url="$(get_config_value "ollama_base_url" | xargs)"
-slack_bot_token="$(get_config_value "slack_bot_token" | xargs)"
-slack_actions_channel="$(get_config_value "slack_actions_channel" | xargs)"
-slack_escalations_channel="$(get_config_value "slack_escalations_channel" | xargs)"
+agentic_mode="$(get_config_value "agentic_mode")"
+agentic_interval="$(get_config_value "agentic_interval")"
+claude_api_key="$(get_config_value "claude_api_key")"
+openai_api_key="$(get_config_value "openai_api_key")"
+ollama_base_url="$(get_config_value "ollama_base_url")"
+slack_bot_token="$(get_config_value "slack_bot_token")"
+slack_actions_channel="$(get_config_value "slack_actions_channel")"
+slack_escalations_channel="$(get_config_value "slack_escalations_channel")"
 
 # Set defaults
 agentic_mode="${agentic_mode:-disabled}"
