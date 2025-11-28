@@ -576,8 +576,7 @@ Example (GitHub Actions):
       --pin ${{ secrets.EDAMAME_PIN }} \
       --claude-api-key ${{ secrets.ANTHROPIC_API_KEY }} \
       --agentic-mode auto \
-      --agentic-interval 600 \
-      --start-service
+      --agentic-interval 600
 ```
 
 Example (GitLab CI):
@@ -770,9 +769,10 @@ curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamamete
 curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh | sh -s -- \
   --user myuser \
   --domain example.com \
-  --pin 123456 \
-  --start-service
+  --pin 123456
 ```
+
+> The installer automatically enables and starts the service (systemd on Debian/Ubuntu, OpenRC on Alpine) as soon as configuration parameters are provided—no extra flag required.
 
 #### Install with AI Assistant (Claude)
 ```bash
@@ -784,8 +784,7 @@ curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamamete
   --agentic-mode auto \
   --agentic-interval 600 \
   --slack-bot-token xoxb-... \
-  --slack-actions-channel C01234567 \
-  --start-service
+  --slack-actions-channel C01234567
 ```
 
 #### Install with AI Assistant (Ollama - Local/Privacy)
@@ -796,8 +795,7 @@ curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamamete
   --pin 123456 \
   --ollama-base-url http://localhost:11434 \
   --agentic-mode auto \
-  --agentic-interval 600 \
-  --start-service
+  --agentic-interval 600
 ```
 
 **Available Options:**
@@ -812,7 +810,8 @@ curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamamete
 - `--slack-bot-token TOKEN` - Slack bot token
 - `--slack-actions-channel ID` - Slack actions channel
 - `--slack-escalations-channel ID` - Slack escalations channel
-- `--start-service` - Start/restart service after configuration
+
+Services installed via this script are automatically started and enabled for boot (systemd on Debian/Ubuntu, OpenRC on Alpine) whenever configuration parameters are supplied.
 
 **What it does:**
 - ✅ Automatically detects your Linux distribution
@@ -820,7 +819,7 @@ curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamamete
 - ✅ Imports signing keys securely
 - ✅ Installs edamame-posture via package manager
 - ✅ **Configures service with provided parameters**
-- ✅ **Starts systemd service if requested**
+- ✅ **Starts and enables the service automatically (systemd on Debian/Ubuntu, OpenRC on Alpine)**
 - ✅ Verifies successful installation
 
 **Supported distributions**: Alpine, Debian, Ubuntu, Raspbian (Raspberry Pi OS), Linux Mint, Pop!_OS, elementary OS, Zorin OS, and other Debian/Ubuntu derivatives
@@ -1412,9 +1411,9 @@ edamame_posture background-logs | grep "AI Assistant"
 
 ### Systemd Integration
 
-#### Using the Debian/Ubuntu Package (Recommended)
+#### Using the Debian/Ubuntu/Alpine Package (Recommended)
 
-If you installed via APT, the systemd service is already configured. Simply edit `/etc/edamame_posture.conf`:
+If you installed via APT or APK, the service is already configured and enabled on boot (systemctl enable on Debian/Ubuntu, rc-update add default on Alpine). Simply edit `/etc/edamame_posture.conf`:
 
 ```bash
 sudo nano /etc/edamame_posture.conf
@@ -1436,8 +1435,15 @@ agentic_interval: "600"
 ```
 
 Then restart the service:
+
+**Debian/Ubuntu:**
 ```bash
 sudo systemctl restart edamame_posture
+```
+
+**Alpine:**
+```bash
+sudo rc-service edamame_posture restart
 ```
 
 #### Manual Systemd Service

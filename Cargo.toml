@@ -79,7 +79,7 @@ depends = ["systemd, libpcap-dev"]
 assets = [
     { source = "target/release/edamame_posture", dest = "usr/bin/edamame_posture", mode = "0755" },
     { source = "debian/edamame_posture_daemon.sh", dest = "usr/bin/edamame_posture_daemon.sh", mode = "0755" },
-    { source = "debian/edamame_posture.conf", dest = "etc/edamame_posture.conf", mode = "0644" },
+    { source = "linux/edamame_posture.conf", dest = "etc/edamame_posture.conf", mode = "0644" },
     { source = "debian/edamame_posture.service", dest = "lib/systemd/system/edamame_posture.service", mode = "0644" },
     # Add completion files for different shells
     { source = "completions/edamame_posture.bash", dest = "usr/share/bash-completion/completions/edamame_posture", mode = "0644" },
