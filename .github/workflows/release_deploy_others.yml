@@ -461,7 +461,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload .apk file to S3
+      - name: Upload .apk file to S3 and update repository index
         if: matrix.target == 'x86_64-unknown-linux-musl' || matrix.target == 'aarch64-unknown-linux-musl'
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -474,19 +474,79 @@ jobs:
           VERSION=$(grep '^version =' ./Cargo.toml | awk '{print $3}' | tr -d '"')
           
           # Install awscli
-          apk add --no-cache aws-cli
+          apk add --no-cache aws-cli alpine-sdk
+          
+          # Setup abuild signing key
+          abuild-keygen -a -i -n
           
           # Setup Alpine repo structure in S3
           REPO_PATH="repo/alpine/v3.15/${{ matrix.arch }}"
           
-          # Upload APK file only (index will be generated in a separate job)
+          # Upload APK file first
           echo "Uploading APK file to S3..."
           aws s3 cp target/${{ matrix.target }}/apk/edamame-posture-${VERSION}-r1.apk \
             s3://edamame/${REPO_PATH}/edamame-posture-${VERSION}-r1.apk \
             --acl public-read
           
           echo "APK file uploaded successfully!"
-          echo "File: s3://edamame/${REPO_PATH}/edamame-posture-${VERSION}-r1.apk"
+          
+          # Now update the repository index with ALL packages
+          WORK_DIR="/tmp/apk-index"
+          mkdir -p "$WORK_DIR"
+          cd "$WORK_DIR"
+          
+          # Download ALL existing APK packages from S3
+          # This includes packages from ALL projects: edamame-cli, edamame-posture, etc.
+          echo "Downloading all packages from S3 repository to rebuild index..."
+          aws s3 sync s3://edamame/${REPO_PATH}/ . --exclude "*" --include "*.apk" || echo "No existing packages found"
+          
+          # List all packages
+          echo "Packages to include in index:"
+          ls -lh *.apk 2>/dev/null || echo "No APK files found"
+          
+          # Count packages
+          PKG_COUNT=$(ls -1 *.apk 2>/dev/null | wc -l)
+          echo "Total packages in repository: $PKG_COUNT"
+          
+          if [ "$PKG_COUNT" -eq 0 ]; then
+            echo "ERROR: No packages found in repository!"
+            exit 1
+          fi
+          
+          # Generate APKINDEX from all packages
+          # Use --allow-untrusted because packages may be signed with different keys
+          echo "Generating APKINDEX for all $PKG_COUNT packages..."
+          apk index --allow-untrusted -o APKINDEX.unsigned.tar.gz *.apk
+          
+          # Sign the index
+          echo "Signing APKINDEX..."
+          abuild-sign -k ~/.abuild/*.rsa APKINDEX.unsigned.tar.gz
+          
+          # Verify signed index was created
+          if [ -f APKINDEX.tar.gz ]; then
+            echo "Signed index created successfully"
+          elif [ -f APKINDEX.unsigned.tar.gz ]; then
+            mv APKINDEX.unsigned.tar.gz APKINDEX.tar.gz
+            echo "Index renamed to APKINDEX.tar.gz"
+          else
+            echo "ERROR: No APKINDEX file found!"
+            ls -la
+            exit 1
+          fi
+          
+          # Upload APKINDEX to S3
+          echo "Uploading APKINDEX to S3..."
+          aws s3 cp APKINDEX.tar.gz s3://edamame/${REPO_PATH}/APKINDEX.tar.gz --acl public-read
+          
+          # Upload public key
+          echo "Uploading public key to S3..."
+          KEY_FILE=$(ls ~/.abuild/*.rsa.pub | head -1)
+          aws s3 cp "$KEY_FILE" s3://edamame/${REPO_PATH}/edamame.rsa.pub --acl public-read
+          
+          echo ""
+          echo "=== APK Repository Update Complete ==="
+          echo "Repository: https://edamame.s3.eu-west-1.amazonaws.com/${REPO_PATH}"
+          echo "Packages indexed: $PKG_COUNT"
         shell: alpine.sh --root {0}
 
       ############################################################################################
@@ -569,12 +629,3 @@ jobs:
         uses: edamametechnologies/edamame_posture_action@v0
         with:
           dump_sessions_log: true
-
-  update-apk-index:
-    needs: build
-    if: github.ref == 'refs/heads/main'
-    uses: ./.github/workflows/update_apk_index.yml
-    secrets:
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      AWS_REGION: ${{ secrets.AWS_REGION }}
