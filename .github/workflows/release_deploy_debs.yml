@@ -82,7 +82,6 @@ jobs:
           checkout: true
           # We are using the token of the private repo to checkout the public repo and properly wait for access to the private repo
           token: ${{ secrets.DEV_GITHUB_TOKEN }}
-          wait_for_api: true
           wait_for_https: true
 
       - name: Configure Git Authentication to import private crates

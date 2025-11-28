@@ -71,7 +71,6 @@ jobs:
           checkout: true
           # We are using the token of the the private repo to checkout the public repo and properly wait for access to the private repo
           token: ${{ secrets.DEV_GITHUB_TOKEN }}
-          wait_for_api: true
           wait_for_https: true
 
       - name: Configure Git Authentication to import private crates
@@ -293,7 +292,6 @@ jobs:
           checkout: false
           # We are using the token of the the private repo to checkout the public repo and properly wait for access to the private repo
           token: ${{ secrets.DEV_GITHUB_TOKEN }}
-          wait_for_api: true
           wait_for_https: true
 
       - name: Configure Git Authentication to import private crates
@@ -475,7 +473,6 @@ jobs:
           checkout: false
           # We are using the token of the the private repo to checkout the public repo and properly wait for access to the private repo
           token: ${{ secrets.DEV_GITHUB_TOKEN }}
-          wait_for_api: true
           wait_for_https: true
 
       # Configure Git Authentication to import private crates in Alpine VM
