@@ -623,9 +623,13 @@ jobs:
           $ErrorActionPreference = 'Stop'  # Exit on any error
           $VERSION="${{ steps.get_release.outputs.version }}"
           
-          # Download the release asset to calculate SHA256
-          wget -q https://github.com/${{ github.repository }}/releases/download/v${VERSION}/edamame_posture-${VERSION}-x86_64-pc-windows-msvc.exe
-          $SHA_WIN = (Get-FileHash -Algorithm SHA256 edamame_posture-${VERSION}-x86_64-pc-windows-msvc.exe).Hash.ToLower()
+          # Download the release asset to calculate SHA256 (using PowerShell)
+          $DownloadUrl = "https://github.com/${{ github.repository }}/releases/download/v${VERSION}/edamame_posture-${VERSION}-x86_64-pc-windows-msvc.exe"
+          $DownloadPath = "edamame_posture-${VERSION}-x86_64-pc-windows-msvc.exe"
+          Write-Host "Downloading: $DownloadUrl"
+          Invoke-WebRequest -Uri $DownloadUrl -OutFile $DownloadPath
+          $SHA_WIN = (Get-FileHash -Algorithm SHA256 $DownloadPath).Hash.ToLower()
+          Write-Host "SHA256: $SHA_WIN"
           
           # Update Chocolatey Package
           (Get-Content chocolatey/edamame-posture.nuspec) -replace '<version>.*</version>', "<version>${VERSION}</version>" | Set-Content chocolatey/edamame-posture.nuspec

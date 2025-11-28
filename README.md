@@ -566,6 +566,18 @@ Example (GitHub Actions):
 
     # Start background monitoring in disconnected mode (with LAN scanning + capture enabled)
     sudo edamame_posture background-start-disconnected --network-scan --packet-capture --whitelist github_ubuntu
+
+# Or install and auto-configure with AI Assistant
+- name: Setup EDAMAME Posture with AI
+  run: |
+    curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh | sh -s -- \
+      --user ${{ vars.EDAMAME_USER }} \
+      --domain ${{ vars.EDAMAME_DOMAIN }} \
+      --pin ${{ secrets.EDAMAME_PIN }} \
+      --claude-api-key ${{ secrets.ANTHROPIC_API_KEY }} \
+      --agentic-mode auto \
+      --agentic-interval 600 \
+      --start-service
 ```
 
 Example (GitLab CI):
@@ -748,29 +760,83 @@ You can install EDAMAME Posture CLI on Linux, macOS, or Windows. Choose the meth
 
 For the fastest installation on Linux, use our universal installer script:
 
+#### Basic Installation
 ```bash
 curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh | sh
 ```
+
+#### Install and Configure Service
+```bash
+curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh | sh -s -- \
+  --user myuser \
+  --domain example.com \
+  --pin 123456 \
+  --start-service
+```
+
+#### Install with AI Assistant (Claude)
+```bash
+curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh | sh -s -- \
+  --user myuser \
+  --domain example.com \
+  --pin 123456 \
+  --claude-api-key sk-ant-... \
+  --agentic-mode auto \
+  --agentic-interval 600 \
+  --slack-bot-token xoxb-... \
+  --slack-actions-channel C01234567 \
+  --start-service
+```
+
+#### Install with AI Assistant (Ollama - Local/Privacy)
+```bash
+curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh | sh -s -- \
+  --user myuser \
+  --domain example.com \
+  --pin 123456 \
+  --ollama-base-url http://localhost:11434 \
+  --agentic-mode auto \
+  --agentic-interval 600 \
+  --start-service
+```
+
+**Available Options:**
+- `--user USER` - EDAMAME user
+- `--domain DOMAIN` - EDAMAME domain
+- `--pin PIN` - EDAMAME pin
+- `--claude-api-key KEY` - Claude API key
+- `--openai-api-key KEY` - OpenAI API key
+- `--ollama-base-url URL` - Ollama base URL
+- `--agentic-mode MODE` - AI mode: auto, analyze, or disabled
+- `--agentic-interval SECONDS` - Processing interval
+- `--slack-bot-token TOKEN` - Slack bot token
+- `--slack-actions-channel ID` - Slack actions channel
+- `--slack-escalations-channel ID` - Slack escalations channel
+- `--start-service` - Start/restart service after configuration
 
 **What it does:**
 - ✅ Automatically detects your Linux distribution
 - ✅ Adds the appropriate EDAMAME repository (APT for Debian/Ubuntu, APK for Alpine)
 - ✅ Imports signing keys securely
 - ✅ Installs edamame-posture via package manager
+- ✅ **Configures service with provided parameters**
+- ✅ **Starts systemd service if requested**
 - ✅ Verifies successful installation
-- ✅ Shows quick start commands
 
-**Supported distributions**: Alpine, Debian, Ubuntu, Linux Mint, Pop!_OS, elementary OS, Zorin OS, and other Debian/Ubuntu derivatives
+**Supported distributions**: Alpine, Debian, Ubuntu, Raspbian (Raspberry Pi OS), Linux Mint, Pop!_OS, elementary OS, Zorin OS, and other Debian/Ubuntu derivatives
 
 **What you get:**
 - Package manager integration for easy updates
-- Systemd service configuration (can be disabled if using in CI/CD)
+- Systemd service pre-configured with your settings
+- AI Assistant ready to use (if configured)
 - Command-line tool available system-wide
 - Built-in helper functionality (no separate installation needed)
 
-### Linux (Debian/Ubuntu)
+### Linux (Debian/Ubuntu/Raspbian)
 
 #### APT Repository Method (Recommended)
+
+> **Raspberry Pi Users**: EDAMAME Posture fully supports Raspberry Pi OS (formerly Raspbian) on all Raspberry Pi models. Use the APT repository method below or the quick install script.
 The easiest way to install on Debian-based distributions is via our APT repository (this ensures you get updates automatically):
 
 1. **Add the EDAMAME GPG Key**: Download and add the repository signing key:
@@ -842,9 +908,11 @@ If you prefer not to add a repository, you can install the Debian package manual
    - **x86_64 (64-bit):** [edamame-posture_0.9.82-1_amd64.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.82/edamame-posture_0.9.82-1_amd64.deb)
    - **i686 (32-bit):** [edamame-posture_0.9.82-1_i386.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.82/edamame-posture_0.9.82-1_i386.deb)
    - **aarch64 (ARM 64-bit):** [edamame-posture_0.9.82-1_arm64.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.82/edamame-posture_0.9.82-1_arm64.deb)
+     - For Raspberry Pi 3/4/5 running 64-bit OS
    - **armv7 (ARM 32-bit):** [edamame-posture_0.9.82-1_armhf.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.82/edamame-posture_0.9.82-1_armhf.deb)
+     - For Raspberry Pi 2/3/4/Zero 2 running 32-bit OS (Raspberry Pi OS)
 
-   > **Note**: These Debian packages have been tested on Linux Mint 20 and newer, and Ubuntu 20.04 and newer.
+   > **Note**: These Debian packages have been tested on Linux Mint 20 and newer, Ubuntu 20.04 and newer, and Raspberry Pi OS (Raspbian).
 
 2. **Install** the package using either method:
    ```bash
@@ -858,12 +926,34 @@ If you prefer not to add a repository, you can install the Debian package manual
    sudo nano /etc/edamame_posture.conf
    ```
 
-   Set the required values:
+   **Basic Configuration** (Connected Mode):
    ```yaml
    edamame_user: "your_username"
    edamame_domain: "your.domain.com"
    edamame_pin: "your_pin"
    ```
+
+   **AI Assistant Configuration** (Optional):
+   ```yaml
+   # Enable AI Assistant
+   agentic_mode: "auto"  # or "analyze" or "disabled"
+   
+   # Choose ONE LLM provider (first non-empty is used)
+   claude_api_key: "sk-ant-..."     # Anthropic Claude (recommended)
+   openai_api_key: "sk-proj-..."   # OpenAI GPT
+   ollama_base_url: "http://localhost:11434"  # Ollama (local)
+   
+   # Slack Notifications (optional)
+   slack_bot_token: "xoxb-..."
+   slack_actions_channel: "C01234567"
+   slack_escalations_channel: "C07654321"
+   
+   # Processing interval (seconds)
+   agentic_interval: "600"  # Check every 10 minutes
+   ```
+
+   **Disconnected Mode** (No Hub connection):
+   Leave `edamame_user`, `edamame_domain`, and `edamame_pin` empty. The service will start in disconnected mode.
 
 4. **Start** the service:
    ```bash
@@ -1321,6 +1411,38 @@ edamame_posture background-logs | grep "AI Assistant"
 ```
 
 ### Systemd Integration
+
+#### Using the Debian/Ubuntu Package (Recommended)
+
+If you installed via APT, the systemd service is already configured. Simply edit `/etc/edamame_posture.conf`:
+
+```bash
+sudo nano /etc/edamame_posture.conf
+```
+
+```yaml
+# Basic configuration
+edamame_user: "myuser"
+edamame_domain: "example.com"
+edamame_pin: "123456"
+
+# AI Assistant configuration
+agentic_mode: "auto"
+claude_api_key: "sk-ant-..."
+slack_bot_token: "xoxb-..."
+slack_actions_channel: "C01234567"
+slack_escalations_channel: "C07654321"
+agentic_interval: "600"
+```
+
+Then restart the service:
+```bash
+sudo systemctl restart edamame_posture
+```
+
+#### Manual Systemd Service
+
+For custom installations, create a systemd service:
 
 ```ini
 # /etc/systemd/system/edamame-posture.service
