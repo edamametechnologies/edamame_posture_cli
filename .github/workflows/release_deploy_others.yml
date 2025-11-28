@@ -209,6 +209,9 @@ jobs:
           # Get version from Cargo.toml
           VERSION=$(grep '^version =' ./Cargo.toml | awk '{print $3}' | tr -d '"')
           
+          # Get workspace path
+          WORKSPACE_PATH="${GITHUB_WORKSPACE:-$(pwd)}"
+          
           # Create APK build directory
           mkdir -p /tmp/apk-build/edamame-posture
           cd /tmp/apk-build/edamame-posture
@@ -226,7 +229,7 @@ jobs:
           options="!check"
           
           package() {
-              install -Dm755 "$srcdir/edamame_posture" "$pkgdir/usr/bin/edamame_posture"
+              install -Dm755 "$startdir/edamame_posture" "$pkgdir/usr/bin/edamame_posture"
           }
           EOF
           
@@ -238,19 +241,28 @@ jobs:
             sed -i "s/ARCH_PLACEHOLDER/aarch64/g" APKBUILD
           fi
           
-          # Copy binary to source directory
-          mkdir -p src
-          cp $GITHUB_WORKSPACE/target/${{ matrix.target }}/release/edamame_posture src/
+          # Copy binary to APKBUILD directory (abuild uses $startdir)
+          echo "Copying binary from: $WORKSPACE_PATH/target/${{ matrix.target }}/release/edamame_posture"
+          echo "Target directory: $(pwd)"
+          ls -la "$WORKSPACE_PATH/target/${{ matrix.target }}/release/" | grep edamame_posture || echo "Binary not found!"
+          cp "$WORKSPACE_PATH/target/${{ matrix.target }}/release/edamame_posture" ./edamame_posture
+          ls -la ./edamame_posture
+          echo "Binary copied successfully"
           
           # Setup abuild
           abuild-keygen -a -i -n
+          
+          # Debug: Show APKBUILD content
+          echo "=== APKBUILD content ==="
+          cat APKBUILD
+          echo "========================"
           
           # Build APK
           abuild -F -P /tmp/apk-packages
           
           # Copy APK back to workspace
-          mkdir -p $GITHUB_WORKSPACE/target/${{ matrix.target }}/apk
-          cp /tmp/apk-packages/${{ matrix.arch }}/edamame-posture-${VERSION}-r1.apk $GITHUB_WORKSPACE/target/${{ matrix.target }}/apk/
+          mkdir -p "$WORKSPACE_PATH/target/${{ matrix.target }}/apk"
+          cp /tmp/apk-packages/${{ matrix.arch }}/edamame-posture-${VERSION}-r1.apk "$WORKSPACE_PATH/target/${{ matrix.target }}/apk/"
         shell: alpine.sh --root {0}
 
       # Build application for Windows
@@ -477,6 +489,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.DEV_GITHUB_TOKEN }}
         run: |
+          set -e  # Exit on any error
           VERSION=${{ steps.get_release.outputs.version }}
           
           # Download the release asset to calculate SHA256
@@ -490,6 +503,10 @@ jobs:
           
           # Only run if token is present
           if [ -n "${{ secrets.DEV_GITHUB_TOKEN }}" ]; then
+            # Disable credential helper to avoid keychain errors
+            export GIT_TERMINAL_PROMPT=0
+            git config --global credential.helper ""
+            
             git clone https://oauth2:${{ secrets.DEV_GITHUB_TOKEN }}@github.com/edamametechnologies/homebrew-tap.git tap
             mkdir -p tap/Formula
             cp homebrew/edamame-posture.rb tap/Formula/edamame-posture.rb
@@ -497,10 +514,10 @@ jobs:
             git config user.name "EDAMAME Bot"
             git config user.email "bot@edamame.tech"
             git add .
-            # Check if there are changes
-            if ! git diff-index --quiet HEAD; then
+            # Check if there are changes (or if it's a new repo)
+            if [ -z "$(git rev-parse HEAD 2>/dev/null)" ] || ! git diff-index --quiet HEAD 2>/dev/null; then
               git commit -m "Update edamame-posture to ${VERSION}"
-              git push
+              git push origin main
             else
               echo "No changes to commit"
             fi
@@ -514,6 +531,7 @@ jobs:
         env:
           CHOCOLATEY_API_KEY: ${{ secrets.CHOCOLATEY_API_KEY }}
         run: |
+          $ErrorActionPreference = 'Stop'  # Exit on any error
           $VERSION="${{ steps.get_release.outputs.version }}"
           
           # Download the release asset to calculate SHA256
@@ -527,10 +545,12 @@ jobs:
           
           # Pack Chocolatey package
           choco pack chocolatey/edamame-posture.nuspec
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           
           # Publish to Chocolatey if API key is present
           if ("${{ secrets.CHOCOLATEY_API_KEY }}" -ne "") {
             choco push edamame-posture.${VERSION}.nupkg -s https://push.chocolatey.org/ -k ${{ secrets.CHOCOLATEY_API_KEY }}
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           } else {
             Write-Host "Skipping Chocolatey publish: CHOCOLATEY_API_KEY not set"
           }
