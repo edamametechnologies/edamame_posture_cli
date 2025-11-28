@@ -520,7 +520,18 @@ jobs:
           
           # Sign the index
           echo "Signing APKINDEX..."
-          abuild-sign -k ~/.abuild/*.rsa APKINDEX.unsigned.tar.gz
+          # Find the RSA key file
+          RSA_KEY=$(find ~/.abuild -name "*.rsa" -type f | head -1)
+          echo "Using RSA key: $RSA_KEY"
+          
+          if [ -z "$RSA_KEY" ] || [ ! -f "$RSA_KEY" ]; then
+            echo "ERROR: RSA key not found!"
+            ls -la ~/.abuild/
+            exit 1
+          fi
+          
+          # Sign the index with explicit key path
+          abuild-sign -k "$RSA_KEY" APKINDEX.unsigned.tar.gz
           
           # Verify signed index was created
           if [ -f APKINDEX.tar.gz ]; then
@@ -540,8 +551,16 @@ jobs:
           
           # Upload public key
           echo "Uploading public key to S3..."
-          KEY_FILE=$(ls ~/.abuild/*.rsa.pub | head -1)
-          aws s3 cp "$KEY_FILE" s3://edamame/${REPO_PATH}/edamame.rsa.pub --acl public-read
+          PUB_KEY=$(find ~/.abuild -name "*.rsa.pub" -type f | head -1)
+          echo "Using public key: $PUB_KEY"
+          
+          if [ -z "$PUB_KEY" ] || [ ! -f "$PUB_KEY" ]; then
+            echo "ERROR: Public key not found!"
+            ls -la ~/.abuild/
+            exit 1
+          fi
+          
+          aws s3 cp "$PUB_KEY" s3://edamame/${REPO_PATH}/edamame.rsa.pub --acl public-read
           
           echo ""
           echo "=== APK Repository Update Complete ==="
