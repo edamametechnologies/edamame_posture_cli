@@ -260,9 +260,34 @@ jobs:
           # Build APK
           abuild -F -P /tmp/apk-packages
           
+          # Debug: Find where the APK was actually created
+          echo "=== Searching for created APK ==="
+          find /tmp/apk-packages -name "*.apk" -type f || true
+          find /tmp/apk-build -name "*.apk" -type f || true
+          find . -name "*.apk" -type f || true
+          
           # Copy APK back to workspace
           mkdir -p "$WORKSPACE_PATH/target/${{ matrix.target }}/apk"
-          cp /tmp/apk-packages/${{ matrix.arch }}/edamame-posture-${VERSION}-r1.apk "$WORKSPACE_PATH/target/${{ matrix.target }}/apk/"
+          
+          # Try to find and copy the APK from various possible locations
+          if [ -f "/tmp/apk-packages/${{ matrix.arch }}/edamame-posture-${VERSION}-r1.apk" ]; then
+            cp "/tmp/apk-packages/${{ matrix.arch }}/edamame-posture-${VERSION}-r1.apk" "$WORKSPACE_PATH/target/${{ matrix.target }}/apk/"
+          elif [ -f "edamame-posture-${VERSION}-r1.apk" ]; then
+            cp "edamame-posture-${VERSION}-r1.apk" "$WORKSPACE_PATH/target/${{ matrix.target }}/apk/"
+          else
+            # Find it anywhere and copy
+            APK_PATH=$(find /tmp -name "edamame-posture-${VERSION}-r1.apk" -type f | head -1)
+            if [ -n "$APK_PATH" ]; then
+              echo "Found APK at: $APK_PATH"
+              cp "$APK_PATH" "$WORKSPACE_PATH/target/${{ matrix.target }}/apk/"
+            else
+              echo "ERROR: Could not find APK file!"
+              exit 1
+            fi
+          fi
+          
+          echo "APK copied successfully to: $WORKSPACE_PATH/target/${{ matrix.target }}/apk/"
+          ls -la "$WORKSPACE_PATH/target/${{ matrix.target }}/apk/"
         shell: alpine.sh --root {0}
 
       # Build application for Windows

@@ -796,6 +796,27 @@ The easiest way to install on Debian-based distributions is via our APT reposito
    - GRPC client for edamame-posture
    - Allows for remote control of all controls of edamame-posture
 
+#### Alpine APK Repository Method
+For Alpine Linux users, install via the APK repository:
+
+1. **Add the EDAMAME Repository**: Add EDAMAME's APK repository and import the signing key:
+   ```bash
+   # Import the public key
+   wget -O /tmp/edamame.rsa.pub https://edamame.s3.eu-west-1.amazonaws.com/repo/alpine/v3.15/x86_64/edamame.rsa.pub
+   sudo cp /tmp/edamame.rsa.pub /etc/apk/keys/
+   
+   # Add the repository
+   echo "https://edamame.s3.eu-west-1.amazonaws.com/repo/alpine/v3.15/main" | sudo tee -a /etc/apk/repositories
+   ```
+   Note: Replace `x86_64` with your system architecture if needed (e.g., `aarch64`).
+
+2. **Install EDAMAME Posture**:
+   ```bash
+   sudo apk update
+   sudo apk add edamame-posture
+   /usr/bin/edamame_posture --help
+   ```
+
 #### Debian Package Installation
 If you prefer not to add a repository, you can install the Debian package manually:
 
@@ -857,8 +878,28 @@ sudo mv edamame_posture-0.9.82-x86_64-unknown-linux-gnu /usr/local/bin/edamame_p
 
 ### macOS
 
-#### macOS Standard Installation
-For a developer workstation on macOS:
+#### Homebrew Installation (Recommended)
+The easiest way to install on macOS is via Homebrew:
+
+```bash
+# Add the EDAMAME tap
+brew tap edamametechnologies/tap
+
+# Install EDAMAME Posture
+brew install edamame-posture
+
+# Verify installation
+edamame_posture --help
+```
+
+To update to the latest version:
+```bash
+brew update
+brew upgrade edamame-posture
+```
+
+#### macOS Manual Binary Installation
+For a manual installation on macOS:
 
 1. **Download** the macOS universal binary:
    - [edamame_posture-0.9.82-universal-apple-darwin](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.82/edamame_posture-0.9.82-universal-apple-darwin)  
@@ -873,8 +914,26 @@ For a developer workstation on macOS:
 
 ### Windows
 
-#### Windows Standard Installation
-For a Windows workstation or server:
+#### Chocolatey Installation (Recommended)
+The easiest way to install on Windows is via Chocolatey:
+
+```powershell
+# Install EDAMAME Posture
+choco install edamame-posture
+
+# Verify installation
+edamame_posture get-core-version
+```
+
+To update to the latest version:
+```powershell
+choco upgrade edamame-posture
+```
+
+**Note**: You still need to install [Npcap](https://npcap.com/#download) separately for traffic capture functionality.
+
+#### Windows Manual Binary Installation
+For a manual installation on Windows:
 
 1. **Download** the Windows binary:
    - [edamame_posture-0.9.82-x86_64-pc-windows-msvc.exe](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.82/edamame_posture-0.9.82-x86_64-pc-windows-msvc.exe)
