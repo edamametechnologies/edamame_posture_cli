@@ -26,7 +26,7 @@ jobs:
             target: x86_64-unknown-linux-musl
           - os: ubuntu
             # We can't use ubuntu-24.04-arm here because of setup-alpine incompatibility
-            runs-on: edamame-large-runner
+            runs-on: vm-runner-linux
             arch: aarch64
             target: aarch64-unknown-linux-musl
           - os: macos
@@ -200,6 +200,60 @@ jobs:
         env:
           VERGEN_GIT_BRANCH: ${{ github.ref_name }}
 
+      # Package Alpine APK
+      - name: Package Alpine APK
+        if: matrix.os == 'ubuntu' && matrix.target == 'x86_64-unknown-linux-musl' || matrix.target == 'aarch64-unknown-linux-musl'
+        run: |
+          # Install alpine-sdk for apk building tools
+          apk add --no-cache alpine-sdk sudo
+          
+          # Get version from Cargo.toml
+          VERSION=$(grep '^version =' ./Cargo.toml | awk '{print $3}' | tr -d '"')
+          
+          # Create APK build directory
+          mkdir -p /tmp/apk-build/edamame-posture
+          cd /tmp/apk-build/edamame-posture
+          
+          # Create APKBUILD file
+          cat > APKBUILD << 'EOF'
+          # Maintainer: EDAMAME Technologies <dev@edamame.tech>
+          pkgname=edamame-posture
+          pkgver=VERSION_PLACEHOLDER
+          pkgrel=1
+          pkgdesc="EDAMAME Posture - Security and privacy tool"
+          url="https://github.com/edamametechnologies/edamame_posture"
+          arch="ARCH_PLACEHOLDER"
+          license="Proprietary"
+          options="!check"
+          
+          package() {
+              install -Dm755 "$srcdir/edamame_posture" "$pkgdir/usr/bin/edamame_posture"
+          }
+          EOF
+          
+          # Replace placeholders
+          sed -i "s/VERSION_PLACEHOLDER/$VERSION/g" APKBUILD
+          if [[ "${{ matrix.arch }}" == "x86_64" ]]; then
+            sed -i "s/ARCH_PLACEHOLDER/x86_64/g" APKBUILD
+          else
+            sed -i "s/ARCH_PLACEHOLDER/aarch64/g" APKBUILD
+          fi
+          
+          # Copy binary to source directory
+          mkdir -p src
+          cp $GITHUB_WORKSPACE/target/${{ matrix.target }}/release/edamame_posture src/
+          
+          # Setup abuild
+          abuild-keygen -a -i -n
+          
+          # Build APK
+          abuild -F -P /tmp/apk-packages
+          
+          # Copy APK back to workspace
+          mkdir -p $GITHUB_WORKSPACE/target/${{ matrix.target }}/apk
+          cp /tmp/apk-packages/${{ matrix.arch }}/edamame-posture-${VERSION}-r1.apk $GITHUB_WORKSPACE/target/${{ matrix.target }}/apk/
+        shell: alpine.sh --root {0}
+
       # Build application for Windows
       - name: Build application for Windows
         if: matrix.os == 'windows'
@@ -359,56 +413,82 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Dump EDAMAME Posture sessions
-        uses: edamametechnologies/edamame_posture_action@v0
+      - name: Upload .apk asset to release
+        if: github.ref == 'refs/heads/main' && (matrix.target == 'x86_64-unknown-linux-musl' || matrix.target == 'aarch64-unknown-linux-musl')
+        uses: shogo82148/actions-upload-release-asset@v1
         with:
-          dump_sessions_log: true
+          upload_url: ${{ steps.get_release.outputs.exists == 'true' && steps.get_release.outputs.upload_url || steps.create_release.outputs.upload_url }}
+          asset_path: target/${{ matrix.target }}/apk/edamame-posture-${{ steps.get_release.outputs.version }}-r1.apk
+          asset_name: edamame-posture-${{ steps.get_release.outputs.version }}-r1-${{ matrix.arch }}.apk
+          asset_content_type: application/vnd.alpine.apk
+          overwrite: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  publish-package-managers:
-    needs: build
-    if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    env:
-      CHOCOLATEY_API_KEY: ${{ secrets.CHOCOLATEY_API_KEY }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Get Version
-        id: get_version
+      - name: Upload .apk files to S3
+        if: matrix.target == 'x86_64-unknown-linux-musl' || matrix.target == 'aarch64-unknown-linux-musl'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
         run: |
+          # Get version
           VERSION=$(grep '^version =' ./Cargo.toml | awk '{print $3}' | tr -d '"')
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          
+          # Install awscli
+          apk add --no-cache aws-cli
+          
+          # Setup Alpine repo structure in S3
+          REPO_PATH="repo/alpine/v3.15/${{ matrix.arch }}"
+          
+          # Upload APK file
+          aws s3 cp target/${{ matrix.target }}/apk/edamame-posture-${VERSION}-r1.apk \
+            s3://edamame/${REPO_PATH}/edamame-posture-${VERSION}-r1.apk \
+            --acl public-read
+          
+          # Download existing APKINDEX.tar.gz if it exists
+          aws s3 cp s3://edamame/${REPO_PATH}/APKINDEX.tar.gz /tmp/APKINDEX.tar.gz || true
+          
+          # Generate/update APKINDEX
+          cd target/${{ matrix.target }}/apk
+          if [ -f /tmp/APKINDEX.tar.gz ]; then
+            tar -xzf /tmp/APKINDEX.tar.gz
+          fi
+          apk index -o APKINDEX.unsigned.tar.gz *.apk
+          
+          # Sign the index
+          abuild-sign -k ~/.abuild/*.rsa APKINDEX.unsigned.tar.gz
+          mv APKINDEX.unsigned.tar.gz.sig APKINDEX.tar.gz
+          
+          # Upload APKINDEX
+          aws s3 cp APKINDEX.tar.gz s3://edamame/${REPO_PATH}/APKINDEX.tar.gz --acl public-read
+          
+          # Upload public key
+          cp ~/.abuild/*.rsa.pub /tmp/edamame.rsa.pub
+          aws s3 cp /tmp/edamame.rsa.pub s3://edamame/${REPO_PATH}/edamame.rsa.pub --acl public-read
+        shell: alpine.sh --root {0}
 
-      - name: Download Release Assets
-        run: |
-          # Wait a bit to ensure assets are available
-          sleep 30
-          wget -q https://github.com/${{ github.repository }}/releases/download/v${{ env.VERSION }}/edamame_posture-${{ env.VERSION }}-universal-apple-darwin
-          wget -q https://github.com/${{ github.repository }}/releases/download/v${{ env.VERSION }}/edamame_posture-${{ env.VERSION }}-x86_64-pc-windows-msvc.exe
+      ############################################################################################
+      # Package Managers
+      ############################################################################################
 
-      - name: Calculate SHA256
-        id: shasum
-        run: |
-          echo "SHA_MACOS=$(sha256sum edamame_posture-${{ env.VERSION }}-universal-apple-darwin | awk '{print $1}')" >> $GITHUB_ENV
-          echo "SHA_WIN=$(sha256sum edamame_posture-${{ env.VERSION }}-x86_64-pc-windows-msvc.exe | awk '{print $1}')" >> $GITHUB_ENV
-
-      - name: Update Homebrew Formula
-        run: |
-          sed -i "s|url \".*\"|url \"https://github.com/${{ github.repository }}/releases/download/v${{ env.VERSION }}/edamame_posture-${{ env.VERSION }}-universal-apple-darwin\"|g" homebrew/edamame-posture.rb
-          sed -i "s|sha256 \".*\"|sha256 \"${{ env.SHA_MACOS }}\"|g" homebrew/edamame-posture.rb
-          sed -i "s|version \".*\"|version \"${{ env.VERSION }}\"|g" homebrew/edamame-posture.rb
-
-      - name: Update Chocolatey Package
-        run: |
-          sed -i "s|<version>.*</version>|<version>${{ env.VERSION }}</version>|g" chocolatey/edamame-posture.nuspec
-          sed -i "s|\$url64 = '.*'|\$url64 = 'https://github.com/${{ github.repository }}/releases/download/v${{ env.VERSION }}/edamame_posture-${{ env.VERSION }}-x86_64-pc-windows-msvc.exe'|g" chocolatey/tools/chocolateyInstall.ps1
-          sed -i "s|\$checksum64 = '.*'|\$checksum64 = '${{ env.SHA_WIN }}'|g" chocolatey/tools/chocolateyInstall.ps1
-
+      # macOS - Publish to Homebrew
       - name: Publish to Homebrew Tap
-        if: env.SHA_MACOS != ''
+        if: github.ref == 'refs/heads/main' && matrix.os == 'macos'
         env:
           GH_TOKEN: ${{ secrets.DEV_GITHUB_TOKEN }}
         run: |
+          VERSION=${{ steps.get_release.outputs.version }}
+          
+          # Download the release asset to calculate SHA256
+          wget -q https://github.com/${{ github.repository }}/releases/download/v${VERSION}/edamame_posture-${VERSION}-universal-apple-darwin
+          SHA_MACOS=$(sha256sum edamame_posture-${VERSION}-universal-apple-darwin | awk '{print $1}')
+          
+          # Update Homebrew Formula
+          sed -i '' "s|url \".*\"|url \"https://github.com/${{ github.repository }}/releases/download/v${VERSION}/edamame_posture-${VERSION}-universal-apple-darwin\"|g" homebrew/edamame-posture.rb
+          sed -i '' "s|sha256 \".*\"|sha256 \"${SHA_MACOS}\"|g" homebrew/edamame-posture.rb
+          sed -i '' "s|version \".*\"|version \"${VERSION}\"|g" homebrew/edamame-posture.rb
+          
           # Only run if token is present
           if [ -n "${{ secrets.DEV_GITHUB_TOKEN }}" ]; then
             git clone https://oauth2:${{ secrets.DEV_GITHUB_TOKEN }}@github.com/edamametechnologies/homebrew-tap.git tap
@@ -420,7 +500,7 @@ jobs:
             git add .
             # Check if there are changes
             if ! git diff-index --quiet HEAD; then
-              git commit -m "Update edamame-posture to ${{ env.VERSION }}"
+              git commit -m "Update edamame-posture to ${VERSION}"
               git push
             else
               echo "No changes to commit"
@@ -429,14 +509,34 @@ jobs:
             echo "Skipping Homebrew publish: DEV_GITHUB_TOKEN not set"
           fi
 
-      - name: Pack Chocolatey
-        if: env.SHA_WIN != ''
-        uses: crazy-max/ghaction-chocolatey@v3
-        with:
-          args: pack chocolatey/edamame-posture.nuspec
-
+      # Windows - Publish to Chocolatey
       - name: Publish to Chocolatey
-        if: env.SHA_WIN != '' && env.CHOCOLATEY_API_KEY != ''
-        uses: crazy-max/ghaction-chocolatey@v3
+        if: github.ref == 'refs/heads/main' && matrix.os == 'windows'
+        env:
+          CHOCOLATEY_API_KEY: ${{ secrets.CHOCOLATEY_API_KEY }}
+        run: |
+          $VERSION="${{ steps.get_release.outputs.version }}"
+          
+          # Download the release asset to calculate SHA256
+          wget -q https://github.com/${{ github.repository }}/releases/download/v${VERSION}/edamame_posture-${VERSION}-x86_64-pc-windows-msvc.exe
+          $SHA_WIN = (Get-FileHash -Algorithm SHA256 edamame_posture-${VERSION}-x86_64-pc-windows-msvc.exe).Hash.ToLower()
+          
+          # Update Chocolatey Package
+          (Get-Content chocolatey/edamame-posture.nuspec) -replace '<version>.*</version>', "<version>${VERSION}</version>" | Set-Content chocolatey/edamame-posture.nuspec
+          (Get-Content chocolatey/tools/chocolateyInstall.ps1) -replace '\$url64 = ''.*''', "`$url64 = 'https://github.com/${{ github.repository }}/releases/download/v${VERSION}/edamame_posture-${VERSION}-x86_64-pc-windows-msvc.exe'" | Set-Content chocolatey/tools/chocolateyInstall.ps1
+          (Get-Content chocolatey/tools/chocolateyInstall.ps1) -replace '\$checksum64 = ''.*''', "`$checksum64 = '${SHA_WIN}'" | Set-Content chocolatey/tools/chocolateyInstall.ps1
+          
+          # Pack Chocolatey package
+          choco pack chocolatey/edamame-posture.nuspec
+          
+          # Publish to Chocolatey if API key is present
+          if ("${{ secrets.CHOCOLATEY_API_KEY }}" -ne "") {
+            choco push edamame-posture.${VERSION}.nupkg -s https://push.chocolatey.org/ -k ${{ secrets.CHOCOLATEY_API_KEY }}
+          } else {
+            Write-Host "Skipping Chocolatey publish: CHOCOLATEY_API_KEY not set"
+          }
+
+      - name: Dump EDAMAME Posture sessions
+        uses: edamametechnologies/edamame_posture_action@v0
         with:
-          args: push edamame-posture.${{ env.VERSION }}.nupkg -s https://push.chocolatey.org/ -k ${{ secrets.CHOCOLATEY_API_KEY }}
+          dump_sessions_log: true
