@@ -561,10 +561,8 @@ Example (GitHub Actions):
 ```yaml
 - name: Setup EDAMAME Posture
   run: |
-    # Download and install EDAMAME Posture (Linux example)
-    curl -LO https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.82/edamame_posture-0.9.82-x86_64-unknown-linux-gnu
-    chmod +x edamame_posture-0.9.82-x86_64-unknown-linux-gnu
-    sudo mv edamame_posture-0.9.82-x86_64-unknown-linux-gnu /usr/local/bin/edamame_posture
+    # Quick install using our installer script
+    curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh | sh
 
     # Start background monitoring in disconnected mode (with LAN scanning + capture enabled)
     sudo edamame_posture background-start-disconnected --network-scan --packet-capture --whitelist github_ubuntu
@@ -575,9 +573,7 @@ Example (GitLab CI):
 setup_security:
   stage: setup
   script:
-    - curl -LO https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.82/edamame_posture-0.9.82-x86_64-unknown-linux-gnu
-    - chmod +x edamame_posture-0.9.82-x86_64-unknown-linux-gnu
-    - sudo mv edamame_posture-0.9.82-x86_64-unknown-linux-gnu /usr/local/bin/edamame_posture
+    - curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh | sh
     - sudo edamame_posture background-start-disconnected --network-scan --packet-capture --whitelist github_ubuntu
 ```
 
@@ -684,10 +680,8 @@ pipeline {
         stage('Setup Security') {
             steps {
                 sh '''
-                # Download and install EDAMAME Posture (Linux Jenkins agent example)
-                curl -LO https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.82/edamame_posture-0.9.82-x86_64-unknown-linux-gnu
-                chmod +x edamame_posture-0.9.82-x86_64-unknown-linux-gnu
-                sudo mv edamame_posture-0.9.82-x86_64-unknown-linux-gnu /usr/local/bin/edamame_posture
+                # Quick install EDAMAME Posture
+                curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh | sh
 
                 # Start background monitoring (disconnected mode with LAN scanning)
                 sudo edamame_posture background-start-disconnected --network-scan --packet-capture --whitelist github_ubuntu
@@ -749,6 +743,30 @@ In this Jenkins pipeline:
 
 ## Installation
 You can install EDAMAME Posture CLI on Linux, macOS, or Windows. Choose the method that fits your environment:
+
+### Quick Install (Linux) - Recommended
+
+For the fastest installation on Linux, use our universal installer script:
+
+```bash
+curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh | sh
+```
+
+**What it does:**
+- ✅ Automatically detects your Linux distribution
+- ✅ Adds the appropriate EDAMAME repository (APT for Debian/Ubuntu, APK for Alpine)
+- ✅ Imports signing keys securely
+- ✅ Installs edamame-posture via package manager
+- ✅ Verifies successful installation
+- ✅ Shows quick start commands
+
+**Supported distributions**: Alpine, Debian, Ubuntu, Linux Mint, Pop!_OS, elementary OS, Zorin OS, and other Debian/Ubuntu derivatives
+
+**What you get:**
+- Package manager integration for easy updates
+- Systemd service configuration (can be disabled if using in CI/CD)
+- Command-line tool available system-wide
+- Built-in helper functionality (no separate installation needed)
 
 ### Linux (Debian/Ubuntu)
 
@@ -1568,9 +1586,7 @@ jobs:
 
       - name: Install EDAMAME Posture
         run: |
-          curl -LO https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.82/edamame_posture-0.9.82-x86_64-unknown-linux-gnu
-          chmod +x edamame_posture-0.9.82-x86_64-unknown-linux-gnu
-          sudo mv edamame_posture-0.9.82-x86_64-unknown-linux-gnu /usr/local/bin/edamame_posture
+          curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh | sh
 
       - name: Start background monitor in disconnected mode
         run: sudo edamame_posture background-start-disconnected --network-scan --packet-capture --whitelist github_ubuntu
