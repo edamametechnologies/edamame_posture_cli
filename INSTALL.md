@@ -77,6 +77,7 @@ curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamamete
 - If the destination binary already exists (e.g., `/usr/local/bin/edamame_posture` or `$HOME/edamame_posture.exe`):
   - When **no** credentials are provided, the installer reuses the existing file.
   - When `--user/--domain/--pin` **are** supplied, the installer stops any running `edamame_posture` processes, removes the existing binary, and downloads a fresh copy before continuing.
+- Download resolution order (non-debug builds): latest GitHub release tag → previous release tag → pinned fallback (`v0.9.75`). Windows adds one more safety net by retrying Chocolatey if every download attempt fails.
 - Each download path has a hard-coded fallback (`v0.9.75`) to avoid transient release issues.
 
 ---
