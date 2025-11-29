@@ -84,6 +84,35 @@ detect_glibc_version() {
 REPO_BASE_URL="https://github.com/edamametechnologies/edamame_posture_cli"
 FALLBACK_VERSION="0.9.75"
 
+systemd_available() {
+    if [ -d /run/systemd/system ]; then
+        return 0
+    fi
+    local init_cmd
+    init_cmd=$(ps -p 1 -o comm= 2>/dev/null | tr -d ' ')
+    [ "$init_cmd" = "systemd" ]
+}
+
+credentials_provided() {
+    [ -n "$CONFIG_USER" ] && [ -n "$CONFIG_DOMAIN" ] && [ -n "$CONFIG_PIN" ]
+}
+
+stop_existing_posture() {
+    info "Stopping existing edamame_posture instances..."
+    if [ "$PLATFORM" = "windows" ]; then
+        taskkill //F //IM edamame_posture.exe >/dev/null 2>&1 || true
+    else
+        if command -v edamame_posture >/dev/null 2>&1; then
+            if [ -n "$SUDO" ]; then
+                $SUDO edamame_posture stop >/dev/null 2>&1 || true
+            else
+                edamame_posture stop >/dev/null 2>&1 || true
+            fi
+        fi
+        pkill -f edamame_posture >/dev/null 2>&1 || true
+    fi
+}
+
 fetch_latest_version() {
     local api_url="${REPO_BASE_URL}/releases/latest"
     local json=""
@@ -195,6 +224,23 @@ install_binary_release() {
 
     local target_name="edamame_posture${ARTIFACT_EXT}"
     local target_path="$target_dir/$target_name"
+
+    if [ -f "$target_path" ]; then
+        if credentials_provided; then
+            info "Existing binary detected at $target_path with credentials supplied. Refreshing binary..."
+            stop_existing_posture || true
+            rm -f "$target_path" || warn "Failed to remove existing binary at $target_path"
+        else
+            info "Existing binary detected at $target_path; reusing (remove it to force a fresh download)."
+            FINAL_BINARY_PATH="$target_path"
+            BINARY_PATH="$target_path"
+            if [ -z "$INSTALL_METHOD" ] || [ "$INSTALL_METHOD" = "binary" ]; then
+                INSTALL_METHOD="existing-binary"
+            fi
+            INSTALLED_VIA_PACKAGE_MANAGER="false"
+            return 0
+        fi
+    fi
 
     if [ "$platform" = "windows" ]; then
         mkdir -p "$target_dir"
@@ -785,11 +831,13 @@ EOF
                 fi
                 ;;
             "ubuntu"|"debian"|"raspbian"|"pop"|"linuxmint"|"elementary"|"zorin")
-                if command -v systemctl >/dev/null 2>&1; then
+                if command -v systemctl >/dev/null 2>&1 && systemd_available; then
                     $SUDO systemctl daemon-reload 2>/dev/null || true
                     $SUDO systemctl enable edamame_posture.service 2>/dev/null || true
                     $SUDO systemctl restart edamame_posture.service 2>/dev/null || \
                     warn "Failed to restart service. Check: sudo systemctl status edamame_posture"
+                else
+                    warn "systemd is not available in this environment (PID 1: $(ps -p 1 -o comm= 2>/dev/null | tr -d ' ' || echo 'unknown')). Skipping service enablement; start edamame_posture manually if needed."
                 fi
                 ;;
         esac
@@ -804,7 +852,7 @@ EOF
                 fi
                 ;;
             "ubuntu"|"debian"|"raspbian"|"pop"|"linuxmint"|"elementary"|"zorin")
-                if command -v systemctl >/dev/null 2>&1; then
+                if command -v systemctl >/dev/null 2>&1 && systemd_available; then
                     $SUDO systemctl status edamame_posture.service --no-pager || true
                 fi
                 ;;
@@ -824,7 +872,15 @@ if [ -z "$RESOLVED_BINARY_PATH" ]; then
 fi
 
 BINARY_PATH="$RESOLVED_BINARY_PATH"
-VERSION=$("$RESOLVED_BINARY_PATH" get-core-version 2>/dev/null || echo "unknown")
+if [ "$PLATFORM" = "windows" ]; then
+    VERSION=$("$RESOLVED_BINARY_PATH" get-core-version 2>/dev/null || echo "unknown")
+else
+    if [ -n "$SUDO" ]; then
+        VERSION=$($SUDO "$RESOLVED_BINARY_PATH" get-core-version 2>/dev/null || echo "unknown")
+    else
+        VERSION=$("$RESOLVED_BINARY_PATH" get-core-version 2>/dev/null || echo "unknown")
+    fi
+fi
 info "✓ EDAMAME Posture installed successfully!"
 info "  Version: $VERSION"
 info "  Location: $RESOLVED_BINARY_PATH"
