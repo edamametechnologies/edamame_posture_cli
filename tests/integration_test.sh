@@ -82,19 +82,42 @@ ensure_posture_stopped_and_cleaned() {
     local exit_status=$2 # Pass the script's exit status (0 for success, non-zero for error)
     echo "Ensuring posture is stopped (context: $mode, exit_status: $exit_status)..."
 
-    # Attempt graceful stop only if binary likely exists (post-test)
-    if [ "$mode" == "post" ] && [ -f "$BINARY_DEST" ]; then
-        # Dump logs before stopping
-        #"$BINARY_DEST" logs
-        echo "Attempting graceful stop..."
-        $SUDO_CMD "$BINARY_DEST" stop || echo "⚠️ Posture stop command failed or process was not running."
-        sleep 5
+    # Comprehensive stop procedure for both pre and post modes
+    # Try graceful stop via CLI first (works for binary installations)
+    if [ "$mode" == "pre" ]; then
+        # Pre-test: Try to stop using built binary from source (if available)
+        if [ -f "$BINARY_PATH" ]; then
+            echo "Attempting to stop via built binary from source..."
+            $SUDO_CMD "$BINARY_PATH" stop >/dev/null 2>&1 || "$BINARY_PATH" stop >/dev/null 2>&1 || true
+        fi
+        # Also try installed version
+        if command -v "$BINARY_NAME" >/dev/null 2>&1; then
+            echo "Attempting to stop via installed binary..."
+            $SUDO_CMD "$BINARY_NAME" stop >/dev/null 2>&1 || "$BINARY_NAME" stop >/dev/null 2>&1 || true
+        fi
+    elif [ "$mode" == "post" ] && [ -f "$BINARY_DEST" ]; then
+        # Post-test: Try to stop using test binary
+        echo "Attempting graceful stop via test binary..."
+        $SUDO_CMD "$BINARY_DEST" stop >/dev/null 2>&1 || "$BINARY_DEST" stop >/dev/null 2>&1 || echo "⚠️ Posture stop command failed or process was not running."
+    fi
+
+    # Stop systemd service (Linux with systemd)
+    if command -v systemctl >/dev/null 2>&1; then
+        echo "Stopping systemd service..."
+        $SUDO_CMD systemctl stop edamame_posture.service >/dev/null 2>&1 || true
+        $SUDO_CMD systemctl disable edamame_posture.service >/dev/null 2>&1 || true
+    fi
+
+    # Stop OpenRC service (Alpine Linux)
+    if command -v rc-service >/dev/null 2>&1; then
+        echo "Stopping OpenRC service..."
+        $SUDO_CMD rc-service edamame_posture stop >/dev/null 2>&1 || rc-service edamame_posture stop >/dev/null 2>&1 || true
     fi
 
     # Always attempt aggressive kill
     echo "Aggressively killing posture (just in case)..."
     eval $KILL_CMD
-    sleep 5 # Give time for the process to fully terminate after kill
+    sleep 2 # Give time for the process to fully terminate after kill
 
     # Clean up binary and JSON test files (always)
     echo "Removing old binary copy if exists..."
