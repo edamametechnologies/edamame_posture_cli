@@ -422,18 +422,41 @@ install_linux_via_apk() {
     FINAL_BINARY_PATH="$BINARY_PATH"
 }
 
+# Determine whether dpkg's status line for edamame-posture indicates a broken install
+package_state_is_broken() {
+    local dpkg_line="$1"
+    if [ -z "$dpkg_line" ]; then
+        return 1
+    fi
+    local status_code="${dpkg_line%% *}"
+    case "$status_code" in
+        iU|iF|iH)
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+# Remove any partially installed Debian package and repair dpkg/apt state
+rollback_broken_deb_package() {
+    warn "Removing broken edamame-posture package state..."
+    $SUDO dpkg --remove --force-remove-reinstreq edamame-posture 2>/dev/null || true
+    $SUDO dpkg --purge --force-remove-reinstreq edamame-posture 2>/dev/null || true
+    $SUDO apt-get remove -y --purge edamame-posture 2>/dev/null || true
+    $SUDO dpkg --configure -a 2>/dev/null || true
+    $SUDO apt-get install -f -y 2>/dev/null || true
+}
+
 # Fix broken edamame-posture package state - remove immediately if broken
 # This prevents dpkg from trying to reconfigure broken packages during other installations
 fix_broken_package_state() {
     PACKAGE_STATE=$(dpkg -l 2>/dev/null | grep "edamame-posture" || echo "")
-    if echo "$PACKAGE_STATE" | grep -q "iU"; then
+    if package_state_is_broken "$PACKAGE_STATE"; then
         warn "Detected broken edamame-posture package state (likely due to systemd unavailability)"
         warn "Removing broken package immediately to prevent blocking other installations..."
-        # Remove immediately - don't try to fix as it will still cause issues
-        $SUDO dpkg --remove --force-remove-reinstreq edamame-posture 2>/dev/null || true
-        $SUDO dpkg --purge --force-remove-reinstreq edamame-posture 2>/dev/null || true
-        $SUDO apt-get remove -y --purge edamame-posture 2>/dev/null || true
-        $SUDO apt-get install -f -y 2>/dev/null || true
+        rollback_broken_deb_package
         return 1  # Signal that package was removed
     fi
     return 0
@@ -445,6 +468,15 @@ install_linux_via_apt() {
     # Fix broken package state BEFORE any apt operations
     # This prevents dpkg errors when installing other packages
     fix_broken_package_state || true
+
+    if ! systemd_available; then
+        local init_name
+        init_name=$(ps -p 1 -o comm= 2>/dev/null | tr -d ' ' || echo "unknown")
+        warn "systemd is not available in this environment (PID 1: ${init_name})"
+        warn "The edamame-posture Debian package requires systemd during installation."
+        warn "Skipping APT installation and falling back to direct binary download..."
+        return 1
+    fi
 
     if ! grep -q "edamame.s3.eu-west-1.amazonaws.com/repo" /etc/apt/sources.list.d/edamame.list 2>/dev/null; then
         info "Adding EDAMAME APT repository..."
@@ -482,21 +514,17 @@ install_linux_via_apt() {
     info "Installing edamame-posture..."
     # Run apt-get install and capture output
     # Note: apt-get may return 0 even if dpkg configuration fails
-    INSTALL_OUTPUT=$($SUDO apt-get install -y edamame-posture 2>&1) || true
+    set +e
+    INSTALL_OUTPUT=$($SUDO apt-get install -y edamame-posture 2>&1)
     INSTALL_EXIT_CODE=$?
+    set -e
     
     # Check installation output FIRST for error messages (most immediate indicator)
     # The error appears in output even before package state updates
-    if echo "$INSTALL_OUTPUT" | grep -qiE "(dpkg.*error.*processing.*package.*edamame-posture|error processing package edamame-posture|Errors were encountered.*processing.*edamame-posture)"; then
-        warn "Detected dpkg configuration error in installation output"
-        warn "Package service installation failed (systemd unavailable in container)"
-        warn "Rolling back package installation and falling back to binary download..."
-        
-        # Remove the broken package immediately to prevent it from blocking other installations
-        $SUDO dpkg --remove --force-remove-reinstreq edamame-posture 2>/dev/null || true
-        $SUDO dpkg --purge --force-remove-reinstreq edamame-posture 2>/dev/null || true
-        $SUDO apt-get remove -y --purge edamame-posture 2>/dev/null || true
-        $SUDO apt-get install -f -y 2>/dev/null || true
+    if echo "$INSTALL_OUTPUT" | grep -qiE "(dpkg.*error.*processing.*package.*edamame-posture|error processing package edamame-posture|Errors were encountered.*processing.*edamame-posture|System has not been booted with systemd|Failed to connect to bus|invoke-rc\.d: could not determine current runlevel)" || [ "$INSTALL_EXIT_CODE" -ne 0 ]; then
+        warn "Detected APT installation failure (exit code: $INSTALL_EXIT_CODE)"
+        warn "Rolling back Debian package installation and falling back to binary download..."
+        rollback_broken_deb_package
         
         warn "Package removed - will use binary installation fallback"
         return 1  # Signal to caller to use binary installation fallback
@@ -511,16 +539,12 @@ install_linux_via_apt() {
     
     # Check if package is in broken/unconfigured state (iU = installed but unconfigured)
     # This happens when the postinst script fails (e.g., systemd not available in containers)
-    if echo "$PACKAGE_STATE" | grep -q "iU"; then
-        warn "Package is in broken/unconfigured state (iU) - service installation failed"
+    if package_state_is_broken "$PACKAGE_STATE"; then
+        warn "Package is in a broken/unconfigured state - service installation failed"
         warn "This is expected in containers without systemd (e.g., Ubuntu 20.04 containers)"
         warn "Rolling back package installation and falling back to binary download..."
         
-        # Remove the broken package immediately to prevent it from blocking other installations
-        $SUDO dpkg --remove --force-remove-reinstreq edamame-posture 2>/dev/null || true
-        $SUDO dpkg --purge --force-remove-reinstreq edamame-posture 2>/dev/null || true
-        $SUDO apt-get remove -y --purge edamame-posture 2>/dev/null || true
-        $SUDO apt-get install -f -y 2>/dev/null || true
+        rollback_broken_deb_package
         
         warn "Package removed - will use binary installation fallback"
         return 1  # Signal to caller to use binary installation fallback
