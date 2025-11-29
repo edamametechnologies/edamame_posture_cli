@@ -455,18 +455,27 @@ install_linux_via_apt() {
         info "Repository added"
     fi
 
+    # Fix any broken package states BEFORE updating package list
+    # This prevents dpkg from trying to reconfigure broken packages during other installations
+    # edamame-posture may be half-configured due to systemd unavailability in containers
+    PACKAGE_STATE_BEFORE=$(dpkg -l 2>/dev/null | grep "edamame-posture" || echo "")
+    if echo "$PACKAGE_STATE_BEFORE" | grep -q "iU"; then
+        warn "Detected broken edamame-posture package state (likely due to systemd unavailability)"
+        info "Fixing broken package state before proceeding..."
+        # Try to configure with force-depends first
+        $SUDO dpkg --configure --force-depends edamame-posture 2>/dev/null || true
+        # If that fails, mark it as installed via dpkg --set-selections
+        if ! echo "$PACKAGE_STATE_BEFORE" | grep -q "^ii"; then
+            echo "edamame-posture install" | $SUDO dpkg --set-selections 2>/dev/null || true
+            # Try to configure again after setting selection
+            $SUDO dpkg --configure --force-depends edamame-posture 2>/dev/null || true
+        fi
+        # Fix any remaining broken dependencies
+        $SUDO apt-get install -f -y 2>/dev/null || true
+    fi
+
     info "Updating package list..."
     $SUDO apt-get update -qq
-
-    # Fix any broken package states before installation (edamame-posture may be half-configured)
-    # This handles cases where a previous installation failed due to systemd not being available
-    if dpkg -l 2>/dev/null | grep -q "iU.*edamame-posture"; then
-        warn "Detected broken edamame-posture package state (likely due to systemd unavailability)"
-        info "Attempting to fix broken package state..."
-        $SUDO dpkg --configure --force-depends edamame-posture 2>/dev/null || \
-        echo "edamame-posture install" | $SUDO dpkg --set-selections 2>/dev/null || true
-        $SUDO dpkg --configure -a 2>/dev/null | grep -v "edamame-posture" || true
-    fi
 
     info "Installing edamame-posture..."
     # Run apt-get install and capture output and exit code
