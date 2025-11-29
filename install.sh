@@ -872,15 +872,7 @@ if [ -z "$RESOLVED_BINARY_PATH" ]; then
 fi
 
 BINARY_PATH="$RESOLVED_BINARY_PATH"
-if [ "$PLATFORM" = "windows" ]; then
-    VERSION=$("$RESOLVED_BINARY_PATH" get-core-version 2>/dev/null || echo "unknown")
-else
-    if [ -n "$SUDO" ]; then
-        VERSION=$($SUDO "$RESOLVED_BINARY_PATH" get-core-version 2>/dev/null || echo "unknown")
-    else
-        VERSION=$("$RESOLVED_BINARY_PATH" get-core-version 2>/dev/null || echo "unknown")
-    fi
-fi
+VERSION=$("$RESOLVED_BINARY_PATH" get-core-version 2>/dev/null || echo "unknown")
 info "✓ EDAMAME Posture installed successfully!"
 info "  Version: $VERSION"
 info "  Location: $RESOLVED_BINARY_PATH"
