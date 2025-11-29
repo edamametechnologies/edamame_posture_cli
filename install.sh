@@ -461,17 +461,26 @@ install_linux_via_apt() {
     PACKAGE_STATE_BEFORE=$(dpkg -l 2>/dev/null | grep "edamame-posture" || echo "")
     if echo "$PACKAGE_STATE_BEFORE" | grep -q "iU"; then
         warn "Detected broken edamame-posture package state (likely due to systemd unavailability)"
-        info "Fixing broken package state before proceeding..."
+        info "Attempting to fix broken package state..."
         # Try to configure with force-depends first
-        $SUDO dpkg --configure --force-depends edamame-posture 2>/dev/null || true
-        # If that fails, mark it as installed via dpkg --set-selections
-        if ! echo "$PACKAGE_STATE_BEFORE" | grep -q "^ii"; then
+        if ! $SUDO dpkg --configure --force-depends edamame-posture 2>/dev/null; then
+            # If configuration fails, try marking as installed
             echo "edamame-posture install" | $SUDO dpkg --set-selections 2>/dev/null || true
-            # Try to configure again after setting selection
             $SUDO dpkg --configure --force-depends edamame-posture 2>/dev/null || true
         fi
         # Fix any remaining broken dependencies
         $SUDO apt-get install -f -y 2>/dev/null || true
+        
+        # Check if package is still broken after fix attempts
+        PACKAGE_STATE_AFTER_FIX=$(dpkg -l 2>/dev/null | grep "edamame-posture" || echo "")
+        if echo "$PACKAGE_STATE_AFTER_FIX" | grep -q "iU"; then
+            warn "Package state could not be fixed - removing package and falling back to binary installation"
+            $SUDO dpkg --remove --force-remove-reinstreq edamame-posture 2>/dev/null || \
+            $SUDO apt-get remove -y --purge edamame-posture 2>/dev/null || true
+            $SUDO apt-get install -f -y 2>/dev/null || true
+            warn "Falling back to direct binary installation..."
+            return 1  # Signal to caller to use binary installation fallback
+        fi
     fi
 
     info "Updating package list..."
@@ -491,14 +500,25 @@ install_linux_via_apt() {
     if echo "$PACKAGE_STATE" | grep -q "iU"; then
         warn "edamame-posture package configuration failed (expected in containers without systemd)"
         warn "Package is installed but service configuration was skipped"
-        info "Marking package as configured to allow system to proceed..."
-        $SUDO dpkg --configure --force-depends edamame-posture 2>/dev/null || \
-        echo "edamame-posture install" | $SUDO dpkg --set-selections 2>/dev/null || true
+        info "Attempting to mark package as configured..."
+        if ! $SUDO dpkg --configure --force-depends edamame-posture 2>/dev/null; then
+            echo "edamame-posture install" | $SUDO dpkg --set-selections 2>/dev/null || true
+            $SUDO dpkg --configure --force-depends edamame-posture 2>/dev/null || true
+        fi
         $SUDO apt-get install -f -y 2>/dev/null || true
+        
         # Verify the package is now in a good state
         PACKAGE_STATE_AFTER=$(dpkg -l 2>/dev/null | grep "edamame-posture" || echo "")
         if echo "$PACKAGE_STATE_AFTER" | grep -q "^ii"; then
             info "Package successfully marked as installed"
+        elif echo "$PACKAGE_STATE_AFTER" | grep -q "iU"; then
+            # Package is still broken - remove it and fall back to binary installation
+            warn "Package state could not be fixed - removing package and falling back to binary installation"
+            $SUDO dpkg --remove --force-remove-reinstreq edamame-posture 2>/dev/null || \
+            $SUDO apt-get remove -y --purge edamame-posture 2>/dev/null || true
+            $SUDO apt-get install -f -y 2>/dev/null || true
+            warn "Falling back to direct binary installation..."
+            return 1  # Signal to caller to use binary installation fallback
         else
             warn "Package state may still be inconsistent, but continuing..."
         fi
