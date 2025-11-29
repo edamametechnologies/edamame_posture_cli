@@ -461,6 +461,81 @@ install_linux_via_apt() {
     info "Installing edamame-posture..."
     $SUDO apt-get install -y edamame-posture
 
+    # Ensure libpcap runtime library is installed (needed for packet capture)
+    install_libpcap_runtime() {
+        if apt-cache show libpcap0.8t64 >/dev/null 2>&1; then
+            info "Installing libpcap runtime library (libpcap0.8t64)..."
+            if ! $SUDO apt-get install -y libpcap0.8t64 2>/dev/null; then
+                warn "Failed to install libpcap0.8t64, falling back to libpcap0.8"
+                $SUDO apt-get install -y libpcap0.8 2>/dev/null || true
+            fi
+        else
+            info "Installing libpcap runtime library (libpcap0.8)..."
+            $SUDO apt-get install -y libpcap0.8 2>/dev/null || true
+        fi
+    }
+
+    # Ensure libpcap legacy soname is available (needed on Ubuntu 20.04)
+    ensure_libpcap_soname() {
+        if ldconfig -p 2>/dev/null | grep -q 'libpcap\.so\.0\.8'; then
+            return 0
+        fi
+
+        info "Ensuring libpcap legacy soname compatibility..."
+        find_libpcap_shared() {
+            local candidate=""
+            for pkg in libpcap0.8t64 libpcap0.8; do
+                if dpkg -s "$pkg" >/dev/null 2>&1; then
+                    candidate=$(dpkg -L "$pkg" 2>/dev/null | grep -E 'libpcap\.so([0-9\.]*)?$' | head -n1)
+                    if [ -n "$candidate" ] && [ -f "$candidate" ]; then
+                        echo "$candidate"
+                        return 0
+                    fi
+                fi
+            done
+
+            if command -v ldconfig >/dev/null 2>&1; then
+                candidate=$(ldconfig -p 2>/dev/null | awk '/libpcap\.so/{print $NF; exit}')
+            fi
+
+            if [ -n "$candidate" ] && [ -f "$candidate" ]; then
+                echo "$candidate"
+                return 0
+            fi
+
+            for dir in /usr/lib /usr/lib64 /usr/lib/x86_64-linux-gnu /usr/lib/aarch64-linux-gnu /lib /lib64 /lib/x86_64-linux-gnu /lib/aarch64-linux-gnu; do
+                candidate=$(ls "$dir"/libpcap.so.* 2>/dev/null | head -n1)
+                if [ -n "$candidate" ] && [ -f "$candidate" ]; then
+                    echo "$candidate"
+                    return 0
+                fi
+            done
+
+            return 1
+        }
+
+        local latest_pcap
+        if ! latest_pcap=$(find_libpcap_shared); then
+            warn "Could not locate libpcap shared library for soname compatibility"
+            return 1
+        fi
+
+        local pcap_dir
+        pcap_dir=$(dirname "$latest_pcap")
+        local target="$pcap_dir/libpcap.so.0.8"
+
+        if [ -f "$target" ]; then
+            return 0
+        else
+            info "Creating libpcap compatibility symlink: $target -> $latest_pcap"
+            $SUDO ln -sf "$latest_pcap" "$target"
+            $SUDO ldconfig 2>/dev/null || true
+        fi
+    }
+
+    install_libpcap_runtime
+    ensure_libpcap_soname || true
+
     info "Installation complete!"
     info "Configure /etc/edamame_posture.conf and restart service, or run 'edamame_posture --help'"
     BINARY_PATH=$(command -v edamame_posture 2>/dev/null || echo "/usr/bin/edamame_posture")
