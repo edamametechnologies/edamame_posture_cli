@@ -83,6 +83,9 @@ detect_glibc_version() {
 
 REPO_BASE_URL="https://github.com/edamametechnologies/edamame_posture_cli"
 FALLBACK_VERSION="0.9.75"
+LATEST_RELEASE_TAG_PRIMARY=""
+LATEST_RELEASE_TAG_SECONDARY=""
+ARTIFACT_SECONDARY_URL=""
 
 systemd_available() {
     if [ -d /run/systemd/system ]; then
@@ -155,6 +158,29 @@ determine_linux_suffix() {
     esac
 }
 
+fetch_latest_release_tag() {
+    if [ -n "$LATEST_RELEASE_TAG_PRIMARY" ]; then
+        return 0
+    fi
+    local api="https://api.github.com/repos/edamametechnologies/edamame_posture_cli/releases?per_page=2"
+    local response=""
+    if command -v curl >/dev/null 2>&1; then
+        response=$(curl -fsSL "$api" 2>/dev/null || echo "")
+    elif command -v wget >/dev/null 2>&1; then
+        response=$(wget -q -O - "$api" 2>/dev/null || echo "")
+    fi
+    if [ -n "$response" ]; then
+        local tags
+        tags=$(printf '%s\n' "$response" | awk -F\" '/"tag_name"/ {gsub(/^v/, "", $4); if($4!="") print $4}')
+        LATEST_RELEASE_TAG_PRIMARY=$(printf '%s\n' "$tags" | sed -n '1p')
+        LATEST_RELEASE_TAG_SECONDARY=$(printf '%s\n' "$tags" | sed -n '2p')
+        if [ -n "$LATEST_RELEASE_TAG_PRIMARY" ]; then
+            return 0
+        fi
+    fi
+    return 1
+}
+
 prepare_binary_artifact() {
     # Sets ARTIFACT_NAME, ARTIFACT_URL, ARTIFACT_FALLBACK_NAME, ARTIFACT_FALLBACK_URL, ARTIFACT_EXT
     local platform="$1"
@@ -179,6 +205,7 @@ prepare_binary_artifact() {
             ;;
     esac
 
+    ARTIFACT_SECONDARY_URL=""
     if [ "$CONFIG_DEBUG_BUILD" = "true" ]; then
         version=$(fetch_latest_version)
         if [ -z "$version" ]; then
@@ -192,7 +219,18 @@ prepare_binary_artifact() {
     else
         ARTIFACT_NAME="edamame_posture-${suffix}${ARTIFACT_EXT}"
         ARTIFACT_FALLBACK_NAME="edamame_posture-${FALLBACK_VERSION}-${suffix}${ARTIFACT_EXT}"
-        ARTIFACT_URL="${REPO_BASE_URL}/releases/latest/download/${ARTIFACT_NAME}"
+        if fetch_latest_release_tag; then
+            if [ -n "$LATEST_RELEASE_TAG_PRIMARY" ]; then
+                ARTIFACT_URL="${REPO_BASE_URL}/releases/download/v${LATEST_RELEASE_TAG_PRIMARY}/${ARTIFACT_NAME}"
+            else
+                ARTIFACT_URL="${REPO_BASE_URL}/releases/latest/download/${ARTIFACT_NAME}"
+            fi
+            if [ -n "$LATEST_RELEASE_TAG_SECONDARY" ]; then
+                ARTIFACT_SECONDARY_URL="${REPO_BASE_URL}/releases/download/v${LATEST_RELEASE_TAG_SECONDARY}/${ARTIFACT_NAME}"
+            fi
+        else
+            ARTIFACT_URL="${REPO_BASE_URL}/releases/latest/download/${ARTIFACT_NAME}"
+        fi
         ARTIFACT_FALLBACK_URL="${REPO_BASE_URL}/releases/download/v${FALLBACK_VERSION}/${ARTIFACT_FALLBACK_NAME}"
     fi
 }
@@ -207,7 +245,16 @@ install_binary_release() {
 
     if ! download_file "$ARTIFACT_URL" "$tmp_bin"; then
         warn "Primary binary download failed, attempting fallback..."
-        if ! download_file "$ARTIFACT_FALLBACK_URL" "$tmp_bin"; then
+        if [ -n "$ARTIFACT_SECONDARY_URL" ] && download_file "$ARTIFACT_SECONDARY_URL" "$tmp_bin"; then
+            info "Downloaded EDAMAME Posture from previous release tag."
+        elif ! download_file "$ARTIFACT_FALLBACK_URL" "$tmp_bin"; then
+            if [ "$platform" = "windows" ] && [ "$CONFIG_FORCE_BINARY" != "true" ]; then
+                warn "Binary download failed on Windows, retrying via Chocolatey..."
+                rm -f "$tmp_bin"
+                if install_windows_via_choco; then
+                    return 0
+                fi
+            fi
             rm -f "$tmp_bin"
             error "Failed to download EDAMAME Posture binary."
         fi
