@@ -74,6 +74,9 @@ curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamamete
   - `x86_64-unknown-linux-gnu` (default) vs `x86_64-unknown-linux-musl` when GLIBC < 2.29 or running on Alpine.
   - `aarch64`, `armv7`, and `i686` variants are also supported.
 - Debug builds pull versioned assets (`edamame_posture-<version>-<triple>-debug`), otherwise the installer uses the “latest release” redirect first and falls back to a pinned version.
+- If the destination binary already exists (e.g., `/usr/local/bin/edamame_posture` or `$HOME/edamame_posture.exe`):
+  - When **no** credentials are provided, the installer reuses the existing file.
+  - When `--user/--domain/--pin` **are** supplied, the installer stops any running `edamame_posture` processes, removes the existing binary, and downloads a fresh copy before continuing.
 - Each download path has a hard-coded fallback (`v0.9.75`) to avoid transient release issues.
 
 ---
@@ -83,6 +86,7 @@ curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamamete
   - **systemd** (`/lib/systemd/system/edamame_posture.service`)
   - **OpenRC** (`/etc/init.d/edamame_posture`)
 - When credentials/AI flags are supplied, the installer renders `edamame_posture.conf`, ensures it is `chmod 600`, and restarts the service under the appropriate init system.
+- When systemd isn’t available (e.g., minimal containers where PID 1 isn’t `systemd`), the installer skips enable/restart steps and prints a warning. You can still launch the daemon manually via `sudo edamame_posture start ...` or rely on the GitHub Action to start it in the foreground.
 - Post-install verification:
   - Prints CLI version/location (using either `$PATH` or the fallback binary path).
   - Displays Quick Start commands.
