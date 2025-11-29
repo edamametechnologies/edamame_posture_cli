@@ -313,21 +313,6 @@ jobs:
         run: |
           set -e
           export DEBIAN_FRONTEND=noninteractive
-          
-          # Fix any broken package states first
-          # edamame-posture may fail to configure (tries to use systemd which fails in containers)
-          # We'll handle it separately to not block other packages
-          dpkg --configure -a 2>&1 | grep -v "edamame-posture" || true
-          
-          # If edamame-posture is in a broken state, mark it as configured to unblock dpkg
-          if dpkg -l | grep -q "iU.*edamame-posture"; then
-            echo "Warning: edamame-posture package configuration failed (expected in containers without systemd)"
-            echo "Marking edamame-posture as configured to allow other packages to proceed..."
-            dpkg --configure --force-depends edamame-posture 2>/dev/null || \
-            echo "edamame-posture install" | dpkg --set-selections 2>/dev/null || true
-            dpkg --configure -a 2>&1 | grep -v "edamame-posture" || true
-          fi
-          
           apt-get update
           # psmisc is needed for killall
           apt-get install -y protobuf-compiler libpcap-dev psmisc

@@ -458,8 +458,31 @@ install_linux_via_apt() {
     info "Updating package list..."
     $SUDO apt-get update -qq
 
+    # Fix any broken package states before installation (edamame-posture may be half-configured)
+    # This handles cases where a previous installation failed due to systemd not being available
+    if dpkg -l 2>/dev/null | grep -q "iU.*edamame-posture"; then
+        warn "Detected broken edamame-posture package state (likely due to systemd unavailability)"
+        info "Attempting to fix broken package state..."
+        $SUDO dpkg --configure --force-depends edamame-posture 2>/dev/null || \
+        echo "edamame-posture install" | $SUDO dpkg --set-selections 2>/dev/null || true
+        $SUDO dpkg --configure -a 2>/dev/null | grep -v "edamame-posture" || true
+    fi
+
     info "Installing edamame-posture..."
-    $SUDO apt-get install -y edamame-posture
+    $SUDO apt-get install -y edamame-posture || {
+        INSTALL_EXIT_CODE=$?
+        # Check if installation failed due to package configuration error (systemd issue in containers)
+        if dpkg -l 2>/dev/null | grep -q "iU.*edamame-posture"; then
+            warn "edamame-posture package installation failed during configuration (expected in containers without systemd)"
+            warn "Package is installed but service configuration was skipped"
+            info "Marking package as configured to allow system to proceed..."
+            $SUDO dpkg --configure --force-depends edamame-posture 2>/dev/null || \
+            echo "edamame-posture install" | $SUDO dpkg --set-selections 2>/dev/null || true
+            $SUDO apt-get install -f -y 2>/dev/null || true
+        else
+            exit $INSTALL_EXIT_CODE
+        fi
+    }
 
     # Ensure libpcap runtime library is installed (needed for packet capture)
     install_libpcap_runtime() {
