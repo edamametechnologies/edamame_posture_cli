@@ -774,6 +774,12 @@ curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamamete
 
 > The installer automatically enables and starts the service (systemd on Debian/Ubuntu, OpenRC on Alpine) as soon as configuration parameters are provided—no extra flag required.
 
+> **How it installs:**  
+> - Linux: prefers APK on Alpine and APT on Debian/Ubuntu-family distros, falling back to the correct GNU/MUSL binary when unavailable.  
+> - macOS: tries Homebrew first, otherwise downloads the universal binary.  
+> - Windows: tries Chocolatey first, otherwise downloads the standalone `.exe`.  
+> See [`INSTALL.md`](INSTALL.md) for the full decision tree, supported flags (e.g., `--state-file`, `--debug-build`), and service-management details.
+
 #### Install with AI Assistant (Claude)
 ```bash
 curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh | sh -s -- \
