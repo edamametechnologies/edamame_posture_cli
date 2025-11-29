@@ -485,41 +485,49 @@ install_linux_via_apt() {
     INSTALL_OUTPUT=$($SUDO apt-get install -y edamame-posture 2>&1) || true
     INSTALL_EXIT_CODE=$?
     
-    # Check if installation output indicates dpkg configuration failure
-    if echo "$INSTALL_OUTPUT" | grep -q "dpkg: error processing package edamame-posture"; then
-        warn "Detected dpkg configuration error during edamame-posture installation"
-    fi
-    
-    # Always check package state after installation attempt
-    # apt-get can return 0 even when dpkg configuration fails
-    PACKAGE_STATE=$(dpkg -l 2>/dev/null | grep "edamame-posture" || echo "")
-    
-    # Check if package is in broken/unconfigured state (iU = installed but unconfigured)
-    # This happens when the postinst script fails (e.g., systemd not available in containers)
-    # We immediately rollback and fallback to binary installation to prevent blocking other packages
-    if echo "$PACKAGE_STATE" | grep -q "iU"; then
-        warn "edamame-posture package configuration failed (service installation failed - systemd unavailable)"
-        warn "This is expected in containers without systemd (e.g., Ubuntu 20.04 containers)"
+    # Check installation output FIRST for error messages (most immediate indicator)
+    # The error appears in output even before package state updates
+    if echo "$INSTALL_OUTPUT" | grep -qiE "(dpkg.*error.*processing.*package.*edamame-posture|error processing package edamame-posture|Errors were encountered.*processing.*edamame-posture)"; then
+        warn "Detected dpkg configuration error in installation output"
+        warn "Package service installation failed (systemd unavailable in container)"
         warn "Rolling back package installation and falling back to binary download..."
         
         # Remove the broken package immediately to prevent it from blocking other installations
-        # Use multiple removal methods to ensure it's gone
         $SUDO dpkg --remove --force-remove-reinstreq edamame-posture 2>/dev/null || true
         $SUDO dpkg --purge --force-remove-reinstreq edamame-posture 2>/dev/null || true
         $SUDO apt-get remove -y --purge edamame-posture 2>/dev/null || true
         $SUDO apt-get install -f -y 2>/dev/null || true
         
-        # Verify removal was successful - package should not exist or be in any state
-        PACKAGE_STATE_AFTER=$(dpkg -l 2>/dev/null | grep "edamame-posture" || echo "")
-        if [ -z "$PACKAGE_STATE_AFTER" ]; then
-            warn "Package removed successfully - will use binary installation fallback"
-        elif ! echo "$PACKAGE_STATE_AFTER" | grep -q "^ii"; then
-            warn "Package removed (was in state: $PACKAGE_STATE_AFTER) - will use binary installation fallback"
-        else
-            warn "Package may still exist but marked as installed - will use binary installation fallback anyway"
-        fi
-        return 1  # Always signal fallback when package is broken
-    elif echo "$PACKAGE_STATE" | grep -q "^ii"; then
+        warn "Package removed - will use binary installation fallback"
+        return 1  # Signal to caller to use binary installation fallback
+    fi
+    
+    # Give dpkg a moment to update package state after installation
+    sleep 0.5
+    
+    # Check package state - this is a reliable secondary indicator
+    # apt-get can return 0 even when dpkg configuration fails
+    PACKAGE_STATE=$(dpkg -l 2>/dev/null | grep "edamame-posture" || echo "")
+    
+    # Check if package is in broken/unconfigured state (iU = installed but unconfigured)
+    # This happens when the postinst script fails (e.g., systemd not available in containers)
+    if echo "$PACKAGE_STATE" | grep -q "iU"; then
+        warn "Package is in broken/unconfigured state (iU) - service installation failed"
+        warn "This is expected in containers without systemd (e.g., Ubuntu 20.04 containers)"
+        warn "Rolling back package installation and falling back to binary download..."
+        
+        # Remove the broken package immediately to prevent it from blocking other installations
+        $SUDO dpkg --remove --force-remove-reinstreq edamame-posture 2>/dev/null || true
+        $SUDO dpkg --purge --force-remove-reinstreq edamame-posture 2>/dev/null || true
+        $SUDO apt-get remove -y --purge edamame-posture 2>/dev/null || true
+        $SUDO apt-get install -f -y 2>/dev/null || true
+        
+        warn "Package removed - will use binary installation fallback"
+        return 1  # Signal to caller to use binary installation fallback
+    fi
+    
+    # Package is successfully installed
+    if echo "$PACKAGE_STATE" | grep -q "^ii"; then
         info "Package successfully installed and configured"
     elif [ "$INSTALL_EXIT_CODE" -ne 0 ]; then
         error "Failed to install edamame-posture (exit code: $INSTALL_EXIT_CODE)"
