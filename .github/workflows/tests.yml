@@ -74,52 +74,6 @@ jobs:
           wait_for_api: true
           wait_for_https: true
 
-      - name: Stop existing EDAMAME Posture instances
-        shell: bash
-        run: |
-          echo "Stopping any existing EDAMAME Posture instances..."
-          
-          # Try to stop via CLI first (works for binary installations)
-          if command -v edamame_posture >/dev/null 2>&1; then
-            echo "Attempting to stop via edamame_posture stop command..."
-            if [[ "${{ matrix.os }}" == "windows" ]]; then
-              edamame_posture.exe stop >/dev/null 2>&1 || true
-            else
-              sudo edamame_posture stop >/dev/null 2>&1 || edamame_posture stop >/dev/null 2>&1 || true
-            fi
-          fi
-          
-          # Stop systemd service (Linux with systemd)
-          if [[ "${{ matrix.os }}" == "ubuntu" ]] && command -v systemctl >/dev/null 2>&1; then
-            echo "Stopping systemd service..."
-            sudo systemctl stop edamame_posture.service >/dev/null 2>&1 || true
-            sudo systemctl disable edamame_posture.service >/dev/null 2>&1 || true
-          fi
-          
-          # Stop OpenRC service (Alpine Linux)
-          if command -v rc-service >/dev/null 2>&1; then
-            echo "Stopping OpenRC service..."
-            sudo rc-service edamame_posture stop >/dev/null 2>&1 || true
-          fi
-          
-          # Kill any remaining processes
-          if [[ "${{ matrix.os }}" == "windows" ]]; then
-            echo "Killing any remaining edamame_posture.exe processes..."
-            taskkill //F //IM edamame_posture.exe >/dev/null 2>&1 || true
-          else
-            echo "Killing any remaining edamame_posture processes..."
-            sudo pkill -f edamame_posture >/dev/null 2>&1 || pkill -f edamame_posture >/dev/null 2>&1 || true
-            # Also try killall on macOS/Linux
-            if command -v killall >/dev/null 2>&1; then
-              sudo killall edamame_posture >/dev/null 2>&1 || killall edamame_posture >/dev/null 2>&1 || true
-            fi
-          fi
-          
-          # Give processes time to fully stop
-          sleep 2
-          
-          echo "Finished stopping existing EDAMAME Posture instances"
-
       - name: Configure Git Authentication to import private crates
         run: |
           git config --global user.email "dev@edamame.tech"
@@ -342,42 +296,6 @@ jobs:
           wait_for_api: true
           wait_for_https: true
 
-      - name: Stop existing EDAMAME Posture instances
-        shell: bash
-        run: |
-          echo "Stopping any existing EDAMAME Posture instances..."
-          
-          # Try to stop via CLI first (works for binary installations)
-          if command -v edamame_posture >/dev/null 2>&1; then
-            echo "Attempting to stop via edamame_posture stop command..."
-            sudo edamame_posture stop >/dev/null 2>&1 || edamame_posture stop >/dev/null 2>&1 || true
-          fi
-          
-          # Stop systemd service (Linux with systemd)
-          if command -v systemctl >/dev/null 2>&1; then
-            echo "Stopping systemd service..."
-            sudo systemctl stop edamame_posture.service >/dev/null 2>&1 || true
-            sudo systemctl disable edamame_posture.service >/dev/null 2>&1 || true
-          fi
-          
-          # Stop OpenRC service (Alpine Linux)
-          if command -v rc-service >/dev/null 2>&1; then
-            echo "Stopping OpenRC service..."
-            sudo rc-service edamame_posture stop >/dev/null 2>&1 || true
-          fi
-          
-          # Kill any remaining processes
-          echo "Killing any remaining edamame_posture processes..."
-          sudo pkill -f edamame_posture >/dev/null 2>&1 || pkill -f edamame_posture >/dev/null 2>&1 || true
-          if command -v killall >/dev/null 2>&1; then
-            sudo killall edamame_posture >/dev/null 2>&1 || killall edamame_posture >/dev/null 2>&1 || true
-          fi
-          
-          # Give processes time to fully stop
-          sleep 2
-          
-          echo "Finished stopping existing EDAMAME Posture instances"
-
       - name: Configure Git Authentication to import private crates
         run: |
           git config --global user.email "dev@edamame.tech"
@@ -393,6 +311,23 @@ jobs:
 
       - name: Install additional packages w/ apt for Linux
         run: |
+          set -e
+          export DEBIAN_FRONTEND=noninteractive
+          
+          # Fix any broken package states first
+          # edamame-posture may fail to configure (tries to use systemd which fails in containers)
+          # We'll handle it separately to not block other packages
+          dpkg --configure -a 2>&1 | grep -v "edamame-posture" || true
+          
+          # If edamame-posture is in a broken state, mark it as configured to unblock dpkg
+          if dpkg -l | grep -q "iU.*edamame-posture"; then
+            echo "Warning: edamame-posture package configuration failed (expected in containers without systemd)"
+            echo "Marking edamame-posture as configured to allow other packages to proceed..."
+            dpkg --configure --force-depends edamame-posture 2>/dev/null || \
+            echo "edamame-posture install" | dpkg --set-selections 2>/dev/null || true
+            dpkg --configure -a 2>&1 | grep -v "edamame-posture" || true
+          fi
+          
           apt-get update
           # psmisc is needed for killall
           apt-get install -y protobuf-compiler libpcap-dev psmisc
@@ -558,36 +493,6 @@ jobs:
           token: ${{ secrets.DEV_GITHUB_TOKEN }}
           wait_for_api: true
           wait_for_https: true
-
-      # Stop existing EDAMAME Posture instances in Alpine VM
-      - name: Stop existing EDAMAME Posture instances
-        run: |
-          echo "Stopping any existing EDAMAME Posture instances..."
-          
-          # Try to stop via CLI first (works for binary installations)
-          if command -v edamame_posture >/dev/null 2>&1; then
-            echo "Attempting to stop via edamame_posture stop command..."
-            edamame_posture stop >/dev/null 2>&1 || true
-          fi
-          
-          # Stop OpenRC service (Alpine Linux)
-          if command -v rc-service >/dev/null 2>&1; then
-            echo "Stopping OpenRC service..."
-            rc-service edamame_posture stop >/dev/null 2>&1 || true
-          fi
-          
-          # Kill any remaining processes
-          echo "Killing any remaining edamame_posture processes..."
-          pkill -f edamame_posture >/dev/null 2>&1 || true
-          if command -v killall >/dev/null 2>&1; then
-            killall edamame_posture >/dev/null 2>&1 || true
-          fi
-          
-          # Give processes time to fully stop
-          sleep 2
-          
-          echo "Finished stopping existing EDAMAME Posture instances"
-        shell: alpine.sh --root {0}
 
       # Configure Git Authentication to import private crates in Alpine VM
       - name: Configure Git Authentication to import private crates
