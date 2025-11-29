@@ -449,6 +449,99 @@ rollback_broken_deb_package() {
     $SUDO apt-get install -f -y 2>/dev/null || true
 }
 
+# Install libpcap runtime packages on Debian-based systems
+ensure_libpcap_runtime() {
+    if ! command -v apt-get >/dev/null 2>&1; then
+        return 0
+    fi
+
+    if apt-cache show libpcap0.8t64 >/dev/null 2>&1; then
+        info "Installing libpcap runtime library (libpcap0.8t64)..."
+        if ! $SUDO apt-get install -y libpcap0.8t64 2>/dev/null; then
+            warn "Failed to install libpcap0.8t64, falling back to libpcap0.8"
+            $SUDO apt-get install -y libpcap0.8 2>/dev/null || true
+        fi
+    else
+        info "Installing libpcap runtime library (libpcap0.8)..."
+        $SUDO apt-get install -y libpcap0.8 2>/dev/null || true
+    fi
+}
+
+find_libpcap_shared() {
+    local candidate=""
+    for pkg in libpcap0.8t64 libpcap0.8; do
+        if dpkg -s "$pkg" >/dev/null 2>&1; then
+            candidate=$(dpkg -L "$pkg" 2>/dev/null | grep -E 'libpcap\.so([0-9\.]*)?$' | head -n1)
+            if [ -n "$candidate" ] && [ -f "$candidate" ]; then
+                echo "$candidate"
+                return 0
+            fi
+        fi
+    done
+
+    if command -v ldconfig >/dev/null 2>&1; then
+        candidate=$(ldconfig -p 2>/dev/null | awk '/libpcap\.so/{print $NF; exit}')
+        if [ -n "$candidate" ] && [ -f "$candidate" ]; then
+            echo "$candidate"
+            return 0
+        fi
+    fi
+
+    for dir in /usr/lib /usr/lib64 /usr/lib/x86_64-linux-gnu /usr/lib/aarch64-linux-gnu /lib /lib64 /lib/x86_64-linux-gnu /lib/aarch64-linux-gnu; do
+        candidate=$(ls "$dir"/libpcap.so.* 2>/dev/null | head -n1)
+        if [ -n "$candidate" ] && [ -f "$candidate" ]; then
+            echo "$candidate"
+            return 0
+        fi
+    done
+
+    return 1
+}
+
+# Ensure libpcap legacy soname is available (needed on Ubuntu 20.04)
+ensure_libpcap_soname() {
+    if ! command -v apt-get >/dev/null 2>&1; then
+        return 0
+    fi
+
+    if command -v ldconfig >/dev/null 2>&1 && ldconfig -p 2>/dev/null | grep -q 'libpcap\.so\.0\.8'; then
+        return 0
+    fi
+
+    local latest_pcap
+    if ! latest_pcap=$(find_libpcap_shared); then
+        warn "Could not locate libpcap shared library for soname compatibility"
+        return 1
+    fi
+
+    local pcap_dir
+    pcap_dir=$(dirname "$latest_pcap")
+    local target="$pcap_dir/libpcap.so.0.8"
+
+    if [ -f "$target" ]; then
+        return 0
+    fi
+
+    info "Creating libpcap compatibility symlink: $target -> $latest_pcap"
+    $SUDO ln -sf "$latest_pcap" "$target"
+    if command -v ldconfig >/dev/null 2>&1; then
+        $SUDO ldconfig 2>/dev/null || true
+    fi
+}
+
+# Wrapper to ensure packet capture dependencies exist when using binary installs
+ensure_linux_packet_capture_support() {
+    if [ "$PLATFORM" != "linux" ]; then
+        return 0
+    fi
+    case "$ID" in
+        "ubuntu"|"debian"|"raspbian"|"pop"|"linuxmint"|"elementary"|"zorin")
+            ensure_libpcap_runtime
+            ensure_libpcap_soname || true
+            ;;
+    esac
+}
+
 # Fix broken edamame-posture package state - remove immediately if broken
 # This prevents dpkg from trying to reconfigure broken packages during other installations
 fix_broken_package_state() {
@@ -559,80 +652,7 @@ install_linux_via_apt() {
         exit $INSTALL_EXIT_CODE
     fi
 
-    # Ensure libpcap runtime library is installed (needed for packet capture)
-    install_libpcap_runtime() {
-        if apt-cache show libpcap0.8t64 >/dev/null 2>&1; then
-            info "Installing libpcap runtime library (libpcap0.8t64)..."
-            if ! $SUDO apt-get install -y libpcap0.8t64 2>/dev/null; then
-                warn "Failed to install libpcap0.8t64, falling back to libpcap0.8"
-                $SUDO apt-get install -y libpcap0.8 2>/dev/null || true
-            fi
-        else
-            info "Installing libpcap runtime library (libpcap0.8)..."
-            $SUDO apt-get install -y libpcap0.8 2>/dev/null || true
-        fi
-    }
-
-    # Ensure libpcap legacy soname is available (needed on Ubuntu 20.04)
-    ensure_libpcap_soname() {
-        if ldconfig -p 2>/dev/null | grep -q 'libpcap\.so\.0\.8'; then
-            return 0
-        fi
-
-        info "Ensuring libpcap legacy soname compatibility..."
-        find_libpcap_shared() {
-            local candidate=""
-            for pkg in libpcap0.8t64 libpcap0.8; do
-                if dpkg -s "$pkg" >/dev/null 2>&1; then
-                    candidate=$(dpkg -L "$pkg" 2>/dev/null | grep -E 'libpcap\.so([0-9\.]*)?$' | head -n1)
-                    if [ -n "$candidate" ] && [ -f "$candidate" ]; then
-                        echo "$candidate"
-                        return 0
-                    fi
-                fi
-            done
-
-            if command -v ldconfig >/dev/null 2>&1; then
-                candidate=$(ldconfig -p 2>/dev/null | awk '/libpcap\.so/{print $NF; exit}')
-            fi
-
-            if [ -n "$candidate" ] && [ -f "$candidate" ]; then
-                echo "$candidate"
-                return 0
-            fi
-
-            for dir in /usr/lib /usr/lib64 /usr/lib/x86_64-linux-gnu /usr/lib/aarch64-linux-gnu /lib /lib64 /lib/x86_64-linux-gnu /lib/aarch64-linux-gnu; do
-                candidate=$(ls "$dir"/libpcap.so.* 2>/dev/null | head -n1)
-                if [ -n "$candidate" ] && [ -f "$candidate" ]; then
-                    echo "$candidate"
-                    return 0
-                fi
-            done
-
-            return 1
-        }
-
-        local latest_pcap
-        if ! latest_pcap=$(find_libpcap_shared); then
-            warn "Could not locate libpcap shared library for soname compatibility"
-            return 1
-        fi
-
-        local pcap_dir
-        pcap_dir=$(dirname "$latest_pcap")
-        local target="$pcap_dir/libpcap.so.0.8"
-
-        if [ -f "$target" ]; then
-            return 0
-        else
-            info "Creating libpcap compatibility symlink: $target -> $latest_pcap"
-            $SUDO ln -sf "$latest_pcap" "$target"
-            $SUDO ldconfig 2>/dev/null || true
-        fi
-    }
-
-    install_libpcap_runtime
-    ensure_libpcap_soname || true
+    ensure_linux_packet_capture_support
 
     info "Installation complete!"
     info "Configure /etc/edamame_posture.conf and restart service, or run 'edamame_posture --help'"
@@ -957,6 +977,7 @@ if [ "$PLATFORM" = "linux" ]; then
     if [ "$linux_pkg_installed" != "true" ]; then
         warn "Using direct binary installation for Linux..."
         install_binary_release "linux" "$LINUX_LIBC_FLAVOR"
+        ensure_linux_packet_capture_support
     fi
 elif [ "$PLATFORM" = "linux-musl" ]; then
     warn "Package install not supported or glibc < 2.29 detected. Using musl binary."
