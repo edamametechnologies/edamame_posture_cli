@@ -422,8 +422,29 @@ install_linux_via_apk() {
     FINAL_BINARY_PATH="$BINARY_PATH"
 }
 
+# Fix broken edamame-posture package state - remove immediately if broken
+# This prevents dpkg from trying to reconfigure broken packages during other installations
+fix_broken_package_state() {
+    PACKAGE_STATE=$(dpkg -l 2>/dev/null | grep "edamame-posture" || echo "")
+    if echo "$PACKAGE_STATE" | grep -q "iU"; then
+        warn "Detected broken edamame-posture package state (likely due to systemd unavailability)"
+        warn "Removing broken package immediately to prevent blocking other installations..."
+        # Remove immediately - don't try to fix as it will still cause issues
+        $SUDO dpkg --remove --force-remove-reinstreq edamame-posture 2>/dev/null || true
+        $SUDO dpkg --purge --force-remove-reinstreq edamame-posture 2>/dev/null || true
+        $SUDO apt-get remove -y --purge edamame-posture 2>/dev/null || true
+        $SUDO apt-get install -f -y 2>/dev/null || true
+        return 1  # Signal that package was removed
+    fi
+    return 0
+}
+
 install_linux_via_apt() {
     info "Installing via APT..."
+    
+    # Fix broken package state BEFORE any apt operations
+    # This prevents dpkg errors when installing other packages
+    fix_broken_package_state || true
 
     if ! grep -q "edamame.s3.eu-west-1.amazonaws.com/repo" /etc/apt/sources.list.d/edamame.list 2>/dev/null; then
         info "Adding EDAMAME APT repository..."
@@ -455,73 +476,49 @@ install_linux_via_apt() {
         info "Repository added"
     fi
 
-    # Fix any broken package states BEFORE updating package list
-    # This prevents dpkg from trying to reconfigure broken packages during other installations
-    # edamame-posture may be half-configured due to systemd unavailability in containers
-    PACKAGE_STATE_BEFORE=$(dpkg -l 2>/dev/null | grep "edamame-posture" || echo "")
-    if echo "$PACKAGE_STATE_BEFORE" | grep -q "iU"; then
-        warn "Detected broken edamame-posture package state (likely due to systemd unavailability)"
-        info "Attempting to fix broken package state..."
-        # Try to configure with force-depends first
-        if ! $SUDO dpkg --configure --force-depends edamame-posture 2>/dev/null; then
-            # If configuration fails, try marking as installed
-            echo "edamame-posture install" | $SUDO dpkg --set-selections 2>/dev/null || true
-            $SUDO dpkg --configure --force-depends edamame-posture 2>/dev/null || true
-        fi
-        # Fix any remaining broken dependencies
-        $SUDO apt-get install -f -y 2>/dev/null || true
-        
-        # Check if package is still broken after fix attempts
-        PACKAGE_STATE_AFTER_FIX=$(dpkg -l 2>/dev/null | grep "edamame-posture" || echo "")
-        if echo "$PACKAGE_STATE_AFTER_FIX" | grep -q "iU"; then
-            warn "Package state could not be fixed - removing package and falling back to binary installation"
-            $SUDO dpkg --remove --force-remove-reinstreq edamame-posture 2>/dev/null || \
-            $SUDO apt-get remove -y --purge edamame-posture 2>/dev/null || true
-            $SUDO apt-get install -f -y 2>/dev/null || true
-            warn "Falling back to direct binary installation..."
-            return 1  # Signal to caller to use binary installation fallback
-        fi
-    fi
-
     info "Updating package list..."
     $SUDO apt-get update -qq
 
     info "Installing edamame-posture..."
-    # Run apt-get install and capture output and exit code
+    # Run apt-get install and capture output
     # Note: apt-get may return 0 even if dpkg configuration fails
-    $SUDO apt-get install -y edamame-posture 2>&1 || true
+    INSTALL_OUTPUT=$($SUDO apt-get install -y edamame-posture 2>&1) || true
     INSTALL_EXIT_CODE=$?
+    
+    # Check if installation output indicates dpkg configuration failure
+    if echo "$INSTALL_OUTPUT" | grep -q "dpkg: error processing package edamame-posture"; then
+        warn "Detected dpkg configuration error during edamame-posture installation"
+    fi
     
     # Always check package state after installation attempt
     # apt-get can return 0 even when dpkg configuration fails
     PACKAGE_STATE=$(dpkg -l 2>/dev/null | grep "edamame-posture" || echo "")
     
     # Check if package is in broken/unconfigured state (iU = installed but unconfigured)
+    # This happens when the postinst script fails (e.g., systemd not available in containers)
+    # We immediately rollback and fallback to binary installation to prevent blocking other packages
     if echo "$PACKAGE_STATE" | grep -q "iU"; then
-        warn "edamame-posture package configuration failed (expected in containers without systemd)"
-        warn "Package is installed but service configuration was skipped"
-        info "Attempting to mark package as configured..."
-        if ! $SUDO dpkg --configure --force-depends edamame-posture 2>/dev/null; then
-            echo "edamame-posture install" | $SUDO dpkg --set-selections 2>/dev/null || true
-            $SUDO dpkg --configure --force-depends edamame-posture 2>/dev/null || true
-        fi
+        warn "edamame-posture package configuration failed (service installation failed - systemd unavailable)"
+        warn "This is expected in containers without systemd (e.g., Ubuntu 20.04 containers)"
+        warn "Rolling back package installation and falling back to binary download..."
+        
+        # Remove the broken package immediately to prevent it from blocking other installations
+        # Use multiple removal methods to ensure it's gone
+        $SUDO dpkg --remove --force-remove-reinstreq edamame-posture 2>/dev/null || true
+        $SUDO dpkg --purge --force-remove-reinstreq edamame-posture 2>/dev/null || true
+        $SUDO apt-get remove -y --purge edamame-posture 2>/dev/null || true
         $SUDO apt-get install -f -y 2>/dev/null || true
         
-        # Verify the package is now in a good state
+        # Verify removal was successful - package should not exist or be in any state
         PACKAGE_STATE_AFTER=$(dpkg -l 2>/dev/null | grep "edamame-posture" || echo "")
-        if echo "$PACKAGE_STATE_AFTER" | grep -q "^ii"; then
-            info "Package successfully marked as installed"
-        elif echo "$PACKAGE_STATE_AFTER" | grep -q "iU"; then
-            # Package is still broken - remove it and fall back to binary installation
-            warn "Package state could not be fixed - removing package and falling back to binary installation"
-            $SUDO dpkg --remove --force-remove-reinstreq edamame-posture 2>/dev/null || \
-            $SUDO apt-get remove -y --purge edamame-posture 2>/dev/null || true
-            $SUDO apt-get install -f -y 2>/dev/null || true
-            warn "Falling back to direct binary installation..."
-            return 1  # Signal to caller to use binary installation fallback
+        if [ -z "$PACKAGE_STATE_AFTER" ]; then
+            warn "Package removed successfully - will use binary installation fallback"
+        elif ! echo "$PACKAGE_STATE_AFTER" | grep -q "^ii"; then
+            warn "Package removed (was in state: $PACKAGE_STATE_AFTER) - will use binary installation fallback"
         else
-            warn "Package state may still be inconsistent, but continuing..."
+            warn "Package may still exist but marked as installed - will use binary installation fallback anyway"
         fi
+        return 1  # Always signal fallback when package is broken
     elif echo "$PACKAGE_STATE" | grep -q "^ii"; then
         info "Package successfully installed and configured"
     elif [ "$INSTALL_EXIT_CODE" -ne 0 ]; then
@@ -883,6 +880,12 @@ ensure_privileged_runner() {
 }
 
 ensure_privileged_runner
+
+# Fix broken package state at the very start, before any operations
+# This prevents dpkg errors when other packages are installed (e.g., in workflows)
+if [ "$PLATFORM" = "linux" ] && command -v dpkg >/dev/null 2>&1 && command -v apt-get >/dev/null 2>&1; then
+    fix_broken_package_state || true
+fi
 
 info "EDAMAME Posture Installer"
 info "========================="
