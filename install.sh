@@ -699,6 +699,9 @@ if [ "$PLATFORM" = "linux" ]; then
         warn "Using direct binary installation for Linux..."
         install_binary_release "linux" "$LINUX_LIBC_FLAVOR"
     fi
+elif [ "$PLATFORM" = "linux-musl" ]; then
+    warn "Package install not supported on musl-based Linux. Using musl binary."
+    install_binary_release "linux" "musl"
 elif [ "$PLATFORM" = "macos" ]; then
     if [ "$CONFIG_FORCE_BINARY" != "true" ] && install_macos_via_brew; then
         :
