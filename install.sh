@@ -206,18 +206,32 @@ prepare_binary_artifact() {
     esac
 
     ARTIFACT_SECONDARY_URL=""
-    if [ "$CONFIG_DEBUG_BUILD" = "true" ]; then
+    # All binaries include version number in the filename
+    if fetch_latest_release_tag; then
+        if [ -n "$LATEST_RELEASE_TAG_PRIMARY" ]; then
+            version="$LATEST_RELEASE_TAG_PRIMARY"
+        else
+            version=$(fetch_latest_version)
+            if [ -z "$version" ]; then
+                warn "Failed to determine latest release version, using $FALLBACK_VERSION"
+                version="$FALLBACK_VERSION"
+            fi
+        fi
+    else
         version=$(fetch_latest_version)
         if [ -z "$version" ]; then
             warn "Failed to determine latest release version, using $FALLBACK_VERSION"
             version="$FALLBACK_VERSION"
         fi
+    fi
+
+    if [ "$CONFIG_DEBUG_BUILD" = "true" ]; then
         ARTIFACT_NAME="edamame_posture-${version}-${suffix}-debug${ARTIFACT_EXT}"
         ARTIFACT_FALLBACK_NAME="edamame_posture-${FALLBACK_VERSION}-${suffix}-debug${ARTIFACT_EXT}"
         ARTIFACT_URL="${REPO_BASE_URL}/releases/download/v${version}/${ARTIFACT_NAME}"
         ARTIFACT_FALLBACK_URL="${REPO_BASE_URL}/releases/download/v${FALLBACK_VERSION}/${ARTIFACT_FALLBACK_NAME}"
     else
-        ARTIFACT_NAME="edamame_posture-${suffix}${ARTIFACT_EXT}"
+        ARTIFACT_NAME="edamame_posture-${version}-${suffix}${ARTIFACT_EXT}"
         ARTIFACT_FALLBACK_NAME="edamame_posture-${FALLBACK_VERSION}-${suffix}${ARTIFACT_EXT}"
         if fetch_latest_release_tag; then
             if [ -n "$LATEST_RELEASE_TAG_PRIMARY" ]; then
@@ -226,7 +240,8 @@ prepare_binary_artifact() {
                 ARTIFACT_URL="${REPO_BASE_URL}/releases/latest/download/${ARTIFACT_NAME}"
             fi
             if [ -n "$LATEST_RELEASE_TAG_SECONDARY" ]; then
-                ARTIFACT_SECONDARY_URL="${REPO_BASE_URL}/releases/download/v${LATEST_RELEASE_TAG_SECONDARY}/${ARTIFACT_NAME}"
+                ARTIFACT_SECONDARY_NAME="edamame_posture-${LATEST_RELEASE_TAG_SECONDARY}-${suffix}${ARTIFACT_EXT}"
+                ARTIFACT_SECONDARY_URL="${REPO_BASE_URL}/releases/download/v${LATEST_RELEASE_TAG_SECONDARY}/${ARTIFACT_SECONDARY_NAME}"
             fi
         else
             ARTIFACT_URL="${REPO_BASE_URL}/releases/latest/download/${ARTIFACT_NAME}"
