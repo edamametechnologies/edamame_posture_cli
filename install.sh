@@ -243,11 +243,28 @@ install_binary_release() {
     local tmp_bin
     tmp_bin=$(mktemp)
 
+    info "Downloading binary from ${ARTIFACT_URL}"
     if ! download_file "$ARTIFACT_URL" "$tmp_bin"; then
-        warn "Primary binary download failed, attempting fallback..."
-        if [ -n "$ARTIFACT_SECONDARY_URL" ] && download_file "$ARTIFACT_SECONDARY_URL" "$tmp_bin"; then
-            info "Downloaded EDAMAME Posture from previous release tag."
-        elif ! download_file "$ARTIFACT_FALLBACK_URL" "$tmp_bin"; then
+        warn "Primary binary download failed (URL: ${ARTIFACT_URL}), attempting fallback..."
+        local downloaded="false"
+        if [ -n "$ARTIFACT_SECONDARY_URL" ]; then
+            info "Attempting previous release tag at ${ARTIFACT_SECONDARY_URL}"
+            if download_file "$ARTIFACT_SECONDARY_URL" "$tmp_bin"; then
+                info "Downloaded EDAMAME Posture from previous release tag."
+                downloaded="true"
+            else
+                warn "Previous release tag download failed (URL: ${ARTIFACT_SECONDARY_URL})"
+            fi
+        fi
+        if [ "$downloaded" = "false" ]; then
+            info "Attempting pinned fallback at ${ARTIFACT_FALLBACK_URL}"
+            if download_file "$ARTIFACT_FALLBACK_URL" "$tmp_bin"; then
+                downloaded="true"
+            else
+                warn "Pinned fallback download failed (URL: ${ARTIFACT_FALLBACK_URL})"
+            fi
+        fi
+        if [ "$downloaded" = "false" ]; then
             if [ "$platform" = "windows" ] && [ "$CONFIG_FORCE_BINARY" != "true" ]; then
                 warn "Binary download failed on Windows, retrying via Chocolatey..."
                 rm -f "$tmp_bin"
