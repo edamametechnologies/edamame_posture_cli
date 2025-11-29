@@ -557,6 +557,10 @@ INSTALLED_VIA_PACKAGE_MANAGER="false"
 FINAL_BINARY_PATH=""
 BINARY_PATH=""
 
+if [ -n "$STATE_FILE" ]; then
+    info "Installer state will be written to $STATE_FILE"
+fi
+
 case "$PLATFORM" in
     linux)
         if [ ! -f /etc/os-release ]; then
