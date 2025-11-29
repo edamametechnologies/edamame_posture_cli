@@ -581,6 +581,7 @@ case "$PLATFORM" in
             GLIBC_VERSION=$(detect_glibc_version)
             if [ -n "$GLIBC_VERSION" ] && version_lt "$GLIBC_VERSION" "2.29"; then
                 LINUX_LIBC_FLAVOR="musl"
+                PLATFORM="linux-musl"
             fi
         fi
         ;;
@@ -700,7 +701,7 @@ if [ "$PLATFORM" = "linux" ]; then
         install_binary_release "linux" "$LINUX_LIBC_FLAVOR"
     fi
 elif [ "$PLATFORM" = "linux-musl" ]; then
-    warn "Package install not supported on musl-based Linux. Using musl binary."
+    warn "Package install not supported or glibc < 2.29 detected. Using musl binary."
     install_binary_release "linux" "musl"
 elif [ "$PLATFORM" = "macos" ]; then
     if [ "$CONFIG_FORCE_BINARY" != "true" ] && install_macos_via_brew; then
