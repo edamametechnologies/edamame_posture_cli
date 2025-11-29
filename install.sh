@@ -29,6 +29,7 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
+NBSP_CHAR=$'\u00A0'
 
 info() {
     printf "${GREEN}[INFO]${NC} %s\n" "$1"
@@ -79,6 +80,19 @@ detect_glibc_version() {
     else
         echo ""
     fi
+}
+
+normalize_cli_option() {
+    local value="$1"
+    if [ -z "$value" ]; then
+        echo ""
+        return 0
+    fi
+    # Strip any leading Unicode non-breaking spaces introduced by copy/paste.
+    while [ "${value#"$NBSP_CHAR"}" != "$value" ]; do
+        value="${value#"$NBSP_CHAR"}"
+    done
+    echo "$value"
 }
 
 REPO_BASE_URL="https://github.com/edamametechnologies/edamame_posture_cli"
@@ -740,7 +754,8 @@ CONFIG_DEBUG_BUILD="false"
 CONFIG_CI_MODE="false"
 
 while [ $# -gt 0 ]; do
-    case "$1" in
+    current_arg=$(normalize_cli_option "$1")
+    case "$current_arg" in
         --user)
             CONFIG_USER="$2"
             shift 2
