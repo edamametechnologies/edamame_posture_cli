@@ -469,20 +469,31 @@ install_linux_via_apt() {
     fi
 
     info "Installing edamame-posture..."
-    $SUDO apt-get install -y edamame-posture || {
+    if ! $SUDO apt-get install -y edamame-posture 2>&1; then
         INSTALL_EXIT_CODE=$?
         # Check if installation failed due to package configuration error (systemd issue in containers)
-        if dpkg -l 2>/dev/null | grep -q "iU.*edamame-posture"; then
+        # Use a subshell to avoid set -e affecting the grep check
+        PACKAGE_STATE=$(dpkg -l 2>/dev/null | grep "edamame-posture" || echo "")
+        if echo "$PACKAGE_STATE" | grep -q "iU"; then
             warn "edamame-posture package installation failed during configuration (expected in containers without systemd)"
             warn "Package is installed but service configuration was skipped"
             info "Marking package as configured to allow system to proceed..."
             $SUDO dpkg --configure --force-depends edamame-posture 2>/dev/null || \
             echo "edamame-posture install" | $SUDO dpkg --set-selections 2>/dev/null || true
             $SUDO apt-get install -f -y 2>/dev/null || true
+            # Verify the package is now in a good state
+            PACKAGE_STATE_AFTER=$(dpkg -l 2>/dev/null | grep "edamame-posture" || echo "")
+            if echo "$PACKAGE_STATE_AFTER" | grep -q "^ii"; then
+                info "Package successfully marked as installed"
+            else
+                warn "Package state may still be inconsistent, but continuing..."
+            fi
         else
+            error "Failed to install edamame-posture (exit code: $INSTALL_EXIT_CODE)"
+            error "Package state: $PACKAGE_STATE"
             exit $INSTALL_EXIT_CODE
         fi
-    }
+    fi
 
     # Ensure libpcap runtime library is installed (needed for packet capture)
     install_libpcap_runtime() {
