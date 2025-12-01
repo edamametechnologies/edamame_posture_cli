@@ -64,8 +64,11 @@ jobs:
       - name: Use the local universal install script as a test
         shell: bash
         run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh | sh -s --
-
+          curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh | sh -s -- \
+          --user ${{ vars.EDAMAME_POSTURE_USER }} \
+          --domain ${{ vars.EDAMAME_POSTURE_DOMAIN }} \
+          --pin ${{ secrets.EDAMAME_POSTURE_PIN }}
+          
       - name: Setup EDAMAME Posture
         uses: edamametechnologies/edamame_posture_action@v0
         with:
@@ -283,7 +286,10 @@ jobs:
       - name: Use the local universal install script as a test
         shell: bash
         run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh | sh -s --
+          curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh | sh -s -- \
+          --user ${{ vars.EDAMAME_POSTURE_USER }} \
+          --domain ${{ vars.EDAMAME_POSTURE_DOMAIN }} \
+          --pin ${{ secrets.EDAMAME_POSTURE_PIN }}
 
       - name: Setup EDAMAME Posture
         uses: edamametechnologies/edamame_posture_action@v0
@@ -470,7 +476,10 @@ jobs:
       - name: Use the local universal install script as a test
         shell: bash
         run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh | sh -s --
+          curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh | sh -s -- \
+          --user ${{ vars.EDAMAME_POSTURE_USER }} \
+          --domain ${{ vars.EDAMAME_POSTURE_DOMAIN }} \
+          --pin ${{ secrets.EDAMAME_POSTURE_PIN }}
 
       # Setup EDAMAME Posture in host environment
       - name: Setup EDAMAME Posture
