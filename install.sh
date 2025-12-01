@@ -95,6 +95,42 @@ normalize_cli_option() {
     echo "$value"
 }
 
+compute_sha256() {
+    local file="$1"
+    if [ ! -f "$file" ]; then
+        echo ""
+        return 1
+    fi
+    if command -v sha256sum >/dev/null 2>&1; then
+        sha256sum "$file" | awk '{print $1}'
+        return 0
+    elif command -v shasum >/dev/null 2>&1; then
+        shasum -a 256 "$file" | awk '{print $1}'
+        return 0
+    elif command -v certutil >/dev/null 2>&1; then
+        certutil -hashfile "$file" SHA256 2>/dev/null | sed -n '2p' | tr -d '\r'
+        return 0
+    fi
+    echo ""
+    return 1
+}
+
+files_have_same_checksum() {
+    local file_a="$1"
+    local file_b="$2"
+    local checksum_a checksum_b
+
+    checksum_a=$(compute_sha256 "$file_a") || checksum_a=""
+    checksum_b=$(compute_sha256 "$file_b") || checksum_b=""
+
+    if [ -z "$checksum_a" ] || [ -z "$checksum_b" ]; then
+        warn "Unable to compute checksum for comparison; assuming binaries differ."
+        return 1
+    fi
+
+    [ "$checksum_a" = "$checksum_b" ]
+}
+
 REPO_BASE_URL="https://github.com/edamametechnologies/edamame_posture_cli"
 FALLBACK_VERSION="0.9.75"
 LATEST_RELEASE_TAG_PRIMARY=""
@@ -272,6 +308,26 @@ install_binary_release() {
     local tmp_bin
     tmp_bin=$(mktemp)
 
+    local target_dir="$INSTALL_DIR"
+    if [ -z "$target_dir" ]; then
+        target_dir="$HOME"
+    fi
+
+    local target_name="edamame_posture${ARTIFACT_EXT}"
+    local target_path="$target_dir/$target_name"
+
+    local existing_binary_mode="none"
+    if [ -f "$target_path" ]; then
+        if credentials_provided; then
+            info "Existing binary detected at $target_path with credentials supplied. Refreshing binary..."
+            stop_existing_posture || true
+            rm -f "$target_path" || warn "Failed to remove existing binary at $target_path"
+        else
+            info "Existing binary detected at $target_path; verifying checksum before deciding to reuse."
+            existing_binary_mode="verify"
+        fi
+    fi
+
     info "Downloading binary from ${ARTIFACT_URL}"
     if ! download_file "$ARTIFACT_URL" "$tmp_bin"; then
         warn "Primary binary download failed (URL: ${ARTIFACT_URL}), attempting fallback..."
@@ -310,29 +366,22 @@ install_binary_release() {
         chmod +x "$tmp_bin" || true
     fi
 
-    local target_dir="$INSTALL_DIR"
-    if [ -z "$target_dir" ]; then
-        target_dir="$HOME"
-    fi
-
-    local target_name="edamame_posture${ARTIFACT_EXT}"
-    local target_path="$target_dir/$target_name"
-
-    if [ -f "$target_path" ]; then
-        if credentials_provided; then
-            info "Existing binary detected at $target_path with credentials supplied. Refreshing binary..."
-            stop_existing_posture || true
-            rm -f "$target_path" || warn "Failed to remove existing binary at $target_path"
-        else
-            info "Existing binary detected at $target_path; reusing (remove it to force a fresh download)."
+    if [ "$existing_binary_mode" = "verify" ]; then
+        if files_have_same_checksum "$target_path" "$tmp_bin"; then
+            info "Existing binary matches latest download; reusing cached binary."
             FINAL_BINARY_PATH="$target_path"
             BINARY_PATH="$target_path"
             if [ -z "$INSTALL_METHOD" ] || [ "$INSTALL_METHOD" = "binary" ]; then
                 INSTALL_METHOD="existing-binary"
             fi
             INSTALLED_VIA_PACKAGE_MANAGER="false"
+            BINARY_ALREADY_PRESENT="true"
+            rm -f "$tmp_bin"
             return 0
         fi
+        info "Existing binary differs from latest download; refreshing with new binary."
+        stop_existing_posture || true
+        rm -f "$target_path" || warn "Failed to remove existing binary at $target_path"
     fi
 
     if [ "$platform" = "windows" ]; then
@@ -900,6 +949,18 @@ fi
 BINARY_ALREADY_PRESENT="false"
 if command -v edamame_posture >/dev/null 2>&1; then
     BINARY_ALREADY_PRESENT="true"
+else
+    install_dir_check="$INSTALL_DIR"
+    if [ -z "$install_dir_check" ]; then
+        install_dir_check="$HOME"
+    fi
+    binary_candidate="$install_dir_check/edamame_posture"
+    if [ "$PLATFORM" = "windows" ]; then
+        binary_candidate="${binary_candidate}.exe"
+    fi
+    if [ -f "$binary_candidate" ]; then
+        BINARY_ALREADY_PRESENT="true"
+    fi
 fi
 
 ensure_privileged_runner() {
