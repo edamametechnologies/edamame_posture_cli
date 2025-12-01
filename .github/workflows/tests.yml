@@ -61,6 +61,11 @@ jobs:
 
     steps:
 
+      - name: Use the local universal install script as a test
+        shell: bash
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh | sh -s --
+
       - name: Setup EDAMAME Posture
         uses: edamametechnologies/edamame_posture_action@v0
         with:
@@ -274,6 +279,12 @@ jobs:
       EDAMAME_LOG_LEVEL: debug
 
     steps:
+
+      - name: Use the local universal install script as a test
+        shell: bash
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh | sh -s --
+
       - name: Setup EDAMAME Posture
         uses: edamametechnologies/edamame_posture_action@v0
         with:
@@ -455,6 +466,11 @@ jobs:
       #    # Use bash to run the script
       #   bash ./edamame_setup.sh ${{ vars.EDAMAME_POSTURE_USER }} ${{ vars.EDAMAME_POSTURE_DOMAIN }} ${{ secrets.EDAMAME_POSTURE_PIN }} ${{ github.run_id }}-alpine-${{ matrix.arch }}
       #  shell: alpine.sh --root {0}
+
+      - name: Use the local universal install script as a test
+        shell: bash
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh | sh -s --
 
       # Setup EDAMAME Posture in host environment
       - name: Setup EDAMAME Posture
