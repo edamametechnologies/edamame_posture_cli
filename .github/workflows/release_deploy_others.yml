@@ -506,13 +506,14 @@ jobs:
           # Setup abuild signing key
           abuild-keygen -a -i -n
           
-          # Setup Alpine repo structure in S3
-          REPO_PATH="repo/alpine/v3.15/${{ matrix.arch }}"
+          # Setup Alpine repo structure in S3 (component "main")
+          REPO_BASE_PATH="repo/alpine/v3.15"
+          REPO_MAIN_PATH="${REPO_BASE_PATH}/main/${{ matrix.arch }}"
           
           # Upload APK file first
           echo "Uploading APK file to S3..."
           aws s3 cp target/${{ matrix.target }}/apk/edamame-posture-${VERSION}-r1.apk \
-            s3://edamame/${REPO_PATH}/edamame-posture-${VERSION}-r1.apk \
+            s3://edamame/${REPO_MAIN_PATH}/edamame-posture-${VERSION}-r1.apk \
             --acl public-read
           
           echo "APK file uploaded successfully!"
@@ -525,7 +526,7 @@ jobs:
           # Download ALL existing APK packages from S3
           # This includes packages from ALL projects: edamame-cli, edamame-posture, etc.
           echo "Downloading all packages from S3 repository to rebuild index..."
-          aws s3 sync s3://edamame/${REPO_PATH}/ . --exclude "*" --include "*.apk" || echo "No existing packages found"
+          aws s3 sync s3://edamame/${REPO_MAIN_PATH}/ . --exclude "*" --include "*.apk" || echo "No existing packages found"
           
           # List all packages
           echo "Packages to include in index:"
@@ -574,7 +575,7 @@ jobs:
           
           # Upload APKINDEX to S3
           echo "Uploading APKINDEX to S3..."
-          aws s3 cp APKINDEX.tar.gz s3://edamame/${REPO_PATH}/APKINDEX.tar.gz --acl public-read
+          aws s3 cp APKINDEX.tar.gz s3://edamame/${REPO_MAIN_PATH}/APKINDEX.tar.gz --acl public-read
           
           # Upload public key
           echo "Uploading public key to S3..."
@@ -587,11 +588,11 @@ jobs:
             exit 1
           fi
           
-          aws s3 cp "$PUB_KEY" s3://edamame/${REPO_PATH}/edamame.rsa.pub --acl public-read
+          aws s3 cp "$PUB_KEY" s3://edamame/${REPO_MAIN_PATH}/edamame.rsa.pub --acl public-read
           
           echo ""
           echo "=== APK Repository Update Complete ==="
-          echo "Repository: https://edamame.s3.eu-west-1.amazonaws.com/${REPO_PATH}"
+          echo "Repository: https://edamame.s3.eu-west-1.amazonaws.com/${REPO_MAIN_PATH}"
           echo "Packages indexed: $PKG_COUNT"
         shell: alpine.sh --root {0}
 
