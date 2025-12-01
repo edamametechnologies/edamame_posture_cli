@@ -35,6 +35,8 @@ get_config_value() {
 edamame_user="$(get_config_value "edamame_user")"
 edamame_domain="$(get_config_value "edamame_domain")"
 edamame_pin="$(get_config_value "edamame_pin")"
+start_lanscan="$(get_config_value "start_lanscan")"
+start_capture="$(get_config_value "start_capture")"
 
 # Agentic configuration
 agentic_mode="$(get_config_value "agentic_mode")"
@@ -49,6 +51,8 @@ slack_escalations_channel="$(get_config_value "slack_escalations_channel")"
 # Set defaults
 agentic_mode="${agentic_mode:-disabled}"
 agentic_interval="${agentic_interval:-3600}"
+start_lanscan="${start_lanscan,,}"
+start_capture="${start_capture,,}"
 
 # Determine LLM provider based on which API key is configured (first non-empty wins)
 agentic_provider="none"
@@ -104,6 +108,16 @@ if [[ "$agentic_mode" != "disabled" && "$agentic_provider" != "none" ]]; then
   echo "  Mode: $agentic_mode"
   echo "  Provider: $agentic_provider"
   echo "  Interval: ${agentic_interval}s"
+fi
+
+if [[ "$start_lanscan" == "true" ]]; then
+  CMD_ARGS+=(--network-scan)
+  echo "LAN scan enabled via configuration"
+fi
+
+if [[ "$start_capture" == "true" ]]; then
+  CMD_ARGS+=(--packet-capture)
+  echo "Packet capture enabled via configuration"
 fi
 
 echo "Starting edamame_posture service..."

@@ -15,6 +15,8 @@
 #   --slack-bot-token TOKEN        Slack bot token
 #   --slack-actions-channel ID     Slack actions channel ID
 #   --slack-escalations-channel ID Slack escalations channel ID
+#   --start-lanscan                Start background LAN scan (passes --network-scan)
+#   --start-capture                Start packet capture (passes --packet-capture)
 #
 # Example:
 #   curl -sSf https://raw.githubusercontent.com/.../install.sh | sh -s -- \
@@ -136,6 +138,11 @@ FALLBACK_VERSION="0.9.75"
 LATEST_RELEASE_TAG_PRIMARY=""
 LATEST_RELEASE_TAG_SECONDARY=""
 ARTIFACT_SECONDARY_URL=""
+GITHUB_RELEASES_RESPONSE=""
+ARTIFACT_SECONDARY_NAME=""
+ARTIFACT_DIGEST=""
+ARTIFACT_SECONDARY_DIGEST=""
+ARTIFACT_FALLBACK_DIGEST=""
 
 systemd_available() {
     if [ -d /run/systemd/system ]; then
@@ -208,8 +215,8 @@ determine_linux_suffix() {
     esac
 }
 
-fetch_latest_release_tag() {
-    if [ -n "$LATEST_RELEASE_TAG_PRIMARY" ]; then
+fetch_release_feed() {
+    if [ -n "$GITHUB_RELEASES_RESPONSE" ]; then
         return 0
     fi
     local api="https://api.github.com/repos/edamametechnologies/edamame_posture_cli/releases?per_page=2"
@@ -220,6 +227,21 @@ fetch_latest_release_tag() {
         response=$(wget -q -O - "$api" 2>/dev/null || echo "")
     fi
     if [ -n "$response" ]; then
+        GITHUB_RELEASES_RESPONSE="$response"
+        return 0
+    fi
+    return 1
+}
+
+fetch_latest_release_tag() {
+    if [ -n "$LATEST_RELEASE_TAG_PRIMARY" ]; then
+        return 0
+    fi
+    if ! fetch_release_feed; then
+        return 1
+    fi
+    local response="$GITHUB_RELEASES_RESPONSE"
+    if [ -n "$response" ]; then
         local tags
         tags=$(printf '%s\n' "$response" | awk -F\" '/"tag_name"/ {gsub(/^v/, "", $4); if($4!="") print $4}')
         LATEST_RELEASE_TAG_PRIMARY=$(printf '%s\n' "$tags" | sed -n '1p')
@@ -227,6 +249,108 @@ fetch_latest_release_tag() {
         if [ -n "$LATEST_RELEASE_TAG_PRIMARY" ]; then
             return 0
         fi
+    fi
+    return 1
+}
+
+get_asset_digest_from_json() {
+    local json="$1"
+    local asset_name="$2"
+    if [ -z "$json" ] || [ -z "$asset_name" ]; then
+        return 1
+    fi
+    printf '%s\n' "$json" | awk -v asset="$asset_name" '
+        BEGIN { in_asset=0 }
+        /"name":/ {
+            if (index($0, "\"" asset "\"") > 0) {
+                in_asset=1
+            } else if (index($0, "\"name\":") > 0) {
+                in_asset=0
+            }
+        }
+        in_asset && /"digest":/ {
+            if (match($0, /"digest": *"([^"]+)"/, m)) {
+                gsub(/^sha256:/, "", m[1])
+                print m[1]
+                exit
+            }
+        }
+    '
+}
+
+get_release_asset_digest() {
+    local asset_name="$1"
+    if [ -z "$asset_name" ]; then
+        return 1
+    fi
+    if [ -z "$GITHUB_RELEASES_RESPONSE" ]; then
+        fetch_release_feed || return 1
+    fi
+    local digest
+    digest=$(get_asset_digest_from_json "$GITHUB_RELEASES_RESPONSE" "$asset_name")
+    if [ -n "$digest" ]; then
+        printf '%s\n' "$digest"
+        return 0
+    fi
+    return 1
+}
+
+fetch_release_by_tag() {
+    local version="$1"
+    if [ -z "$version" ]; then
+        echo ""
+        return 1
+    fi
+    local api="https://api.github.com/repos/edamametechnologies/edamame_posture_cli/releases/tags/v${version}"
+    local response=""
+    if command -v curl >/dev/null 2>&1; then
+        response=$(curl -fsSL "$api" 2>/dev/null || echo "")
+    elif command -v wget >/dev/null 2>&1; then
+        response=$(wget -q -O - "$api" 2>/dev/null || echo "")
+    fi
+    printf '%s\n' "$response"
+    if [ -n "$response" ]; then
+        return 0
+    fi
+    return 1
+}
+
+get_release_asset_digest_by_tag() {
+    local version="$1"
+    local asset_name="$2"
+    if [ -z "$version" ] || [ -z "$asset_name" ]; then
+        return 1
+    fi
+    local response
+    response=$(fetch_release_by_tag "$version")
+    if [ -z "$response" ]; then
+        return 1
+    fi
+    local digest
+    digest=$(get_asset_digest_from_json "$response" "$asset_name")
+    if [ -n "$digest" ]; then
+        printf '%s\n' "$digest"
+        return 0
+    fi
+    return 1
+}
+
+check_file_checksum() {
+    local file="$1"
+    local expected="$2"
+    if [ -z "$file" ] || [ -z "$expected" ]; then
+        return 2
+    fi
+    if [ ! -f "$file" ]; then
+        return 2
+    fi
+    local actual
+    actual=$(compute_sha256 "$file" 2>/dev/null || true)
+    if [ -z "$actual" ]; then
+        return 2
+    fi
+    if [ "$actual" = "$expected" ]; then
+        return 0
     fi
     return 1
 }
@@ -256,6 +380,10 @@ prepare_binary_artifact() {
     esac
 
     ARTIFACT_SECONDARY_URL=""
+    ARTIFACT_SECONDARY_NAME=""
+    ARTIFACT_DIGEST=""
+    ARTIFACT_SECONDARY_DIGEST=""
+    ARTIFACT_FALLBACK_DIGEST=""
     # All binaries include version number in the filename
     if fetch_latest_release_tag; then
         if [ -n "$LATEST_RELEASE_TAG_PRIMARY" ]; then
@@ -298,6 +426,11 @@ prepare_binary_artifact() {
         fi
         ARTIFACT_FALLBACK_URL="${REPO_BASE_URL}/releases/download/v${FALLBACK_VERSION}/${ARTIFACT_FALLBACK_NAME}"
     fi
+
+    ARTIFACT_DIGEST=$(get_release_asset_digest "$ARTIFACT_NAME" 2>/dev/null || true)
+    if [ -n "$ARTIFACT_SECONDARY_NAME" ]; then
+        ARTIFACT_SECONDARY_DIGEST=$(get_release_asset_digest "$ARTIFACT_SECONDARY_NAME" 2>/dev/null || true)
+    fi
 }
 
 install_binary_release() {
@@ -315,6 +448,9 @@ install_binary_release() {
 
     local target_name="edamame_posture${ARTIFACT_EXT}"
     local target_path="$target_dir/$target_name"
+    local download_digest="$ARTIFACT_DIGEST"
+    local download_label="latest release"
+    local compare_existing_with_download="true"
 
     local existing_binary_mode="none"
     if [ -f "$target_path" ]; then
@@ -328,6 +464,33 @@ install_binary_release() {
         fi
     fi
 
+    if [ "$existing_binary_mode" = "verify" ]; then
+        if [ -n "$download_digest" ]; then
+            if check_file_checksum "$target_path" "$download_digest"; then
+                info "Existing binary matches release checksum; reusing cached binary."
+                FINAL_BINARY_PATH="$target_path"
+                BINARY_PATH="$target_path"
+                if [ -z "$INSTALL_METHOD" ] || [ "$INSTALL_METHOD" = "binary" ]; then
+                    INSTALL_METHOD="existing-binary"
+                fi
+                INSTALLED_VIA_PACKAGE_MANAGER="false"
+                BINARY_ALREADY_PRESENT="true"
+                rm -f "$tmp_bin"
+                return 0
+            else
+                local digest_status=$?
+                if [ "$digest_status" -eq 1 ]; then
+                    compare_existing_with_download="false"
+                    info "Existing binary digest differs from release; refreshing binary."
+                else
+                    warn "Unable to verify existing binary against release digest; falling back to download comparison."
+                fi
+            fi
+        else
+            warn "Release checksum unavailable for ${ARTIFACT_NAME}; falling back to download comparison."
+        fi
+    fi
+
     info "Downloading binary from ${ARTIFACT_URL}"
     if ! download_file "$ARTIFACT_URL" "$tmp_bin"; then
         warn "Primary binary download failed (URL: ${ARTIFACT_URL}), attempting fallback..."
@@ -336,6 +499,8 @@ install_binary_release() {
             info "Attempting previous release tag at ${ARTIFACT_SECONDARY_URL}"
             if download_file "$ARTIFACT_SECONDARY_URL" "$tmp_bin"; then
                 info "Downloaded EDAMAME Posture from previous release tag."
+                download_label="previous release"
+                download_digest="$ARTIFACT_SECONDARY_DIGEST"
                 downloaded="true"
             else
                 warn "Previous release tag download failed (URL: ${ARTIFACT_SECONDARY_URL})"
@@ -344,6 +509,11 @@ install_binary_release() {
         if [ "$downloaded" = "false" ]; then
             info "Attempting pinned fallback at ${ARTIFACT_FALLBACK_URL}"
             if download_file "$ARTIFACT_FALLBACK_URL" "$tmp_bin"; then
+                if [ -z "$ARTIFACT_FALLBACK_DIGEST" ]; then
+                    ARTIFACT_FALLBACK_DIGEST=$(get_release_asset_digest_by_tag "$FALLBACK_VERSION" "$ARTIFACT_FALLBACK_NAME" 2>/dev/null || true)
+                fi
+                download_label="fallback release v${FALLBACK_VERSION}"
+                download_digest="$ARTIFACT_FALLBACK_DIGEST"
                 downloaded="true"
             else
                 warn "Pinned fallback download failed (URL: ${ARTIFACT_FALLBACK_URL})"
@@ -362,12 +532,28 @@ install_binary_release() {
         fi
     fi
 
+    if [ -n "$download_digest" ]; then
+        if check_file_checksum "$tmp_bin" "$download_digest"; then
+            info "Release checksum verified for ${download_label} artifact."
+        else
+            local download_checksum_status=$?
+            if [ "$download_checksum_status" -eq 1 ]; then
+                rm -f "$tmp_bin"
+                error "Checksum verification failed for ${download_label} artifact."
+            else
+                warn "Unable to verify downloaded binary checksum for ${download_label} artifact."
+            fi
+        fi
+    else
+        warn "No release checksum available for ${download_label} artifact; skipping verification."
+    fi
+
     if [ "$platform" != "windows" ]; then
         chmod +x "$tmp_bin" || true
     fi
 
     if [ "$existing_binary_mode" = "verify" ]; then
-        if files_have_same_checksum "$target_path" "$tmp_bin"; then
+        if [ "$compare_existing_with_download" = "true" ] && files_have_same_checksum "$target_path" "$tmp_bin"; then
             info "Existing binary matches latest download; reusing cached binary."
             FINAL_BINARY_PATH="$target_path"
             BINARY_PATH="$target_path"
@@ -379,7 +565,7 @@ install_binary_release() {
             rm -f "$tmp_bin"
             return 0
         fi
-        info "Existing binary differs from latest download; refreshing with new binary."
+        info "Existing binary differs from release; refreshing with new binary."
         stop_existing_posture || true
         rm -f "$target_path" || warn "Failed to remove existing binary at $target_path"
     fi
@@ -479,8 +665,8 @@ install_linux_via_apk() {
     info "Updating package list..."
     $SUDO apk update
 
-    info "Installing edamame-posture..."
-    $SUDO apk add edamame-posture
+    info "Installing edamame-posture (upgrading if already installed)..."
+    $SUDO apk add --no-cache --upgrade edamame-posture
 
     info "Installation complete!"
     BINARY_PATH=$(command -v edamame_posture 2>/dev/null || echo "/usr/bin/edamame_posture")
@@ -803,6 +989,8 @@ CONFIG_STATE_FILE=""
 CONFIG_FORCE_BINARY="false"
 CONFIG_DEBUG_BUILD="false"
 CONFIG_CI_MODE="false"
+CONFIG_START_LANSCAN="false"
+CONFIG_START_CAPTURE="false"
 
 while [ $# -gt 0 ]; do
     current_arg=$(normalize_cli_option "$1")
@@ -875,6 +1063,14 @@ while [ $# -gt 0 ]; do
             ;;
         --ci-mode)
             CONFIG_CI_MODE="true"
+            shift
+            ;;
+        --start-lanscan)
+            CONFIG_START_LANSCAN="true"
+            shift
+            ;;
+        --start-capture)
+            CONFIG_START_CAPTURE="true"
             shift
             ;;
         *)
@@ -1091,7 +1287,7 @@ configure_service() {
     fi
     
     # Check if any configuration was provided
-    if [ -z "$CONFIG_USER" ] && [ -z "$CONFIG_CLAUDE_KEY" ] && [ -z "$CONFIG_OPENAI_KEY" ] && [ -z "$CONFIG_OLLAMA_URL" ] && [ "$CONFIG_AGENTIC_MODE" = "disabled" ]; then
+    if [ -z "$CONFIG_USER" ] && [ -z "$CONFIG_CLAUDE_KEY" ] && [ -z "$CONFIG_OPENAI_KEY" ] && [ -z "$CONFIG_OLLAMA_URL" ] && [ "$CONFIG_AGENTIC_MODE" = "disabled" ] && [ "$CONFIG_START_LANSCAN" != "true" ] && [ "$CONFIG_START_CAPTURE" != "true" ]; then
         info "No configuration parameters provided, skipping service configuration"
         return 0
     fi
@@ -1110,6 +1306,12 @@ configure_service() {
 edamame_user: "CONFIG_USER_PLACEHOLDER"
 edamame_domain: "CONFIG_DOMAIN_PLACEHOLDER"
 edamame_pin: "CONFIG_PIN_PLACEHOLDER"
+
+# ============================================================================
+# Network Monitoring (optional)
+# ============================================================================
+start_lanscan: "CONFIG_START_LANSCAN_PLACEHOLDER"
+start_capture: "CONFIG_START_CAPTURE_PLACEHOLDER"
 
 # ============================================================================
 # AI Assistant (Agentic) Configuration
@@ -1159,6 +1361,8 @@ EOF
     sed "s|CONFIG_USER_PLACEHOLDER|${CONFIG_USER}|g" "$TMP_CONF" > "${TMP_CONF}.new" && mv "${TMP_CONF}.new" "$TMP_CONF"
     sed "s|CONFIG_DOMAIN_PLACEHOLDER|${CONFIG_DOMAIN}|g" "$TMP_CONF" > "${TMP_CONF}.new" && mv "${TMP_CONF}.new" "$TMP_CONF"
     sed "s|CONFIG_PIN_PLACEHOLDER|${CONFIG_PIN}|g" "$TMP_CONF" > "${TMP_CONF}.new" && mv "${TMP_CONF}.new" "$TMP_CONF"
+    sed "s|CONFIG_START_LANSCAN_PLACEHOLDER|${CONFIG_START_LANSCAN}|g" "$TMP_CONF" > "${TMP_CONF}.new" && mv "${TMP_CONF}.new" "$TMP_CONF"
+    sed "s|CONFIG_START_CAPTURE_PLACEHOLDER|${CONFIG_START_CAPTURE}|g" "$TMP_CONF" > "${TMP_CONF}.new" && mv "${TMP_CONF}.new" "$TMP_CONF"
     sed "s|CONFIG_CLAUDE_KEY_PLACEHOLDER|${CONFIG_CLAUDE_KEY}|g" "$TMP_CONF" > "${TMP_CONF}.new" && mv "${TMP_CONF}.new" "$TMP_CONF"
     sed "s|CONFIG_OPENAI_KEY_PLACEHOLDER|${CONFIG_OPENAI_KEY}|g" "$TMP_CONF" > "${TMP_CONF}.new" && mv "${TMP_CONF}.new" "$TMP_CONF"
     sed "s|CONFIG_OLLAMA_URL_PLACEHOLDER|${CONFIG_OLLAMA_URL}|g" "$TMP_CONF" > "${TMP_CONF}.new" && mv "${TMP_CONF}.new" "$TMP_CONF"

@@ -816,6 +816,8 @@ curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamamete
 - `--slack-bot-token TOKEN` - Slack bot token
 - `--slack-actions-channel ID` - Slack actions channel
 - `--slack-escalations-channel ID` - Slack escalations channel
+- `--start-lanscan` - Launch the service with `--network-scan`
+- `--start-capture` - Launch the service with `--packet-capture`
 
 Services installed via this script are automatically started and enabled for boot (systemd on Debian/Ubuntu, OpenRC on Alpine) whenever configuration parameters are supplied.
 
@@ -936,6 +938,8 @@ If you prefer not to add a repository, you can install the Debian package manual
    edamame_user: "your_username"
    edamame_domain: "your.domain.com"
    edamame_pin: "your_pin"
+   start_lanscan: "true"    # optional: pass --network-scan to the daemon
+   start_capture: "false"   # optional: pass --packet-capture to the daemon
    ```
 
    **AI Assistant Configuration** (Optional):
@@ -1430,6 +1434,8 @@ sudo nano /etc/edamame_posture.conf
 edamame_user: "myuser"
 edamame_domain: "example.com"
 edamame_pin: "123456"
+start_lanscan: "true"
+start_capture: "false"
 
 # AI Assistant configuration
 agentic_mode: "auto"
