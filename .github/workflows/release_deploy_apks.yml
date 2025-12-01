@@ -189,7 +189,6 @@ jobs:
           url="https://github.com/edamametechnologies/edamame_posture"
           arch="ARCH_PLACEHOLDER"
           license="Proprietary"
-          depends="bash"
           options="!check"
           
           package() {
