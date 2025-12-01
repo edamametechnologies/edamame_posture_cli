@@ -287,6 +287,7 @@ jobs:
         shell: bash
         run: |
           # Install curl
+          apt-get update -y
           apt-get install -y curl
           curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh | sh -s -- \
           --user ${{ vars.EDAMAME_POSTURE_USER }} \
