@@ -455,12 +455,14 @@ install_linux_via_apk() {
     if ! grep -q "$REPO_URL" /etc/apk/repositories 2>/dev/null; then
         info "Adding EDAMAME APK repository..."
 
+        KEY_URL_MAIN="https://edamame.s3.eu-west-1.amazonaws.com/repo/alpine/v3.15/main/${ARCH}/edamame.rsa.pub"
+
         if command -v wget >/dev/null 2>&1; then
-            wget -q -O /tmp/edamame.rsa.pub "https://edamame.s3.eu-west-1.amazonaws.com/repo/alpine/v3.15/${ARCH}/edamame.rsa.pub" || \
-                warn "Failed to download signing key"
+            wget -q -O /tmp/edamame.rsa.pub "$KEY_URL_MAIN" || \
+            warn "Failed to download signing key"
         elif command -v curl >/dev/null 2>&1; then
-            curl -sL -o /tmp/edamame.rsa.pub "https://edamame.s3.eu-west-1.amazonaws.com/repo/alpine/v3.15/${ARCH}/edamame.rsa.pub" || \
-                warn "Failed to download signing key"
+            curl -sL -o /tmp/edamame.rsa.pub "$KEY_URL_MAIN" || \
+            warn "Failed to download signing key"
         else
             error "Neither wget nor curl found. Please install one of them."
         fi
