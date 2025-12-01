@@ -38,6 +38,8 @@ curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamamete
 | `--slack-bot-token`, `--slack-actions-channel`, `--slack-escalations-channel` | Slack integration. |
 | `--install-dir <path>` | Destination for binary fallback (defaults to `/usr/local/bin` on Linux/macOS, `$HOME` elsewhere). |
 | `--state-file <path>` | Writes installation metadata here (used by GitHub Actions). |
+| `--start-lanscan` | Ensures the systemd/OpenRC service launches with `--network-scan`. |
+| `--start-capture` | Ensures the service launches with `--packet-capture`. |
 | `--ci-mode` | Stops packaged services after installation so CI jobs don’t leave background daemons running. |
 | `--force-binary` / `--binary-only` | Skip package managers entirely. |
 | `--debug-build` | Download debug artifacts (forces binary installation). |
@@ -87,6 +89,7 @@ curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamamete
   - **systemd** (`/lib/systemd/system/edamame_posture.service`)
   - **OpenRC** (`/etc/init.d/edamame_posture`)
 - When credentials/AI flags are supplied, the installer renders `edamame_posture.conf`, ensures it is `chmod 600`, and restarts the service under the appropriate init system.
+- Use `start_lanscan: "true"` to have the service launch with `--network-scan`, and `start_capture: "true"` for `--packet-capture`; you can also set these automatically during installation via `--start-lanscan` and `--start-capture`.
 - When systemd isn’t available (e.g., minimal containers where PID 1 isn’t `systemd`), the installer skips enable/restart steps and prints a warning. You can still launch the daemon manually via `sudo edamame_posture start ...` or rely on the GitHub Action to start it in the foreground.
 - Post-install verification:
   - Prints CLI version/location (using either `$PATH` or the fallback binary path).
