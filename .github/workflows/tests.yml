@@ -298,6 +298,7 @@ jobs:
       - name: Manual checkout for containers
         shell: bash
         run: |
+          git config --global --add safe.directory '*'
           git clone https://github.com/${{ github.repository }}.git .
           git checkout "${{ github.head_ref || github.ref_name }}"
 
