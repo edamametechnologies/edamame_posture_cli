@@ -1,0 +1,97 @@
+name: Release Install Script
+
+on:
+  workflow_dispatch:
+
+# Auto cancel previous runs if they were not completed.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+# Write permissions are required to upload the release asset.
+permissions: write-all
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Setup EDAMAME Posture
+        uses: edamametechnologies/edamame_posture_action@v0
+        with:
+          edamame_user: ${{ vars.EDAMAME_POSTURE_USER }}
+          edamame_domain: ${{ vars.EDAMAME_POSTURE_DOMAIN }}
+          edamame_pin: ${{ secrets.EDAMAME_POSTURE_PIN }}
+          edamame_id: ${{ github.run_id }}
+          auto_remediate: true
+          network_scan: true
+          checkout: true
+          # Wait for the API to be ready
+          wait_for_api: true
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Determine release version
+        id: version
+        run: |
+          VERSION=$(grep '^version =' ./Cargo.toml | awk '{print $3}' | tr -d '"')
+          if [[ -z "$VERSION" ]]; then
+            echo "Unable to determine version from Cargo.toml"
+            exit 1
+          fi
+          TAG="v${VERSION}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Check for existing release
+        id: release_lookup
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG="${{ steps.version.outputs.tag }}"
+          VERSION="${{ steps.version.outputs.version }}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          RELEASE_JSON=$(gh release view "$TAG" --repo "${{ github.repository }}" --json id,uploadUrl 2>/dev/null || true)
+          if [[ -n "$RELEASE_JSON" ]]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            UPLOAD_URL=$(echo "$RELEASE_JSON" | jq -r '.uploadUrl')
+            echo "upload_url=$UPLOAD_URL" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Update the tag if it exists and points to a different commit
+        if: github.ref == 'refs/heads/main' && steps.release_lookup.outputs.exists == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release edit ${{ steps.version.outputs.tag }} --repo ${{ github.repository }} --target ${{ github.sha }}
+
+      - name: Create release if it doesn't exist
+        if: github.ref == 'refs/heads/main' && steps.release_lookup.outputs.exists != 'true'
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          release_name: Release ${{ steps.version.outputs.tag }}
+          draft: false
+          prerelease: false
+
+      - name: Upload install.sh to release
+        if: github.ref == 'refs/heads/main'
+        uses: shogo82148/actions-upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.release_lookup.outputs.exists == 'true' && steps.release_lookup.outputs.upload_url || steps.create_release.outputs.upload_url }}
+          asset_path: install.sh
+          asset_name: install.sh
+          asset_content_type: text/x-shellscript
+          overwrite: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
