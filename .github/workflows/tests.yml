@@ -286,6 +286,8 @@ jobs:
       - name: Use the local universal install script as a test
         shell: bash
         run: |
+          # Install curl
+          apt-get install -y curl
           curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh | sh -s -- \
           --user ${{ vars.EDAMAME_POSTURE_USER }} \
           --domain ${{ vars.EDAMAME_POSTURE_DOMAIN }} \
@@ -315,15 +317,15 @@ jobs:
       - name: Manual checkout for containers
         shell: bash
         run: |
+          # Without that git pull in edamame_posture_action fails as well as other actions
           git config --global --add safe.directory '*'
+          # Clone repository
           git clone https://github.com/${{ github.repository }}.git .
           git checkout "${{ github.head_ref || github.ref_name }}"
 
       - name: Install additional packages w/ apt for Linux
         run: |
-          set -e
-          export DEBIAN_FRONTEND=noninteractive
-          apt-get update
+          apt-get update -y
           # psmisc is needed for killall
           apt-get install -y protobuf-compiler libpcap-dev psmisc
 
