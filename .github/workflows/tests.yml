@@ -394,8 +394,7 @@ jobs:
           exit 1
 
   test-alpine:
-     # We need to wait a long time for musl aarch64 due to the use of qemu
-    timeout-minutes: 240
+    timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
