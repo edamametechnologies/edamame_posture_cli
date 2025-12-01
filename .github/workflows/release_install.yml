@@ -1,4 +1,4 @@
-name: Release Install Script
+name: Release install script
 
 on:
   workflow_dispatch:
