@@ -220,8 +220,30 @@ jobs:
           ls -la ./edamame_posture
           echo "Files copied successfully"
           
-          # Setup abuild
-          abuild-keygen -a -i -n
+          # Setup abuild with deterministic key name so APKINDEX signatures remain stable
+          cat > "$HOME/.abuild/setup_abuild_key.sh" <<'EOF'
+          #!/bin/sh
+          set -e
+          KEY_DIR="$HOME/.abuild"
+          KEY_NAME="edamame"
+          KEY_PATH="${KEY_DIR}/${KEY_NAME}.rsa"
+          mkdir -p "$KEY_DIR"
+          if [ ! -f "$KEY_PATH" ]; then
+            abuild-keygen -a -i -n
+            NEW_KEY=$(find "$KEY_DIR" -name "*.rsa" ! -name "${KEY_NAME}.rsa" -type f | sort | tail -n1)
+            if [ -n "$NEW_KEY" ]; then
+              mv "$NEW_KEY" "$KEY_PATH"
+              if [ -f "${NEW_KEY}.pub" ]; then
+                mv "${NEW_KEY}.pub" "${KEY_PATH}.pub"
+              fi
+            fi
+          fi
+          cat > "$KEY_DIR/abuild.conf" <<EOC
+          PACKAGER="EDAMAME Technologies <dev@edamame.tech>"
+          PACKAGER_PRIVKEY=${KEY_PATH}
+          EOC
+          EOF
+          sh "$HOME/.abuild/setup_abuild_key.sh"
           
           # Debug: Show APKBUILD content
           echo "=== APKBUILD content ==="
@@ -363,8 +385,30 @@ jobs:
           # Install awscli
           apk add --no-cache aws-cli alpine-sdk
           
-          # Setup abuild signing key
-          abuild-keygen -a -i -n
+          # Setup abuild signing key (same deterministic key name as APK build step)
+          cat > "$HOME/.abuild/setup_abuild_key.sh" <<'EOF'
+          #!/bin/sh
+          set -e
+          KEY_DIR="$HOME/.abuild"
+          KEY_NAME="edamame"
+          KEY_PATH="${KEY_DIR}/${KEY_NAME}.rsa"
+          mkdir -p "$KEY_DIR"
+          if [ ! -f "$KEY_PATH" ]; then
+            abuild-keygen -a -i -n
+            NEW_KEY=$(find "$KEY_DIR" -name "*.rsa" ! -name "${KEY_NAME}.rsa" -type f | sort | tail -n1)
+            if [ -n "$NEW_KEY" ]; then
+              mv "$NEW_KEY" "$KEY_PATH"
+              if [ -f "${NEW_KEY}.pub" ]; then
+                mv "${NEW_KEY}.pub" "${KEY_PATH}.pub"
+              fi
+            fi
+          fi
+          cat > "$KEY_DIR/abuild.conf" <<EOC
+          PACKAGER="EDAMAME Technologies <dev@edamame.tech>"
+          PACKAGER_PRIVKEY=${KEY_PATH}
+          EOC
+          EOF
+          sh "$HOME/.abuild/setup_abuild_key.sh"
           
           # Setup Alpine repo structure in S3 (component "main")
           REPO_BASE_PATH="repo/alpine/v3.15"
@@ -402,14 +446,13 @@ jobs:
           fi
           
           # Generate APKINDEX from all packages
-          # Use --allow-untrusted because packages may be signed with different keys
           echo "Generating APKINDEX for all $PKG_COUNT packages..."
-          apk index --allow-untrusted -o APKINDEX.unsigned.tar.gz *.apk
+          apk index o APKINDEX.unsigned.tar.gz *.apk
           
           # Sign the index
           echo "Signing APKINDEX..."
           # Find the RSA key file
-          RSA_KEY=$(find ~/.abuild -name "*.rsa" -type f | head -1)
+          RSA_KEY="$HOME/.abuild/edamame.rsa"
           echo "Using RSA key: $RSA_KEY"
           
           if [ -z "$RSA_KEY" ] || [ ! -f "$RSA_KEY" ]; then
@@ -439,7 +482,7 @@ jobs:
           
           # Upload public key
           echo "Uploading public key to S3..."
-          PUB_KEY=$(find ~/.abuild -name "*.rsa.pub" -type f | head -1)
+          PUB_KEY="$HOME/.abuild/edamame.rsa.pub"
           echo "Using public key: $PUB_KEY"
           
           if [ -z "$PUB_KEY" ] || [ ! -f "$PUB_KEY" ]; then
