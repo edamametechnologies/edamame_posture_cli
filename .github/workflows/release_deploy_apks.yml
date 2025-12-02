@@ -42,13 +42,8 @@ jobs:
       EDAMAME_CLIENT_CA_PEM: ${{ secrets.EDAMAME_CLIENT_CA_PEM }}
       LAMBDA_SIGNATURE: ${{ secrets.LAMBDA_SIGNATURE }}
       MIXPANEL_TOKEN: ${{ secrets.MIXPANEL_TOKEN }}
-      APPLE_APPSTORE_CONNECT_API_ISSUER_ID: ${{ secrets.APPLE_APPSTORE_CONNECT_API_ISSUER_ID }}
-      APPLE_APPSTORE_CONNECT_API_KEY_ID: ${{ secrets.APPLE_APPSTORE_CONNECT_API_KEY_ID }}
-      APPLE_APPSTORE_CONNECT_API_KEY: ${{ secrets.APPLE_APPSTORE_CONNECT_API_KEY }}
-      MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.DEV_GITHUB_TOKEN_B64 }}
-      MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
-      # Required for cross to not show warnings and fail
-      CROSS_NO_WARNINGS: 0
+      ABUILD_PRIVATE_KEY_B64: ${{ secrets.ABUILD_PRIVATE_KEY_B64 }}
+      ABUILD_PUBLIC_KEY_B64: ${{ secrets.ABUILD_PUBLIC_KEY_B64 }}
 
     steps:
 
@@ -66,12 +61,6 @@ jobs:
           token: ${{ secrets.DEV_GITHUB_TOKEN }}
           wait_for_api: true
           wait_for_https: true
-
-      - name: Configure Git Authentication to import private crates
-        run: |
-          git config --global user.email "dev@edamame.tech"
-          git config --global user.name "EDAMAME Dev"
-          git config --global url."https://edamamedev:${{ secrets.DEV_GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
 
       ############################################################################################
       # Setup
@@ -144,7 +133,6 @@ jobs:
 
       # Build application for Linux musl
       - name: Build application for Linux musl
-        if: matrix.os == 'ubuntu' && matrix.target == 'x86_64-unknown-linux-musl' || matrix.target == 'aarch64-unknown-linux-musl'
         run: |
           rustup target add ${{ matrix.target }}
           cargo build --release --target ${{ matrix.target }}
@@ -154,7 +142,6 @@ jobs:
 
       # Build application in debug mode for Linux musl
       - name: Build application in debug mode for Linux musl
-        if: matrix.os == 'ubuntu' && matrix.target == 'x86_64-unknown-linux-musl' || matrix.target == 'aarch64-unknown-linux-musl'
         run: |
           rustup target add ${{ matrix.target }}
           cargo build --target ${{ matrix.target }}
@@ -164,7 +151,6 @@ jobs:
 
       # Package Alpine APK
       - name: Package Alpine APK
-        if: matrix.os == 'ubuntu' && matrix.target == 'x86_64-unknown-linux-musl' || matrix.target == 'aarch64-unknown-linux-musl'
         run: |
           # Install alpine-sdk for apk building tools
           apk add --no-cache alpine-sdk sudo
@@ -231,7 +217,11 @@ jobs:
           PUB_PATH="${KEY_PATH}.pub"
           KEY_TARGET="/etc/apk/keys/${KEY_NAME}.rsa.pub"
           mkdir -p "$KEY_DIR"
-          if [ ! -f "$KEY_PATH" ]; then
+          if [ -n "$ABUILD_PRIVATE_KEY_B64" ] && [ -n "$ABUILD_PUBLIC_KEY_B64" ]; then
+            echo "$ABUILD_PRIVATE_KEY_B64" | base64 -d > "$KEY_PATH"
+            chmod 600 "$KEY_PATH"
+            echo "$ABUILD_PUBLIC_KEY_B64" | base64 -d > "$PUB_PATH"
+          elif [ ! -f "$KEY_PATH" ]; then
             abuild-keygen -a -i -n
             NEW_KEY=$(find "$KEY_DIR" -name "*.rsa" ! -name "${KEY_NAME}.rsa" -type f | sort | tail -n1)
             if [ -n "$NEW_KEY" ]; then
@@ -241,9 +231,11 @@ jobs:
               fi
             fi
           fi
-          if [ -f "$PUB_PATH" ]; then
-            install -Dm644 "$PUB_PATH" "$KEY_TARGET"
+          if [ ! -f "$PUB_PATH" ]; then
+            echo "ERROR: abuild public key not available" >&2
+            exit 1
           fi
+          install -Dm644 "$PUB_PATH" "$KEY_TARGET"
           cat > "$KEY_DIR/abuild.conf" <<EOC
           PACKAGER="EDAMAME Technologies <dev@edamame.tech>"
           PACKAGER_PRIVKEY=${KEY_PATH}
@@ -402,7 +394,11 @@ jobs:
           PUB_PATH="${KEY_PATH}.pub"
           KEY_TARGET="/etc/apk/keys/${KEY_NAME}.rsa.pub"
           mkdir -p "$KEY_DIR"
-          if [ ! -f "$KEY_PATH" ]; then
+          if [ -n "$ABUILD_PRIVATE_KEY_B64" ] && [ -n "$ABUILD_PUBLIC_KEY_B64" ]; then
+            echo "$ABUILD_PRIVATE_KEY_B64" | base64 -d > "$KEY_PATH"
+            chmod 600 "$KEY_PATH"
+            echo "$ABUILD_PUBLIC_KEY_B64" | base64 -d > "$PUB_PATH"
+          elif [ ! -f "$KEY_PATH" ]; then
             abuild-keygen -a -i -n
             NEW_KEY=$(find "$KEY_DIR" -name "*.rsa" ! -name "${KEY_NAME}.rsa" -type f | sort | tail -n1)
             if [ -n "$NEW_KEY" ]; then
@@ -412,9 +408,11 @@ jobs:
               fi
             fi
           fi
-          if [ -f "$PUB_PATH" ]; then
-            install -Dm644 "$PUB_PATH" "$KEY_TARGET"
+          if [ ! -f "$PUB_PATH" ]; then
+            echo "ERROR: abuild public key not available" >&2
+            exit 1
           fi
+          install -Dm644 "$PUB_PATH" "$KEY_TARGET"
           cat > "$KEY_DIR/abuild.conf" <<EOC
           PACKAGER="EDAMAME Technologies <dev@edamame.tech>"
           PACKAGER_PRIVKEY=${KEY_PATH}

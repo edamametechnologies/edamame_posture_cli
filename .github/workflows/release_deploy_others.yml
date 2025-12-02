@@ -48,8 +48,6 @@ jobs:
       APPLE_APPSTORE_CONNECT_API_KEY: ${{ secrets.APPLE_APPSTORE_CONNECT_API_KEY }}
       MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.DEV_GITHUB_TOKEN_B64 }}
       MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
-      # Required for cross to not show warnings and fail
-      CROSS_NO_WARNINGS: 0
 
     steps:
 
@@ -100,15 +98,14 @@ jobs:
           if (-not (dotnet tool list --global | Select-String -Pattern "AzureSignTool")) {
             dotnet tool install --global AzureSignTool
           }
-          
-      # Configure Git Authentication to import private crates (within the VM)
-      - name: Configure Git Authentication to import private crates
-        run: |
-          git config --global user.email "dev@edamame.tech"
-          git config --global user.name "EDAMAME Dev"
-          git config --global url."https://edamamedev:${{ secrets.DEV_GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
-        shell: alpine.sh {0}
 
+      # Install Rust
+      - name: Install Rust
+        if: matrix.os == 'windows'
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+          
       ############################################################################################
       # Build
       ############################################################################################
