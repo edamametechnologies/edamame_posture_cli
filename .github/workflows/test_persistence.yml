@@ -72,6 +72,7 @@ jobs:
             perl \
             flex \
             bison
+        shell: alpine.sh --root {0}
 
       - name: Use the local universal install script - step 1
         run: |
