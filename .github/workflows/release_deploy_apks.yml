@@ -228,6 +228,8 @@ jobs:
           KEY_DIR="$HOME/.abuild"
           KEY_NAME="edamame"
           KEY_PATH="${KEY_DIR}/${KEY_NAME}.rsa"
+          PUB_PATH="${KEY_PATH}.pub"
+          KEY_TARGET="/etc/apk/keys/${KEY_NAME}.rsa.pub"
           mkdir -p "$KEY_DIR"
           if [ ! -f "$KEY_PATH" ]; then
             abuild-keygen -a -i -n
@@ -238,6 +240,9 @@ jobs:
                 mv "${NEW_KEY}.pub" "${KEY_PATH}.pub"
               fi
             fi
+          fi
+          if [ -f "$PUB_PATH" ]; then
+            install -Dm644 "$PUB_PATH" "$KEY_TARGET"
           fi
           cat > "$KEY_DIR/abuild.conf" <<EOC
           PACKAGER="EDAMAME Technologies <dev@edamame.tech>"
@@ -394,6 +399,8 @@ jobs:
           KEY_DIR="$HOME/.abuild"
           KEY_NAME="edamame"
           KEY_PATH="${KEY_DIR}/${KEY_NAME}.rsa"
+          PUB_PATH="${KEY_PATH}.pub"
+          KEY_TARGET="/etc/apk/keys/${KEY_NAME}.rsa.pub"
           mkdir -p "$KEY_DIR"
           if [ ! -f "$KEY_PATH" ]; then
             abuild-keygen -a -i -n
@@ -404,6 +411,9 @@ jobs:
                 mv "${NEW_KEY}.pub" "${KEY_PATH}.pub"
               fi
             fi
+          fi
+          if [ -f "$PUB_PATH" ]; then
+            install -Dm644 "$PUB_PATH" "$KEY_TARGET"
           fi
           cat > "$KEY_DIR/abuild.conf" <<EOC
           PACKAGER="EDAMAME Technologies <dev@edamame.tech>"
