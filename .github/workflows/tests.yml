@@ -465,26 +465,6 @@ jobs:
         shell: alpine.sh --root {0}
 
       # We need to setup edamame_posture outside of the Alpine VM as otherwise IP address detection will fail and access will not be granted
-      #- name: Setup EDAMAME Posture
-      #  run: |
-      #    # Install bash and sudo first
-      #    apk add --no-cache bash sudo
-      #    # Download edamame_posture for MUSL
-      #    wget https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/refs/heads/main/linux/edamame_setup.sh -O ./edamame_setup.sh
-      #    chmod +x ./edamame_setup.sh
-      #    # Use bash to run the script
-      #   bash ./edamame_setup.sh ${{ vars.EDAMAME_POSTURE_USER }} ${{ vars.EDAMAME_POSTURE_DOMAIN }} ${{ secrets.EDAMAME_POSTURE_PIN }} ${{ github.run_id }}-alpine-${{ matrix.arch }}
-      #  shell: alpine.sh --root {0}
-
-      - name: Use the local universal install script as a test
-        shell: bash
-        run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh | sh -s -- \
-          --user ${{ vars.EDAMAME_POSTURE_USER }} \
-          --domain ${{ vars.EDAMAME_POSTURE_DOMAIN }} \
-          --pin ${{ secrets.EDAMAME_POSTURE_PIN }}
-
-      # Setup EDAMAME Posture in host environment
       - name: Setup EDAMAME Posture
         uses: edamametechnologies/edamame_posture_action@v0
         with:
@@ -498,6 +478,14 @@ jobs:
           token: ${{ secrets.DEV_GITHUB_TOKEN }}
           wait_for_api: true
           wait_for_https: true
+
+      - name: Use the local universal install script as a test but in Alpine VM (not in the host environment) so that we test the apk installation
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh | sh -s -- \
+          --user ${{ vars.EDAMAME_POSTURE_USER }} \
+          --domain ${{ vars.EDAMAME_POSTURE_DOMAIN }} \
+          --pin ${{ secrets.EDAMAME_POSTURE_PIN }}
+        shell: alpine.sh {0}
 
       # Configure Git Authentication to import private crates in Alpine VM
       - name: Configure Git Authentication to import private crates
