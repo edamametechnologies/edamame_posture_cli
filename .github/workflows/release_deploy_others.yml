@@ -337,6 +337,7 @@ jobs:
           
           # Update Chocolatey Package
           (Get-Content chocolatey/edamame-posture.nuspec) -replace '<version>.*</version>', "<version>${VERSION}</version>" | Set-Content chocolatey/edamame-posture.nuspec
+          (Get-Content chocolatey/tools/chocolateyInstall.ps1) -replace '\$packageVersion = ''.*''', "`$packageVersion = '${VERSION}'" | Set-Content chocolatey/tools/chocolateyInstall.ps1
           (Get-Content chocolatey/tools/chocolateyInstall.ps1) -replace '\$url64 = ''.*''', "`$url64 = 'https://github.com/${{ github.repository }}/releases/download/v${VERSION}/edamame_posture-${VERSION}-x86_64-pc-windows-msvc.exe'" | Set-Content chocolatey/tools/chocolateyInstall.ps1
           (Get-Content chocolatey/tools/chocolateyInstall.ps1) -replace '\$checksum64 = ''.*''', "`$checksum64 = '${SHA_WIN}'" | Set-Content chocolatey/tools/chocolateyInstall.ps1
           
