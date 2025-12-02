@@ -485,7 +485,7 @@ jobs:
           --user ${{ vars.EDAMAME_POSTURE_USER }} \
           --domain ${{ vars.EDAMAME_POSTURE_DOMAIN }} \
           --pin ${{ secrets.EDAMAME_POSTURE_PIN }}
-        shell: alpine.sh {0}
+        shell: alpine.sh --root {0}
 
       # Configure Git Authentication to import private crates in Alpine VM
       - name: Configure Git Authentication to import private crates
