@@ -221,6 +221,7 @@ jobs:
           echo "Files copied successfully"
           
           # Setup abuild with deterministic key name so APKINDEX signatures remain stable
+          mkdir -p "$HOME/.abuild"
           cat > "$HOME/.abuild/setup_abuild_key.sh" <<'EOF'
           #!/bin/sh
           set -e
@@ -386,6 +387,7 @@ jobs:
           apk add --no-cache aws-cli alpine-sdk
           
           # Setup abuild signing key (same deterministic key name as APK build step)
+          mkdir -p "$HOME/.abuild"
           cat > "$HOME/.abuild/setup_abuild_key.sh" <<'EOF'
           #!/bin/sh
           set -e
@@ -447,7 +449,7 @@ jobs:
           
           # Generate APKINDEX from all packages
           echo "Generating APKINDEX for all $PKG_COUNT packages..."
-          apk index o APKINDEX.unsigned.tar.gz *.apk
+          apk index -o APKINDEX.unsigned.tar.gz *.apk
           
           # Sign the index
           echo "Signing APKINDEX..."
