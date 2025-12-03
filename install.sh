@@ -133,6 +133,146 @@ files_have_same_checksum() {
     [ "$checksum_a" = "$checksum_b" ]
 }
 
+get_file_size_bytes() {
+    local file="$1"
+    if [ ! -f "$file" ]; then
+        echo ""
+        return 1
+    fi
+    local size=""
+    if command -v stat >/dev/null 2>&1; then
+        case "$PLATFORM" in
+            macos)
+                size=$(stat -f '%z' "$file" 2>/dev/null || true)
+                ;;
+            *)
+                size=$(stat -c '%s' "$file" 2>/dev/null || true)
+                ;;
+        esac
+    fi
+    if [ -z "$size" ] && command -v wc >/dev/null 2>&1; then
+        size=$(wc -c < "$file" 2>/dev/null | tr -d ' ' || true)
+    fi
+    printf '%s\n' "$size"
+    [ -n "$size" ]
+}
+
+get_file_timestamp() {
+    local file="$1"
+    local type="$2"
+    if [ ! -f "$file" ]; then
+        echo ""
+        return 1
+    fi
+    local ts=""
+    if command -v stat >/dev/null 2>&1; then
+        case "$PLATFORM" in
+            macos)
+                if [ "$type" = "modified" ]; then
+                    ts=$(stat -f '%Sm' -t '%Y-%m-%d %H:%M:%S %z' "$file" 2>/dev/null || true)
+                else
+                    ts=$(stat -f '%SB' -t '%Y-%m-%d %H:%M:%S %z' "$file" 2>/dev/null || true)
+                fi
+                ;;
+            *)
+                if [ "$type" = "modified" ]; then
+                    ts=$(stat -c '%y' "$file" 2>/dev/null || true)
+                else
+                    ts=$(stat -c '%w' "$file" 2>/dev/null || true)
+                    if [ "$ts" = "-" ]; then
+                        ts=""
+                    fi
+                    if [ -z "$ts" ]; then
+                        local epoch=""
+                        epoch=$(stat -c '%W' "$file" 2>/dev/null || true)
+                        if [ -n "$epoch" ] && [ "$epoch" != "-1" ] && [ "$epoch" != "0" ]; then
+                            ts=$(date -d "@$epoch" '+%Y-%m-%d %H:%M:%S %z' 2>/dev/null || true)
+                        fi
+                    fi
+                fi
+                ;;
+        esac
+    fi
+    printf '%s\n' "$ts"
+    [ -n "$ts" ]
+}
+
+log_file_metadata() {
+    local file="$1"
+    local label="$2"
+    local expected_digest="$3"
+    if [ -z "$label" ]; then
+        label="edamame_posture binary"
+    fi
+    if [ ! -f "$file" ]; then
+        warn "Cannot collect metadata for ${label}: file not found at $file"
+        return 1
+    fi
+    local checksum size modified created
+    checksum=$(compute_sha256 "$file" 2>/dev/null || true)
+    size=$(get_file_size_bytes "$file" 2>/dev/null || true)
+    modified=$(get_file_timestamp "$file" "modified" 2>/dev/null || true)
+    created=$(get_file_timestamp "$file" "created" 2>/dev/null || true)
+    info "Binary details (${label}):"
+    info "  path: $file"
+    if [ -n "$size" ]; then
+        info "  size: ${size} bytes"
+    else
+        info "  size: unavailable"
+    fi
+    if [ -n "$checksum" ]; then
+        info "  sha256 (actual): $checksum"
+    else
+        info "  sha256 (actual): unavailable"
+    fi
+    if [ -n "$expected_digest" ]; then
+        info "  sha256 (expected): $expected_digest"
+    fi
+    info "  modified: ${modified:-unavailable}"
+    info "  created: ${created:-unavailable}"
+}
+
+log_core_info_for_binary() {
+    local binary="$1"
+    local label="$2"
+    if [ -z "$label" ]; then
+        label="existing binary"
+    fi
+    if [ ! -x "$binary" ]; then
+        warn "Cannot run get-core-info for ${label}: $binary is not executable."
+        return 1
+    fi
+    info "Collecting 'get-core-info' output for ${label}..."
+    local output status
+    set +e
+    output=$("$binary" get-core-info 2>&1)
+    status=$?
+    set -e
+    if [ $status -ne 0 ] && [ -n "$SUDO" ]; then
+        info "Retrying 'get-core-info' with $SUDO for ${label}..."
+        set +e
+        output=$($SUDO "$binary" get-core-info 2>&1)
+        status=$?
+        set -e
+    fi
+    if [ $status -eq 0 ]; then
+        if [ -n "$output" ]; then
+            printf '%s\n' "$output" | while IFS= read -r line; do
+                info "  $line"
+            done
+        else
+            info "  (no output)"
+        fi
+    else
+        warn "get-core-info failed for ${label} (exit code: $status)."
+        if [ -n "$output" ]; then
+            printf '%s\n' "$output" | while IFS= read -r line; do
+                warn "  $line"
+            done
+        fi
+    fi
+}
+
 REPO_BASE_URL="https://github.com/edamametechnologies/edamame_posture_cli"
 FALLBACK_VERSION="0.9.75"
 LATEST_RELEASE_TAG_PRIMARY=""
@@ -460,6 +600,8 @@ install_binary_release() {
             rm -f "$target_path" || warn "Failed to remove existing binary at $target_path"
         else
             info "Existing binary detected at $target_path; verifying checksum before deciding to reuse."
+            log_file_metadata "$target_path" "existing edamame_posture binary" "$download_digest"
+            log_core_info_for_binary "$target_path" "existing edamame_posture binary"
             existing_binary_mode="verify"
         fi
     fi
@@ -480,8 +622,7 @@ install_binary_release() {
             else
                 local digest_status=$?
                 if [ "$digest_status" -eq 1 ]; then
-                    compare_existing_with_download="false"
-                    info "Existing binary digest differs from release; refreshing binary."
+                    warn "Existing binary checksum does not match release digest; will compare against downloaded binary before replacing."
                 else
                     warn "Unable to verify existing binary against release digest; falling back to download comparison."
                 fi
@@ -531,6 +672,8 @@ install_binary_release() {
             error "Failed to download EDAMAME Posture binary."
         fi
     fi
+
+    log_file_metadata "$tmp_bin" "downloaded ${download_label} binary" "$download_digest"
 
     if [ -n "$download_digest" ]; then
         if check_file_checksum "$tmp_bin" "$download_digest"; then

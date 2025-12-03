@@ -7,8 +7,8 @@ if (Test-Path $fileFullPath) {
     Remove-Item $fileFullPath -Force -ErrorAction SilentlyContinue
 }
 
-# Uninstall-ChocolateyPackage will handle removing the shim
-Uninstall-ChocolateyPackage -PackageName $packageName
+# Remove shim registration
+Uninstall-BinFile -Name $packageName -Path $fileFullPath
 
 
 
