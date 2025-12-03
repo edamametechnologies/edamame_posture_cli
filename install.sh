@@ -110,7 +110,7 @@ compute_sha256() {
         shasum -a 256 "$file" | awk '{print $1}'
         return 0
     elif command -v certutil >/dev/null 2>&1; then
-        certutil -hashfile "$file" SHA256 2>/dev/null | sed -n '2p' | tr -d '\r'
+        certutil -hashfile "$file" SHA256 2>/dev/null | sed -n '2p' | tr -d ' \r' | tr '[:upper:]' '[:lower:]'
         return 0
     fi
     echo ""
@@ -677,7 +677,7 @@ install_binary_release() {
 
     if [ -n "$download_digest" ]; then
         if check_file_checksum "$tmp_bin" "$download_digest"; then
-            info "Release checksum verified for ${download_label} artifact."
+            info "Release checksum verified for downloaded artifact."
         else
             local download_checksum_status=$?
             if [ "$download_checksum_status" -eq 1 ]; then
@@ -708,7 +708,7 @@ install_binary_release() {
             rm -f "$tmp_bin"
             return 0
         fi
-        info "Existing binary differs from release; refreshing with new binary."
+        info "Existing binary differs from downloaded release; refreshing with new binary."
         stop_existing_posture || true
         rm -f "$target_path" || warn "Failed to remove existing binary at $target_path"
     fi
@@ -761,8 +761,11 @@ ci_stop_services() {
 }
 
 write_state_file() {
-    if [ -z "$STATE_FILE" ]; then
+    if [ -z "$STATE_FILE" ] || [ "$STATE_FILE_WRITTEN" = "true" ]; then
         return 0
+    fi
+    if { [ -z "$BINARY_PATH" ] || [ ! -e "$BINARY_PATH" ]; } && command -v edamame_posture >/dev/null 2>&1; then
+        BINARY_PATH=$(command -v edamame_posture 2>/dev/null || true)
     fi
     local state_dir
     state_dir=$(dirname "$STATE_FILE")
@@ -774,6 +777,7 @@ installed_via_package_manager=${INSTALLED_VIA_PACKAGE_MANAGER:-false}
 binary_already_present=${BINARY_ALREADY_PRESENT}
 platform=${PLATFORM}
 EOF
+    STATE_FILE_WRITTEN="true"
 }
 
 install_linux_via_apk() {
@@ -1228,6 +1232,7 @@ ARCH=$(uname -m 2>/dev/null || echo "unknown")
 LINUX_ARCH_NORMALIZED="$ARCH"
 LINUX_LIBC_FLAVOR="gnu"
 STATE_FILE="$CONFIG_STATE_FILE"
+STATE_FILE_WRITTEN="false"
 INSTALL_DIR="$CONFIG_INSTALL_DIR"
 INSTALL_METHOD=""
 INSTALLED_VIA_PACKAGE_MANAGER="false"
@@ -1237,6 +1242,7 @@ BINARY_PATH=""
 if [ -n "$STATE_FILE" ]; then
     info "Installer state will be written to $STATE_FILE"
 fi
+trap 'write_state_file' EXIT
 
 case "$PLATFORM" in
     linux)
@@ -1417,6 +1423,10 @@ else
     info "Installing via direct binary download for $PLATFORM..."
     install_binary_release "$PLATFORM" ""
 fi
+
+# Persist installer state as soon as we have a resolved binary path so that
+# CI jobs can read it even if later best-effort steps fail.
+write_state_file
 
 # Configure service if configuration parameters were provided
 configure_service() {
