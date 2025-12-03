@@ -11,8 +11,90 @@ concurrency:
 permissions: write-all
     
 jobs:
+  test-native:
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Regular OS tests
+          - os: ubuntu
+            runs-on: ubuntu-latest
+            arch: x86_64
+          - os: macos
+            # We can't use macos-latest here because of permissions issues in the network tests
+            runs-on: macos-14
+            arch:
+          - os: windows
+            runs-on: windows-latest
+            arch:
+          - os: ubuntu
+            runs-on: ubuntu-24.04-arm
+            arch: aarch64
+    runs-on: ${{ matrix.runs-on }}
 
-  build:
+    env:
+      # Debug mode
+      EDAMAME_LOG_LEVEL: debug
+
+    steps:
+
+      - name: Use the local universal install script - step 1
+        shell: bash
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh | sh -s -- \
+          --user ${{ vars.EDAMAME_POSTURE_USER }} \
+          --domain ${{ vars.EDAMAME_POSTURE_DOMAIN }} \
+          --pin ${{ secrets.EDAMAME_POSTURE_PIN }}
+          
+      - name: Use the local universal install script - step 2
+        shell: bash
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh | sh -s -- \
+          --user ${{ vars.EDAMAME_POSTURE_USER }} \
+          --domain ${{ vars.EDAMAME_POSTURE_DOMAIN }} \
+          --pin ${{ secrets.EDAMAME_POSTURE_PIN }}
+
+  test-container:
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Container-based tests for older Ubuntu versions
+          - os: ubuntu # Containers always run on ubuntu-latest host
+            runs-on: ubuntu-latest
+            arch: x86_64
+            container_image: ubuntu:20.04
+            container_name: ubuntu-20.04
+          - os: ubuntu # Containers always run on ubuntu-latest host
+            runs-on: ubuntu-latest
+            arch: x86_64
+            container_image: ubuntu:18.04
+            container_name: ubuntu-18.04
+    runs-on: ${{ matrix.runs-on }}
+    container:
+      image: ${{ matrix.container_image }}
+
+    steps:
+
+      - name: Use the local universal install script - step 1
+        shell: bash
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh | sh -s -- \
+          --user ${{ vars.EDAMAME_POSTURE_USER }} \
+          --domain ${{ vars.EDAMAME_POSTURE_DOMAIN }} \
+          --pin ${{ secrets.EDAMAME_POSTURE_PIN }}
+
+      - name: Use the local universal install script - step 2
+        shell: bash
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh | sh -s -- \
+          --user ${{ vars.EDAMAME_POSTURE_USER }} \
+          --domain ${{ vars.EDAMAME_POSTURE_DOMAIN }} \
+          --pin ${{ secrets.EDAMAME_POSTURE_PIN }}
+
+  test-alpine:
     timeout-minutes: 120
     strategy:
       fail-fast: false
@@ -28,34 +110,10 @@ jobs:
             target: aarch64-unknown-linux-musl
     runs-on: ${{ matrix.runs-on }}
 
-    env:
-      EDAMAME_APP_SENTRY: ${{ secrets.EDAMAME_APP_SENTRY }}
-      PWNED_API_KEY: ${{ secrets.PWNED_API_KEY }}
-      EDAMAME_TARGET: ${{ secrets.EDAMAME_TARGET }}
-      EDAMAME_CORE_TARGET: ${{ secrets.EDAMAME_CORE_TARGET }}
-      EDAMAME_CORE_SERVER: ${{ secrets.EDAMAME_CORE_SERVER }}
-      EDAMAME_CA_PEM: ${{ secrets.EDAMAME_CA_PEM }}
-      EDAMAME_CLIENT_PEM: ${{ secrets.EDAMAME_CLIENT_PEM }}
-      EDAMAME_CLIENT_KEY: ${{ secrets.EDAMAME_CLIENT_KEY }}
-      EDAMAME_SERVER_PEM: ${{ secrets.EDAMAME_SERVER_PEM }}
-      EDAMAME_SERVER_KEY: ${{ secrets.EDAMAME_SERVER_KEY }}
-      EDAMAME_CLIENT_CA_PEM: ${{ secrets.EDAMAME_CLIENT_CA_PEM }}
-      LAMBDA_SIGNATURE: ${{ secrets.LAMBDA_SIGNATURE }}
-      MIXPANEL_TOKEN: ${{ secrets.MIXPANEL_TOKEN }}
-      APPLE_APPSTORE_CONNECT_API_ISSUER_ID: ${{ secrets.APPLE_APPSTORE_CONNECT_API_ISSUER_ID }}
-      APPLE_APPSTORE_CONNECT_API_KEY_ID: ${{ secrets.APPLE_APPSTORE_CONNECT_API_KEY_ID }}
-      APPLE_APPSTORE_CONNECT_API_KEY: ${{ secrets.APPLE_APPSTORE_CONNECT_API_KEY }}
-      MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.DEV_GITHUB_TOKEN_B64 }}
-      MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
-      # Required for cross to not show warnings and fail
-      CROSS_NO_WARNINGS: 0
-
     steps:
-
       # Linux musl (using cross is not possible due to libpcap)
       # Setup Alpine Linux
       - name: Setup Alpine Linux
-        if: matrix.os == 'ubuntu' && matrix.target == 'x86_64-unknown-linux-musl' || matrix.target == 'aarch64-unknown-linux-musl'
         uses: jirutka/setup-alpine@v1
         with:
           arch: ${{ matrix.arch }}
@@ -89,5 +147,3 @@ jobs:
           --domain ${{ vars.EDAMAME_POSTURE_DOMAIN }} \
           --pin ${{ secrets.EDAMAME_POSTURE_PIN }}
         shell: alpine.sh --root {0}
-
-
