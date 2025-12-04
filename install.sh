@@ -1472,38 +1472,38 @@ check_existing_installation() {
                 # Check if apt upgrade would upgrade edamame-posture
                 if apt list --upgradable 2>/dev/null | grep -q "edamame-posture"; then
                     info "Newer version available via APT"
-                    needs_upgrade="true"
+                    NEEDS_UPGRADE="true"
                 else
                     info "APT package is up to date"
-                    version_check_passed="true"
+                    VERSION_CHECK_PASSED="true"
                 fi
             elif command -v apk >/dev/null 2>&1; then
                 # For APK, check if upgrade would update the package
                 if apk version edamame-posture 2>/dev/null | grep -q "<"; then
                     info "Newer version available via APK"
-                    needs_upgrade="true"
+                    NEEDS_UPGRADE="true"
                 else
                     info "APK package is up to date"
-                    version_check_passed="true"
+                    VERSION_CHECK_PASSED="true"
                 fi
             fi
         elif [ "$PLATFORM" = "macos" ] && command -v brew >/dev/null 2>&1; then
             # Check if brew has an update
             if brew outdated edamame-posture 2>/dev/null | grep -q "edamame-posture"; then
                 info "Newer version available via Homebrew"
-                needs_upgrade="true"
+                NEEDS_UPGRADE="true"
             else
                 info "Homebrew package is up to date"
-                version_check_passed="true"
+                VERSION_CHECK_PASSED="true"
             fi
         elif [ "$PLATFORM" = "windows" ] && command -v choco >/dev/null 2>&1; then
             # Chocolatey upgrade check
             if choco outdated --limit-output 2>/dev/null | grep -q "^edamame-posture|"; then
                 info "Newer version available via Chocolatey"
-                needs_upgrade="true"
+                NEEDS_UPGRADE="true"
             else
                 info "Chocolatey package is up to date"
-                version_check_passed="true"
+                VERSION_CHECK_PASSED="true"
             fi
         fi
         
@@ -1519,13 +1519,12 @@ check_existing_installation() {
         prepare_binary_artifact "$PLATFORM" "$LINUX_LIBC_FLAVOR"
         
         if [ -n "$ARTIFACT_DIGEST" ]; then
-existing_sha
-            existing_sha=$(compute_sha256 "$EXISTING_BINARY" 2>/dev/null || true)
+            EXISTING_SHA=$(compute_sha256 "$EXISTING_BINARY" 2>/dev/null || true)
             
             if [ -n "$EXISTING_SHA" ]; then
                 if [ "$EXISTING_SHA" = "$ARTIFACT_DIGEST" ]; then
                     info "Binary SHA matches latest release (${ARTIFACT_DIGEST:0:16}...)"
-                    version_check_passed="true"
+                    VERSION_CHECK_PASSED="true"
                 else
                     info "Binary SHA differs from latest release"
                     info "  Existing: ${existing_sha:0:16}..."
@@ -1540,7 +1539,7 @@ existing_sha
         else
             warn "Cannot fetch latest release SHA, will skip version check"
             # If we can't verify, assume it's ok (fail open for version check)
-            version_check_passed="true"
+            VERSION_CHECK_PASSED="true"
         fi
     fi
     
@@ -1565,13 +1564,12 @@ existing_sha
     info "Checking if existing installation matches provided credentials..."
     
     # Try to get status (capture both stdout and stderr)
-status_output status_error status_exit_code
     if [ -n "$SUDO" ]; then
-        status_output=$($SUDO "$EXISTING_BINARY" status 2>&1)
-        status_exit_code=$?
+        STATUS_OUTPUT=$($SUDO "$EXISTING_BINARY" status 2>&1)
+        STATUS_EXIT_CODE=$?
     else
-        status_output=$("$EXISTING_BINARY" status 2>&1)
-        status_exit_code=$?
+        STATUS_OUTPUT=$("$EXISTING_BINARY" status 2>&1)
+        STATUS_EXIT_CODE=$?
     fi
     
     # Check if status command succeeded
@@ -1587,18 +1585,17 @@ status_output status_error status_exit_code
         fi
         
         # Try to verify credentials via config file as fallback (Linux only)
-config_match="false"
+        CONFIG_MATCH="false"
         if [ "$PLATFORM" = "linux" ] && [ -f "/etc/edamame_posture.conf" ]; then
             info "Checking credentials in existing config file..."
-config_user config_domain
-            config_user=$(grep "^edamame_user:" /etc/edamame_posture.conf 2>/dev/null | sed 's/.*: *"\([^"]*\)".*/\1/' || true)
-            config_domain=$(grep "^edamame_domain:" /etc/edamame_posture.conf 2>/dev/null | sed 's/.*: *"\([^"]*\)".*/\1/' || true)
+            CONFIG_USER_RUNNING=$(grep "^edamame_user:" /etc/edamame_posture.conf 2>/dev/null | sed 's/.*: *"\([^"]*\)".*/\1/' || true)
+            CONFIG_DOMAIN_RUNNING=$(grep "^edamame_domain:" /etc/edamame_posture.conf 2>/dev/null | sed 's/.*: *"\([^"]*\)".*/\1/' || true)
             
             if [ -n "$CONFIG_USER_RUNNING" ] && [ -n "$CONFIG_DOMAIN_RUNNING" ]; then
                 if [ "$CONFIG_USER_RUNNING" = "$CONFIG_USER" ] && [ "$CONFIG_DOMAIN_RUNNING" = "$CONFIG_DOMAIN" ]; then
                     info "Config file credentials match provided credentials (user: $CONFIG_USER, domain: $CONFIG_DOMAIN)"
                     info "Service appears to be stopped or not responding, but credentials are correct"
-                    config_match="true"
+                    CONFIG_MATCH="true"
                 else
                     info "Config file credentials differ (user: $CONFIG_USER_RUNNING, domain: $CONFIG_DOMAIN_RUNNING)"
                 fi
@@ -1637,10 +1634,9 @@ config_user config_domain
     fi
     
     # Parse credentials from status
-running_user running_domain is_connected
-    running_user=$(echo "$STATUS_OUTPUT" | grep "Connected user:" | sed 's/.*Connected user: //' | tr -d ' ')
-    running_domain=$(echo "$STATUS_OUTPUT" | grep "Connected domain:" | sed 's/.*Connected domain: //' | tr -d ' ')
-    is_connected=$(echo "$STATUS_OUTPUT" | grep "Is connected:" | sed 's/.*Is connected: //' | tr -d ' ')
+    RUNNING_USER=$(echo "$STATUS_OUTPUT" | grep "Connected user:" | sed 's/.*Connected user: //' | tr -d ' ')
+    RUNNING_DOMAIN=$(echo "$STATUS_OUTPUT" | grep "Connected domain:" | sed 's/.*Connected domain: //' | tr -d ' ')
+    IS_CONNECTED=$(echo "$STATUS_OUTPUT" | grep "Is connected:" | sed 's/.*Is connected: //' | tr -d ' ')
     
     # Check if credentials match
     if [ "$IS_CONNECTED" = "true" ] && [ "$RUNNING_USER" = "$CONFIG_USER" ] && [ "$RUNNING_DOMAIN" = "$CONFIG_DOMAIN" ]; then
