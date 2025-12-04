@@ -110,7 +110,7 @@ compute_sha256() {
         shasum -a 256 "$file" | awk '{print $1}'
         return 0
     elif command -v certutil >/dev/null 2>&1; then
-        certutil -hashfile "$file" SHA256 2>/dev/null | sed -n '2p' | tr -d ' \r' | tr '[:upper:]' '[:lower:]'
+        certutil -hashfile "$file" SHA256 2>/dev/null | sed -n '2p' | tr -d '\r'
         return 0
     fi
     echo ""
@@ -677,7 +677,7 @@ install_binary_release() {
 
     if [ -n "$download_digest" ]; then
         if check_file_checksum "$tmp_bin" "$download_digest"; then
-            info "Release checksum verified for downloaded artifact."
+            info "Release checksum verified for ${download_label} artifact."
         else
             local download_checksum_status=$?
             if [ "$download_checksum_status" -eq 1 ]; then
@@ -708,7 +708,7 @@ install_binary_release() {
             rm -f "$tmp_bin"
             return 0
         fi
-        info "Existing binary differs from downloaded release; refreshing with new binary."
+        info "Existing binary differs from release; refreshing with new binary."
         stop_existing_posture || true
         rm -f "$target_path" || warn "Failed to remove existing binary at $target_path"
     fi
@@ -1424,10 +1424,6 @@ else
     install_binary_release "$PLATFORM" ""
 fi
 
-# Persist installer state as soon as we have a resolved binary path so that
-# CI jobs can read it even if later best-effort steps fail.
-write_state_file
-
 # Configure service if configuration parameters were provided
 configure_service() {
     CONF_FILE="/etc/edamame_posture.conf"
@@ -1532,39 +1528,99 @@ EOF
     
     info "✓ Service configuration updated at $CONF_FILE"
     
-    # Start or restart service
-    info "Starting/restarting EDAMAME Posture service..."
-    
-    case "$ID" in
+    # Check if service is already running with proper credentials
+    SHOULD_RESTART="true"
+    if credentials_provided; then
+        info "Checking if service is already running with proper credentials..."
+        
+        # Check if service is active
+        SERVICE_ACTIVE="false"
+        case "$ID" in
             "alpine")
                 if command -v rc-service >/dev/null 2>&1; then
-                    if command -v rc-update >/dev/null 2>&1; then
-                        if rc-update show default 2>/dev/null | grep -q "edamame_posture"; then
-                            info "EDAMAME Posture already enabled in OpenRC default runlevel"
-                        else
-                            info "Enabling EDAMAME Posture in OpenRC default runlevel..."
-                            $SUDO rc-update add edamame_posture default 2>/dev/null || \
-                                warn "Failed to add service to OpenRC default runlevel"
-                        fi
+                    if rc-service edamame_posture status 2>/dev/null | grep -q "started"; then
+                        SERVICE_ACTIVE="true"
                     fi
-                    $SUDO rc-service edamame_posture restart 2>/dev/null || \
-                    $SUDO rc-service edamame_posture start 2>/dev/null || \
-                    warn "Failed to start service via rc-service"
                 fi
                 ;;
             "ubuntu"|"debian"|"raspbian"|"pop"|"linuxmint"|"elementary"|"zorin")
                 if command -v systemctl >/dev/null 2>&1 && systemd_available; then
-                    $SUDO systemctl daemon-reload 2>/dev/null || true
-                    $SUDO systemctl enable edamame_posture.service 2>/dev/null || true
-                    $SUDO systemctl restart edamame_posture.service 2>/dev/null || \
-                    warn "Failed to restart service. Check: sudo systemctl status edamame_posture"
-                else
-                    warn "systemd is not available in this environment (PID 1: $(ps -p 1 -o comm= 2>/dev/null | tr -d ' ' || echo 'unknown')). Skipping service enablement; start edamame_posture manually if needed."
+                    if systemctl is-active --quiet edamame_posture.service 2>/dev/null; then
+                        SERVICE_ACTIVE="true"
+                    fi
                 fi
                 ;;
         esac
         
-        info "✓ Service started"
+        # If service is active, verify credentials match
+        if [ "$SERVICE_ACTIVE" = "true" ]; then
+            info "Service is active, verifying credentials..."
+            # Wait a moment for service to fully initialize
+            sleep 2
+            
+            # Get status output and parse credentials
+            STATUS_OUTPUT=$($SUDO edamame_posture status 2>/dev/null || true)
+            
+            if [ -n "$STATUS_OUTPUT" ]; then
+                # Extract user and domain from status output
+                RUNNING_USER=$(echo "$STATUS_OUTPUT" | grep "Connected user:" | sed 's/.*Connected user: //' | tr -d ' ')
+                RUNNING_DOMAIN=$(echo "$STATUS_OUTPUT" | grep "Connected domain:" | sed 's/.*Connected domain: //' | tr -d ' ')
+                IS_CONNECTED=$(echo "$STATUS_OUTPUT" | grep "Is connected:" | sed 's/.*Is connected: //' | tr -d ' ')
+                
+                # Check if credentials match
+                if [ "$IS_CONNECTED" = "true" ] && [ "$RUNNING_USER" = "$CONFIG_USER" ] && [ "$RUNNING_DOMAIN" = "$CONFIG_DOMAIN" ]; then
+                    info "Service is running with matching credentials (user: $CONFIG_USER, domain: $CONFIG_DOMAIN), skipping restart"
+                    SHOULD_RESTART="false"
+                elif [ "$IS_CONNECTED" = "true" ]; then
+                    info "Service is running with different credentials (user: $RUNNING_USER, domain: $RUNNING_DOMAIN), will restart"
+                else
+                    info "Service is not connected, will restart"
+                fi
+            else
+                info "Unable to get service status, will restart"
+            fi
+        else
+            info "Service is not active, will start it"
+        fi
+    fi
+    
+    # Start or restart service only if needed
+    if [ "$SHOULD_RESTART" = "true" ]; then
+        info "Starting/restarting EDAMAME Posture service..."
+        
+        case "$ID" in
+                "alpine")
+                    if command -v rc-service >/dev/null 2>&1; then
+                        if command -v rc-update >/dev/null 2>&1; then
+                            if rc-update show default 2>/dev/null | grep -q "edamame_posture"; then
+                                info "EDAMAME Posture already enabled in OpenRC default runlevel"
+                            else
+                                info "Enabling EDAMAME Posture in OpenRC default runlevel..."
+                                $SUDO rc-update add edamame_posture default 2>/dev/null || \
+                                    warn "Failed to add service to OpenRC default runlevel"
+                            fi
+                        fi
+                        $SUDO rc-service edamame_posture restart 2>/dev/null || \
+                        $SUDO rc-service edamame_posture start 2>/dev/null || \
+                        warn "Failed to start service via rc-service"
+                    fi
+                    ;;
+                "ubuntu"|"debian"|"raspbian"|"pop"|"linuxmint"|"elementary"|"zorin")
+                    if command -v systemctl >/dev/null 2>&1 && systemd_available; then
+                        $SUDO systemctl daemon-reload 2>/dev/null || true
+                        $SUDO systemctl enable edamame_posture.service 2>/dev/null || true
+                        $SUDO systemctl restart edamame_posture.service 2>/dev/null || \
+                        warn "Failed to restart service. Check: sudo systemctl status edamame_posture"
+                    else
+                        warn "systemd is not available in this environment (PID 1: $(ps -p 1 -o comm= 2>/dev/null | tr -d ' ' || echo 'unknown')). Skipping service enablement; start edamame_posture manually if needed."
+                    fi
+                    ;;
+            esac
+            
+            info "✓ Service started"
+    else
+        info "✓ Service already running with valid credentials"
+    fi
         
         # Show service status
         case "$ID" in
