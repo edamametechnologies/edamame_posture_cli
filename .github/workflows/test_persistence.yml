@@ -77,20 +77,28 @@ jobs:
           MAX_ATTEMPTS=6
           ATTEMPT=1
           while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
-            if "$BINARY" status; then
+            STATUS=$("$BINARY" status 2>&1) | grep -q "connected: true"; then 
+            if echo "$STATUS" | grep -q "connected: true"; then
               echo "Daemon is running and connected"
+              echo "Status output:"
+              echo "$STATUS" | while IFS= read -r line; do
+                echo "  $line"
+              done
               break
+            else
+              echo "Daemon is not running or not connected"
+              echo "Status output:"
+              echo "$STATUS" | while IFS= read -r line; do
+                echo "  $line"
+              done
             fi
-            
-            if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
-              echo "Daemon status check failed after $ATTEMPT attempts"
-              exit 1
-            fi
-            
-            echo "Daemon not ready yet (attempt $ATTEMPT/$MAX_ATTEMPTS). Sleeping 5 seconds..."
             ATTEMPT=$((ATTEMPT + 1))
             sleep 5
           done
+          if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
+            echo "Daemon status check failed after $ATTEMPT attempts"
+            exit 1
+          fi
 
       - name: Use the local universal install script - step 2
         shell: bash
@@ -120,21 +128,8 @@ jobs:
           fi
           
           echo "Found binary at: $BINARY"
-          
-          # For APT/APK installs, check if daemon is running
-          # For Homebrew/Chocolatey/binary, daemon auto-start is skipped (GitHub Action handles it)
-          if [ -f "/etc/edamame_posture.conf" ]; then
-            echo "APT/APK installation detected - checking if daemon is running"
-            "$BINARY" status
-            if [ $? -ne 0 ]; then
-              echo "Daemon not running (expected to be started by package postinst)"
-              exit 1
-            fi
-            echo "Daemon is running and connected"
-          else
-            echo "Binary/Homebrew/Choco installation - daemon auto-start is skipped"
-            echo "This is expected - GitHub Action will start daemon explicitly"
-          fi
+          $BINARY status
+
 
   test-native-binary-only:
     timeout-minutes: 120
@@ -164,15 +159,6 @@ jobs:
 
     steps:
 
-      - name: Use the local universal install script - step 1 (binary only)
-        shell: bash
-        run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh | sh -s -- \
-          --user ${{ vars.EDAMAME_POSTURE_USER }} \
-          --domain ${{ vars.EDAMAME_POSTURE_DOMAIN }} \
-          --pin ${{ secrets.EDAMAME_POSTURE_PIN }} \
-          --force-binary
-          
       - name: Check if the daemon is running
         shell: bash
         run: |
@@ -193,21 +179,7 @@ jobs:
           fi
           
           echo "Found binary at: $BINARY"
-          
-          # For APT/APK installs, check if daemon is running
-          # For Homebrew/Chocolatey/binary, daemon auto-start is skipped (GitHub Action handles it)
-          if [ -f "/etc/edamame_posture.conf" ]; then
-            echo "APT/APK installation detected - checking if daemon is running"
-            "$BINARY" status
-            if [ $? -ne 0 ]; then
-              echo "Daemon not running (expected to be started by package postinst)"
-              exit 1
-            fi
-            echo "Daemon is running and connected"
-          else
-            echo "Binary/Homebrew/Choco installation - daemon auto-start is skipped"
-            echo "This is expected - GitHub Action will start daemon explicitly"
-          fi
+          $BINARY status
 
       - name: Use the local universal install script - step 2 (binary only)
         shell: bash
@@ -238,21 +210,7 @@ jobs:
           fi
           
           echo "Found binary at: $BINARY"
-          
-          # For APT/APK installs, check if daemon is running
-          # For Homebrew/Chocolatey/binary, daemon auto-start is skipped (GitHub Action handles it)
-          if [ -f "/etc/edamame_posture.conf" ]; then
-            echo "APT/APK installation detected - checking if daemon is running"
-            "$BINARY" status
-            if [ $? -ne 0 ]; then
-              echo "Daemon not running (expected to be started by package postinst)"
-              exit 1
-            fi
-            echo "Daemon is running and connected"
-          else
-            echo "Binary/Homebrew/Choco installation - daemon auto-start is skipped"
-            echo "This is expected - GitHub Action will start daemon explicitly"
-          fi
+          $BINARY status
 
   test-container:
     timeout-minutes: 90
@@ -311,21 +269,7 @@ jobs:
           fi
           
           echo "Found binary at: $BINARY"
-          
-          # For APT/APK installs, check if daemon is running
-          # For Homebrew/Chocolatey/binary, daemon auto-start is skipped (GitHub Action handles it)
-          if [ -f "/etc/edamame_posture.conf" ]; then
-            echo "APT/APK installation detected - checking if daemon is running"
-            "$BINARY" status
-            if [ $? -ne 0 ]; then
-              echo "Daemon not running (expected to be started by package postinst)"
-              exit 1
-            fi
-            echo "Daemon is running and connected"
-          else
-            echo "Binary/Homebrew/Choco installation - daemon auto-start is skipped"
-            echo "This is expected - GitHub Action will start daemon explicitly"
-          fi
+          $BINARY status
 
       - name: Use the local universal install script - step 2
         shell: bash
@@ -355,21 +299,7 @@ jobs:
           fi
           
           echo "Found binary at: $BINARY"
-          
-          # For APT/APK installs, check if daemon is running
-          # For Homebrew/Chocolatey/binary, daemon auto-start is skipped (GitHub Action handles it)
-          if [ -f "/etc/edamame_posture.conf" ]; then
-            echo "APT/APK installation detected - checking if daemon is running"
-            "$BINARY" status
-            if [ $? -ne 0 ]; then
-              echo "Daemon not running (expected to be started by package postinst)"
-              exit 1
-            fi
-            echo "Daemon is running and connected"
-          else
-            echo "Binary/Homebrew/Choco installation - daemon auto-start is skipped"
-            echo "This is expected - GitHub Action will start daemon explicitly"
-          fi
+          $BINARY status
 
   test-alpine:
     timeout-minutes: 120
@@ -424,25 +354,24 @@ jobs:
 
       - name: Check if the daemon is running
         run: |
-          # Wait for daemon to start (Alpine OpenRC might be slow)
-          MAX_ATTEMPTS=6
-          ATTEMPT=1
-          while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
-            if edamame_posture status >/dev/null 2>&1; then
-              echo "Daemon is running"
-              exit 0
-            fi
-            echo "Daemon not ready yet (attempt $ATTEMPT/$MAX_ATTEMPTS). Sleeping 5 seconds..."
-            ATTEMPT=$((ATTEMPT + 1))
-            sleep 5
-          done
+          # Locate the binary
+          if command -v edamame_posture >/dev/null 2>&1; then
+            BINARY="edamame_posture"
+          elif [ -f "/usr/bin/edamame_posture" ]; then
+            BINARY="/usr/bin/edamame_posture"
+          elif [ -f "/usr/local/bin/edamame_posture" ]; then
+            BINARY="/usr/local/bin/edamame_posture"
+          elif [ -f "$HOME/edamame_posture" ]; then
+            BINARY="$HOME/edamame_posture"
+          elif [ -f "$HOME/edamame_posture.exe" ]; then
+            BINARY="$HOME/edamame_posture.exe"
+          else
+            echo "ERROR: edamame_posture binary not found"
+            exit 127
+          fi
           
-          echo "Daemon is not running after $MAX_ATTEMPTS attempts"
-          # Print service status for debugging
-          rc-service edamame_posture status || true
-          cat /var/log/edamame_posture.log || true
-          cat /var/log/edamame_posture.err || true
-          exit 1
+          echo "Found binary at: $BINARY"
+          $BINARY status
         shell: alpine.sh --root {0}
 
       - name: Use the local universal install script - step 2
@@ -455,23 +384,22 @@ jobs:
 
       - name: Check if the daemon is running
         run: |
-          # Wait for daemon to start (Alpine OpenRC might be slow)
-          MAX_ATTEMPTS=6
-          ATTEMPT=1
-          while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
-            if edamame_posture status >/dev/null 2>&1; then
-              echo "Daemon is running"
-              exit 0
-            fi
-            echo "Daemon not ready yet (attempt $ATTEMPT/$MAX_ATTEMPTS). Sleeping 5 seconds..."
-            ATTEMPT=$((ATTEMPT + 1))
-            sleep 5
-          done
+          # Locate the binary
+          if command -v edamame_posture >/dev/null 2>&1; then
+            BINARY="edamame_posture"
+          elif [ -f "/usr/bin/edamame_posture" ]; then
+            BINARY="/usr/bin/edamame_posture"
+          elif [ -f "/usr/local/bin/edamame_posture" ]; then
+            BINARY="/usr/local/bin/edamame_posture"
+          elif [ -f "$HOME/edamame_posture" ]; then
+            BINARY="$HOME/edamame_posture"
+          elif [ -f "$HOME/edamame_posture.exe" ]; then
+            BINARY="$HOME/edamame_posture.exe"
+          else
+            echo "ERROR: edamame_posture binary not found"
+            exit 127
+          fi
           
-          echo "Daemon is not running after $MAX_ATTEMPTS attempts"
-          # Print service status for debugging
-          rc-service edamame_posture status || true
-          cat /var/log/edamame_posture.log || true
-          cat /var/log/edamame_posture.err || true
-          exit 1
+          echo "Found binary at: $BINARY"
+          $BINARY status
         shell: alpine.sh --root {0}
