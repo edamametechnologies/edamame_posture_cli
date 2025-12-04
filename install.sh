@@ -2068,56 +2068,15 @@ if [ "$SHOULD_START_DAEMON" = "true" ]; then
         fi
     fi
     
-    # Build complete command (POSIX-compliant)
+    # Start daemon in background
+    # Note: Binary installs don't have config files, so we pass everything as CLI args
     info "Starting daemon in background..."
     
-    # Build argument string for binary installs
-    DAEMON_ARGS=""
-    if [ -n "$CONFIG_DEVICE_ID" ]; then
-        DAEMON_ARGS="$DAEMON_ARGS --device-id $CONFIG_DEVICE_ID"
-    fi
-    if [ "$CONFIG_START_LANSCAN" = "true" ]; then
-        DAEMON_ARGS="$DAEMON_ARGS --network-scan"
-    fi
-    if [ "$CONFIG_START_CAPTURE" = "true" ]; then
-        DAEMON_ARGS="$DAEMON_ARGS --packet-capture"
-    fi
-    if [ -n "$CONFIG_WHITELIST" ]; then
-        DAEMON_ARGS="$DAEMON_ARGS --whitelist $CONFIG_WHITELIST"
-    fi
-    if [ "$CONFIG_FAIL_ON_WHITELIST" = "true" ]; then
-        DAEMON_ARGS="$DAEMON_ARGS --fail-on-whitelist"
-    fi
-    if [ "$CONFIG_FAIL_ON_BLACKLIST" = "true" ]; then
-        DAEMON_ARGS="$DAEMON_ARGS --fail-on-blacklist"
-    fi
-    if [ "$CONFIG_FAIL_ON_ANOMALOUS" = "true" ]; then
-        DAEMON_ARGS="$DAEMON_ARGS --fail-on-anomalous"
-    fi
-    if [ "$CONFIG_CANCEL_ON_VIOLATION" = "true" ]; then
-        DAEMON_ARGS="$DAEMON_ARGS --cancel-on-violation"
-    fi
-    if [ "$CONFIG_INCLUDE_LOCAL_TRAFFIC" = "true" ]; then
-        DAEMON_ARGS="$DAEMON_ARGS --include-local-traffic"
-    fi
-    
-    # Add agentic flags if configured
-    if [ "$CONFIG_AGENTIC_MODE" != "disabled" ]; then
-        DAEMON_ARGS="$DAEMON_ARGS --agentic-mode $CONFIG_AGENTIC_MODE"
-        if [ -n "$AGENTIC_PROVIDER_FLAG" ]; then
-            DAEMON_ARGS="$DAEMON_ARGS $AGENTIC_PROVIDER_FLAG"
-        fi
-        if [ -n "$CONFIG_AGENTIC_INTERVAL" ] && [ "$CONFIG_AGENTIC_INTERVAL" != "3600" ]; then
-            DAEMON_ARGS="$DAEMON_ARGS --agentic-interval $CONFIG_AGENTIC_INTERVAL"
-        fi
-    fi
-    
-    # Execute with eval (needed for proper argument parsing)
-    if [ -n "$SUDO" ]; then
-        eval "$SUDO \"$RESOLVED_BINARY_PATH\" start --user \"$CONFIG_USER\" --domain \"$CONFIG_DOMAIN\" --pin \"$CONFIG_PIN\" $DAEMON_ARGS" >/dev/null 2>&1 &
-    else
-        eval "\"$RESOLVED_BINARY_PATH\" start --user \"$CONFIG_USER\" --domain \"$CONFIG_DOMAIN\" --pin \"$CONFIG_PIN\" $DAEMON_ARGS" >/dev/null 2>&1 &
-    fi
+    # For binary/Homebrew/Choco installs, skip daemon auto-start
+    # The GitHub Action will handle daemon lifecycle explicitly
+    # For standalone usage, users can manually start with: edamame_posture start --user ... --domain ... --pin ...
+    info "Note: Daemon auto-start skipped for binary/Homebrew/Chocolatey installations"
+    info "The daemon will be started by the GitHub Action or manually by the user"
     
     info "✓ Background daemon started"
     
