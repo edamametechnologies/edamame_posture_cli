@@ -232,9 +232,10 @@ jobs:
 
       - name: Upload .deb files to S3
         if: github.ref == 'refs/heads/main'
-        run: |
+        env:
           GPG_PRIVATE_KEY_B64: ${{ secrets.GPG_PRIVATE_KEY_B64 }}
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+        run: | 
           # Create GPG directory
           mkdir -p ~/.gnupg
           chmod 700 ~/.gnupg
