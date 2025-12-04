@@ -2015,55 +2015,55 @@ if [ "$INSTALLED_VIA_PACKAGE_MANAGER" = "false" ] && credentials_provided && [ "
         fi
     fi
     
-    # Build complete command (POSIX-compliant, avoid eval)
+    # Build complete command (POSIX-compliant)
     info "Starting daemon in background..."
     
-    # Use a function to build and execute the command safely
-    start_daemon() {
-        local binary="$1"
-        shift
-        
-        "$binary" start \
-            --user "$CONFIG_USER" \
-            --domain "$CONFIG_DOMAIN" \
-            --pin "$CONFIG_PIN" \
-            "$@" >/dev/null 2>&1 &
-    }
-    
-    # Build argument list
-    set -- # Clear positional parameters
-    [ -n "$CONFIG_DEVICE_ID" ] && set -- "$@" --device-id "$CONFIG_DEVICE_ID"
-    [ "$CONFIG_START_LANSCAN" = "true" ] && set -- "$@" --network-scan
-    [ "$CONFIG_START_CAPTURE" = "true" ] && set -- "$@" --packet-capture
-    [ -n "$CONFIG_WHITELIST" ] && set -- "$@" --whitelist "$CONFIG_WHITELIST"
-    [ "$CONFIG_FAIL_ON_WHITELIST" = "true" ] && set -- "$@" --fail-on-whitelist
-    [ "$CONFIG_FAIL_ON_BLACKLIST" = "true" ] && set -- "$@" --fail-on-blacklist
-    [ "$CONFIG_FAIL_ON_ANOMALOUS" = "true" ] && set -- "$@" --fail-on-anomalous
-    [ "$CONFIG_CANCEL_ON_VIOLATION" = "true" ] && set -- "$@" --cancel-on-violation
-    [ "$CONFIG_INCLUDE_LOCAL_TRAFFIC" = "true" ] && set -- "$@" --include-local-traffic
+    # Build argument string for binary installs
+    DAEMON_ARGS=""
+    if [ -n "$CONFIG_DEVICE_ID" ]; then
+        DAEMON_ARGS="$DAEMON_ARGS --device-id $CONFIG_DEVICE_ID"
+    fi
+    if [ "$CONFIG_START_LANSCAN" = "true" ]; then
+        DAEMON_ARGS="$DAEMON_ARGS --network-scan"
+    fi
+    if [ "$CONFIG_START_CAPTURE" = "true" ]; then
+        DAEMON_ARGS="$DAEMON_ARGS --packet-capture"
+    fi
+    if [ -n "$CONFIG_WHITELIST" ]; then
+        DAEMON_ARGS="$DAEMON_ARGS --whitelist $CONFIG_WHITELIST"
+    fi
+    if [ "$CONFIG_FAIL_ON_WHITELIST" = "true" ]; then
+        DAEMON_ARGS="$DAEMON_ARGS --fail-on-whitelist"
+    fi
+    if [ "$CONFIG_FAIL_ON_BLACKLIST" = "true" ]; then
+        DAEMON_ARGS="$DAEMON_ARGS --fail-on-blacklist"
+    fi
+    if [ "$CONFIG_FAIL_ON_ANOMALOUS" = "true" ]; then
+        DAEMON_ARGS="$DAEMON_ARGS --fail-on-anomalous"
+    fi
+    if [ "$CONFIG_CANCEL_ON_VIOLATION" = "true" ]; then
+        DAEMON_ARGS="$DAEMON_ARGS --cancel-on-violation"
+    fi
+    if [ "$CONFIG_INCLUDE_LOCAL_TRAFFIC" = "true" ]; then
+        DAEMON_ARGS="$DAEMON_ARGS --include-local-traffic"
+    fi
     
     # Add agentic flags if configured
     if [ "$CONFIG_AGENTIC_MODE" != "disabled" ]; then
-        set -- "$@" --agentic-mode "$CONFIG_AGENTIC_MODE"
-        [ -n "$AGENTIC_PROVIDER_FLAG" ] && set -- "$@" $AGENTIC_PROVIDER_FLAG
+        DAEMON_ARGS="$DAEMON_ARGS --agentic-mode $CONFIG_AGENTIC_MODE"
+        if [ -n "$AGENTIC_PROVIDER_FLAG" ]; then
+            DAEMON_ARGS="$DAEMON_ARGS $AGENTIC_PROVIDER_FLAG"
+        fi
         if [ -n "$CONFIG_AGENTIC_INTERVAL" ] && [ "$CONFIG_AGENTIC_INTERVAL" != "3600" ]; then
-            set -- "$@" --agentic-interval "$CONFIG_AGENTIC_INTERVAL"
+            DAEMON_ARGS="$DAEMON_ARGS --agentic-interval $CONFIG_AGENTIC_INTERVAL"
         fi
     fi
     
-    # Execute with or without sudo
+    # Execute with eval (needed for proper argument parsing)
     if [ -n "$SUDO" ]; then
-        $SUDO "$RESOLVED_BINARY_PATH" start \
-            --user "$CONFIG_USER" \
-            --domain "$CONFIG_DOMAIN" \
-            --pin "$CONFIG_PIN" \
-            "$@" >/dev/null 2>&1 &
+        eval "$SUDO \"$RESOLVED_BINARY_PATH\" start --user \"$CONFIG_USER\" --domain \"$CONFIG_DOMAIN\" --pin \"$CONFIG_PIN\" $DAEMON_ARGS" >/dev/null 2>&1 &
     else
-        "$RESOLVED_BINARY_PATH" start \
-            --user "$CONFIG_USER" \
-            --domain "$CONFIG_DOMAIN" \
-            --pin "$CONFIG_PIN" \
-            "$@" >/dev/null 2>&1 &
+        eval "\"$RESOLVED_BINARY_PATH\" start --user \"$CONFIG_USER\" --domain \"$CONFIG_DOMAIN\" --pin \"$CONFIG_PIN\" $DAEMON_ARGS" >/dev/null 2>&1 &
     fi
     
     info "✓ Background daemon started"

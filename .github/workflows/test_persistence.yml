@@ -50,13 +50,38 @@ jobs:
       - name: Check if the daemon is running
         shell: bash
         run: |
-          edamame_posture status
-          if [ $? -ne 0 ]; then
-            echo "Daemon is not running"
+          # Locate the binary (it might not be in PATH yet, especially on Windows/macOS)
+          if command -v edamame_posture >/dev/null 2>&1; then
+            BINARY="edamame_posture"
+          elif [ -f "/usr/bin/edamame_posture" ]; then
+            BINARY="/usr/bin/edamame_posture"
+          elif [ -f "/usr/local/bin/edamame_posture" ]; then
+            BINARY="/usr/local/bin/edamame_posture"
+          elif [ -f "$HOME/edamame_posture" ]; then
+            BINARY="$HOME/edamame_posture"
+          elif [ -f "$HOME/edamame_posture.exe" ]; then
+            BINARY="$HOME/edamame_posture.exe"
+          else
+            echo "ERROR: edamame_posture binary not found in any expected location"
+            echo "Searched: PATH, /usr/bin, /usr/local/bin, \$HOME"
+            exit 127
+          fi
+          
+          echo "Found binary at: $BINARY"
+          
+          # Check if daemon is running (use sudo on Linux/macOS)
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            "$BINARY" status
+          else
+            sudo "$BINARY" status
+          fi
+          
+          STATUS_EXIT=$?
+          if [ $STATUS_EXIT -ne 0 ]; then
+            echo "Daemon status check failed with exit code: $STATUS_EXIT"
             exit 1
           fi
-          echo "Daemon is running"
-          exit 0
+          echo "Daemon is running and connected"
 
       - name: Use the local universal install script - step 2
         shell: bash
@@ -69,13 +94,38 @@ jobs:
       - name: Check if the daemon is running
         shell: bash
         run: |
-          edamame_posture status
-          if [ $? -ne 0 ]; then
-            echo "Daemon is not running"
+          # Locate the binary (it might not be in PATH yet, especially on Windows/macOS)
+          if command -v edamame_posture >/dev/null 2>&1; then
+            BINARY="edamame_posture"
+          elif [ -f "/usr/bin/edamame_posture" ]; then
+            BINARY="/usr/bin/edamame_posture"
+          elif [ -f "/usr/local/bin/edamame_posture" ]; then
+            BINARY="/usr/local/bin/edamame_posture"
+          elif [ -f "$HOME/edamame_posture" ]; then
+            BINARY="$HOME/edamame_posture"
+          elif [ -f "$HOME/edamame_posture.exe" ]; then
+            BINARY="$HOME/edamame_posture.exe"
+          else
+            echo "ERROR: edamame_posture binary not found in any expected location"
+            echo "Searched: PATH, /usr/bin, /usr/local/bin, \$HOME"
+            exit 127
+          fi
+          
+          echo "Found binary at: $BINARY"
+          
+          # Check if daemon is running (use sudo on Linux/macOS)
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            "$BINARY" status
+          else
+            sudo "$BINARY" status
+          fi
+          
+          STATUS_EXIT=$?
+          if [ $STATUS_EXIT -ne 0 ]; then
+            echo "Daemon status check failed with exit code: $STATUS_EXIT"
             exit 1
           fi
-          echo "Daemon is running"
-          exit 0
+          echo "Daemon is running and connected"
 
   test-container:
     timeout-minutes: 90
@@ -117,13 +167,38 @@ jobs:
       - name: Check if the daemon is running
         shell: bash
         run: |
-          edamame_posture status
-          if [ $? -ne 0 ]; then
-            echo "Daemon is not running"
+          # Locate the binary (it might not be in PATH yet, especially on Windows/macOS)
+          if command -v edamame_posture >/dev/null 2>&1; then
+            BINARY="edamame_posture"
+          elif [ -f "/usr/bin/edamame_posture" ]; then
+            BINARY="/usr/bin/edamame_posture"
+          elif [ -f "/usr/local/bin/edamame_posture" ]; then
+            BINARY="/usr/local/bin/edamame_posture"
+          elif [ -f "$HOME/edamame_posture" ]; then
+            BINARY="$HOME/edamame_posture"
+          elif [ -f "$HOME/edamame_posture.exe" ]; then
+            BINARY="$HOME/edamame_posture.exe"
+          else
+            echo "ERROR: edamame_posture binary not found in any expected location"
+            echo "Searched: PATH, /usr/bin, /usr/local/bin, \$HOME"
+            exit 127
+          fi
+          
+          echo "Found binary at: $BINARY"
+          
+          # Check if daemon is running (use sudo on Linux/macOS)
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            "$BINARY" status
+          else
+            sudo "$BINARY" status
+          fi
+          
+          STATUS_EXIT=$?
+          if [ $STATUS_EXIT -ne 0 ]; then
+            echo "Daemon status check failed with exit code: $STATUS_EXIT"
             exit 1
           fi
-          echo "Daemon is running"
-          exit 0
+          echo "Daemon is running and connected"
 
       - name: Use the local universal install script - step 2
         shell: bash
@@ -136,13 +211,38 @@ jobs:
       - name: Check if the daemon is running
         shell: bash
         run: |
-          edamame_posture status
-          if [ $? -ne 0 ]; then
-            echo "Daemon is not running"
+          # Locate the binary (it might not be in PATH yet, especially on Windows/macOS)
+          if command -v edamame_posture >/dev/null 2>&1; then
+            BINARY="edamame_posture"
+          elif [ -f "/usr/bin/edamame_posture" ]; then
+            BINARY="/usr/bin/edamame_posture"
+          elif [ -f "/usr/local/bin/edamame_posture" ]; then
+            BINARY="/usr/local/bin/edamame_posture"
+          elif [ -f "$HOME/edamame_posture" ]; then
+            BINARY="$HOME/edamame_posture"
+          elif [ -f "$HOME/edamame_posture.exe" ]; then
+            BINARY="$HOME/edamame_posture.exe"
+          else
+            echo "ERROR: edamame_posture binary not found in any expected location"
+            echo "Searched: PATH, /usr/bin, /usr/local/bin, \$HOME"
+            exit 127
+          fi
+          
+          echo "Found binary at: $BINARY"
+          
+          # Check if daemon is running (use sudo on Linux/macOS)
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            "$BINARY" status
+          else
+            sudo "$BINARY" status
+          fi
+          
+          STATUS_EXIT=$?
+          if [ $STATUS_EXIT -ne 0 ]; then
+            echo "Daemon status check failed with exit code: $STATUS_EXIT"
             exit 1
           fi
-          echo "Daemon is running"
-          exit 0
+          echo "Daemon is running and connected"
 
   test-alpine:
     timeout-minutes: 120
