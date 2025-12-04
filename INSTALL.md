@@ -48,26 +48,57 @@ curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamamete
 
 ### Installation Flow by Platform
 
+#### Pre-Installation Check (All Platforms)
+**Before any package manager operations**, the installer performs an intelligent check:
+
+1. **Locate existing binary** via `command -v edamame_posture`
+   - If not found → proceed with installation
+
+2. **Version/SHA verification**
+   - **Package installations** (APT/APK/Homebrew/Choco): Check if upgrade is available
+     - APT: `apt list --upgradable | grep edamame-posture`
+     - APK: `apk version edamame-posture | grep "<"`
+     - Homebrew: `brew outdated edamame-posture`
+     - Chocolatey: `choco outdated edamame-posture`
+   - **Binary installations**: Fetch latest release SHA from GitHub API and compare with existing binary
+   - If outdated → proceed with upgrade/update
+   - If up-to-date → proceed to credential check
+
+3. **Credential verification** (only if credentials provided via `--user`/`--domain`/`--pin`)
+   - Call `edamame_posture status` and parse output
+   - Extract: Connected user, Connected domain, Connection status
+   - If credentials match AND version is latest → **SKIP EVERYTHING** (zero package operations, zero service restarts)
+   - If credentials differ → **SKIP INSTALLATION**, proceed to reconfiguration only
+   - If not connected → **SKIP INSTALLATION**, proceed to reconfiguration only
+
+This early check ensures:
+- Idempotent behavior (running twice with same params does nothing on second run)
+- Minimal operations (no unnecessary APT/APK/Homebrew/Choco calls)
+- Fast execution (2-3 seconds vs 10-15 seconds for redundant operations)
+- Smart updates (automatic upgrades when new versions available)
+
 #### Linux
 1. **Privilege detection**  
    - If running as root, continue.  
    - Otherwise, try `sudo`, `doas`, or automatically install `sudo` (`apk add sudo` / `apt-get install sudo`) using `su` when available.
 
-2. **Distribution-based package installs**  
-   - **Alpine**: add EDAMAME APK repo/key → `apk add edamame-posture`.  
-   - **Debian/Ubuntu & derivatives**: add EDAMAME APT repo/key → `apt-get install edamame-posture`.  
+2. **Distribution-based package installs** (only if pre-check determines installation needed)
+   - **Alpine**: add EDAMAME APK repo/key → `apk add edamame-posture` or `apk upgrade edamame-posture`.  
+   - **Debian/Ubuntu & derivatives**: add EDAMAME APT repo/key → `apt-get install edamame-posture` or `apt-get upgrade edamame-posture`.  
    - Services are enabled automatically (systemd/OpenRC) and restarted unless `--ci-mode`.
 
 3. **Fallbacks**  
    - For unsupported distros or if package installation fails/`--force-binary`, download the correct release binary (GNU vs MUSL decided by GLIBC detection) and drop it into `--install-dir`.
 
 #### macOS
-1. Try installing/upgrading the [`edamametechnologies/tap`](https://github.com/edamametechnologies/homebrew-tap) formula via Homebrew.  
-2. If Homebrew is unavailable or fails (or `--force-binary`), download the universal macOS binary to `--install-dir`.
+1. **Pre-check** (see above): If Homebrew installation exists and is up-to-date with matching credentials → skip everything
+2. Try installing/upgrading the [`edamametechnologies/tap`](https://github.com/edamametechnologies/homebrew-tap) formula via Homebrew (only if needed)
+3. If Homebrew is unavailable or fails (or `--force-binary`), download the universal macOS binary to `--install-dir`
 
 #### Windows
-1. Attempt to install/upgrade `edamame-posture` via Chocolatey.  
-2. If Chocolatey is unavailable or errors (or `--force-binary`), download the `x86_64-pc-windows-msvc(.exe)` artifact to `--install-dir`.
+1. **Pre-check** (see above): If Chocolatey installation exists and is up-to-date with matching credentials → skip everything
+2. Attempt to install/upgrade `edamame-posture` via Chocolatey (only if needed)
+3. If Chocolatey is unavailable or errors (or `--force-binary`), download the `x86_64-pc-windows-msvc(.exe)` artifact to `--install-dir`
 
 ---
 
@@ -75,10 +106,24 @@ curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamamete
 - The installer inspects architecture and GLIBC (`getconf GNU_LIBC_VERSION`) to select the correct artifact:
   - `x86_64-unknown-linux-gnu` (default) vs `x86_64-unknown-linux-musl` when GLIBC < 2.29 or running on Alpine.
   - `aarch64`, `armv7`, and `i686` variants are also supported.
-- Debug builds pull versioned assets (`edamame_posture-<version>-<triple>-debug`), otherwise the installer uses the “latest release” redirect first and falls back to a pinned version.
-- If the destination binary already exists (e.g., `/usr/local/bin/edamame_posture` or `$HOME/edamame_posture.exe`):
-  - When **no** credentials are provided, the installer reuses the existing file.
-  - When `--user/--domain/--pin` **are** supplied, the installer stops any running `edamame_posture` processes, removes the existing binary, and downloads a fresh copy before continuing.
+- Debug builds pull versioned assets (`edamame_posture-<version>-<triple>-debug`), otherwise the installer uses the "latest release" redirect first and falls back to a pinned version.
+
+#### Binary Version/SHA Verification
+- **Pre-installation SHA check** (new optimization):
+  - Before any download, the installer fetches the expected SHA256 digest from GitHub releases API
+  - Computes SHA256 of the existing binary (if present)
+  - If SHAs match → **reuses existing binary**, skips download entirely
+  - If SHAs differ or binary doesn't exist → proceeds with download
+- **Post-download SHA verification**:
+  - After downloading, verifies the downloaded binary against the expected SHA
+  - If verification fails → aborts with error
+  - If verification succeeds → compares with existing binary one more time
+  - Only replaces existing binary if they differ
+- This two-stage verification ensures:
+  - No unnecessary downloads (SHA checked before download)
+  - No corrupted binaries (SHA verified after download)
+  - Minimal disk writes (only replace if different)
+
 - Download resolution order (non-debug builds): latest GitHub release tag → previous release tag → pinned fallback (`v0.9.75`). Windows adds one more safety net by retrying Chocolatey if every download attempt fails.
 - Each download path has a hard-coded fallback (`v0.9.75`) to avoid transient release issues.
 
