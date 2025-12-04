@@ -1677,18 +1677,18 @@ if [ "$SKIP_INSTALLATION" = "false" ]; then
         if [ "$CONFIG_FORCE_BINARY" != "true" ]; then
             case "$ID" in
                 "alpine")
-                if install_linux_via_apk; then
-                    linux_pkg_installed="true"
-                    INSTALL_METHOD="apk"
-                    INSTALLED_VIA_PACKAGE_MANAGER="true"
-                fi
+                    if install_linux_via_apk; then
+                        linux_pkg_installed="true"
+                        INSTALL_METHOD="apk"
+                        INSTALLED_VIA_PACKAGE_MANAGER="true"
+                    fi
                     ;;
                 "ubuntu"|"debian"|"raspbian"|"pop"|"linuxmint"|"elementary"|"zorin")
-                if install_linux_via_apt; then
-                    linux_pkg_installed="true"
-                    INSTALL_METHOD="apt"
-                    INSTALLED_VIA_PACKAGE_MANAGER="true"
-                fi
+                    if install_linux_via_apt; then
+                        linux_pkg_installed="true"
+                        INSTALL_METHOD="apt"
+                        INSTALLED_VIA_PACKAGE_MANAGER="true"
+                    fi
                     ;;
                 *)
                     warn "Unsupported distribution for package installation: $ID"

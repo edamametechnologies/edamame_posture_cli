@@ -69,14 +69,10 @@ jobs:
           
           echo "Found binary at: $BINARY"
           
-          # Check if daemon is running (use sudo on Linux/macOS)
-          if [[ "$RUNNER_OS" == "Windows" ]]; then
-            "$BINARY" status
-          else
-            sudo "$BINARY" status
-          fi
-          
+          # Check if daemon is running (status command doesn't need sudo)
+          "$BINARY" status
           STATUS_EXIT=$?
+          
           if [ $STATUS_EXIT -ne 0 ]; then
             echo "Daemon status check failed with exit code: $STATUS_EXIT"
             exit 1
@@ -113,14 +109,10 @@ jobs:
           
           echo "Found binary at: $BINARY"
           
-          # Check if daemon is running (use sudo on Linux/macOS)
-          if [[ "$RUNNER_OS" == "Windows" ]]; then
-            "$BINARY" status
-          else
-            sudo "$BINARY" status
-          fi
-          
+          # Check if daemon is running (status command doesn't need sudo)
+          "$BINARY" status
           STATUS_EXIT=$?
+          
           if [ $STATUS_EXIT -ne 0 ]; then
             echo "Daemon status check failed with exit code: $STATUS_EXIT"
             exit 1
@@ -186,14 +178,10 @@ jobs:
           
           echo "Found binary at: $BINARY"
           
-          # Check if daemon is running (use sudo on Linux/macOS)
-          if [[ "$RUNNER_OS" == "Windows" ]]; then
-            "$BINARY" status
-          else
-            sudo "$BINARY" status
-          fi
-          
+          # Check if daemon is running (status command doesn't need sudo)
+          "$BINARY" status
           STATUS_EXIT=$?
+          
           if [ $STATUS_EXIT -ne 0 ]; then
             echo "Daemon status check failed with exit code: $STATUS_EXIT"
             exit 1
@@ -230,14 +218,10 @@ jobs:
           
           echo "Found binary at: $BINARY"
           
-          # Check if daemon is running (use sudo on Linux/macOS)
-          if [[ "$RUNNER_OS" == "Windows" ]]; then
-            "$BINARY" status
-          else
-            sudo "$BINARY" status
-          fi
-          
+          # Check if daemon is running (status command doesn't need sudo)
+          "$BINARY" status
           STATUS_EXIT=$?
+          
           if [ $STATUS_EXIT -ne 0 ]; then
             echo "Daemon status check failed with exit code: $STATUS_EXIT"
             exit 1
