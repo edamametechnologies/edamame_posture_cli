@@ -352,22 +352,6 @@ jobs:
           $BINARY status
         shell: alpine.sh --root {0}
 
-      - name: Cleanup Alpine daemon before chroot teardown
-        if: always()
-        run: |
-          echo "Stopping edamame_posture daemon to allow clean chroot teardown..."
-          # Stop via service if available
-          if command -v rc-service >/dev/null 2>&1; then
-            rc-service edamame_posture stop 2>/dev/null || true
-          fi
-          # Also stop via CLI to ensure background processes are killed
-          edamame_posture stop 2>/dev/null || true
-          # Kill any remaining processes
-          pkill -9 edamame_posture 2>/dev/null || true
-          sleep 1
-          echo "Cleanup complete"
-        shell: alpine.sh --root {0}
-
       - name: Use the local universal install script - step 2
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh | sh -s -- \
@@ -396,4 +380,20 @@ jobs:
           
           echo "Found binary at: $BINARY"
           $BINARY status
+        shell: alpine.sh --root {0}
+
+      - name: Cleanup Alpine daemon before chroot teardown
+        if: always()
+        run: |
+          echo "Stopping edamame_posture daemon to allow clean chroot teardown..."
+          # Stop via service if available
+          if command -v rc-service >/dev/null 2>&1; then
+            rc-service edamame_posture stop 2>/dev/null || true
+          fi
+          # Also stop via CLI to ensure background processes are killed
+          edamame_posture stop 2>/dev/null || true
+          # Kill any remaining processes
+          pkill -9 edamame_posture 2>/dev/null || true
+          sleep 1
+          echo "Cleanup complete"
         shell: alpine.sh --root {0}
