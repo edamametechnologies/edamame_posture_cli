@@ -2015,27 +2015,55 @@ if [ "$INSTALLED_VIA_PACKAGE_MANAGER" = "false" ] && credentials_provided && [ "
         fi
     fi
     
-    # Build complete command
-    START_CMD="$RESOLVED_BINARY_PATH start --user $CONFIG_USER --domain $CONFIG_DOMAIN --pin $CONFIG_PIN"
-    [ -n "$CONFIG_DEVICE_ID" ] && START_CMD="$START_CMD --device-id $CONFIG_DEVICE_ID"
-    [ "$CONFIG_START_LANSCAN" = "true" ] && START_CMD="$START_CMD --network-scan"
-    [ "$CONFIG_START_CAPTURE" = "true" ] && START_CMD="$START_CMD --packet-capture"
-    [ -n "$CONFIG_WHITELIST" ] && START_CMD="$START_CMD --whitelist $CONFIG_WHITELIST"
-    [ "$CONFIG_FAIL_ON_WHITELIST" = "true" ] && START_CMD="$START_CMD --fail-on-whitelist"
-    [ "$CONFIG_FAIL_ON_BLACKLIST" = "true" ] && START_CMD="$START_CMD --fail-on-blacklist"
-    [ "$CONFIG_FAIL_ON_ANOMALOUS" = "true" ] && START_CMD="$START_CMD --fail-on-anomalous"
-    [ "$CONFIG_CANCEL_ON_VIOLATION" = "true" ] && START_CMD="$START_CMD --cancel-on-violation"
-    [ "$CONFIG_INCLUDE_LOCAL_TRAFFIC" = "true" ] && START_CMD="$START_CMD --include-local-traffic"
-    [ "$CONFIG_AGENTIC_MODE" != "disabled" ] && START_CMD="$START_CMD --agentic-mode $CONFIG_AGENTIC_MODE"
-    [ -n "$AGENTIC_PROVIDER_FLAG" ] && START_CMD="$START_CMD $AGENTIC_PROVIDER_FLAG"
-    [ -n "$CONFIG_AGENTIC_INTERVAL" ] && [ "$CONFIG_AGENTIC_INTERVAL" != "3600" ] && START_CMD="$START_CMD --agentic-interval $CONFIG_AGENTIC_INTERVAL"
-    
-    # Start daemon using shell eval (portable across platforms)
+    # Build complete command (POSIX-compliant, avoid eval)
     info "Starting daemon in background..."
+    
+    # Use a function to build and execute the command safely
+    start_daemon() {
+        local binary="$1"
+        shift
+        
+        "$binary" start \
+            --user "$CONFIG_USER" \
+            --domain "$CONFIG_DOMAIN" \
+            --pin "$CONFIG_PIN" \
+            "$@" >/dev/null 2>&1 &
+    }
+    
+    # Build argument list
+    set -- # Clear positional parameters
+    [ -n "$CONFIG_DEVICE_ID" ] && set -- "$@" --device-id "$CONFIG_DEVICE_ID"
+    [ "$CONFIG_START_LANSCAN" = "true" ] && set -- "$@" --network-scan
+    [ "$CONFIG_START_CAPTURE" = "true" ] && set -- "$@" --packet-capture
+    [ -n "$CONFIG_WHITELIST" ] && set -- "$@" --whitelist "$CONFIG_WHITELIST"
+    [ "$CONFIG_FAIL_ON_WHITELIST" = "true" ] && set -- "$@" --fail-on-whitelist
+    [ "$CONFIG_FAIL_ON_BLACKLIST" = "true" ] && set -- "$@" --fail-on-blacklist
+    [ "$CONFIG_FAIL_ON_ANOMALOUS" = "true" ] && set -- "$@" --fail-on-anomalous
+    [ "$CONFIG_CANCEL_ON_VIOLATION" = "true" ] && set -- "$@" --cancel-on-violation
+    [ "$CONFIG_INCLUDE_LOCAL_TRAFFIC" = "true" ] && set -- "$@" --include-local-traffic
+    
+    # Add agentic flags if configured
+    if [ "$CONFIG_AGENTIC_MODE" != "disabled" ]; then
+        set -- "$@" --agentic-mode "$CONFIG_AGENTIC_MODE"
+        [ -n "$AGENTIC_PROVIDER_FLAG" ] && set -- "$@" $AGENTIC_PROVIDER_FLAG
+        if [ -n "$CONFIG_AGENTIC_INTERVAL" ] && [ "$CONFIG_AGENTIC_INTERVAL" != "3600" ]; then
+            set -- "$@" --agentic-interval "$CONFIG_AGENTIC_INTERVAL"
+        fi
+    fi
+    
+    # Execute with or without sudo
     if [ -n "$SUDO" ]; then
-        eval "$SUDO $START_CMD" >/dev/null 2>&1 &
+        $SUDO "$RESOLVED_BINARY_PATH" start \
+            --user "$CONFIG_USER" \
+            --domain "$CONFIG_DOMAIN" \
+            --pin "$CONFIG_PIN" \
+            "$@" >/dev/null 2>&1 &
     else
-        eval "$START_CMD" >/dev/null 2>&1 &
+        "$RESOLVED_BINARY_PATH" start \
+            --user "$CONFIG_USER" \
+            --domain "$CONFIG_DOMAIN" \
+            --pin "$CONFIG_PIN" \
+            "$@" >/dev/null 2>&1 &
     fi
     
     info "✓ Background daemon started"
