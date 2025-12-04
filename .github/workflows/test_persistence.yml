@@ -475,17 +475,3 @@ jobs:
           cat /var/log/edamame_posture.err || true
           exit 1
         shell: alpine.sh --root {0}
-
-      - name: Stop daemon before cleanup
-        if: always()
-        run: |
-          echo "Stopping daemon..."
-          # Try to stop via service first
-          if command -v rc-service >/dev/null 2>&1; then
-            rc-service edamame_posture stop || true
-          fi
-          
-          # Kill any remaining processes to prevent cleanup failure
-          pkill -f edamame_posture || true
-          pkill -f edamame_posture_daemon.sh || true
-        shell: alpine.sh --root {0}
