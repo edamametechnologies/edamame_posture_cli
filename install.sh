@@ -1514,7 +1514,39 @@ check_existing_installation() {
     fi
     
     if [ -z "$status_output" ]; then
-        info "Cannot get status from existing installation, will use existing binary but reconfigure"
+        warn "Cannot get status from existing installation"
+        
+        # Try to verify credentials via config file as fallback
+        local config_match="false"
+        if [ -f "/etc/edamame_posture.conf" ]; then
+            info "Checking credentials in existing config file..."
+            local config_user config_domain
+            config_user=$(grep "^edamame_user:" /etc/edamame_posture.conf 2>/dev/null | sed 's/.*: *"\([^"]*\)".*/\1/' || true)
+            config_domain=$(grep "^edamame_domain:" /etc/edamame_posture.conf 2>/dev/null | sed 's/.*: *"\([^"]*\)".*/\1/' || true)
+            
+            if [ -n "$config_user" ] && [ -n "$config_domain" ]; then
+                if [ "$config_user" = "$CONFIG_USER" ] && [ "$config_domain" = "$CONFIG_DOMAIN" ]; then
+                    info "Config file credentials match provided credentials (user: $CONFIG_USER, domain: $CONFIG_DOMAIN)"
+                    info "Service appears to be stopped or not responding, but credentials are correct"
+                    config_match="true"
+                else
+                    info "Config file credentials differ (user: $config_user, domain: $config_domain)"
+                fi
+            else
+                warn "Cannot parse credentials from config file"
+            fi
+        else
+            warn "No config file found at /etc/edamame_posture.conf"
+        fi
+        
+        if [ "$config_match" = "true" ]; then
+            # Credentials in config match, just need to ensure service is running
+            info "Will use existing binary and restart service with existing configuration"
+        else
+            # Credentials don't match or can't verify - need to reconfigure
+            info "Will use existing binary and reconfigure with new credentials"
+        fi
+        
         BINARY_PATH="$existing_binary"
         FINAL_BINARY_PATH="$existing_binary"
         INSTALL_METHOD="existing"
