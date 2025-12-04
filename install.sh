@@ -2011,8 +2011,12 @@ fi
 # This includes: binary installs, Homebrew (macOS), Chocolatey (Windows)
 # Excludes: APT/APK (they have systemd/OpenRC services managed by configure_service)
 SHOULD_START_DAEMON="false"
-info "Checking if daemon should be started..."
-info "  credentials_provided: $(credentials_provided && echo 'true' || echo 'false')"
+info "Daemon start decision:"
+if credentials_provided; then
+    info "  Credentials provided: yes"
+else
+    info "  Credentials provided: no"
+fi
 info "  SKIP_CONFIGURATION: $SKIP_CONFIGURATION"
 info "  INSTALLED_VIA_PACKAGE_MANAGER: $INSTALLED_VIA_PACKAGE_MANAGER"
 info "  INSTALL_METHOD: $INSTALL_METHOD"
@@ -2020,16 +2024,20 @@ info "  INSTALL_METHOD: $INSTALL_METHOD"
 if credentials_provided && [ "$SKIP_CONFIGURATION" != "true" ]; then
     if [ "$INSTALLED_VIA_PACKAGE_MANAGER" = "false" ]; then
         # Binary installation - always start daemon
-        info "Binary installation detected - will start daemon"
+        info "  Decision: Binary installation - will start daemon"
         SHOULD_START_DAEMON="true"
     elif [ "$INSTALL_METHOD" = "homebrew" ] || [ "$INSTALL_METHOD" = "chocolatey" ]; then
         # Homebrew/Chocolatey don't install services - start daemon manually
-        info "Homebrew/Chocolatey installation detected - will start daemon"
+        info "  Decision: Homebrew/Chocolatey - will start daemon"
         SHOULD_START_DAEMON="true"
+    else
+        info "  Decision: Service-based installation - daemon managed by service"
     fi
+else
+    info "  Decision: Skipping daemon start (no credentials or already configured)"
 fi
 
-info "SHOULD_START_DAEMON: $SHOULD_START_DAEMON"
+info "  SHOULD_START_DAEMON: $SHOULD_START_DAEMON"
 
 if [ "$SHOULD_START_DAEMON" = "true" ]; then
     info ""
