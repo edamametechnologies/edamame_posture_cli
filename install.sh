@@ -1990,65 +1990,20 @@ if [ "$INSTALLED_VIA_PACKAGE_MANAGER" = "false" ] && credentials_provided && [ "
     info ""
     info "Starting background daemon with provided credentials..."
     
-    # Build start command with credentials
-    START_CMD="$RESOLVED_BINARY_PATH start --user \"$CONFIG_USER\" --domain \"$CONFIG_DOMAIN\" --pin \"$CONFIG_PIN\""
-    
-    # Add device ID if provided
-    if [ -n "$CONFIG_DEVICE_ID" ]; then
-        START_CMD="$START_CMD --device-id \"$CONFIG_DEVICE_ID\""
-    fi
-    
-    # Add network monitoring flags
-    if [ "$CONFIG_START_LANSCAN" = "true" ]; then
-        START_CMD="$START_CMD --network-scan"
-    fi
-    if [ "$CONFIG_START_CAPTURE" = "true" ]; then
-        START_CMD="$START_CMD --packet-capture"
-    fi
-    
-    # Add whitelist configuration
-    if [ -n "$CONFIG_WHITELIST" ]; then
-        START_CMD="$START_CMD --whitelist \"$CONFIG_WHITELIST\""
-    fi
-    if [ "$CONFIG_FAIL_ON_WHITELIST" = "true" ]; then
-        START_CMD="$START_CMD --fail-on-whitelist"
-    fi
-    if [ "$CONFIG_FAIL_ON_BLACKLIST" = "true" ]; then
-        START_CMD="$START_CMD --fail-on-blacklist"
-    fi
-    if [ "$CONFIG_FAIL_ON_ANOMALOUS" = "true" ]; then
-        START_CMD="$START_CMD --fail-on-anomalous"
-    fi
-    
-    # Add violation handling
-    if [ "$CONFIG_CANCEL_ON_VIOLATION" = "true" ]; then
-        START_CMD="$START_CMD --cancel-on-violation"
-    fi
-    if [ "$CONFIG_INCLUDE_LOCAL_TRAFFIC" = "true" ]; then
-        START_CMD="$START_CMD --include-local-traffic"
-    fi
-    
-    # Add AI Assistant configuration if provided
+    # Export AI configuration before starting daemon
+    AGENTIC_PROVIDER_FLAG=""
     if [ "$CONFIG_AGENTIC_MODE" != "disabled" ]; then
-        START_CMD="$START_CMD --agentic-mode $CONFIG_AGENTIC_MODE"
-        
-        # Determine provider based on what was configured
         if [ -n "$CONFIG_CLAUDE_KEY" ]; then
             export EDAMAME_LLM_API_KEY="$CONFIG_CLAUDE_KEY"
-            START_CMD="$START_CMD --agentic-provider claude"
+            AGENTIC_PROVIDER_FLAG="--agentic-provider claude"
         elif [ -n "$CONFIG_OPENAI_KEY" ]; then
             export EDAMAME_LLM_API_KEY="$CONFIG_OPENAI_KEY"
-            START_CMD="$START_CMD --agentic-provider openai"
+            AGENTIC_PROVIDER_FLAG="--agentic-provider openai"
         elif [ -n "$CONFIG_OLLAMA_URL" ]; then
             export EDAMAME_LLM_BASE_URL="$CONFIG_OLLAMA_URL"
-            START_CMD="$START_CMD --agentic-provider ollama"
+            AGENTIC_PROVIDER_FLAG="--agentic-provider ollama"
         fi
         
-        if [ -n "$CONFIG_AGENTIC_INTERVAL" ]; then
-            START_CMD="$START_CMD --agentic-interval $CONFIG_AGENTIC_INTERVAL"
-        fi
-        
-        # Export Slack configuration if provided
         if [ -n "$CONFIG_SLACK_BOT_TOKEN" ]; then
             export EDAMAME_AGENTIC_SLACK_BOT_TOKEN="$CONFIG_SLACK_BOT_TOKEN"
         fi
@@ -2060,34 +2015,47 @@ if [ "$INSTALLED_VIA_PACKAGE_MANAGER" = "false" ] && credentials_provided && [ "
         fi
     fi
     
-    # Start the daemon
-    if [ "$PLATFORM" = "windows" ]; then
-        # Windows: start in background using cmd /c start
-        cmd /c start /b $START_CMD >/dev/null 2>&1 &
-        info "✓ Background daemon started"
+    # Build complete command
+    START_CMD="$RESOLVED_BINARY_PATH start --user $CONFIG_USER --domain $CONFIG_DOMAIN --pin $CONFIG_PIN"
+    [ -n "$CONFIG_DEVICE_ID" ] && START_CMD="$START_CMD --device-id $CONFIG_DEVICE_ID"
+    [ "$CONFIG_START_LANSCAN" = "true" ] && START_CMD="$START_CMD --network-scan"
+    [ "$CONFIG_START_CAPTURE" = "true" ] && START_CMD="$START_CMD --packet-capture"
+    [ -n "$CONFIG_WHITELIST" ] && START_CMD="$START_CMD --whitelist $CONFIG_WHITELIST"
+    [ "$CONFIG_FAIL_ON_WHITELIST" = "true" ] && START_CMD="$START_CMD --fail-on-whitelist"
+    [ "$CONFIG_FAIL_ON_BLACKLIST" = "true" ] && START_CMD="$START_CMD --fail-on-blacklist"
+    [ "$CONFIG_FAIL_ON_ANOMALOUS" = "true" ] && START_CMD="$START_CMD --fail-on-anomalous"
+    [ "$CONFIG_CANCEL_ON_VIOLATION" = "true" ] && START_CMD="$START_CMD --cancel-on-violation"
+    [ "$CONFIG_INCLUDE_LOCAL_TRAFFIC" = "true" ] && START_CMD="$START_CMD --include-local-traffic"
+    [ "$CONFIG_AGENTIC_MODE" != "disabled" ] && START_CMD="$START_CMD --agentic-mode $CONFIG_AGENTIC_MODE"
+    [ -n "$AGENTIC_PROVIDER_FLAG" ] && START_CMD="$START_CMD $AGENTIC_PROVIDER_FLAG"
+    [ -n "$CONFIG_AGENTIC_INTERVAL" ] && [ "$CONFIG_AGENTIC_INTERVAL" != "3600" ] && START_CMD="$START_CMD --agentic-interval $CONFIG_AGENTIC_INTERVAL"
+    
+    # Start daemon using shell eval (portable across platforms)
+    info "Starting daemon in background..."
+    if [ -n "$SUDO" ]; then
+        eval "$SUDO $START_CMD" >/dev/null 2>&1 &
     else
-        # Linux/macOS: use standard background process
-        if [ -n "$SUDO" ]; then
-            eval "$SUDO $START_CMD" >/dev/null 2>&1 &
-        else
-            eval "$START_CMD" >/dev/null 2>&1 &
-        fi
-        info "✓ Background daemon started"
+        eval "$START_CMD" >/dev/null 2>&1 &
     fi
+    
+    info "✓ Background daemon started"
     
     # Give it a moment to initialize
     sleep 2
     
     # Verify it started
-    DAEMON_CHECK_CMD="$RESOLVED_BINARY_PATH status"
     if [ -n "$SUDO" ]; then
-        DAEMON_CHECK_CMD="$SUDO $DAEMON_CHECK_CMD"
-    fi
-    
-    if $DAEMON_CHECK_CMD >/dev/null 2>&1; then
-        info "✓ Daemon is running and connected"
+        if $SUDO "$RESOLVED_BINARY_PATH" status >/dev/null 2>&1; then
+            info "✓ Daemon is running and connected"
+        else
+            warn "Daemon may not have started successfully. Check with: $SUDO $RESOLVED_BINARY_PATH status"
+        fi
     else
-        warn "Daemon may not have started successfully. Check with: $RESOLVED_BINARY_PATH status"
+        if "$RESOLVED_BINARY_PATH" status >/dev/null 2>&1; then
+            info "✓ Daemon is running and connected"
+        else
+            warn "Daemon may not have started successfully. Check with: $RESOLVED_BINARY_PATH status"
+        fi
     fi
 fi
 
