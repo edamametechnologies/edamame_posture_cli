@@ -1640,11 +1640,29 @@ check_existing_installation() {
     # Parse credentials from status
     RUNNING_USER=$(echo "$STATUS_OUTPUT" | grep "Connected user:" | sed 's/.*Connected user: //' | tr -d ' ')
     RUNNING_DOMAIN=$(echo "$STATUS_OUTPUT" | grep "Connected domain:" | sed 's/.*Connected domain: //' | tr -d ' ')
+    RUNNING_DEVICE_ID=$(echo "$STATUS_OUTPUT" | grep "Device ID:" | sed 's/.*Device ID: //' | tr -d ' ')
     IS_CONNECTED=$(echo "$STATUS_OUTPUT" | grep "Is connected:" | sed 's/.*Is connected: //' | tr -d ' ')
     
-    # Check if credentials match
+    # Check if credentials match (including device ID if both are non-empty)
+    CREDENTIALS_MATCH="false"
     if [ "$IS_CONNECTED" = "true" ] && [ "$RUNNING_USER" = "$CONFIG_USER" ] && [ "$RUNNING_DOMAIN" = "$CONFIG_DOMAIN" ]; then
+        # User and domain match - now check device ID if applicable
+        if [ -n "$CONFIG_DEVICE_ID" ] && [ -n "$RUNNING_DEVICE_ID" ]; then
+            # Both have device IDs - they must match
+            if [ "$RUNNING_DEVICE_ID" = "$CONFIG_DEVICE_ID" ]; then
+                CREDENTIALS_MATCH="true"
+            else
+                info "Device ID differs: running=$RUNNING_DEVICE_ID, config=$CONFIG_DEVICE_ID"
+            fi
+        else
+            # At least one device ID is empty - ignore device ID in comparison
+            CREDENTIALS_MATCH="true"
+        fi
+    fi
+    
+    if [ "$CREDENTIALS_MATCH" = "true" ]; then
         info "Existing installation is running with matching credentials (user: $CONFIG_USER, domain: $CONFIG_DOMAIN)"
+        [ -n "$CONFIG_DEVICE_ID" ] && info "  Device ID: $CONFIG_DEVICE_ID"
         info "Skipping installation and configuration"
         BINARY_PATH="$EXISTING_BINARY"
         FINAL_BINARY_PATH="$EXISTING_BINARY"
@@ -1902,14 +1920,32 @@ EOF
             status_exit_code=$?
             
             if [ $status_exit_code -eq 0 ] && [ -n "$STATUS_OUTPUT" ]; then
-                # Extract user and domain from status output
+                # Extract user, domain, and device ID from status output
                 RUNNING_USER=$(echo "$STATUS_OUTPUT" | grep "Connected user:" | sed 's/.*Connected user: //' | tr -d ' ')
                 RUNNING_DOMAIN=$(echo "$STATUS_OUTPUT" | grep "Connected domain:" | sed 's/.*Connected domain: //' | tr -d ' ')
+                RUNNING_DEVICE_ID=$(echo "$STATUS_OUTPUT" | grep "Device ID:" | sed 's/.*Device ID: //' | tr -d ' ')
                 IS_CONNECTED=$(echo "$STATUS_OUTPUT" | grep "Is connected:" | sed 's/.*Is connected: //' | tr -d ' ')
                 
-                # Check if credentials match
+                # Check if credentials match (including device ID if both are non-empty)
+                CREDENTIALS_MATCH="false"
                 if [ "$IS_CONNECTED" = "true" ] && [ "$RUNNING_USER" = "$CONFIG_USER" ] && [ "$RUNNING_DOMAIN" = "$CONFIG_DOMAIN" ]; then
+                    # User and domain match - now check device ID if applicable
+                    if [ -n "$CONFIG_DEVICE_ID" ] && [ -n "$RUNNING_DEVICE_ID" ]; then
+                        # Both have device IDs - they must match
+                        if [ "$RUNNING_DEVICE_ID" = "$CONFIG_DEVICE_ID" ]; then
+                            CREDENTIALS_MATCH="true"
+                        else
+                            info "Device ID differs: running=$RUNNING_DEVICE_ID, config=$CONFIG_DEVICE_ID"
+                        fi
+                    else
+                        # At least one device ID is empty - ignore device ID in comparison
+                        CREDENTIALS_MATCH="true"
+                    fi
+                fi
+                
+                if [ "$CREDENTIALS_MATCH" = "true" ]; then
                     info "Service is running with matching credentials (user: $CONFIG_USER, domain: $CONFIG_DOMAIN), skipping restart"
+                    [ -n "$CONFIG_DEVICE_ID" ] && info "  Device ID: $CONFIG_DEVICE_ID"
                     SHOULD_RESTART="false"
                 elif [ "$IS_CONNECTED" = "true" ]; then
                     info "Service is running with different credentials (user: $RUNNING_USER, domain: $RUNNING_DOMAIN), will restart"
