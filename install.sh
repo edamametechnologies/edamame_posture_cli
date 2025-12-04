@@ -2,27 +2,56 @@
 # EDAMAME Posture Installer
 # Usage: curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh | sh -s -- [OPTIONS]
 #
-# Options:
-#   --user USER                    EDAMAME user
-#   --domain DOMAIN                EDAMAME domain
-#   --pin PIN                      EDAMAME pin
+# Connection & Device Options:
+#   --user USER                    EDAMAME Hub username
+#   --domain DOMAIN                EDAMAME Hub domain
+#   --pin PIN                      EDAMAME Hub PIN
+#   --device-id ID                 Device identifier (e.g., ci-runner-123)
+#
+# Network Monitoring & Enforcement:
+#   --start-lanscan                Pass --network-scan to daemon (LAN device discovery)
+#   --start-capture                Pass --packet-capture to daemon (traffic capture)
+#   --whitelist NAME               Whitelist name (e.g., github_ubuntu)
+#   --fail-on-whitelist            Pass --fail-on-whitelist (exit on whitelist violations)
+#   --fail-on-blacklist            Pass --fail-on-blacklist (exit on blacklisted IPs)
+#   --fail-on-anomalous            Pass --fail-on-anomalous (exit on anomalous connections)
+#   --cancel-on-violation          Pass --cancel-on-violation (cancel pipeline on violations)
+#   --include-local-traffic        Pass --include-local-traffic (include local traffic)
+#
+# AI Assistant Options:
 #   --claude-api-key KEY           Claude API key
 #   --openai-api-key KEY           OpenAI API key
-#   --ollama-api-key KEY           Ollama API key (deprecated, use base URL)
 #   --ollama-base-url URL          Ollama base URL (default: http://localhost:11434)
 #   --agentic-mode MODE            AI mode: auto, analyze, or disabled (default: disabled)
-#   --agentic-interval SECONDS     Processing interval in seconds (default: 3600)
+#   --agentic-interval SECONDS     AI processing interval in seconds (default: 3600)
 #   --slack-bot-token TOKEN        Slack bot token
 #   --slack-actions-channel ID     Slack actions channel ID
 #   --slack-escalations-channel ID Slack escalations channel ID
-#   --start-lanscan                Start background LAN scan (passes --network-scan)
-#   --start-capture                Start packet capture (passes --packet-capture)
 #
-# Example:
-#   curl -sSf https://raw.githubusercontent.com/.../install.sh | sh -s -- \
-#     --user myuser --domain example.com --pin 123456 \
-#     --claude-api-key sk-ant-... --agentic-mode auto \
-#     --start-service
+# Installation Control:
+#   --install-dir PATH             Binary install directory (default: /usr/local/bin)
+#   --state-file PATH              Write installation state to file (for CI/CD)
+#   --force-binary                 Skip package managers, use binary download
+#   --debug-build                  Download debug binaries (implies --force-binary)
+#
+# Examples:
+#
+#   Basic installation:
+#     curl -sSf https://raw.githubusercontent.com/.../install.sh | sh -s -- \
+#       --user myuser --domain example.com --pin 123456
+#
+#   CI/CD with network monitoring:
+#     curl -sSf https://raw.githubusercontent.com/.../install.sh | sh -s -- \
+#       --user $USER --domain $DOMAIN --pin $PIN \
+#       --device-id "ci-runner-${RUN_ID}" \
+#       --start-lanscan --start-capture \
+#       --whitelist github_ubuntu --fail-on-whitelist
+#
+#   AI Assistant with full monitoring:
+#     curl -sSf https://raw.githubusercontent.com/.../install.sh | sh -s -- \
+#       --user myuser --domain example.com --pin 123456 \
+#       --claude-api-key sk-ant-... --agentic-mode auto \
+#       --start-lanscan --start-capture --whitelist builder
 
 set -e
 
@@ -1220,17 +1249,13 @@ while [ $# -gt 0 ]; do
             CONFIG_STATE_FILE="$2"
             shift 2
             ;;
-        --binary-only|--force-binary)
+        --force-binary)
             CONFIG_FORCE_BINARY="true"
             shift
             ;;
         --debug-build)
             CONFIG_DEBUG_BUILD="true"
             CONFIG_FORCE_BINARY="true"
-            shift
-            ;;
-        --ci-mode)
-            # Deprecated: kept for backward compatibility, does nothing
             shift
             ;;
         --start-lanscan)
@@ -1396,52 +1421,51 @@ fi
 # Check if edamame_posture is already installed with matching credentials and version
 check_existing_installation() {
     # Locate existing binary
-    local existing_binary
-    existing_binary=$(command -v edamame_posture 2>/dev/null || true)
+    EXISTING_BINARY=$(command -v edamame_posture 2>/dev/null || true)
     
     # On Windows, also check the default install directory if not in PATH
-    if [ -z "$existing_binary" ] && [ "$PLATFORM" = "windows" ]; then
-        local candidate="$HOME/edamame_posture.exe"
-        if [ -f "$candidate" ]; then
-            existing_binary="$candidate"
+    if [ -z "$EXISTING_BINARY" ] && [ "$PLATFORM" = "windows" ]; then
+        CANDIDATE_BINARY="$HOME/edamame_posture.exe"
+        if [ -f "$CANDIDATE_BINARY" ]; then
+            EXISTING_BINARY="$CANDIDATE_BINARY"
         fi
     fi
     
-    if [ -z "$existing_binary" ]; then
+    if [ -z "$EXISTING_BINARY" ]; then
         return 1  # Not installed
     fi
     
-    info "Found existing edamame_posture at: $existing_binary"
+    info "Found existing edamame_posture at: $EXISTING_BINARY"
     
     # Check version/SHA first - if outdated, always reinstall
-    local version_check_passed="false"
+    VERSION_CHECK_PASSED="false"
     
     # Determine if this is a package installation or binary
-    local is_package_install="false"
+    IS_PACKAGE_INSTALL="false"
     if [ "$PLATFORM" = "linux" ]; then
         if command -v dpkg >/dev/null 2>&1 && dpkg -l edamame-posture 2>/dev/null | grep -q "^ii"; then
-            is_package_install="true"
+            IS_PACKAGE_INSTALL="true"
             info "Detected package installation (APT)"
         elif command -v apk >/dev/null 2>&1 && apk info -e edamame-posture 2>/dev/null; then
-            is_package_install="true"
+            IS_PACKAGE_INSTALL="true"
             info "Detected package installation (APK)"
         fi
     elif [ "$PLATFORM" = "macos" ] && command -v brew >/dev/null 2>&1; then
         if brew list edamame-posture >/dev/null 2>&1; then
-            is_package_install="true"
+            IS_PACKAGE_INSTALL="true"
             info "Detected package installation (Homebrew)"
         fi
     elif [ "$PLATFORM" = "windows" ] && command -v choco >/dev/null 2>&1; then
         if choco list --local-only --exact edamame-posture 2>/dev/null | grep -q "^edamame-posture "; then
-            is_package_install="true"
+            IS_PACKAGE_INSTALL="true"
             info "Detected package installation (Chocolatey)"
         fi
     fi
     
-    if [ "$is_package_install" = "true" ]; then
+    if [ "$IS_PACKAGE_INSTALL" = "true" ]; then
         # For package installations, check if update is available
         info "Checking if package is up to date..."
-        local needs_upgrade="false"
+        NEEDS_UPGRADE="false"
         
         if [ "$PLATFORM" = "linux" ]; then
             if command -v apt-get >/dev/null 2>&1; then
@@ -1483,7 +1507,7 @@ check_existing_installation() {
             fi
         fi
         
-        if [ "$needs_upgrade" = "true" ]; then
+        if [ "$NEEDS_UPGRADE" = "true" ]; then
             info "Package needs upgrade, will proceed with installation"
             return 1  # Need to upgrade
         fi
@@ -1495,11 +1519,11 @@ check_existing_installation() {
         prepare_binary_artifact "$PLATFORM" "$LINUX_LIBC_FLAVOR"
         
         if [ -n "$ARTIFACT_DIGEST" ]; then
-            local existing_sha
-            existing_sha=$(compute_sha256 "$existing_binary" 2>/dev/null || true)
+existing_sha
+            existing_sha=$(compute_sha256 "$EXISTING_BINARY" 2>/dev/null || true)
             
-            if [ -n "$existing_sha" ]; then
-                if [ "$existing_sha" = "$ARTIFACT_DIGEST" ]; then
+            if [ -n "$EXISTING_SHA" ]; then
+                if [ "$EXISTING_SHA" = "$ARTIFACT_DIGEST" ]; then
                     info "Binary SHA matches latest release (${ARTIFACT_DIGEST:0:16}...)"
                     version_check_passed="true"
                 else
@@ -1521,7 +1545,7 @@ check_existing_installation() {
     fi
     
     # Version check must pass before we consider credentials
-    if [ "$version_check_passed" != "true" ]; then
+    if [ "$VERSION_CHECK_PASSED" != "true" ]; then
         info "Version/SHA check failed, will proceed with installation"
         return 1
     fi
@@ -1529,8 +1553,8 @@ check_existing_installation() {
     # Version is OK, now check credentials
     if ! credentials_provided; then
         info "No credentials provided, version is up to date, reusing existing installation"
-        BINARY_PATH="$existing_binary"
-        FINAL_BINARY_PATH="$existing_binary"
+        BINARY_PATH="$EXISTING_BINARY"
+        FINAL_BINARY_PATH="$EXISTING_BINARY"
         INSTALL_METHOD="existing"
         SKIP_INSTALLATION="true"
         SKIP_CONFIGURATION="true"
@@ -1541,21 +1565,21 @@ check_existing_installation() {
     info "Checking if existing installation matches provided credentials..."
     
     # Try to get status (capture both stdout and stderr)
-    local status_output status_error status_exit_code
+status_output status_error status_exit_code
     if [ -n "$SUDO" ]; then
-        status_output=$($SUDO "$existing_binary" status 2>&1)
+        status_output=$($SUDO "$EXISTING_BINARY" status 2>&1)
         status_exit_code=$?
     else
-        status_output=$("$existing_binary" status 2>&1)
+        status_output=$("$EXISTING_BINARY" status 2>&1)
         status_exit_code=$?
     fi
     
     # Check if status command succeeded
-    if [ $status_exit_code -ne 0 ] || [ -z "$status_output" ]; then
-        warn "Cannot get status from existing installation (exit code: $status_exit_code)"
-        if [ -n "$status_output" ]; then
+    if [ $STATUS_EXIT_CODE -ne 0 ] || [ -z "$STATUS_OUTPUT" ]; then
+        warn "Cannot get status from existing installation (exit code: $STATUS_EXIT_CODE)"
+        if [ -n "$STATUS_OUTPUT" ]; then
             warn "Status output:"
-            echo "$status_output" | while IFS= read -r line; do
+            echo "$STATUS_OUTPUT" | while IFS= read -r line; do
                 warn "  $line"
             done
         else
@@ -1563,20 +1587,20 @@ check_existing_installation() {
         fi
         
         # Try to verify credentials via config file as fallback (Linux only)
-        local config_match="false"
+config_match="false"
         if [ "$PLATFORM" = "linux" ] && [ -f "/etc/edamame_posture.conf" ]; then
             info "Checking credentials in existing config file..."
-            local config_user config_domain
+config_user config_domain
             config_user=$(grep "^edamame_user:" /etc/edamame_posture.conf 2>/dev/null | sed 's/.*: *"\([^"]*\)".*/\1/' || true)
             config_domain=$(grep "^edamame_domain:" /etc/edamame_posture.conf 2>/dev/null | sed 's/.*: *"\([^"]*\)".*/\1/' || true)
             
-            if [ -n "$config_user" ] && [ -n "$config_domain" ]; then
-                if [ "$config_user" = "$CONFIG_USER" ] && [ "$config_domain" = "$CONFIG_DOMAIN" ]; then
+            if [ -n "$CONFIG_USER_RUNNING" ] && [ -n "$CONFIG_DOMAIN_RUNNING" ]; then
+                if [ "$CONFIG_USER_RUNNING" = "$CONFIG_USER" ] && [ "$CONFIG_DOMAIN_RUNNING" = "$CONFIG_DOMAIN" ]; then
                     info "Config file credentials match provided credentials (user: $CONFIG_USER, domain: $CONFIG_DOMAIN)"
                     info "Service appears to be stopped or not responding, but credentials are correct"
                     config_match="true"
                 else
-                    info "Config file credentials differ (user: $config_user, domain: $config_domain)"
+                    info "Config file credentials differ (user: $CONFIG_USER_RUNNING, domain: $CONFIG_DOMAIN_RUNNING)"
                 fi
             else
                 warn "Cannot parse credentials from config file"
@@ -1587,7 +1611,7 @@ check_existing_installation() {
             info "Config file check not applicable on $PLATFORM (no system service)"
         fi
         
-        if [ "$config_match" = "true" ]; then
+        if [ "$CONFIG_MATCH" = "true" ]; then
             # Credentials in config match, just need to ensure service is running
             info "Will use existing binary and restart service with existing configuration"
         else
@@ -1599,12 +1623,12 @@ check_existing_installation() {
             fi
         fi
         
-        BINARY_PATH="$existing_binary"
-        FINAL_BINARY_PATH="$existing_binary"
+        BINARY_PATH="$EXISTING_BINARY"
+        FINAL_BINARY_PATH="$EXISTING_BINARY"
         INSTALL_METHOD="existing"
         SKIP_INSTALLATION="true"
         # On non-Linux platforms, skip configuration since there's no service
-        if [ "$PLATFORM" = "linux" ] && [ "$config_match" != "true" ]; then
+        if [ "$PLATFORM" = "linux" ] && [ "$CONFIG_MATCH" != "true" ]; then
             SKIP_CONFIGURATION="false"
         else
             SKIP_CONFIGURATION="true"
@@ -1613,25 +1637,25 @@ check_existing_installation() {
     fi
     
     # Parse credentials from status
-    local running_user running_domain is_connected
-    running_user=$(echo "$status_output" | grep "Connected user:" | sed 's/.*Connected user: //' | tr -d ' ')
-    running_domain=$(echo "$status_output" | grep "Connected domain:" | sed 's/.*Connected domain: //' | tr -d ' ')
-    is_connected=$(echo "$status_output" | grep "Is connected:" | sed 's/.*Is connected: //' | tr -d ' ')
+running_user running_domain is_connected
+    running_user=$(echo "$STATUS_OUTPUT" | grep "Connected user:" | sed 's/.*Connected user: //' | tr -d ' ')
+    running_domain=$(echo "$STATUS_OUTPUT" | grep "Connected domain:" | sed 's/.*Connected domain: //' | tr -d ' ')
+    is_connected=$(echo "$STATUS_OUTPUT" | grep "Is connected:" | sed 's/.*Is connected: //' | tr -d ' ')
     
     # Check if credentials match
-    if [ "$is_connected" = "true" ] && [ "$running_user" = "$CONFIG_USER" ] && [ "$running_domain" = "$CONFIG_DOMAIN" ]; then
+    if [ "$IS_CONNECTED" = "true" ] && [ "$RUNNING_USER" = "$CONFIG_USER" ] && [ "$RUNNING_DOMAIN" = "$CONFIG_DOMAIN" ]; then
         info "Existing installation is running with matching credentials (user: $CONFIG_USER, domain: $CONFIG_DOMAIN)"
         info "Skipping installation and configuration"
-        BINARY_PATH="$existing_binary"
-        FINAL_BINARY_PATH="$existing_binary"
+        BINARY_PATH="$EXISTING_BINARY"
+        FINAL_BINARY_PATH="$EXISTING_BINARY"
         INSTALL_METHOD="existing"
         SKIP_INSTALLATION="true"
         SKIP_CONFIGURATION="true"
         return 0  # Skip everything
     fi
     
-    if [ "$is_connected" = "true" ]; then
-        info "Existing installation has different credentials (user: $running_user, domain: $running_domain)"
+    if [ "$IS_CONNECTED" = "true" ]; then
+        info "Existing installation has different credentials (user: $RUNNING_USER, domain: $RUNNING_DOMAIN)"
         if [ "$PLATFORM" = "linux" ]; then
             info "Will skip installation but reconfigure with new credentials"
         else
@@ -1648,8 +1672,8 @@ check_existing_installation() {
     fi
     
     # Binary exists, skip installation
-    BINARY_PATH="$existing_binary"
-    FINAL_BINARY_PATH="$existing_binary"
+    BINARY_PATH="$EXISTING_BINARY"
+    FINAL_BINARY_PATH="$EXISTING_BINARY"
     INSTALL_METHOD="existing"
     SKIP_INSTALLATION="true"
     # Only reconfigure on Linux (only platform with system service)
