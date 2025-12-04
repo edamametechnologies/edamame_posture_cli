@@ -2076,6 +2076,16 @@ EOF
             # Give service time to initialize, especially if packet capture is enabled
             if [ "$CONFIG_START_CAPTURE" = "true" ] || [ "$CONFIG_START_LANSCAN" = "true" ]; then
                 info "Waiting for service to initialize (network scanning/packet capture enabled)..."
+                
+                # Debug: verify config file has the network flags
+                if [ -f "$CONF_FILE" ]; then
+                    info "Verifying config file contains network flags..."
+                    CONF_LANSCAN=$(grep "^start_lanscan:" "$CONF_FILE" | head -1 || echo "missing")
+                    CONF_CAPTURE=$(grep "^start_capture:" "$CONF_FILE" | head -1 || echo "missing")
+                    info "  start_lanscan: $CONF_LANSCAN"
+                    info "  start_capture: $CONF_CAPTURE"
+                fi
+                
                 sleep 5
             fi
     else
