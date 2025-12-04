@@ -2260,17 +2260,22 @@ if [ "$SHOULD_START_DAEMON" = "true" ]; then
     
     # Verify it started
     if [ -n "$SUDO" ]; then
-        if $SUDO "$RESOLVED_BINARY_PATH" status >/dev/null 2>&1; then
+        STATUS=$($SUDO "$RESOLVED_BINARY_PATH" status 2>&1)
+        if echo "$STATUS" | grep -q "connected: true"; then
             info "✓ Daemon is running and connected"
+            info "Status output:"
+            echo "$STATUS" | while IFS= read -r line; do
+                info "  $line"
+            done
         else
             warn "Daemon may not have started successfully. Check with: $SUDO $RESOLVED_BINARY_PATH status"
+            warn "Status output:"
+            echo "$STATUS" | while IFS= read -r line; do
+                warn "  $line"
+            done
         fi
     else
-        if "$RESOLVED_BINARY_PATH" status >/dev/null 2>&1; then
-            info "✓ Daemon is running and connected"
-        else
-            warn "Daemon may not have started successfully. Check with: $RESOLVED_BINARY_PATH status"
-        fi
+        STATUS=$("$RESOLVED_BINARY_PATH" status 2>&1)
     fi
 fi
 
