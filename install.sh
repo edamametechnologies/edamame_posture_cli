@@ -2044,17 +2044,17 @@ if [ "$SHOULD_START_DAEMON" = "true" ]; then
     info "Starting background daemon with provided credentials..."
     
     # Export AI configuration before starting daemon
-    AGENTIC_PROVIDER_FLAG=""
+    AGENTIC_PROVIDER_NAME=""
     if [ "$CONFIG_AGENTIC_MODE" != "disabled" ]; then
         if [ -n "$CONFIG_CLAUDE_KEY" ]; then
             export EDAMAME_LLM_API_KEY="$CONFIG_CLAUDE_KEY"
-            AGENTIC_PROVIDER_FLAG="--agentic-provider claude"
+            AGENTIC_PROVIDER_NAME="claude"
         elif [ -n "$CONFIG_OPENAI_KEY" ]; then
             export EDAMAME_LLM_API_KEY="$CONFIG_OPENAI_KEY"
-            AGENTIC_PROVIDER_FLAG="--agentic-provider openai"
+            AGENTIC_PROVIDER_NAME="openai"
         elif [ -n "$CONFIG_OLLAMA_URL" ]; then
             export EDAMAME_LLM_BASE_URL="$CONFIG_OLLAMA_URL"
-            AGENTIC_PROVIDER_FLAG="--agentic-provider ollama"
+            AGENTIC_PROVIDER_NAME="ollama"
         fi
         
         if [ -n "$CONFIG_SLACK_BOT_TOKEN" ]; then
@@ -2068,15 +2068,39 @@ if [ "$SHOULD_START_DAEMON" = "true" ]; then
         fi
     fi
     
-    # Start daemon in background
-    # Note: Binary installs don't have config files, so we pass everything as CLI args
     info "Starting daemon in background..."
     
-    # For binary/Homebrew/Choco installs, skip daemon auto-start
-    # The GitHub Action will handle daemon lifecycle explicitly
-    # For standalone usage, users can manually start with: edamame_posture start --user ... --domain ... --pin ...
-    info "Note: Daemon auto-start skipped for binary/Homebrew/Chocolatey installations"
-    info "The daemon will be started by the GitHub Action or manually by the user"
+    # Build and execute daemon command inside a subshell so positional parameters remain untouched
+    (
+        set -- start \
+            --user "$CONFIG_USER" \
+            --domain "$CONFIG_DOMAIN" \
+            --pin "$CONFIG_PIN"
+        
+        [ -n "$CONFIG_DEVICE_ID" ] && set -- "$@" --device-id "$CONFIG_DEVICE_ID"
+        [ "$CONFIG_START_LANSCAN" = "true" ] && set -- "$@" --network-scan
+        [ "$CONFIG_START_CAPTURE" = "true" ] && set -- "$@" --packet-capture
+        [ -n "$CONFIG_WHITELIST" ] && set -- "$@" --whitelist "$CONFIG_WHITELIST"
+        [ "$CONFIG_FAIL_ON_WHITELIST" = "true" ] && set -- "$@" --fail-on-whitelist
+        [ "$CONFIG_FAIL_ON_BLACKLIST" = "true" ] && set -- "$@" --fail-on-blacklist
+        [ "$CONFIG_FAIL_ON_ANOMALOUS" = "true" ] && set -- "$@" --fail-on-anomalous
+        [ "$CONFIG_CANCEL_ON_VIOLATION" = "true" ] && set -- "$@" --cancel-on-violation
+        [ "$CONFIG_INCLUDE_LOCAL_TRAFFIC" = "true" ] && set -- "$@" --include-local-traffic
+        
+        if [ "$CONFIG_AGENTIC_MODE" != "disabled" ]; then
+            set -- "$@" --agentic-mode "$CONFIG_AGENTIC_MODE"
+            [ -n "$AGENTIC_PROVIDER_NAME" ] && set -- "$@" --agentic-provider "$AGENTIC_PROVIDER_NAME"
+            if [ -n "$CONFIG_AGENTIC_INTERVAL" ] && [ "$CONFIG_AGENTIC_INTERVAL" != "3600" ]; then
+                set -- "$@" --agentic-interval "$CONFIG_AGENTIC_INTERVAL"
+            fi
+        fi
+        
+        if [ -n "$SUDO" ]; then
+            $SUDO "$RESOLVED_BINARY_PATH" "$@" >/dev/null 2>&1 &
+        else
+            "$RESOLVED_BINARY_PATH" "$@" >/dev/null 2>&1 &
+        fi
+    )
     
     info "✓ Background daemon started"
     
