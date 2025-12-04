@@ -2040,6 +2040,11 @@ fi
 # This includes: binary installs, Homebrew (macOS), Chocolatey (Windows)
 # Excludes: APT/APK (they have systemd/OpenRC services managed by configure_service)
 # BUT: If OpenRC service failed to start in configure_service, we override it here to force manual start
+# Note: SHOULD_START_DAEMON may have been set to "true" inside configure_service() if OpenRC failed
+if [ -z "$SHOULD_START_DAEMON" ] || [ "$SHOULD_START_DAEMON" != "true" ]; then
+    SHOULD_START_DAEMON="false"
+fi
+
 info "Daemon start decision:"
 if credentials_provided; then
     info "  Credentials provided: yes"
