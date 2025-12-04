@@ -46,10 +46,13 @@ jobs:
       - name: Use the local universal install script - step 1
         shell: bash
         run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh | sh -s -- \
-          --user ${{ vars.EDAMAME_POSTURE_USER }} \
-          --domain ${{ vars.EDAMAME_POSTURE_DOMAIN }} \
-          --pin ${{ secrets.EDAMAME_POSTURE_PIN }}
+          TMP_SCRIPT=$(mktemp)
+          curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh -o "$TMP_SCRIPT"
+          sh "$TMP_SCRIPT" -- \
+            --user ${{ vars.EDAMAME_POSTURE_USER }} \
+            --domain ${{ vars.EDAMAME_POSTURE_DOMAIN }} \
+            --pin ${{ secrets.EDAMAME_POSTURE_PIN }}
+          rm -f "$TMP_SCRIPT"
           
       - name: Check if the daemon is running
         shell: bash
@@ -95,10 +98,13 @@ jobs:
       - name: Use the local universal install script - step 2
         shell: bash
         run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh | sh -s -- \
-          --user ${{ vars.EDAMAME_POSTURE_USER }} \
-          --domain ${{ vars.EDAMAME_POSTURE_DOMAIN }} \
-          --pin ${{ secrets.EDAMAME_POSTURE_PIN }}
+          TMP_SCRIPT=$(mktemp)
+          curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh -o "$TMP_SCRIPT"
+          sh "$TMP_SCRIPT" -- \
+            --user ${{ vars.EDAMAME_POSTURE_USER }} \
+            --domain ${{ vars.EDAMAME_POSTURE_DOMAIN }} \
+            --pin ${{ secrets.EDAMAME_POSTURE_PIN }}
+          rm -f "$TMP_SCRIPT"
 
       - name: Check if the daemon is running
         shell: bash
@@ -167,11 +173,14 @@ jobs:
       - name: Use the local universal install script - step 1 (binary only)
         shell: bash
         run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh | sh -s -- \
-          --user ${{ vars.EDAMAME_POSTURE_USER }} \
-          --domain ${{ vars.EDAMAME_POSTURE_DOMAIN }} \
-          --pin ${{ secrets.EDAMAME_POSTURE_PIN }} \
-          --force-binary
+          TMP_SCRIPT=$(mktemp)
+          curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh -o "$TMP_SCRIPT"
+          sh "$TMP_SCRIPT" -- \
+            --user ${{ vars.EDAMAME_POSTURE_USER }} \
+            --domain ${{ vars.EDAMAME_POSTURE_DOMAIN }} \
+            --pin ${{ secrets.EDAMAME_POSTURE_PIN }} \
+            --force-binary
+          rm -f "$TMP_SCRIPT"
           
       - name: Check if the daemon is running
         shell: bash
@@ -212,11 +221,14 @@ jobs:
       - name: Use the local universal install script - step 2 (binary only)
         shell: bash
         run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh | sh -s -- \
-          --user ${{ vars.EDAMAME_POSTURE_USER }} \
-          --domain ${{ vars.EDAMAME_POSTURE_DOMAIN }} \
-          --pin ${{ secrets.EDAMAME_POSTURE_PIN }} \
-          --force-binary
+          TMP_SCRIPT=$(mktemp)
+          curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh -o "$TMP_SCRIPT"
+          sh "$TMP_SCRIPT" -- \
+            --user ${{ vars.EDAMAME_POSTURE_USER }} \
+            --domain ${{ vars.EDAMAME_POSTURE_DOMAIN }} \
+            --pin ${{ secrets.EDAMAME_POSTURE_PIN }} \
+            --force-binary
+          rm -f "$TMP_SCRIPT"
 
       - name: Check if the daemon is running
         shell: bash
@@ -286,10 +298,13 @@ jobs:
       - name: Use the local universal install script - step 1
         shell: bash
         run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh | sh -s -- \
-          --user ${{ vars.EDAMAME_POSTURE_USER }} \
-          --domain ${{ vars.EDAMAME_POSTURE_DOMAIN }} \
-          --pin ${{ secrets.EDAMAME_POSTURE_PIN }}
+          TMP_SCRIPT=$(mktemp)
+          curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh -o "$TMP_SCRIPT"
+          sh "$TMP_SCRIPT" -- \
+            --user ${{ vars.EDAMAME_POSTURE_USER }} \
+            --domain ${{ vars.EDAMAME_POSTURE_DOMAIN }} \
+            --pin ${{ secrets.EDAMAME_POSTURE_PIN }}
+          rm -f "$TMP_SCRIPT"
 
       - name: Check if the daemon is running
         shell: bash
@@ -330,10 +345,13 @@ jobs:
       - name: Use the local universal install script - step 2
         shell: bash
         run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh | sh -s -- \
-          --user ${{ vars.EDAMAME_POSTURE_USER }} \
-          --domain ${{ vars.EDAMAME_POSTURE_DOMAIN }} \
-          --pin ${{ secrets.EDAMAME_POSTURE_PIN }}
+          TMP_SCRIPT=$(mktemp)
+          curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh -o "$TMP_SCRIPT"
+          sh "$TMP_SCRIPT" -- \
+            --user ${{ vars.EDAMAME_POSTURE_USER }} \
+            --domain ${{ vars.EDAMAME_POSTURE_DOMAIN }} \
+            --pin ${{ secrets.EDAMAME_POSTURE_PIN }}
+          rm -f "$TMP_SCRIPT"
 
       - name: Check if the daemon is running
         shell: bash
@@ -411,10 +429,13 @@ jobs:
 
       - name: Use the local universal install script - step 1
         run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh | sh -s -- \
-          --user ${{ vars.EDAMAME_POSTURE_USER }} \
-          --domain ${{ vars.EDAMAME_POSTURE_DOMAIN }} \
-          --pin ${{ secrets.EDAMAME_POSTURE_PIN }}
+          TMP_SCRIPT=$(mktemp)
+          curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh -o "$TMP_SCRIPT"
+          sh "$TMP_SCRIPT" -- \
+            --user ${{ vars.EDAMAME_POSTURE_USER }} \
+            --domain ${{ vars.EDAMAME_POSTURE_DOMAIN }} \
+            --pin ${{ secrets.EDAMAME_POSTURE_PIN }}
+          rm -f "$TMP_SCRIPT"
         shell: alpine.sh --root {0}
 
       - name: Check if the daemon is running
@@ -430,10 +451,13 @@ jobs:
 
       - name: Use the local universal install script - step 2
         run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh | sh -s -- \
-          --user ${{ vars.EDAMAME_POSTURE_USER }} \
-          --domain ${{ vars.EDAMAME_POSTURE_DOMAIN }} \
-          --pin ${{ secrets.EDAMAME_POSTURE_PIN }}
+          TMP_SCRIPT=$(mktemp)
+          curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh -o "$TMP_SCRIPT"
+          sh "$TMP_SCRIPT" -- \
+            --user ${{ vars.EDAMAME_POSTURE_USER }} \
+            --domain ${{ vars.EDAMAME_POSTURE_DOMAIN }} \
+            --pin ${{ secrets.EDAMAME_POSTURE_PIN }}
+          rm -f "$TMP_SCRIPT"
         shell: alpine.sh --root {0}
 
       - name: Check if the daemon is running
