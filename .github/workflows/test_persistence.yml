@@ -92,6 +92,16 @@ jobs:
           --domain ${{ vars.EDAMAME_POSTURE_DOMAIN }} \
           --pin ${{ secrets.EDAMAME_POSTURE_PIN }}
 
+      - name: Check if the daemon is running
+        run: |
+          edamame_posture status
+          if [ $? -ne 0 ]; then
+            echo "Daemon is not running"
+            exit 1
+          fi
+          echo "Daemon is running"
+          exit 0
+
       - name: Use the local universal install script - step 2
         shell: bash
         run: |
@@ -99,6 +109,16 @@ jobs:
           --user ${{ vars.EDAMAME_POSTURE_USER }} \
           --domain ${{ vars.EDAMAME_POSTURE_DOMAIN }} \
           --pin ${{ secrets.EDAMAME_POSTURE_PIN }}
+
+      - name: Check if the daemon is running
+        run: |
+          edamame_posture status
+          if [ $? -ne 0 ]; then
+            echo "Daemon is not running"
+            exit 1
+          fi
+          echo "Daemon is running"
+          exit 0
 
   test-alpine:
     timeout-minutes: 120

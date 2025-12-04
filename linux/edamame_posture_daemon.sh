@@ -35,8 +35,17 @@ get_config_value() {
 edamame_user="$(get_config_value "edamame_user")"
 edamame_domain="$(get_config_value "edamame_domain")"
 edamame_pin="$(get_config_value "edamame_pin")"
+edamame_device_id="$(get_config_value "edamame_device_id")"
 start_lanscan="$(get_config_value "start_lanscan")"
 start_capture="$(get_config_value "start_capture")"
+
+# Network configuration
+whitelist_name="$(get_config_value "whitelist_name")"
+fail_on_whitelist="$(get_config_value "fail_on_whitelist")"
+fail_on_blacklist="$(get_config_value "fail_on_blacklist")"
+fail_on_anomalous="$(get_config_value "fail_on_anomalous")"
+cancel_on_violation="$(get_config_value "cancel_on_violation")"
+include_local_traffic="$(get_config_value "include_local_traffic")"
 
 # Agentic configuration
 agentic_mode="$(get_config_value "agentic_mode")"
@@ -53,6 +62,11 @@ agentic_mode="${agentic_mode:-disabled}"
 agentic_interval="${agentic_interval:-3600}"
 start_lanscan="${start_lanscan,,}"
 start_capture="${start_capture,,}"
+fail_on_whitelist="${fail_on_whitelist,,}"
+fail_on_blacklist="${fail_on_blacklist,,}"
+fail_on_anomalous="${fail_on_anomalous,,}"
+cancel_on_violation="${cancel_on_violation,,}"
+include_local_traffic="${include_local_traffic,,}"
 
 # Determine LLM provider based on which API key is configured (first non-empty wins)
 agentic_provider="none"
@@ -95,6 +109,12 @@ if [[ -n "$edamame_user" && -n "$edamame_domain" && -n "$edamame_pin" ]]; then
   echo "Starting in connected mode:"
   echo "  User: $edamame_user"
   echo "  Domain: $edamame_domain"
+  
+  # Add device ID if configured
+  if [[ -n "$edamame_device_id" ]]; then
+    CMD_ARGS+=(--device-id "$edamame_device_id")
+    echo "  Device ID: $edamame_device_id"
+  fi
 else
   echo "Starting in disconnected mode (user/domain/pin not configured)"
 fi
@@ -110,6 +130,7 @@ if [[ "$agentic_mode" != "disabled" && "$agentic_provider" != "none" ]]; then
   echo "  Interval: ${agentic_interval}s"
 fi
 
+# Network monitoring flags
 if [[ "$start_lanscan" == "true" ]]; then
   CMD_ARGS+=(--network-scan)
   echo "LAN scan enabled via configuration"
@@ -118,6 +139,38 @@ fi
 if [[ "$start_capture" == "true" ]]; then
   CMD_ARGS+=(--packet-capture)
   echo "Packet capture enabled via configuration"
+fi
+
+# Whitelist configuration
+if [[ -n "$whitelist_name" ]]; then
+  CMD_ARGS+=(--whitelist "$whitelist_name")
+  echo "Whitelist: $whitelist_name"
+fi
+
+if [[ "$fail_on_whitelist" == "true" ]]; then
+  CMD_ARGS+=(--fail-on-whitelist)
+  echo "Fail on whitelist violations: enabled"
+fi
+
+if [[ "$fail_on_blacklist" == "true" ]]; then
+  CMD_ARGS+=(--fail-on-blacklist)
+  echo "Fail on blacklist matches: enabled"
+fi
+
+if [[ "$fail_on_anomalous" == "true" ]]; then
+  CMD_ARGS+=(--fail-on-anomalous)
+  echo "Fail on anomalous sessions: enabled"
+fi
+
+# Violation handling
+if [[ "$cancel_on_violation" == "true" ]]; then
+  CMD_ARGS+=(--cancel-on-violation)
+  echo "Cancel on violation: enabled"
+fi
+
+if [[ "$include_local_traffic" == "true" ]]; then
+  CMD_ARGS+=(--include-local-traffic)
+  echo "Include local traffic: enabled"
 fi
 
 echo "Starting edamame_posture service..."
