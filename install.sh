@@ -2071,7 +2071,7 @@ if [ "$SHOULD_START_DAEMON" = "true" ]; then
     
     info "Starting daemon in background..."
     
-    # Build daemon command inside a subshell so CLI arguments stay correctly quoted
+    # Build daemon command inside a subshell
     (
         NOHUP_CMD=""
         if command -v nohup >/dev/null 2>&1; then
