@@ -827,10 +827,10 @@ install_linux_via_apk() {
     fi
 
     info "Updating package list..."
-    $SUDO apk update
+    $SUDO apk update < /dev/null
 
     info "Installing edamame-posture (upgrading if already installed)..."
-    $SUDO apk add --no-cache --upgrade edamame-posture
+    $SUDO apk add --no-cache --upgrade edamame-posture < /dev/null
 
     info "Installation complete!"
     BINARY_PATH=$(command -v edamame_posture 2>/dev/null || echo "/usr/bin/edamame_posture")
@@ -991,14 +991,14 @@ install_linux_via_apt() {
 
         if ! command -v gpg >/dev/null 2>&1; then
             info "Installing gnupg..."
-            $SUDO apt-get update -qq
-            $SUDO apt-get install -y gnupg
+            $SUDO apt-get update -qq < /dev/null
+            $SUDO apt-get install -y gnupg < /dev/null
         fi
 
         if ! command -v wget >/dev/null 2>&1 && ! command -v curl >/dev/null 2>&1; then
             info "Installing wget..."
-            $SUDO apt-get update -qq
-            $SUDO apt-get install -y wget
+            $SUDO apt-get update -qq < /dev/null
+            $SUDO apt-get install -y wget < /dev/null
         fi
 
         if command -v wget >/dev/null 2>&1; then
@@ -1017,13 +1017,13 @@ install_linux_via_apt() {
     fi
 
     info "Updating package list..."
-    $SUDO apt-get update -qq
+    $SUDO apt-get update -qq < /dev/null
 
     info "Installing edamame-posture..."
     # Run apt-get install and capture output
     # Note: apt-get may return 0 even if dpkg configuration fails
     set +e
-    INSTALL_OUTPUT=$($SUDO apt-get install -y edamame-posture 2>&1)
+    INSTALL_OUTPUT=$($SUDO apt-get install -y edamame-posture 2>&1 < /dev/null)
     INSTALL_EXIT_CODE=$?
     set -e
     
@@ -1083,11 +1083,11 @@ install_windows_via_choco() {
     info "Installing via Chocolatey..."
     if choco list --local-only --exact edamame-posture 2>/dev/null | grep -q "^edamame-posture "; then
         info "edamame-posture already present via Chocolatey, attempting upgrade..."
-        if ! choco upgrade edamame-posture -y 2>/dev/null; then
+        if ! choco upgrade edamame-posture -y 2>/dev/null < /dev/null; then
             warn "Chocolatey upgrade failed, continuing..."
         fi
     else
-        if ! choco install edamame-posture -y 2>/dev/null; then
+        if ! choco install edamame-posture -y 2>/dev/null < /dev/null; then
             warn "Chocolatey installation failed"
             return 1
         fi
@@ -1112,7 +1112,7 @@ install_macos_via_brew() {
     info "Installing via Homebrew..."
 
     if ! brew tap | grep -q "edamametechnologies/tap"; then
-        if ! brew tap edamametechnologies/tap >/dev/null 2>&1; then
+        if ! brew tap edamametechnologies/tap >/dev/null 2>&1 < /dev/null; then
             warn "Failed to tap edamametechnologies/tap"
             return 1
         fi
@@ -1120,9 +1120,9 @@ install_macos_via_brew() {
 
     if brew list edamame-posture >/dev/null 2>&1; then
         info "edamame-posture already installed via Homebrew, attempting upgrade..."
-        brew upgrade edamame-posture >/dev/null 2>&1 || true
+        brew upgrade edamame-posture >/dev/null 2>&1 < /dev/null || true
     else
-        if ! brew install edamame-posture >/dev/null 2>&1; then
+        if ! brew install edamame-posture >/dev/null 2>&1 < /dev/null; then
             warn "Homebrew installation failed"
             return 1
         fi
