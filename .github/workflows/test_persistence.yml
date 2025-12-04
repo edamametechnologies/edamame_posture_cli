@@ -47,6 +47,17 @@ jobs:
           --domain ${{ vars.EDAMAME_POSTURE_DOMAIN }} \
           --pin ${{ secrets.EDAMAME_POSTURE_PIN }}
           
+      - name: Check if the daemon is running
+        shell: bash
+        run: |
+          edamame_posture status
+          if [ $? -ne 0 ]; then
+            echo "Daemon is not running"
+            exit 1
+          fi
+          echo "Daemon is running"
+          exit 0
+
       - name: Use the local universal install script - step 2
         shell: bash
         run: |
@@ -54,6 +65,17 @@ jobs:
           --user ${{ vars.EDAMAME_POSTURE_USER }} \
           --domain ${{ vars.EDAMAME_POSTURE_DOMAIN }} \
           --pin ${{ secrets.EDAMAME_POSTURE_PIN }}
+
+      - name: Check if the daemon is running
+        shell: bash
+        run: |
+          edamame_posture status
+          if [ $? -ne 0 ]; then
+            echo "Daemon is not running"
+            exit 1
+          fi
+          echo "Daemon is running"
+          exit 0
 
   test-container:
     timeout-minutes: 90
@@ -93,6 +115,7 @@ jobs:
           --pin ${{ secrets.EDAMAME_POSTURE_PIN }}
 
       - name: Check if the daemon is running
+        shell: bash
         run: |
           edamame_posture status
           if [ $? -ne 0 ]; then
@@ -111,6 +134,7 @@ jobs:
           --pin ${{ secrets.EDAMAME_POSTURE_PIN }}
 
       - name: Check if the daemon is running
+        shell: bash
         run: |
           edamame_posture status
           if [ $? -ne 0 ]; then
@@ -166,10 +190,32 @@ jobs:
           --pin ${{ secrets.EDAMAME_POSTURE_PIN }}
         shell: alpine.sh --root {0}
 
+      - name: Check if the daemon is running
+        run: |
+          edamame_posture status
+          if [ $? -ne 0 ]; then
+            echo "Daemon is not running"
+            exit 1
+          fi
+          echo "Daemon is running"
+          exit 0
+        shell: alpine.sh --root {0}
+
       - name: Use the local universal install script - step 2
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh | sh -s -- \
           --user ${{ vars.EDAMAME_POSTURE_USER }} \
           --domain ${{ vars.EDAMAME_POSTURE_DOMAIN }} \
           --pin ${{ secrets.EDAMAME_POSTURE_PIN }}
+        shell: alpine.sh --root {0}
+
+      - name: Check if the daemon is running
+        run: |
+          edamame_posture status
+          if [ $? -ne 0 ]; then
+            echo "Daemon is not running"
+            exit 1
+          fi
+          echo "Daemon is running"
+          exit 0
         shell: alpine.sh --root {0}
