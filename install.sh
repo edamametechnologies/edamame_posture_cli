@@ -2080,10 +2080,14 @@ EOF
                 # Debug: verify config file has the network flags
                 if [ -f "$CONF_FILE" ]; then
                     info "Verifying config file contains network flags..."
-                    CONF_LANSCAN=$(grep "^start_lanscan:" "$CONF_FILE" | head -1 || echo "missing")
-                    CONF_CAPTURE=$(grep "^start_capture:" "$CONF_FILE" | head -1 || echo "missing")
+                    CONF_LANSCAN=$($SUDO grep "^start_lanscan:" "$CONF_FILE" | head -1 || echo "missing")
+                    CONF_CAPTURE=$($SUDO grep "^start_capture:" "$CONF_FILE" | head -1 || echo "missing")
                     info "  start_lanscan: $CONF_LANSCAN"
                     info "  start_capture: $CONF_CAPTURE"
+                    
+                    # Also check what the wrapper script will see
+                    info "Testing daemon wrapper's ability to read config..."
+                    $SUDO cat "$CONF_FILE" | head -20 | grep -E "^(start_lanscan|start_capture):" || info "  No network flags found in first 20 lines"
                 fi
                 
                 sleep 5
