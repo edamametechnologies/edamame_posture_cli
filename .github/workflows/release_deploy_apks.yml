@@ -183,7 +183,7 @@ jobs:
           }
           EOF
           
-          # Create post-install script
+          # Create post-install script (matches Debian postinst behavior)
           cat > edamame-posture.post-install << 'EOF'
           #!/bin/sh
           # Post-install script for edamame-posture
@@ -194,11 +194,12 @@ jobs:
               rc-update add edamame_posture default 2>/dev/null || true
           fi
           
-          # Note: Do NOT start the service here
-          # OpenRC might not be fully initialized in container environments
-          # install.sh will handle service start/restart with proper credentials
+          # Start the service (same as Debian postinst)
+          # This starts with empty config, then install.sh will restart after writing credentials
+          echo "Starting edamame_posture service..."
+          rc-service edamame_posture start 2>/dev/null || true
           
-          echo "Service enabled. Run install.sh to configure and start the service."
+          echo "Please configure /etc/edamame_posture.conf and restart the service"
           
           exit 0
           EOF
