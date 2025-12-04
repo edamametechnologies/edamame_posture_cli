@@ -54,7 +54,7 @@ jobs:
       - name: Check if the daemon is running
         shell: bash
         run: |
-          # Locate the binary (it might not be in PATH yet, especially on Windows/macOS)
+          # Locate the binary
           if command -v edamame_posture >/dev/null 2>&1; then
             BINARY="edamame_posture"
           elif [ -f "/usr/bin/edamame_posture" ]; then
@@ -66,41 +66,12 @@ jobs:
           elif [ -f "$HOME/edamame_posture.exe" ]; then
             BINARY="$HOME/edamame_posture.exe"
           else
-            echo "ERROR: edamame_posture binary not found in any expected location"
-            echo "Searched: PATH, /usr/bin, /usr/local/bin, \$HOME"
+            echo "ERROR: edamame_posture binary not found"
             exit 127
           fi
           
           echo "Found binary at: $BINARY"
-          
-          # Check if daemon is running (status command doesn't need sudo). Allow some time for startup.
-          MAX_ATTEMPTS=6
-          ATTEMPT=1
-          while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
-            STATUS=$("$BINARY" status 2>&1)
-            if echo "$STATUS" | grep -q "connected: true"; then
-              echo "Daemon is running and connected"
-              echo "Status output:"
-              echo "$STATUS" | while IFS= read -r line; do
-                echo "  $line"
-              done
-              break
-            else
-              echo "Daemon is not running or not connected"
-              echo "Status output:"
-              echo "$STATUS" | while IFS= read -r line; do
-                echo "  $line"
-              done
-            fi
-            
-            if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
-              echo "Daemon status check failed after $ATTEMPT attempts"
-              exit 1
-            fi
-            
-            ATTEMPT=$((ATTEMPT + 1))
-            sleep 5
-          done
+          $BINARY status
 
       - name: Use the local universal install script - step 2
         shell: bash
@@ -132,7 +103,6 @@ jobs:
           echo "Found binary at: $BINARY"
           $BINARY status
 
-
   test-native-binary-only:
     timeout-minutes: 120
     strategy:
@@ -160,38 +130,14 @@ jobs:
       EDAMAME_LOG_LEVEL: debug
 
     steps:
-
-      - name: Check if the daemon is running
-        shell: bash
-        run: |
-          # Locate the binary
-          if command -v edamame_posture >/dev/null 2>&1; then
-            BINARY="edamame_posture"
-          elif [ -f "/usr/bin/edamame_posture" ]; then
-            BINARY="/usr/bin/edamame_posture"
-          elif [ -f "/usr/local/bin/edamame_posture" ]; then
-            BINARY="/usr/local/bin/edamame_posture"
-          elif [ -f "$HOME/edamame_posture" ]; then
-            BINARY="$HOME/edamame_posture"
-          elif [ -f "$HOME/edamame_posture.exe" ]; then
-            BINARY="$HOME/edamame_posture.exe"
-          else
-            echo "ERROR: edamame_posture binary not found"
-            exit 127
-          fi
-          
-          echo "Found binary at: $BINARY"
-          $BINARY status
-
-      - name: Use the local universal install script - step 2 (binary only)
+      - name: Use the local universal install script - step 1
         shell: bash
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh | sh -s -- \
           --user ${{ vars.EDAMAME_POSTURE_USER }} \
           --domain ${{ vars.EDAMAME_POSTURE_DOMAIN }} \
-          --pin ${{ secrets.EDAMAME_POSTURE_PIN }} \
-          --force-binary
-
+          --pin ${{ secrets.EDAMAME_POSTURE_PIN }}
+          
       - name: Check if the daemon is running
         shell: bash
         run: |
@@ -214,6 +160,36 @@ jobs:
           echo "Found binary at: $BINARY"
           $BINARY status
 
+      - name: Use the local universal install script - step 2
+        shell: bash
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh | sh -s -- \
+          --user ${{ vars.EDAMAME_POSTURE_USER }} \
+          --domain ${{ vars.EDAMAME_POSTURE_DOMAIN }} \
+          --pin ${{ secrets.EDAMAME_POSTURE_PIN }}
+
+      - name: Check if the daemon is running
+        shell: bash
+        run: |
+          # Locate the binary
+          if command -v edamame_posture >/dev/null 2>&1; then
+            BINARY="edamame_posture"
+          elif [ -f "/usr/bin/edamame_posture" ]; then
+            BINARY="/usr/bin/edamame_posture"
+          elif [ -f "/usr/local/bin/edamame_posture" ]; then
+            BINARY="/usr/local/bin/edamame_posture"
+          elif [ -f "$HOME/edamame_posture" ]; then
+            BINARY="$HOME/edamame_posture"
+          elif [ -f "$HOME/edamame_posture.exe" ]; then
+            BINARY="$HOME/edamame_posture.exe"
+          else
+            echo "ERROR: edamame_posture binary not found"
+            exit 127
+          fi
+          
+          echo "Found binary at: $BINARY"
+          $BINARY status
+          
   test-container:
     timeout-minutes: 90
     strategy:
