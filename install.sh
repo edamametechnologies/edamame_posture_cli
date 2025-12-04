@@ -1984,9 +1984,21 @@ elif [ "$SKIP_CONFIGURATION" = "true" ]; then
     info "Service configuration skipped (already configured with matching credentials)"
 fi
 
-# For binary installations with credentials, start background daemon
-# Note: This is for standalone usage (not CI/CD where daemons are managed explicitly by the action)
-if [ "$INSTALLED_VIA_PACKAGE_MANAGER" = "false" ] && credentials_provided && [ "$SKIP_CONFIGURATION" != "true" ]; then
+# For non-service installations with credentials, start background daemon
+# This includes: binary installs, Homebrew (macOS), Chocolatey (Windows)
+# Excludes: APT/APK (they have systemd/OpenRC services managed by configure_service)
+SHOULD_START_DAEMON="false"
+if credentials_provided && [ "$SKIP_CONFIGURATION" != "true" ]; then
+    if [ "$INSTALLED_VIA_PACKAGE_MANAGER" = "false" ]; then
+        # Binary installation - always start daemon
+        SHOULD_START_DAEMON="true"
+    elif [ "$INSTALL_METHOD" = "homebrew" ] || [ "$INSTALL_METHOD" = "chocolatey" ]; then
+        # Homebrew/Chocolatey don't install services - start daemon manually
+        SHOULD_START_DAEMON="true"
+    fi
+fi
+
+if [ "$SHOULD_START_DAEMON" = "true" ]; then
     info ""
     info "Starting background daemon with provided credentials..."
     
