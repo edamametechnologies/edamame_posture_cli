@@ -1999,13 +1999,20 @@ EOF
                     
                     # If service failed to start (e.g. no OpenRC or init failed), try manual fallback
                     if [ "$service_started" != "true" ]; then
+                        # First check if daemon is already running despite service failure
+                        # This can happen if APK postinst started it before OpenRC was fully initialized
+                        if edamame_posture status >/dev/null 2>&1; then
+                            info "Daemon is already running (likely started by APK postinst)"
+                            # Stop it first so we can restart with proper credentials
+                            info "Stopping existing daemon to reconfigure with provided credentials..."
+                            edamame_posture stop >/dev/null 2>&1 || true
+                            sleep 2
+                        fi
+                        
                         warn "Falling back to manual background daemon start..."
                         
                         # Source the config manually to get variables
                         if [ -f "$CONF_FILE" ]; then
-                            # Simple grep/sed parsing since we know the format we just wrote
-                            # Note: This is a best-effort fallback
-                            MANUAL_ARGS=""
                             # We already have CONFIG_* variables in scope from the installer logic
                             # So we can just reuse the manual start logic that follows later in the script
                             # by setting SHOULD_START_DAEMON="true" and skipping the service check
