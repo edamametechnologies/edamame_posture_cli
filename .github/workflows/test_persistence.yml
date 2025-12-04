@@ -78,6 +78,12 @@ jobs:
 
     steps:
 
+      - name: Install curl
+        
+        run: |
+          apt-get update -y
+          apt-get install -y curl
+
       - name: Use the local universal install script - step 1
         shell: bash
         run: |
