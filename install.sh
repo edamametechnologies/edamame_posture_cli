@@ -1663,13 +1663,43 @@ check_existing_installation() {
     if [ "$CREDENTIALS_MATCH" = "true" ]; then
         info "Existing installation is running with matching credentials (user: $CONFIG_USER, domain: $CONFIG_DOMAIN)"
         [ -n "$CONFIG_DEVICE_ID" ] && info "  Device ID: $CONFIG_DEVICE_ID"
-        info "Skipping installation and configuration"
+        
+        # Check if we need to update service configuration with new parameters
+        # (e.g., network flags were added after initial install)
+        NEED_CONFIG_UPDATE="false"
+        if [ "$PLATFORM" = "linux" ] && [ -f "/etc/edamame_posture.conf" ]; then
+            # Check if network flags are provided but missing from config
+            if [ "$CONFIG_START_LANSCAN" = "true" ] || [ "$CONFIG_START_CAPTURE" = "true" ]; then
+                CURRENT_LANSCAN=$(grep "^start_lanscan:" /etc/edamame_posture.conf 2>/dev/null | sed 's/.*: *"\([^"]*\)".*/\1/' || echo "false")
+                CURRENT_CAPTURE=$(grep "^start_capture:" /etc/edamame_posture.conf 2>/dev/null | sed 's/.*: *"\([^"]*\)".*/\1/' || echo "false")
+                
+                if [ "$CONFIG_START_LANSCAN" = "true" ] && [ "$CURRENT_LANSCAN" != "true" ]; then
+                    info "Network scan flag not in config, will update"
+                    NEED_CONFIG_UPDATE="true"
+                fi
+                if [ "$CONFIG_START_CAPTURE" = "true" ] && [ "$CURRENT_CAPTURE" != "true" ]; then
+                    info "Packet capture flag not in config, will update"
+                    NEED_CONFIG_UPDATE="true"
+                fi
+            fi
+        fi
+        
+        info "Skipping installation"
         BINARY_PATH="$EXISTING_BINARY"
         FINAL_BINARY_PATH="$EXISTING_BINARY"
         INSTALL_METHOD="existing"
         SKIP_INSTALLATION="true"
-        SKIP_CONFIGURATION="true"
-        return 0  # Skip everything
+        
+        if [ "$NEED_CONFIG_UPDATE" = "true" ]; then
+            info "Configuration update needed for new parameters"
+            SKIP_CONFIGURATION="false"
+        else
+            info "Configuration is up to date, skipping"
+            SKIP_CONFIGURATION="true"
+            return 0  # Skip everything
+        fi
+        
+        return 1  # Skip installation but allow configuration update
     fi
     
     if [ "$IS_CONNECTED" = "true" ]; then
