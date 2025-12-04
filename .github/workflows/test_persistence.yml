@@ -77,7 +77,7 @@ jobs:
           MAX_ATTEMPTS=6
           ATTEMPT=1
           while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
-            STATUS=$("$BINARY" status 2>&1) | grep -q "connected: true"; then 
+            STATUS=$("$BINARY" status 2>&1)
             if echo "$STATUS" | grep -q "connected: true"; then
               echo "Daemon is running and connected"
               echo "Status output:"
@@ -92,13 +92,15 @@ jobs:
                 echo "  $line"
               done
             fi
+            
+            if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
+              echo "Daemon status check failed after $ATTEMPT attempts"
+              exit 1
+            fi
+            
             ATTEMPT=$((ATTEMPT + 1))
             sleep 5
           done
-          if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
-            echo "Daemon status check failed after $ATTEMPT attempts"
-            exit 1
-          fi
 
       - name: Use the local universal install script - step 2
         shell: bash
