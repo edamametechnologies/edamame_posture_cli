@@ -1,19 +1,19 @@
-#!/bin/bash
+#!/bin/sh
 # This script reads /etc/edamame_posture.conf and launches edamame_posture
 # in foreground mode. Systemd will manage the lifecycle.
 
-set -euo pipefail
+set -e
 
 CONF="/etc/edamame_posture.conf"
 
-if [[ ! -f "$CONF" ]]; then
+if [ ! -f "$CONF" ]; then
   echo "Configuration file $CONF not found!"
   exit 1
 fi
 
 # Extract a configuration value by key from a YAML-formatted file.
 get_config_value() {
-  local key="$1"
+  key="$1"
   awk -v search="$key" '
     $0 ~ "^" search ":[[:space:]]*" {
       line=$0
@@ -60,59 +60,60 @@ slack_escalations_channel="$(get_config_value "slack_escalations_channel")"
 # Set defaults
 agentic_mode="${agentic_mode:-disabled}"
 agentic_interval="${agentic_interval:-3600}"
-start_lanscan="${start_lanscan,,}"
-start_capture="${start_capture,,}"
-fail_on_whitelist="${fail_on_whitelist,,}"
-fail_on_blacklist="${fail_on_blacklist,,}"
-fail_on_anomalous="${fail_on_anomalous,,}"
-cancel_on_violation="${cancel_on_violation,,}"
-include_local_traffic="${include_local_traffic,,}"
+# Lowercase conversion using tr since ${var,,} is bash-specific
+start_lanscan=$(echo "$start_lanscan" | tr '[:upper:]' '[:lower:]')
+start_capture=$(echo "$start_capture" | tr '[:upper:]' '[:lower:]')
+fail_on_whitelist=$(echo "$fail_on_whitelist" | tr '[:upper:]' '[:lower:]')
+fail_on_blacklist=$(echo "$fail_on_blacklist" | tr '[:upper:]' '[:lower:]')
+fail_on_anomalous=$(echo "$fail_on_anomalous" | tr '[:upper:]' '[:lower:]')
+cancel_on_violation=$(echo "$cancel_on_violation" | tr '[:upper:]' '[:lower:]')
+include_local_traffic=$(echo "$include_local_traffic" | tr '[:upper:]' '[:lower:]')
 
 # Determine LLM provider based on which API key is configured (first non-empty wins)
 agentic_provider="none"
-if [[ -n "$claude_api_key" ]]; then
+if [ -n "$claude_api_key" ]; then
   agentic_provider="claude"
   export EDAMAME_LLM_API_KEY="$claude_api_key"
   echo "Using Claude as LLM provider"
-elif [[ -n "$openai_api_key" ]]; then
+elif [ -n "$openai_api_key" ]; then
   agentic_provider="openai"
   export EDAMAME_LLM_API_KEY="$openai_api_key"
   echo "Using OpenAI as LLM provider"
-elif [[ -n "$ollama_base_url" ]]; then
+elif [ -n "$ollama_base_url" ]; then
   agentic_provider="ollama"
   export EDAMAME_LLM_BASE_URL="$ollama_base_url"
   echo "Using Ollama as LLM provider at: $ollama_base_url"
 fi
 
 # Set Slack environment variables if configured
-if [[ -n "$slack_bot_token" ]]; then
+if [ -n "$slack_bot_token" ]; then
   export EDAMAME_AGENTIC_SLACK_BOT_TOKEN="$slack_bot_token"
   echo "Slack bot token configured"
 fi
 
-if [[ -n "$slack_actions_channel" ]]; then
+if [ -n "$slack_actions_channel" ]; then
   export EDAMAME_AGENTIC_SLACK_ACTIONS_CHANNEL="$slack_actions_channel"
   echo "Slack actions channel: $slack_actions_channel"
 fi
 
-if [[ -n "$slack_escalations_channel" ]]; then
+if [ -n "$slack_escalations_channel" ]; then
   export EDAMAME_AGENTIC_SLACK_ESCALATIONS_CHANNEL="$slack_escalations_channel"
   echo "Slack escalations channel: $slack_escalations_channel"
 fi
 
-# Build command arguments
-CMD_ARGS=(foreground-start -v)
+# Build command arguments using set --
+set -- foreground-start -v
 
 # Add user/domain/pin if configured
-if [[ -n "$edamame_user" && -n "$edamame_domain" && -n "$edamame_pin" ]]; then
-  CMD_ARGS+=(--user "$edamame_user" --domain "$edamame_domain" --pin "$edamame_pin")
+if [ -n "$edamame_user" ] && [ -n "$edamame_domain" ] && [ -n "$edamame_pin" ]; then
+  set -- "$@" --user "$edamame_user" --domain "$edamame_domain" --pin "$edamame_pin"
   echo "Starting in connected mode:"
   echo "  User: $edamame_user"
   echo "  Domain: $edamame_domain"
   
   # Add device ID if configured
-  if [[ -n "$edamame_device_id" ]]; then
-    CMD_ARGS+=(--device-id "$edamame_device_id")
+  if [ -n "$edamame_device_id" ]; then
+    set -- "$@" --device-id "$edamame_device_id"
     echo "  Device ID: $edamame_device_id"
   fi
 else
@@ -120,10 +121,10 @@ else
 fi
 
 # Add agentic configuration if not disabled
-if [[ "$agentic_mode" != "disabled" && "$agentic_provider" != "none" ]]; then
-  CMD_ARGS+=(--agentic-mode "$agentic_mode")
-  CMD_ARGS+=(--agentic-provider "$agentic_provider")
-  CMD_ARGS+=(--agentic-interval "$agentic_interval")
+if [ "$agentic_mode" != "disabled" ] && [ "$agentic_provider" != "none" ]; then
+  set -- "$@" --agentic-mode "$agentic_mode"
+  set -- "$@" --agentic-provider "$agentic_provider"
+  set -- "$@" --agentic-interval "$agentic_interval"
   echo "AI Assistant enabled:"
   echo "  Mode: $agentic_mode"
   echo "  Provider: $agentic_provider"
@@ -131,49 +132,49 @@ if [[ "$agentic_mode" != "disabled" && "$agentic_provider" != "none" ]]; then
 fi
 
 # Network monitoring flags
-if [[ "$start_lanscan" == "true" ]]; then
-  CMD_ARGS+=(--network-scan)
+if [ "$start_lanscan" = "true" ]; then
+  set -- "$@" --network-scan
   echo "LAN scan enabled via configuration"
 fi
 
-if [[ "$start_capture" == "true" ]]; then
-  CMD_ARGS+=(--packet-capture)
+if [ "$start_capture" = "true" ]; then
+  set -- "$@" --packet-capture
   echo "Packet capture enabled via configuration"
 fi
 
 # Whitelist configuration
-if [[ -n "$whitelist_name" ]]; then
-  CMD_ARGS+=(--whitelist "$whitelist_name")
+if [ -n "$whitelist_name" ]; then
+  set -- "$@" --whitelist "$whitelist_name"
   echo "Whitelist: $whitelist_name"
 fi
 
-if [[ "$fail_on_whitelist" == "true" ]]; then
-  CMD_ARGS+=(--fail-on-whitelist)
+if [ "$fail_on_whitelist" = "true" ]; then
+  set -- "$@" --fail-on-whitelist
   echo "Fail on whitelist violations: enabled"
 fi
 
-if [[ "$fail_on_blacklist" == "true" ]]; then
-  CMD_ARGS+=(--fail-on-blacklist)
+if [ "$fail_on_blacklist" = "true" ]; then
+  set -- "$@" --fail-on-blacklist
   echo "Fail on blacklist matches: enabled"
 fi
 
-if [[ "$fail_on_anomalous" == "true" ]]; then
-  CMD_ARGS+=(--fail-on-anomalous)
+if [ "$fail_on_anomalous" = "true" ]; then
+  set -- "$@" --fail-on-anomalous
   echo "Fail on anomalous sessions: enabled"
 fi
 
 # Violation handling
-if [[ "$cancel_on_violation" == "true" ]]; then
-  CMD_ARGS+=(--cancel-on-violation)
+if [ "$cancel_on_violation" = "true" ]; then
+  set -- "$@" --cancel-on-violation
   echo "Cancel on violation: enabled"
 fi
 
-if [[ "$include_local_traffic" == "true" ]]; then
-  CMD_ARGS+=(--include-local-traffic)
+if [ "$include_local_traffic" = "true" ]; then
+  set -- "$@" --include-local-traffic
   echo "Include local traffic: enabled"
 fi
 
 echo "Starting edamame_posture service..."
 
 # Execute the main binary in foreground mode (systemd manages daemonization)
-exec /usr/bin/edamame_posture "${CMD_ARGS[@]}"
+exec /usr/bin/edamame_posture "$@"
