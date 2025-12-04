@@ -73,15 +73,24 @@ jobs:
           
           echo "Found binary at: $BINARY"
           
-          # Check if daemon is running (status command doesn't need sudo)
-          "$BINARY" status
-          STATUS_EXIT=$?
-          
-          if [ $STATUS_EXIT -ne 0 ]; then
-            echo "Daemon status check failed with exit code: $STATUS_EXIT"
-            exit 1
-          fi
-          echo "Daemon is running and connected"
+          # Check if daemon is running (status command doesn't need sudo). Allow some time for startup.
+          MAX_ATTEMPTS=6
+          ATTEMPT=1
+          while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
+            if "$BINARY" status; then
+              echo "Daemon is running and connected"
+              break
+            fi
+            
+            if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
+              echo "Daemon status check failed after $ATTEMPT attempts"
+              exit 1
+            fi
+            
+            echo "Daemon not ready yet (attempt $ATTEMPT/$MAX_ATTEMPTS). Sleeping 5 seconds..."
+            ATTEMPT=$((ATTEMPT + 1))
+            sleep 5
+          done
 
       - name: Use the local universal install script - step 2
         shell: bash
