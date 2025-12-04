@@ -419,13 +419,25 @@ jobs:
 
       - name: Check if the daemon is running
         run: |
-          edamame_posture status
-          if [ $? -ne 0 ]; then
-            echo "Daemon is not running"
-            exit 1
-          fi
-          echo "Daemon is running"
-          exit 0
+          # Wait for daemon to start (Alpine OpenRC might be slow)
+          MAX_ATTEMPTS=6
+          ATTEMPT=1
+          while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
+            if edamame_posture status >/dev/null 2>&1; then
+              echo "Daemon is running"
+              exit 0
+            fi
+            echo "Daemon not ready yet (attempt $ATTEMPT/$MAX_ATTEMPTS). Sleeping 5 seconds..."
+            ATTEMPT=$((ATTEMPT + 1))
+            sleep 5
+          done
+          
+          echo "Daemon is not running after $MAX_ATTEMPTS attempts"
+          # Print service status for debugging
+          rc-service edamame_posture status || true
+          cat /var/log/edamame_posture.log || true
+          cat /var/log/edamame_posture.err || true
+          exit 1
         shell: alpine.sh --root {0}
 
       - name: Use the local universal install script - step 2
@@ -438,11 +450,23 @@ jobs:
 
       - name: Check if the daemon is running
         run: |
-          edamame_posture status
-          if [ $? -ne 0 ]; then
-            echo "Daemon is not running"
-            exit 1
-          fi
-          echo "Daemon is running"
-          exit 0
+          # Wait for daemon to start (Alpine OpenRC might be slow)
+          MAX_ATTEMPTS=6
+          ATTEMPT=1
+          while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
+            if edamame_posture status >/dev/null 2>&1; then
+              echo "Daemon is running"
+              exit 0
+            fi
+            echo "Daemon not ready yet (attempt $ATTEMPT/$MAX_ATTEMPTS). Sleeping 5 seconds..."
+            ATTEMPT=$((ATTEMPT + 1))
+            sleep 5
+          done
+          
+          echo "Daemon is not running after $MAX_ATTEMPTS attempts"
+          # Print service status for debugging
+          rc-service edamame_posture status || true
+          cat /var/log/edamame_posture.log || true
+          cat /var/log/edamame_posture.err || true
+          exit 1
         shell: alpine.sh --root {0}
