@@ -1366,7 +1366,7 @@ if [ "$PLATFORM" = "linux" ]; then
     info "Detected OS: $ID"
 fi
 
-# Check if edamame_posture is already installed with matching credentials
+# Check if edamame_posture is already installed with matching credentials and version
 check_existing_installation() {
     # Locate existing binary
     local existing_binary
@@ -1378,9 +1378,122 @@ check_existing_installation() {
     
     info "Found existing edamame_posture at: $existing_binary"
     
-    # If no credentials provided, we can reuse existing installation
+    # Check version/SHA first - if outdated, always reinstall
+    local version_check_passed="false"
+    
+    # Determine if this is a package installation or binary
+    local is_package_install="false"
+    if [ "$PLATFORM" = "linux" ]; then
+        if command -v dpkg >/dev/null 2>&1 && dpkg -l edamame-posture 2>/dev/null | grep -q "^ii"; then
+            is_package_install="true"
+            info "Detected package installation (APT)"
+        elif command -v apk >/dev/null 2>&1 && apk info -e edamame-posture 2>/dev/null; then
+            is_package_install="true"
+            info "Detected package installation (APK)"
+        fi
+    elif [ "$PLATFORM" = "macos" ] && command -v brew >/dev/null 2>&1; then
+        if brew list edamame-posture >/dev/null 2>&1; then
+            is_package_install="true"
+            info "Detected package installation (Homebrew)"
+        fi
+    elif [ "$PLATFORM" = "windows" ] && command -v choco >/dev/null 2>&1; then
+        if choco list --local-only --exact edamame-posture 2>/dev/null | grep -q "^edamame-posture "; then
+            is_package_install="true"
+            info "Detected package installation (Chocolatey)"
+        fi
+    fi
+    
+    if [ "$is_package_install" = "true" ]; then
+        # For package installations, check if update is available
+        info "Checking if package is up to date..."
+        local needs_upgrade="false"
+        
+        if [ "$PLATFORM" = "linux" ]; then
+            if command -v apt-get >/dev/null 2>&1; then
+                # Check if apt upgrade would upgrade edamame-posture
+                if apt list --upgradable 2>/dev/null | grep -q "edamame-posture"; then
+                    info "Newer version available via APT"
+                    needs_upgrade="true"
+                else
+                    info "APT package is up to date"
+                    version_check_passed="true"
+                fi
+            elif command -v apk >/dev/null 2>&1; then
+                # For APK, check if upgrade would update the package
+                if apk version edamame-posture 2>/dev/null | grep -q "<"; then
+                    info "Newer version available via APK"
+                    needs_upgrade="true"
+                else
+                    info "APK package is up to date"
+                    version_check_passed="true"
+                fi
+            fi
+        elif [ "$PLATFORM" = "macos" ] && command -v brew >/dev/null 2>&1; then
+            # Check if brew has an update
+            if brew outdated edamame-posture 2>/dev/null | grep -q "edamame-posture"; then
+                info "Newer version available via Homebrew"
+                needs_upgrade="true"
+            else
+                info "Homebrew package is up to date"
+                version_check_passed="true"
+            fi
+        elif [ "$PLATFORM" = "windows" ] && command -v choco >/dev/null 2>&1; then
+            # Chocolatey upgrade check
+            if choco outdated --limit-output 2>/dev/null | grep -q "^edamame-posture|"; then
+                info "Newer version available via Chocolatey"
+                needs_upgrade="true"
+            else
+                info "Chocolatey package is up to date"
+                version_check_passed="true"
+            fi
+        fi
+        
+        if [ "$needs_upgrade" = "true" ]; then
+            info "Package needs upgrade, will proceed with installation"
+            return 1  # Need to upgrade
+        fi
+    else
+        # For binary installations, check SHA against latest release
+        info "Checking binary version via SHA comparison..."
+        
+        # Prepare artifact info to get expected SHA
+        prepare_binary_artifact "$PLATFORM" "$LINUX_LIBC_FLAVOR"
+        
+        if [ -n "$ARTIFACT_DIGEST" ]; then
+            local existing_sha
+            existing_sha=$(compute_sha256 "$existing_binary" 2>/dev/null || true)
+            
+            if [ -n "$existing_sha" ]; then
+                if [ "$existing_sha" = "$ARTIFACT_DIGEST" ]; then
+                    info "Binary SHA matches latest release (${ARTIFACT_DIGEST:0:16}...)"
+                    version_check_passed="true"
+                else
+                    info "Binary SHA differs from latest release"
+                    info "  Existing: ${existing_sha:0:16}..."
+                    info "  Latest:   ${ARTIFACT_DIGEST:0:16}..."
+                    info "Will proceed with binary update"
+                    return 1  # Need to update
+                fi
+            else
+                warn "Cannot compute SHA of existing binary, will proceed with installation"
+                return 1  # Cannot verify, reinstall
+            fi
+        else
+            warn "Cannot fetch latest release SHA, will skip version check"
+            # If we can't verify, assume it's ok (fail open for version check)
+            version_check_passed="true"
+        fi
+    fi
+    
+    # Version check must pass before we consider credentials
+    if [ "$version_check_passed" != "true" ]; then
+        info "Version/SHA check failed, will proceed with installation"
+        return 1
+    fi
+    
+    # Version is OK, now check credentials
     if ! credentials_provided; then
-        info "No credentials provided, reusing existing installation"
+        info "No credentials provided, version is up to date, reusing existing installation"
         BINARY_PATH="$existing_binary"
         FINAL_BINARY_PATH="$existing_binary"
         INSTALL_METHOD="existing"
