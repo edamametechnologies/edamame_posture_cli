@@ -88,9 +88,22 @@ curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamamete
 - Package installs drop `/etc/edamame_posture.conf` and associated init scripts:
   - **systemd** (`/lib/systemd/system/edamame_posture.service`)
   - **OpenRC** (`/etc/init.d/edamame_posture`)
-- When credentials/AI flags are supplied, the installer renders `edamame_posture.conf`, ensures it is `chmod 600`, and restarts the service under the appropriate init system.
+- When credentials/AI flags are supplied, the installer renders `edamame_posture.conf`, ensures it is `chmod 600`, and intelligently manages the service:
+  - **First install**: Starts the service with the provided configuration
+  - **Subsequent runs**: Checks if the service is already running with matching credentials before restarting
+    - Queries `edamame_posture status` and parses the output to extract:
+      - Connected user
+      - Connected domain
+      - Connection status (is connected: true/false)
+    - **Skips restart** if the service is connected AND running with the exact same user/domain provided to the installer
+    - **Restarts service** if:
+      - Service is not running
+      - Service is not connected
+      - Service is running with different credentials (e.g., different user or domain)
+      - Service status cannot be determined
+  - This credential verification ensures true idempotency - running the installer multiple times with the same credentials won't cause service disruptions, while credential changes are automatically applied
 - Use `start_lanscan: "true"` to have the service launch with `--network-scan`, and `start_capture: "true"` for `--packet-capture`; you can also set these automatically during installation via `--start-lanscan` and `--start-capture`.
-- When systemd isn’t available (e.g., minimal containers where PID 1 isn’t `systemd`), the installer skips enable/restart steps and prints a warning. You can still launch the daemon manually via `sudo edamame_posture start ...` or rely on the GitHub Action to start it in the foreground.
+- When systemd isn't available (e.g., minimal containers where PID 1 isn't `systemd`), the installer skips enable/restart steps and prints a warning. You can still launch the daemon manually via `sudo edamame_posture start ...` or rely on the GitHub Action to start it in the foreground.
 - Post-install verification:
   - Prints CLI version/location (using either `$PATH` or the fallback binary path).
   - Displays Quick Start commands.
