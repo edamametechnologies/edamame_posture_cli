@@ -1372,6 +1372,14 @@ check_existing_installation() {
     local existing_binary
     existing_binary=$(command -v edamame_posture 2>/dev/null || true)
     
+    # On Windows, also check the default install directory if not in PATH
+    if [ -z "$existing_binary" ] && [ "$PLATFORM" = "windows" ]; then
+        local candidate="$HOME/edamame_posture.exe"
+        if [ -f "$candidate" ]; then
+            existing_binary="$candidate"
+        fi
+    fi
+    
     if [ -z "$existing_binary" ]; then
         return 1  # Not installed
     fi
@@ -1516,9 +1524,9 @@ check_existing_installation() {
     if [ -z "$status_output" ]; then
         warn "Cannot get status from existing installation"
         
-        # Try to verify credentials via config file as fallback
+        # Try to verify credentials via config file as fallback (Linux only)
         local config_match="false"
-        if [ -f "/etc/edamame_posture.conf" ]; then
+        if [ "$PLATFORM" = "linux" ] && [ -f "/etc/edamame_posture.conf" ]; then
             info "Checking credentials in existing config file..."
             local config_user config_domain
             config_user=$(grep "^edamame_user:" /etc/edamame_posture.conf 2>/dev/null | sed 's/.*: *"\([^"]*\)".*/\1/' || true)
@@ -1535,8 +1543,10 @@ check_existing_installation() {
             else
                 warn "Cannot parse credentials from config file"
             fi
+        elif [ "$PLATFORM" = "linux" ]; then
+            warn "No config file found at /etc/edamame_posture.conf (may be binary installation)"
         else
-            warn "No config file found at /etc/edamame_posture.conf"
+            info "Config file check not applicable on $PLATFORM (no system service)"
         fi
         
         if [ "$config_match" = "true" ]; then
@@ -1544,15 +1554,24 @@ check_existing_installation() {
             info "Will use existing binary and restart service with existing configuration"
         else
             # Credentials don't match or can't verify - need to reconfigure
-            info "Will use existing binary and reconfigure with new credentials"
+            if [ "$PLATFORM" = "linux" ]; then
+                info "Will use existing binary and reconfigure with new credentials"
+            else
+                info "Will use existing binary (no service configuration on $PLATFORM)"
+            fi
         fi
         
         BINARY_PATH="$existing_binary"
         FINAL_BINARY_PATH="$existing_binary"
         INSTALL_METHOD="existing"
         SKIP_INSTALLATION="true"
-        SKIP_CONFIGURATION="false"
-        return 1  # Skip installation, but reconfigure
+        # On non-Linux platforms, skip configuration since there's no service
+        if [ "$PLATFORM" = "linux" ] && [ "$config_match" != "true" ]; then
+            SKIP_CONFIGURATION="false"
+        else
+            SKIP_CONFIGURATION="true"
+        fi
+        return 1  # Skip installation, conditionally reconfigure
     fi
     
     # Parse credentials from status
@@ -1575,19 +1594,33 @@ check_existing_installation() {
     
     if [ "$is_connected" = "true" ]; then
         info "Existing installation has different credentials (user: $running_user, domain: $running_domain)"
-        info "Will skip installation but reconfigure with new credentials"
+        if [ "$PLATFORM" = "linux" ]; then
+            info "Will skip installation but reconfigure with new credentials"
+        else
+            warn "Cannot reconfigure on $PLATFORM (no service configuration support)"
+            warn "Binary exists but has different credentials - manual reconfiguration needed"
+        fi
     else
         info "Existing installation is not connected"
-        info "Will skip installation but reconfigure"
+        if [ "$PLATFORM" = "linux" ]; then
+            info "Will skip installation but reconfigure"
+        else
+            info "Cannot reconfigure on $PLATFORM (no service configuration support)"
+        fi
     fi
     
-    # Binary exists, skip installation but reconfigure
+    # Binary exists, skip installation
     BINARY_PATH="$existing_binary"
     FINAL_BINARY_PATH="$existing_binary"
     INSTALL_METHOD="existing"
     SKIP_INSTALLATION="true"
-    SKIP_CONFIGURATION="false"
-    return 1  # Skip installation, but need to reconfigure
+    # Only reconfigure on Linux (only platform with system service)
+    if [ "$PLATFORM" = "linux" ]; then
+        SKIP_CONFIGURATION="false"
+    else
+        SKIP_CONFIGURATION="true"
+    fi
+    return 1  # Skip installation, conditionally reconfigure
 }
 
 # Early check: determine if we can skip installation and/or configuration

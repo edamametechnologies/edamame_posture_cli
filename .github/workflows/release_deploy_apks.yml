@@ -181,6 +181,7 @@ jobs:
               install -Dm755 "$startdir/edamame_posture" "$pkgdir/usr/bin/edamame_posture"
               install -Dm755 "$startdir/edamame_posture_daemon.sh" "$pkgdir/usr/bin/edamame_posture_daemon.sh"
               install -Dm755 "$startdir/edamame_posture.init" "$pkgdir/etc/init.d/edamame_posture"
+              install -Dm600 "$startdir/edamame_posture.conf" "$pkgdir/etc/edamame_posture.conf"
           }
           EOF
           
@@ -198,10 +199,11 @@ jobs:
           ls -la "$WORKSPACE_PATH/target/${{ matrix.target }}/release/" | grep edamame_posture || echo "Binary not found!"
           cp "$WORKSPACE_PATH/target/${{ matrix.target }}/release/edamame_posture" ./edamame_posture
           
-          # Copy service scripts
-          echo "Copying service scripts..."
+          # Copy service scripts and config
+          echo "Copying service scripts and config..."
           cp "$WORKSPACE_PATH/linux/edamame_posture_daemon.sh" ./edamame_posture_daemon.sh
           cp "$WORKSPACE_PATH/alpine/edamame_posture.init" ./edamame_posture.init
+          cp "$WORKSPACE_PATH/linux/edamame_posture.conf" ./edamame_posture.conf
           
           ls -la ./edamame_posture
           echo "Files copied successfully"
