@@ -1936,19 +1936,47 @@ EOF
         
         case "$ID" in
                 "alpine")
+                    service_started="false"
                     if command -v rc-service >/dev/null 2>&1; then
-                        if command -v rc-update >/dev/null 2>&1; then
-                            if rc-update show default 2>/dev/null | grep -q "edamame_posture"; then
-                                info "EDAMAME Posture already enabled in OpenRC default runlevel"
-                            else
-                                info "Enabling EDAMAME Posture in OpenRC default runlevel..."
-                                $SUDO rc-update add edamame_posture default 2>/dev/null || \
-                                    warn "Failed to add service to OpenRC default runlevel"
+                        # Check if OpenRC is actually functional (e.g. /run/openrc/softlevel exists)
+                        if [ -d "/run/openrc" ] && [ -f "/run/openrc/softlevel" ]; then
+                            if command -v rc-update >/dev/null 2>&1; then
+                                if rc-update show default 2>/dev/null | grep -q "edamame_posture"; then
+                                    info "EDAMAME Posture already enabled in OpenRC default runlevel"
+                                else
+                                    info "Enabling EDAMAME Posture in OpenRC default runlevel..."
+                                    $SUDO rc-update add edamame_posture default 2>/dev/null || \
+                                        warn "Failed to add service to OpenRC default runlevel"
+                                fi
                             fi
+                            
+                            if $SUDO rc-service edamame_posture restart >/dev/null 2>&1 || \
+                               $SUDO rc-service edamame_posture start >/dev/null 2>&1; then
+                                service_started="true"
+                            else
+                                warn "Failed to start service via rc-service"
+                            fi
+                        else
+                            warn "OpenRC not initialized (container environment?), skipping service management"
                         fi
-                        $SUDO rc-service edamame_posture restart 2>/dev/null || \
-                        $SUDO rc-service edamame_posture start 2>/dev/null || \
-                        warn "Failed to start service via rc-service"
+                    fi
+                    
+                    # If service failed to start (e.g. no OpenRC or init failed), try manual fallback
+                    if [ "$service_started" != "true" ]; then
+                        warn "Falling back to manual background daemon start..."
+                        
+                        # Source the config manually to get variables
+                        if [ -f "$CONF_FILE" ]; then
+                            # Simple grep/sed parsing since we know the format we just wrote
+                            # Note: This is a best-effort fallback
+                            MANUAL_ARGS=""
+                            # We already have CONFIG_* variables in scope from the installer logic
+                            # So we can just reuse the manual start logic that follows later in the script
+                            # by setting SHOULD_START_DAEMON="true" and skipping the service check
+                            SHOULD_START_DAEMON="true"
+                            
+                            info "Will launch daemon manually using provided credentials"
+                        fi
                     fi
                     ;;
                 "ubuntu"|"debian"|"raspbian"|"pop"|"linuxmint"|"elementary"|"zorin")
@@ -2011,7 +2039,7 @@ fi
 # For non-service installations with credentials, start background daemon
 # This includes: binary installs, Homebrew (macOS), Chocolatey (Windows)
 # Excludes: APT/APK (they have systemd/OpenRC services managed by configure_service)
-SHOULD_START_DAEMON="false"
+# BUT: If OpenRC service failed to start in configure_service, we override it here to force manual start
 info "Daemon start decision:"
 if credentials_provided; then
     info "  Credentials provided: yes"
@@ -2021,9 +2049,13 @@ fi
 info "  SKIP_CONFIGURATION: $SKIP_CONFIGURATION"
 info "  INSTALLED_VIA_PACKAGE_MANAGER: $INSTALLED_VIA_PACKAGE_MANAGER"
 info "  INSTALL_METHOD: $INSTALL_METHOD"
+info "  SHOULD_START_DAEMON (current): $SHOULD_START_DAEMON"
 
 if credentials_provided && [ "$SKIP_CONFIGURATION" != "true" ]; then
-    if [ "$INSTALLED_VIA_PACKAGE_MANAGER" = "false" ]; then
+    if [ "$SHOULD_START_DAEMON" = "true" ]; then
+        # Already set to true by service failure fallback
+        info "  Decision: Service failure fallback - will start daemon manually"
+    elif [ "$INSTALLED_VIA_PACKAGE_MANAGER" = "false" ]; then
         # Binary installation - always start daemon
         info "  Decision: Binary installation - will start daemon"
         SHOULD_START_DAEMON="true"
