@@ -406,7 +406,12 @@ jobs:
             eudev-dev \
             perl \
             flex \
-            bison
+            bison \
+            openrc
+          
+          # Initialize openrc
+          mkdir -p /run/openrc
+          touch /run/openrc/softlevel
         shell: alpine.sh --root {0}
 
       - name: Use the local universal install script - step 1
