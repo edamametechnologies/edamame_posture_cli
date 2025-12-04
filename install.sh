@@ -594,16 +594,10 @@ install_binary_release() {
 
     local existing_binary_mode="none"
     if [ -f "$target_path" ]; then
-        if credentials_provided; then
-            info "Existing binary detected at $target_path with credentials supplied. Refreshing binary..."
-            stop_existing_posture || true
-            rm -f "$target_path" || warn "Failed to remove existing binary at $target_path"
-        else
-            info "Existing binary detected at $target_path; verifying checksum before deciding to reuse."
-            log_file_metadata "$target_path" "existing edamame_posture binary" "$download_digest"
-            log_core_info_for_binary "$target_path" "existing edamame_posture binary"
-            existing_binary_mode="verify"
-        fi
+        info "Existing binary detected at $target_path; verifying checksum before deciding to reuse."
+        log_file_metadata "$target_path" "existing edamame_posture binary" "$download_digest"
+        log_core_info_for_binary "$target_path" "existing edamame_posture binary"
+        existing_binary_mode="verify"
     fi
 
     if [ "$existing_binary_mode" = "verify" ]; then
