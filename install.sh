@@ -60,7 +60,8 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
-NBSP_CHAR=$'\u00A0'
+# POSIX-safe way to represent a non-breaking space (0xC2 0xA0 in UTF-8)
+NBSP_CHAR="$(printf '\302\240')"
 
 info() {
     printf "${GREEN}[INFO]${NC} %s\n" "$1"
@@ -2072,6 +2073,11 @@ if [ "$SHOULD_START_DAEMON" = "true" ]; then
     
     # Build and execute daemon command inside a subshell so positional parameters remain untouched
     (
+        NOHUP_CMD=""
+        if command -v nohup >/dev/null 2>&1; then
+            NOHUP_CMD="nohup"
+        fi
+
         set -- start \
             --user "$CONFIG_USER" \
             --domain "$CONFIG_DOMAIN" \
@@ -2096,16 +2102,24 @@ if [ "$SHOULD_START_DAEMON" = "true" ]; then
         fi
         
         if [ -n "$SUDO" ]; then
-            $SUDO "$RESOLVED_BINARY_PATH" "$@" >/dev/null 2>&1 &
+            if [ -n "$NOHUP_CMD" ]; then
+                $SUDO $NOHUP_CMD "$RESOLVED_BINARY_PATH" "$@" >/dev/null 2>&1 &
+            else
+                $SUDO "$RESOLVED_BINARY_PATH" "$@" >/dev/null 2>&1 &
+            fi
         else
-            "$RESOLVED_BINARY_PATH" "$@" >/dev/null 2>&1 &
+            if [ -n "$NOHUP_CMD" ]; then
+                $NOHUP_CMD "$RESOLVED_BINARY_PATH" "$@" >/dev/null 2>&1 &
+            else
+                "$RESOLVED_BINARY_PATH" "$@" >/dev/null 2>&1 &
+            fi
         fi
     )
     
     info "✓ Background daemon started"
     
-    # Give it a moment to initialize
-    sleep 2
+    # Give it time to initialize
+    sleep 5
     
     # Verify it started
     if [ -n "$SUDO" ]; then
