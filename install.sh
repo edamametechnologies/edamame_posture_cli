@@ -2089,6 +2089,7 @@ if [ "$INSTALLED_VIA_PACKAGE_MANAGER" = "false" ] && credentials_provided && [ "
     else
         warn "Daemon may not have started successfully. Check with: $RESOLVED_BINARY_PATH status"
     fi
+fi
 
 info ""
 info "Quick Start:"
