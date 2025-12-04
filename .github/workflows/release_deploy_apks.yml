@@ -176,6 +176,7 @@ jobs:
           arch="ARCH_PLACEHOLDER"
           license="Proprietary"
           options="!check"
+          install="$pkgname.post-install"
           
           package() {
               install -Dm755 "$startdir/edamame_posture" "$pkgdir/usr/bin/edamame_posture"
@@ -183,6 +184,27 @@ jobs:
               install -Dm755 "$startdir/edamame_posture.init" "$pkgdir/etc/init.d/edamame_posture"
               install -Dm600 "$startdir/edamame_posture.conf" "$pkgdir/etc/edamame_posture.conf"
           }
+          EOF
+          
+          # Create post-install script (matches Debian postinst behavior)
+          cat > edamame-posture.post-install << 'EOF'
+          #!/bin/sh
+          # Post-install script for edamame-posture
+          
+          # Add service to default runlevel (enable on boot)
+          if ! rc-update show default 2>/dev/null | grep -q "edamame_posture"; then
+              echo "Enabling edamame_posture service in default runlevel..."
+              rc-update add edamame_posture default 2>/dev/null || true
+          fi
+          
+          # Start the service (same as Debian postinst)
+          # This starts with empty config, then install.sh will restart after writing credentials
+          echo "Starting edamame_posture service..."
+          rc-service edamame_posture start 2>/dev/null || true
+          
+          echo "Please configure /etc/edamame_posture.conf and restart the service"
+          
+          exit 0
           EOF
           
           # Replace placeholders
