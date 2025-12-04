@@ -119,6 +119,116 @@ jobs:
           fi
           echo "Daemon is running and connected"
 
+  test-native-binary-only:
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Regular OS tests
+          - os: ubuntu
+            runs-on: ubuntu-latest
+            arch: x86_64
+          - os: macos
+            # We can't use macos-latest here because of permissions issues in the network tests
+            runs-on: macos-14
+            arch:
+          - os: windows
+            runs-on: windows-latest
+            arch:
+          - os: ubuntu
+            runs-on: ubuntu-24.04-arm
+            arch: aarch64
+    runs-on: ${{ matrix.runs-on }}
+
+    env:
+      # Debug mode
+      EDAMAME_LOG_LEVEL: debug
+
+    steps:
+
+      - name: Use the local universal install script - step 1 (binary only)
+        shell: bash
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh | sh -s -- \
+          --user ${{ vars.EDAMAME_POSTURE_USER }} \
+          --domain ${{ vars.EDAMAME_POSTURE_DOMAIN }} \
+          --pin ${{ secrets.EDAMAME_POSTURE_PIN }} \
+          --force-binary
+          
+      - name: Check if the daemon is running
+        shell: bash
+        run: |
+          # Locate the binary (it might not be in PATH yet, especially on Windows/macOS)
+          if command -v edamame_posture >/dev/null 2>&1; then
+            BINARY="edamame_posture"
+          elif [ -f "/usr/bin/edamame_posture" ]; then
+            BINARY="/usr/bin/edamame_posture"
+          elif [ -f "/usr/local/bin/edamame_posture" ]; then
+            BINARY="/usr/local/bin/edamame_posture"
+          elif [ -f "$HOME/edamame_posture" ]; then
+            BINARY="$HOME/edamame_posture"
+          elif [ -f "$HOME/edamame_posture.exe" ]; then
+            BINARY="$HOME/edamame_posture.exe"
+          else
+            echo "ERROR: edamame_posture binary not found in any expected location"
+            echo "Searched: PATH, /usr/bin, /usr/local/bin, \$HOME"
+            exit 127
+          fi
+          
+          echo "Found binary at: $BINARY"
+          
+          # Check if daemon is running (status command doesn't need sudo)
+          "$BINARY" status
+          STATUS_EXIT=$?
+          
+          if [ $STATUS_EXIT -ne 0 ]; then
+            echo "Daemon status check failed with exit code: $STATUS_EXIT"
+            exit 1
+          fi
+          echo "Daemon is running and connected"
+
+      - name: Use the local universal install script - step 2 (binary only)
+        shell: bash
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh | sh -s -- \
+          --user ${{ vars.EDAMAME_POSTURE_USER }} \
+          --domain ${{ vars.EDAMAME_POSTURE_DOMAIN }} \
+          --pin ${{ secrets.EDAMAME_POSTURE_PIN }} \
+          --force-binary
+
+      - name: Check if the daemon is running
+        shell: bash
+        run: |
+          # Locate the binary (it might not be in PATH yet, especially on Windows/macOS)
+          if command -v edamame_posture >/dev/null 2>&1; then
+            BINARY="edamame_posture"
+          elif [ -f "/usr/bin/edamame_posture" ]; then
+            BINARY="/usr/bin/edamame_posture"
+          elif [ -f "/usr/local/bin/edamame_posture" ]; then
+            BINARY="/usr/local/bin/edamame_posture"
+          elif [ -f "$HOME/edamame_posture" ]; then
+            BINARY="$HOME/edamame_posture"
+          elif [ -f "$HOME/edamame_posture.exe" ]; then
+            BINARY="$HOME/edamame_posture.exe"
+          else
+            echo "ERROR: edamame_posture binary not found in any expected location"
+            echo "Searched: PATH, /usr/bin, /usr/local/bin, \$HOME"
+            exit 127
+          fi
+          
+          echo "Found binary at: $BINARY"
+          
+          # Check if daemon is running (status command doesn't need sudo)
+          "$BINARY" status
+          STATUS_EXIT=$?
+          
+          if [ $STATUS_EXIT -ne 0 ]; then
+            echo "Daemon status check failed with exit code: $STATUS_EXIT"
+            exit 1
+          fi
+          echo "Daemon is running and connected"
+
   test-container:
     timeout-minutes: 90
     strategy:
