@@ -740,18 +740,11 @@ install_binary_release() {
     info "Binary installed at $target_path"
 }
 
+# Deprecated: ci_stop_services() is no longer used
+# GitHub Action manages daemon lifecycle explicitly via start/stop commands
+# Keeping stub for backward compatibility with old install.sh versions
 ci_stop_services() {
-    if [ "$CONFIG_CI_MODE" != "true" ]; then
-        return 0
-    fi
-    info "CI mode enabled - stopping packaged edamame_posture service"
-    if command -v systemctl >/dev/null 2>&1; then
-        $SUDO systemctl stop edamame_posture.service 2>/dev/null || true
-        $SUDO systemctl disable edamame_posture.service 2>/dev/null || true
-    fi
-    if command -v rc-service >/dev/null 2>&1; then
-        $SUDO rc-service edamame_posture stop 2>/dev/null || true
-    fi
+    return 0
 }
 
 write_state_file() {
@@ -1117,6 +1110,7 @@ install_macos_via_brew() {
 CONFIG_USER=""
 CONFIG_DOMAIN=""
 CONFIG_PIN=""
+CONFIG_DEVICE_ID=""
 CONFIG_CLAUDE_KEY=""
 CONFIG_OPENAI_KEY=""
 CONFIG_OLLAMA_URL=""
@@ -1129,9 +1123,14 @@ CONFIG_INSTALL_DIR=""
 CONFIG_STATE_FILE=""
 CONFIG_FORCE_BINARY="false"
 CONFIG_DEBUG_BUILD="false"
-CONFIG_CI_MODE="false"
 CONFIG_START_LANSCAN="false"
 CONFIG_START_CAPTURE="false"
+CONFIG_FAIL_ON_WHITELIST="false"
+CONFIG_FAIL_ON_BLACKLIST="false"
+CONFIG_FAIL_ON_ANOMALOUS="false"
+CONFIG_CANCEL_ON_VIOLATION="false"
+CONFIG_INCLUDE_LOCAL_TRAFFIC="false"
+CONFIG_WHITELIST=""
 
 while [ $# -gt 0 ]; do
     current_arg=$(normalize_cli_option "$1")
@@ -1147,6 +1146,34 @@ while [ $# -gt 0 ]; do
         --pin)
             CONFIG_PIN="$2"
             shift 2
+            ;;
+        --device-id)
+            CONFIG_DEVICE_ID="$2"
+            shift 2
+            ;;
+        --whitelist)
+            CONFIG_WHITELIST="$2"
+            shift 2
+            ;;
+        --fail-on-whitelist)
+            CONFIG_FAIL_ON_WHITELIST="true"
+            shift
+            ;;
+        --fail-on-blacklist)
+            CONFIG_FAIL_ON_BLACKLIST="true"
+            shift
+            ;;
+        --fail-on-anomalous)
+            CONFIG_FAIL_ON_ANOMALOUS="true"
+            shift
+            ;;
+        --cancel-on-violation)
+            CONFIG_CANCEL_ON_VIOLATION="true"
+            shift
+            ;;
+        --include-local-traffic)
+            CONFIG_INCLUDE_LOCAL_TRAFFIC="true"
+            shift
             ;;
         --claude-api-key)
             CONFIG_CLAUDE_KEY="$2"
@@ -1203,7 +1230,7 @@ while [ $# -gt 0 ]; do
             shift
             ;;
         --ci-mode)
-            CONFIG_CI_MODE="true"
+            # Deprecated: kept for backward compatibility, does nothing
             shift
             ;;
         --start-lanscan)
@@ -1650,20 +1677,18 @@ if [ "$SKIP_INSTALLATION" = "false" ]; then
         if [ "$CONFIG_FORCE_BINARY" != "true" ]; then
             case "$ID" in
                 "alpine")
-                    if install_linux_via_apk; then
-                        linux_pkg_installed="true"
-                        INSTALL_METHOD="apk"
-                        INSTALLED_VIA_PACKAGE_MANAGER="true"
-                        ci_stop_services
-                    fi
+                if install_linux_via_apk; then
+                    linux_pkg_installed="true"
+                    INSTALL_METHOD="apk"
+                    INSTALLED_VIA_PACKAGE_MANAGER="true"
+                fi
                     ;;
                 "ubuntu"|"debian"|"raspbian"|"pop"|"linuxmint"|"elementary"|"zorin")
-                    if install_linux_via_apt; then
-                        linux_pkg_installed="true"
-                        INSTALL_METHOD="apt"
-                        INSTALLED_VIA_PACKAGE_MANAGER="true"
-                        ci_stop_services
-                    fi
+                if install_linux_via_apt; then
+                    linux_pkg_installed="true"
+                    INSTALL_METHOD="apt"
+                    INSTALLED_VIA_PACKAGE_MANAGER="true"
+                fi
                     ;;
                 *)
                     warn "Unsupported distribution for package installation: $ID"
@@ -1730,12 +1755,19 @@ configure_service() {
 edamame_user: "CONFIG_USER_PLACEHOLDER"
 edamame_domain: "CONFIG_DOMAIN_PLACEHOLDER"
 edamame_pin: "CONFIG_PIN_PLACEHOLDER"
+edamame_device_id: "CONFIG_DEVICE_ID_PLACEHOLDER"
 
 # ============================================================================
 # Network Monitoring (optional)
 # ============================================================================
 start_lanscan: "CONFIG_START_LANSCAN_PLACEHOLDER"
 start_capture: "CONFIG_START_CAPTURE_PLACEHOLDER"
+whitelist_name: "CONFIG_WHITELIST_PLACEHOLDER"
+fail_on_whitelist: "CONFIG_FAIL_ON_WHITELIST_PLACEHOLDER"
+fail_on_blacklist: "CONFIG_FAIL_ON_BLACKLIST_PLACEHOLDER"
+fail_on_anomalous: "CONFIG_FAIL_ON_ANOMALOUS_PLACEHOLDER"
+cancel_on_violation: "CONFIG_CANCEL_ON_VIOLATION_PLACEHOLDER"
+include_local_traffic: "CONFIG_INCLUDE_LOCAL_TRAFFIC_PLACEHOLDER"
 
 # ============================================================================
 # AI Assistant (Agentic) Configuration
@@ -1785,8 +1817,15 @@ EOF
     sed "s|CONFIG_USER_PLACEHOLDER|${CONFIG_USER}|g" "$TMP_CONF" > "${TMP_CONF}.new" && mv "${TMP_CONF}.new" "$TMP_CONF"
     sed "s|CONFIG_DOMAIN_PLACEHOLDER|${CONFIG_DOMAIN}|g" "$TMP_CONF" > "${TMP_CONF}.new" && mv "${TMP_CONF}.new" "$TMP_CONF"
     sed "s|CONFIG_PIN_PLACEHOLDER|${CONFIG_PIN}|g" "$TMP_CONF" > "${TMP_CONF}.new" && mv "${TMP_CONF}.new" "$TMP_CONF"
+    sed "s|CONFIG_DEVICE_ID_PLACEHOLDER|${CONFIG_DEVICE_ID}|g" "$TMP_CONF" > "${TMP_CONF}.new" && mv "${TMP_CONF}.new" "$TMP_CONF"
     sed "s|CONFIG_START_LANSCAN_PLACEHOLDER|${CONFIG_START_LANSCAN}|g" "$TMP_CONF" > "${TMP_CONF}.new" && mv "${TMP_CONF}.new" "$TMP_CONF"
     sed "s|CONFIG_START_CAPTURE_PLACEHOLDER|${CONFIG_START_CAPTURE}|g" "$TMP_CONF" > "${TMP_CONF}.new" && mv "${TMP_CONF}.new" "$TMP_CONF"
+    sed "s|CONFIG_WHITELIST_PLACEHOLDER|${CONFIG_WHITELIST}|g" "$TMP_CONF" > "${TMP_CONF}.new" && mv "${TMP_CONF}.new" "$TMP_CONF"
+    sed "s|CONFIG_FAIL_ON_WHITELIST_PLACEHOLDER|${CONFIG_FAIL_ON_WHITELIST}|g" "$TMP_CONF" > "${TMP_CONF}.new" && mv "${TMP_CONF}.new" "$TMP_CONF"
+    sed "s|CONFIG_FAIL_ON_BLACKLIST_PLACEHOLDER|${CONFIG_FAIL_ON_BLACKLIST}|g" "$TMP_CONF" > "${TMP_CONF}.new" && mv "${TMP_CONF}.new" "$TMP_CONF"
+    sed "s|CONFIG_FAIL_ON_ANOMALOUS_PLACEHOLDER|${CONFIG_FAIL_ON_ANOMALOUS}|g" "$TMP_CONF" > "${TMP_CONF}.new" && mv "${TMP_CONF}.new" "$TMP_CONF"
+    sed "s|CONFIG_CANCEL_ON_VIOLATION_PLACEHOLDER|${CONFIG_CANCEL_ON_VIOLATION}|g" "$TMP_CONF" > "${TMP_CONF}.new" && mv "${TMP_CONF}.new" "$TMP_CONF"
+    sed "s|CONFIG_INCLUDE_LOCAL_TRAFFIC_PLACEHOLDER|${CONFIG_INCLUDE_LOCAL_TRAFFIC}|g" "$TMP_CONF" > "${TMP_CONF}.new" && mv "${TMP_CONF}.new" "$TMP_CONF"
     sed "s|CONFIG_CLAUDE_KEY_PLACEHOLDER|${CONFIG_CLAUDE_KEY}|g" "$TMP_CONF" > "${TMP_CONF}.new" && mv "${TMP_CONF}.new" "$TMP_CONF"
     sed "s|CONFIG_OPENAI_KEY_PLACEHOLDER|${CONFIG_OPENAI_KEY}|g" "$TMP_CONF" > "${TMP_CONF}.new" && mv "${TMP_CONF}.new" "$TMP_CONF"
     sed "s|CONFIG_OLLAMA_URL_PLACEHOLDER|${CONFIG_OLLAMA_URL}|g" "$TMP_CONF" > "${TMP_CONF}.new" && mv "${TMP_CONF}.new" "$TMP_CONF"
@@ -1944,6 +1983,112 @@ if [ "$PLATFORM" = "linux" ] && [ "$SKIP_CONFIGURATION" != "true" ]; then
 elif [ "$SKIP_CONFIGURATION" = "true" ]; then
     info "Service configuration skipped (already configured with matching credentials)"
 fi
+
+# For binary installations with credentials, start background daemon
+# Note: This is for standalone usage (not CI/CD where daemons are managed explicitly by the action)
+if [ "$INSTALLED_VIA_PACKAGE_MANAGER" = "false" ] && credentials_provided && [ "$SKIP_CONFIGURATION" != "true" ]; then
+    info ""
+    info "Starting background daemon with provided credentials..."
+    
+    # Build start command with credentials
+    START_CMD="$RESOLVED_BINARY_PATH start --user \"$CONFIG_USER\" --domain \"$CONFIG_DOMAIN\" --pin \"$CONFIG_PIN\""
+    
+    # Add device ID if provided
+    if [ -n "$CONFIG_DEVICE_ID" ]; then
+        START_CMD="$START_CMD --device-id \"$CONFIG_DEVICE_ID\""
+    fi
+    
+    # Add network monitoring flags
+    if [ "$CONFIG_START_LANSCAN" = "true" ]; then
+        START_CMD="$START_CMD --network-scan"
+    fi
+    if [ "$CONFIG_START_CAPTURE" = "true" ]; then
+        START_CMD="$START_CMD --packet-capture"
+    fi
+    
+    # Add whitelist configuration
+    if [ -n "$CONFIG_WHITELIST" ]; then
+        START_CMD="$START_CMD --whitelist \"$CONFIG_WHITELIST\""
+    fi
+    if [ "$CONFIG_FAIL_ON_WHITELIST" = "true" ]; then
+        START_CMD="$START_CMD --fail-on-whitelist"
+    fi
+    if [ "$CONFIG_FAIL_ON_BLACKLIST" = "true" ]; then
+        START_CMD="$START_CMD --fail-on-blacklist"
+    fi
+    if [ "$CONFIG_FAIL_ON_ANOMALOUS" = "true" ]; then
+        START_CMD="$START_CMD --fail-on-anomalous"
+    fi
+    
+    # Add violation handling
+    if [ "$CONFIG_CANCEL_ON_VIOLATION" = "true" ]; then
+        START_CMD="$START_CMD --cancel-on-violation"
+    fi
+    if [ "$CONFIG_INCLUDE_LOCAL_TRAFFIC" = "true" ]; then
+        START_CMD="$START_CMD --include-local-traffic"
+    fi
+    
+    # Add AI Assistant configuration if provided
+    if [ "$CONFIG_AGENTIC_MODE" != "disabled" ]; then
+        START_CMD="$START_CMD --agentic-mode $CONFIG_AGENTIC_MODE"
+        
+        # Determine provider based on what was configured
+        if [ -n "$CONFIG_CLAUDE_KEY" ]; then
+            export EDAMAME_LLM_API_KEY="$CONFIG_CLAUDE_KEY"
+            START_CMD="$START_CMD --agentic-provider claude"
+        elif [ -n "$CONFIG_OPENAI_KEY" ]; then
+            export EDAMAME_LLM_API_KEY="$CONFIG_OPENAI_KEY"
+            START_CMD="$START_CMD --agentic-provider openai"
+        elif [ -n "$CONFIG_OLLAMA_URL" ]; then
+            export EDAMAME_LLM_BASE_URL="$CONFIG_OLLAMA_URL"
+            START_CMD="$START_CMD --agentic-provider ollama"
+        fi
+        
+        if [ -n "$CONFIG_AGENTIC_INTERVAL" ]; then
+            START_CMD="$START_CMD --agentic-interval $CONFIG_AGENTIC_INTERVAL"
+        fi
+        
+        # Export Slack configuration if provided
+        if [ -n "$CONFIG_SLACK_BOT_TOKEN" ]; then
+            export EDAMAME_AGENTIC_SLACK_BOT_TOKEN="$CONFIG_SLACK_BOT_TOKEN"
+        fi
+        if [ -n "$CONFIG_SLACK_ACTIONS_CHANNEL" ]; then
+            export EDAMAME_AGENTIC_SLACK_ACTIONS_CHANNEL="$CONFIG_SLACK_ACTIONS_CHANNEL"
+        fi
+        if [ -n "$CONFIG_SLACK_ESCALATIONS_CHANNEL" ]; then
+            export EDAMAME_AGENTIC_SLACK_ESCALATIONS_CHANNEL="$CONFIG_SLACK_ESCALATIONS_CHANNEL"
+        fi
+    fi
+    
+    # Start the daemon
+    if [ "$PLATFORM" = "windows" ]; then
+        # Windows: start in background using cmd /c start
+        cmd /c start /b $START_CMD >/dev/null 2>&1 &
+        info "✓ Background daemon started"
+    else
+        # Linux/macOS: use standard background process
+        if [ -n "$SUDO" ]; then
+            eval "$SUDO $START_CMD" >/dev/null 2>&1 &
+        else
+            eval "$START_CMD" >/dev/null 2>&1 &
+        fi
+        info "✓ Background daemon started"
+    fi
+    
+    # Give it a moment to initialize
+    sleep 2
+    
+    # Verify it started
+    DAEMON_CHECK_CMD="$RESOLVED_BINARY_PATH status"
+    if [ -n "$SUDO" ]; then
+        DAEMON_CHECK_CMD="$SUDO $DAEMON_CHECK_CMD"
+    fi
+    
+    if $DAEMON_CHECK_CMD >/dev/null 2>&1; then
+        info "✓ Daemon is running and connected"
+    else
+        warn "Daemon may not have started successfully. Check with: $RESOLVED_BINARY_PATH status"
+    fi
 
 info ""
 info "Quick Start:"
