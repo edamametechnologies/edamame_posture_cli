@@ -318,7 +318,7 @@ jobs:
           echo "::set-output name=tag::$VERSION_TAG"
           if [[ -n "$(gh release view $VERSION_TAG --repo ${{ github.repository }} --json id -q .id)" ]]; then
             echo "::set-output name=exists::true"
-              echo "::set-output name=upload_url::$(gh release view $VERSION_TAG --json uploadUrl -q .uploadUrl )"
+            echo "::set-output name=upload_url::$(gh release view $VERSION_TAG --json uploadUrl -q .uploadUrl )"
           else
             echo "::set-output name=exists::false"
           fi
