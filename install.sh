@@ -2134,6 +2134,12 @@ if [ "$PLATFORM" = "linux" ] && [ "$SKIP_CONFIGURATION" != "true" ]; then
     configure_service
 elif [ "$SKIP_CONFIGURATION" = "true" ]; then
     info "Service configuration skipped (already configured with matching credentials)"
+    # Display status of the daemon
+    info "Daemon status:"
+    STATUS=$($RESOLVED_BINARY_PATH status 2>&1)
+    echo "$STATUS" | while IFS= read -r line; do
+        info "  $line"
+    done
 fi
 
 # For non-service installations with credentials, start background daemon
