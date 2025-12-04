@@ -1769,7 +1769,7 @@ configure_service() {
     
     # Create temporary config file
     TMP_CONF=$(mktemp)
-    cat > "$TMP_CONF" <<'EOF'
+    cat > "$TMP_CONF" <<\EOF
 # EDAMAME Posture Service Configuration
 # This file is read by the systemd service to configure edamame_posture
 
