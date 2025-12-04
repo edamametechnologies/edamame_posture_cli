@@ -1523,12 +1523,15 @@ check_existing_installation() {
             
             if [ -n "$EXISTING_SHA" ]; then
                 if [ "$EXISTING_SHA" = "$ARTIFACT_DIGEST" ]; then
-                    info "Binary SHA matches latest release (${ARTIFACT_DIGEST:0:16}...)"
+                    DIGEST_SHORT=$(echo "$ARTIFACT_DIGEST" | cut -c1-16)
+                    info "Binary SHA matches latest release (${DIGEST_SHORT}...)"
                     VERSION_CHECK_PASSED="true"
                 else
+                    EXISTING_SHORT=$(echo "$EXISTING_SHA" | cut -c1-16)
+                    DIGEST_SHORT=$(echo "$ARTIFACT_DIGEST" | cut -c1-16)
                     info "Binary SHA differs from latest release"
-                    info "  Existing: ${existing_sha:0:16}..."
-                    info "  Latest:   ${ARTIFACT_DIGEST:0:16}..."
+                    info "  Existing: ${EXISTING_SHORT}..."
+                    info "  Latest:   ${DIGEST_SHORT}..."
                     info "Will proceed with binary update"
                     return 1  # Need to update
                 fi
