@@ -136,17 +136,22 @@ This early check ensures:
 - When credentials/AI flags are supplied, the installer renders `edamame_posture.conf`, ensures it is `chmod 600`, and intelligently manages the service:
   - **First install**: Starts the service with the provided configuration
   - **Subsequent runs**: Checks if the service is already running with matching credentials before restarting
-    - Queries `edamame_posture status` and parses the output to extract:
+    - **Primary check**: Queries `edamame_posture status` and parses the output to extract:
       - Connected user
       - Connected domain
       - Connection status (is connected: true/false)
-    - **Skips restart** if the service is connected AND running with the exact same user/domain provided to the installer
+    - **Fallback check**: If status query fails (service not running/responding), reads `/etc/edamame_posture.conf` directly and parses:
+      - `edamame_user: "..."`
+      - `edamame_domain: "..."`
+      - This ensures credential verification even when service is temporarily stopped
+    - **Skips restart** if credentials match (via either method)
     - **Restarts service** if:
-      - Service is not running
-      - Service is not connected
-      - Service is running with different credentials (e.g., different user or domain)
-      - Service status cannot be determined
-  - This credential verification ensures true idempotency - running the installer multiple times with the same credentials won't cause service disruptions, while credential changes are automatically applied
+      - Service is running with different credentials
+      - Service is not connected with current credentials
+      - Config file has different credentials than provided
+      - Service is not running (starts it with provided credentials)
+      - Cannot verify credentials through either method (warns and reconfigures as safety measure)
+  - This two-tier verification (runtime status + config file fallback) ensures robust idempotency across all service states
 - Use `start_lanscan: "true"` to have the service launch with `--network-scan`, and `start_capture: "true"` for `--packet-capture`; you can also set these automatically during installation via `--start-lanscan` and `--start-capture`.
 - When systemd isn't available (e.g., minimal containers where PID 1 isn't `systemd`), the installer skips enable/restart steps and prints a warning. You can still launch the daemon manually via `sudo edamame_posture start ...` or rely on the GitHub Action to start it in the foreground.
 - Post-install verification:
