@@ -1513,16 +1513,27 @@ check_existing_installation() {
     # Credentials provided - check if service is running with matching credentials
     info "Checking if existing installation matches provided credentials..."
     
-    # Try to get status
-    local status_output
+    # Try to get status (capture both stdout and stderr)
+    local status_output status_error status_exit_code
     if [ -n "$SUDO" ]; then
-        status_output=$($SUDO "$existing_binary" status 2>/dev/null || true)
+        status_output=$($SUDO "$existing_binary" status 2>&1)
+        status_exit_code=$?
     else
-        status_output=$("$existing_binary" status 2>/dev/null || true)
+        status_output=$("$existing_binary" status 2>&1)
+        status_exit_code=$?
     fi
     
-    if [ -z "$status_output" ]; then
-        warn "Cannot get status from existing installation"
+    # Check if status command succeeded
+    if [ $status_exit_code -ne 0 ] || [ -z "$status_output" ]; then
+        warn "Cannot get status from existing installation (exit code: $status_exit_code)"
+        if [ -n "$status_output" ]; then
+            warn "Status output:"
+            echo "$status_output" | while IFS= read -r line; do
+                warn "  $line"
+            done
+        else
+            warn "Status command produced no output"
+        fi
         
         # Try to verify credentials via config file as fallback (Linux only)
         local config_match="false"
@@ -1822,10 +1833,12 @@ EOF
             # Wait a moment for service to fully initialize
             sleep 2
             
-            # Get status output and parse credentials
-            STATUS_OUTPUT=$($SUDO edamame_posture status 2>/dev/null || true)
+            # Get status output and parse credentials (capture both stdout and stderr)
+            local status_exit_code
+            STATUS_OUTPUT=$($SUDO edamame_posture status 2>&1)
+            status_exit_code=$?
             
-            if [ -n "$STATUS_OUTPUT" ]; then
+            if [ $status_exit_code -eq 0 ] && [ -n "$STATUS_OUTPUT" ]; then
                 # Extract user and domain from status output
                 RUNNING_USER=$(echo "$STATUS_OUTPUT" | grep "Connected user:" | sed 's/.*Connected user: //' | tr -d ' ')
                 RUNNING_DOMAIN=$(echo "$STATUS_OUTPUT" | grep "Connected domain:" | sed 's/.*Connected domain: //' | tr -d ' ')
@@ -1841,7 +1854,13 @@ EOF
                     info "Service is not connected, will restart"
                 fi
             else
-                info "Unable to get service status, will restart"
+                warn "Unable to get service status (exit code: $status_exit_code), will restart"
+                if [ -n "$STATUS_OUTPUT" ]; then
+                    warn "Status command output:"
+                    echo "$STATUS_OUTPUT" | while IFS= read -r line; do
+                        warn "  $line"
+                    done
+                fi
             fi
         else
             info "Service is not active, will start it"
