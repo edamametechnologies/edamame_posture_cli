@@ -70,7 +70,6 @@ jobs:
       # Linux musl (using cross is not possible due to libpcap)
       # Setup Alpine Linux
       - name: Setup Alpine Linux
-        if: matrix.os == 'ubuntu' && matrix.target == 'x86_64-unknown-linux-musl' || matrix.target == 'aarch64-unknown-linux-musl'
         uses: jirutka/setup-alpine@v1
         with:
           arch: ${{ matrix.arch }}
@@ -78,7 +77,6 @@ jobs:
 
       # Install dependencies with apk
       - name: Install dependencies with apk
-        if: matrix.os == 'ubuntu' && matrix.target == 'x86_64-unknown-linux-musl' || matrix.target == 'aarch64-unknown-linux-musl'
         run: |
           apk add --no-cache \
             build-base \
@@ -111,7 +109,6 @@ jobs:
 
       # Install Rust
       - name: Install Rust for Alpine
-        if: matrix.os == 'ubuntu' && matrix.target == 'x86_64-unknown-linux-musl' || matrix.target == 'aarch64-unknown-linux-musl'
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
           source $HOME/.cargo/env
@@ -120,7 +117,6 @@ jobs:
 
       # Configure Git Authentication to import private crates (within the VM)
       - name: Configure Git Authentication to import private crates
-        if: matrix.os == 'ubuntu' && matrix.target == 'x86_64-unknown-linux-musl' || matrix.target == 'aarch64-unknown-linux-musl'
         run: |
           git config --global user.email "dev@edamame.tech"
           git config --global user.name "EDAMAME Dev"
@@ -151,6 +147,7 @@ jobs:
 
       # Package Alpine APK
       - name: Package Alpine APK
+        if: github.ref == 'refs/heads/main'
         run: |
           # Install alpine-sdk for apk building tools
           apk add --no-cache alpine-sdk sudo
@@ -381,7 +378,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload .apk asset to release
-        if: github.ref == 'refs/heads/main' && (matrix.target == 'x86_64-unknown-linux-musl' || matrix.target == 'aarch64-unknown-linux-musl')
+        if: github.ref == 'refs/heads/main'
         uses: shogo82148/actions-upload-release-asset@v1
         with:
           upload_url: ${{ steps.get_release.outputs.exists == 'true' && steps.get_release.outputs.upload_url || steps.create_release.outputs.upload_url }}
@@ -393,7 +390,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload .apk file to S3 and update repository index
-        if: matrix.target == 'x86_64-unknown-linux-musl' || matrix.target == 'aarch64-unknown-linux-musl'
+        if: github.ref == 'refs/heads/main'
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
