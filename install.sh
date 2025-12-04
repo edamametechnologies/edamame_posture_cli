@@ -2072,6 +2072,12 @@ EOF
             esac
             
             info "✓ Service started"
+            
+            # Give service time to initialize, especially if packet capture is enabled
+            if [ "$CONFIG_START_CAPTURE" = "true" ] || [ "$CONFIG_START_LANSCAN" = "true" ]; then
+                info "Waiting for service to initialize (network scanning/packet capture enabled)..."
+                sleep 5
+            fi
     else
         info "✓ Service already running with valid credentials"
     fi
