@@ -1232,6 +1232,8 @@ INSTALL_METHOD=""
 INSTALLED_VIA_PACKAGE_MANAGER="false"
 FINAL_BINARY_PATH=""
 BINARY_PATH=""
+SKIP_INSTALLATION="false"
+SKIP_CONFIGURATION="false"
 
 if [ -n "$STATE_FILE" ]; then
     info "Installer state will be written to $STATE_FILE"
@@ -1364,58 +1366,148 @@ if [ "$PLATFORM" = "linux" ]; then
     info "Detected OS: $ID"
 fi
 
-if [ "$PLATFORM" = "linux" ]; then
-    linux_pkg_installed="false"
-
-    if [ "$CONFIG_FORCE_BINARY" != "true" ]; then
-        case "$ID" in
-            "alpine")
-                if install_linux_via_apk; then
-                    linux_pkg_installed="true"
-                    INSTALL_METHOD="apk"
-                    INSTALLED_VIA_PACKAGE_MANAGER="true"
-                    ci_stop_services
-                fi
-                ;;
-            "ubuntu"|"debian"|"raspbian"|"pop"|"linuxmint"|"elementary"|"zorin")
-                if install_linux_via_apt; then
-                    linux_pkg_installed="true"
-                    INSTALL_METHOD="apt"
-                    INSTALLED_VIA_PACKAGE_MANAGER="true"
-                    ci_stop_services
-                fi
-                ;;
-            *)
-                warn "Unsupported distribution for package installation: $ID"
-                ;;
-        esac
+# Check if edamame_posture is already installed with matching credentials
+check_existing_installation() {
+    # Locate existing binary
+    local existing_binary
+    existing_binary=$(command -v edamame_posture 2>/dev/null || true)
+    
+    if [ -z "$existing_binary" ]; then
+        return 1  # Not installed
     fi
-
-    if [ "$linux_pkg_installed" != "true" ]; then
-        warn "Using direct binary installation for Linux..."
-        install_binary_release "linux" "$LINUX_LIBC_FLAVOR"
-        ensure_linux_packet_capture_support
+    
+    info "Found existing edamame_posture at: $existing_binary"
+    
+    # If no credentials provided, we can reuse existing installation
+    if ! credentials_provided; then
+        info "No credentials provided, reusing existing installation"
+        BINARY_PATH="$existing_binary"
+        FINAL_BINARY_PATH="$existing_binary"
+        INSTALL_METHOD="existing"
+        SKIP_INSTALLATION="true"
+        SKIP_CONFIGURATION="true"
+        return 0  # Skip everything
     fi
-elif [ "$PLATFORM" = "linux-musl" ]; then
-    warn "Package install not supported or glibc < 2.29 detected. Using musl binary."
-    install_binary_release "linux" "musl"
-elif [ "$PLATFORM" = "macos" ]; then
-    if [ "$CONFIG_FORCE_BINARY" != "true" ] && install_macos_via_brew; then
-        :
+    
+    # Credentials provided - check if service is running with matching credentials
+    info "Checking if existing installation matches provided credentials..."
+    
+    # Try to get status
+    local status_output
+    if [ -n "$SUDO" ]; then
+        status_output=$($SUDO "$existing_binary" status 2>/dev/null || true)
     else
-        warn "Using direct binary installation for macOS..."
-        install_binary_release "macos" ""
+        status_output=$("$existing_binary" status 2>/dev/null || true)
     fi
-elif [ "$PLATFORM" = "windows" ]; then
-    if [ "$CONFIG_FORCE_BINARY" != "true" ] && install_windows_via_choco; then
-        :
+    
+    if [ -z "$status_output" ]; then
+        info "Cannot get status from existing installation, will use existing binary but reconfigure"
+        BINARY_PATH="$existing_binary"
+        FINAL_BINARY_PATH="$existing_binary"
+        INSTALL_METHOD="existing"
+        SKIP_INSTALLATION="true"
+        SKIP_CONFIGURATION="false"
+        return 1  # Skip installation, but reconfigure
+    fi
+    
+    # Parse credentials from status
+    local running_user running_domain is_connected
+    running_user=$(echo "$status_output" | grep "Connected user:" | sed 's/.*Connected user: //' | tr -d ' ')
+    running_domain=$(echo "$status_output" | grep "Connected domain:" | sed 's/.*Connected domain: //' | tr -d ' ')
+    is_connected=$(echo "$status_output" | grep "Is connected:" | sed 's/.*Is connected: //' | tr -d ' ')
+    
+    # Check if credentials match
+    if [ "$is_connected" = "true" ] && [ "$running_user" = "$CONFIG_USER" ] && [ "$running_domain" = "$CONFIG_DOMAIN" ]; then
+        info "Existing installation is running with matching credentials (user: $CONFIG_USER, domain: $CONFIG_DOMAIN)"
+        info "Skipping installation and configuration"
+        BINARY_PATH="$existing_binary"
+        FINAL_BINARY_PATH="$existing_binary"
+        INSTALL_METHOD="existing"
+        SKIP_INSTALLATION="true"
+        SKIP_CONFIGURATION="true"
+        return 0  # Skip everything
+    fi
+    
+    if [ "$is_connected" = "true" ]; then
+        info "Existing installation has different credentials (user: $running_user, domain: $running_domain)"
+        info "Will skip installation but reconfigure with new credentials"
     else
-        warn "Using direct binary installation for Windows..."
-        install_binary_release "windows" ""
+        info "Existing installation is not connected"
+        info "Will skip installation but reconfigure"
     fi
-else
-    info "Installing via direct binary download for $PLATFORM..."
-    install_binary_release "$PLATFORM" ""
+    
+    # Binary exists, skip installation but reconfigure
+    BINARY_PATH="$existing_binary"
+    FINAL_BINARY_PATH="$existing_binary"
+    INSTALL_METHOD="existing"
+    SKIP_INSTALLATION="true"
+    SKIP_CONFIGURATION="false"
+    return 1  # Skip installation, but need to reconfigure
+}
+
+# Early check: determine if we can skip installation and/or configuration
+check_existing_installation || true  # Sets SKIP_INSTALLATION and SKIP_CONFIGURATION flags
+
+if [ "$SKIP_INSTALLATION" = "true" ] && [ "$SKIP_CONFIGURATION" = "true" ]; then
+    info "✓ Installation check complete - existing installation is perfect, nothing to do"
+elif [ "$SKIP_INSTALLATION" = "true" ] && [ "$SKIP_CONFIGURATION" = "false" ]; then
+    info "✓ Installation check complete - will use existing binary but reconfigure service"
+fi
+
+if [ "$SKIP_INSTALLATION" = "false" ]; then
+    if [ "$PLATFORM" = "linux" ]; then
+        linux_pkg_installed="false"
+
+        if [ "$CONFIG_FORCE_BINARY" != "true" ]; then
+            case "$ID" in
+                "alpine")
+                    if install_linux_via_apk; then
+                        linux_pkg_installed="true"
+                        INSTALL_METHOD="apk"
+                        INSTALLED_VIA_PACKAGE_MANAGER="true"
+                        ci_stop_services
+                    fi
+                    ;;
+                "ubuntu"|"debian"|"raspbian"|"pop"|"linuxmint"|"elementary"|"zorin")
+                    if install_linux_via_apt; then
+                        linux_pkg_installed="true"
+                        INSTALL_METHOD="apt"
+                        INSTALLED_VIA_PACKAGE_MANAGER="true"
+                        ci_stop_services
+                    fi
+                    ;;
+                *)
+                    warn "Unsupported distribution for package installation: $ID"
+                    ;;
+            esac
+        fi
+
+        if [ "$linux_pkg_installed" != "true" ]; then
+            warn "Using direct binary installation for Linux..."
+            install_binary_release "linux" "$LINUX_LIBC_FLAVOR"
+            ensure_linux_packet_capture_support
+        fi
+    elif [ "$PLATFORM" = "linux-musl" ]; then
+        warn "Package install not supported or glibc < 2.29 detected. Using musl binary."
+        install_binary_release "linux" "musl"
+    elif [ "$PLATFORM" = "macos" ]; then
+        if [ "$CONFIG_FORCE_BINARY" != "true" ] && install_macos_via_brew; then
+            :
+        else
+            warn "Using direct binary installation for macOS..."
+            install_binary_release "macos" ""
+        fi
+    elif [ "$PLATFORM" = "windows" ]; then
+        if [ "$CONFIG_FORCE_BINARY" != "true" ] && install_windows_via_choco; then
+            :
+        else
+            warn "Using direct binary installation for Windows..."
+            install_binary_release "windows" ""
+        fi
+    else
+        info "Installing via direct binary download for $PLATFORM..."
+        install_binary_release "$PLATFORM" ""
+    fi
 fi
 
 # Configure service if configuration parameters were provided
@@ -1649,8 +1741,11 @@ info "✓ EDAMAME Posture installed successfully!"
 info "  Version: $VERSION"
 info "  Location: $RESOLVED_BINARY_PATH"
 
-if [ "$PLATFORM" = "linux" ]; then
+# Configure service only if needed
+if [ "$PLATFORM" = "linux" ] && [ "$SKIP_CONFIGURATION" != "true" ]; then
     configure_service
+elif [ "$SKIP_CONFIGURATION" = "true" ]; then
+    info "Service configuration skipped (already configured with matching credentials)"
 fi
 
 info ""
