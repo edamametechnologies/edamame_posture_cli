@@ -68,9 +68,8 @@ curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamamete
 |------|-------------|
 | `--install-dir <path>` | Destination for binary installs (defaults to `/usr/local/bin` on Linux/macOS, `$HOME` on Windows). |
 | `--state-file <path>` | Writes installation metadata (used by GitHub Actions to track install state). |
-| `--force-binary` / `--binary-only` | Skip package managers, use direct binary download. |
+| `--force-binary` | Skip package managers, use direct binary download. |
 | `--debug-build` | Download debug artifacts instead of release builds (implies `--force-binary`). |
-| `--ci-mode` | **Deprecated** (kept for backward compatibility, does nothing). |
 
 ---
 
