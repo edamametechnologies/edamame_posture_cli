@@ -1915,6 +1915,7 @@ EOF
     info "✓ Service configuration updated at $CONF_FILE"
     
     # Check if service is already running with proper credentials
+    # Note: If NEED_CONFIG_UPDATE is set, we MUST restart to pick up new config
     SHOULD_RESTART="true"
     if credentials_provided; then
         info "Checking if service is already running with proper credentials..."
@@ -1974,9 +1975,15 @@ EOF
                 fi
                 
                 if [ "$CREDENTIALS_MATCH" = "true" ]; then
-                    info "Service is running with matching credentials (user: $CONFIG_USER, domain: $CONFIG_DOMAIN), skipping restart"
-                    [ -n "$CONFIG_DEVICE_ID" ] && info "  Device ID: $CONFIG_DEVICE_ID"
-                    SHOULD_RESTART="false"
+                    # Check if config was just updated (e.g., network flags added)
+                    if [ "${NEED_CONFIG_UPDATE:-false}" = "true" ]; then
+                        info "Service is running with matching credentials but config was updated, will restart"
+                        SHOULD_RESTART="true"
+                    else
+                        info "Service is running with matching credentials (user: $CONFIG_USER, domain: $CONFIG_DOMAIN), skipping restart"
+                        [ -n "$CONFIG_DEVICE_ID" ] && info "  Device ID: $CONFIG_DEVICE_ID"
+                        SHOULD_RESTART="false"
+                    fi
                 elif [ "$IS_CONNECTED" = "true" ]; then
                     info "Service is running with different credentials (user: $RUNNING_USER, domain: $RUNNING_DOMAIN), will restart"
                 else
