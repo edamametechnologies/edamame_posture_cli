@@ -1810,7 +1810,7 @@ if [ "$SKIP_INSTALLATION" = "false" ]; then
             ensure_linux_packet_capture_support
         fi
     elif [ "$PLATFORM" = "linux-musl" ]; then
-        warn "Package install not supported or glibc < 2.29 detected. Using musl binary."
+        warn "Package install not supported or unsupported glibc version detected. Using musl binary."
         install_binary_release "linux" "musl"
     elif [ "$PLATFORM" = "macos" ]; then
         if [ "$CONFIG_FORCE_BINARY" != "true" ] && install_macos_via_brew; then
