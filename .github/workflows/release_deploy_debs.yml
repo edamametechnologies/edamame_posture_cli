@@ -93,6 +93,11 @@ jobs:
       # Setup
       ############################################################################################
 
+      # Install protoc for native builds
+      - name: Install protoc for native builds
+        if: (matrix.target == 'x86_64-unknown-linux-gnu' || matrix.target == 'aarch64-unknown-linux-gnu')
+        run: sudo apt-get install protobuf-compiler -y
+    
       # Install Rust
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -103,11 +108,6 @@ jobs:
       - name: Install Cross for Linux
         if: (matrix.target == 'armv7-unknown-linux-gnueabihf' || matrix.target == 'i686-unknown-linux-gnu')
         run: cargo install cross --git https://github.com/cross-rs/cross
-
-      # Install protoc for native builds
-      - name: Install protoc for native builds
-        if: (matrix.target == 'x86_64-unknown-linux-gnu' || matrix.target == 'aarch64-unknown-linux-gnu')
-        run: sudo apt-get install protobuf-compiler -y
 
       ############################################################################################
       # Build
