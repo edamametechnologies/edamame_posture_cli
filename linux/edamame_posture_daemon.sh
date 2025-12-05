@@ -14,18 +14,30 @@ fi
 # Extract a configuration value by key from a YAML-formatted file.
 get_config_value() {
   key="$1"
-  awk -v search="$key" '
-    $0 ~ "^" search ":[[:space:]]*" {
-      line=$0
-      sub("^" search ":[[:space:]]*", "", line)
-      if (line ~ /^"/) {
-        match(line, /^"([^"]*)"/, captured)
-        val=captured[1]
-      } else {
-        sub(/[[:space:]]+#.*$/, "", line)
-        val=line
+  awk -v search="$key" -F':' '
+    {
+      k=$1
+      gsub(/^[[:space:]]+/, "", k)
+      gsub(/[[:space:]]+$/, "", k)
+      if (k != search) {
+        next
       }
-      gsub(/^[[:space:]]+|[[:space:]]+$/, "", val)
+
+      # Capture everything after the first colon so we keep inline comments separate
+      val=substr($0, index($0, ":") + 1)
+      gsub(/^[[:space:]]+/, "", val)
+      sub(/[[:space:]]+#.*$/, "", val)
+
+      # Handle quoted values
+      if (val ~ /^"/) {
+        sub(/^"/, "", val)
+        sub(/".*$/, "", val)
+      }
+
+      # Trim any remaining surrounding whitespace
+      gsub(/^[[:space:]]+/, "", val)
+      gsub(/[[:space:]]+$/, "", val)
+
       print val
       exit
     }
