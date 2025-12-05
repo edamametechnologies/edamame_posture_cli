@@ -1333,10 +1333,24 @@ case "$PLATFORM" in
             LINUX_LIBC_FLAVOR="musl"
         else
             GLIBC_VERSION=$(detect_glibc_version)
-            if [ -n "$GLIBC_VERSION" ] && version_lt "$GLIBC_VERSION" "2.29"; then
-                LINUX_LIBC_FLAVOR="musl"
-                PLATFORM="linux-musl"
-            fi
+            case "$ARCH" in
+                x86_64)
+                    # We build the x86_64 binary on glibc 2.29 or older
+                    if [ -n "$GLIBC_VERSION" ] && version_lt "$GLIBC_VERSION" "2.29"; then
+                        LINUX_LIBC_FLAVOR="musl"
+                        PLATFORM="linux-musl"
+                    fi
+                    ;;
+                aarch64)
+                    # We build the aarch64 binary on glibc 2.39 or older
+                    if [ -n "$GLIBC_VERSION" ] && version_lt "$GLIBC_VERSION" "2.39"; then
+                        LINUX_LIBC_FLAVOR="musl"
+                        PLATFORM="linux-musl"
+                    fi
+                    ;;
+                *)
+                    ;;
+            esac
         fi
         ;;
     macos)
