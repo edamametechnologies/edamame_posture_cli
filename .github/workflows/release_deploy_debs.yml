@@ -149,6 +149,8 @@ jobs:
             done
           }
 
+          sudo dpkg --configure -a
+          
           export DEBIAN_FRONTEND=noninteractive
           wait_for_apt_locks
           run_apt update -y
