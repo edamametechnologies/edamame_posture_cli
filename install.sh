@@ -1420,7 +1420,8 @@ ensure_privileged_runner() {
     fi
 
     if command -v sudo >/dev/null 2>&1; then
-        SUDO="sudo"
+        # Use -E to preserve environment variables (needed for CI/CD detection)
+        SUDO="sudo -E"
         return 0
     fi
 
@@ -1433,7 +1434,7 @@ ensure_privileged_runner() {
         if command -v apk >/dev/null 2>&1; then
             info "sudo not found. Attempting to install via apk (requires root credentials)..."
             if su -c "apk add --no-cache sudo" >/dev/null 2>&1; then
-                SUDO="sudo"
+                SUDO="sudo -E"
                 return 0
             else
                 warn "Automatic sudo installation via apk failed."
@@ -1441,7 +1442,7 @@ ensure_privileged_runner() {
         elif command -v apt-get >/dev/null 2>&1; then
             info "sudo not found. Attempting to install via apt-get (requires root credentials)..."
             if su -c "apt-get update -qq && apt-get install -y sudo" >/dev/null; then
-                SUDO="sudo"
+                SUDO="sudo -E"
                 return 0
             else
                 warn "Automatic sudo installation via apt-get failed."
@@ -2189,7 +2190,17 @@ info "  INSTALLED_VIA_PACKAGE_MANAGER: $INSTALLED_VIA_PACKAGE_MANAGER"
 info "  INSTALL_METHOD: $INSTALL_METHOD"
 info "  SHOULD_START_DAEMON (current): $SHOULD_START_DAEMON"
 
-if credentials_provided && [ "$SKIP_CONFIGURATION" != "true" ]; then
+# Determine if we should run in disconnected mode (no credentials but network monitoring enabled)
+DISCONNECTED_MODE="false"
+if ! credentials_provided; then
+    if [ "$CONFIG_START_LANSCAN" = "true" ] || [ "$CONFIG_START_CAPTURE" = "true" ] || \
+       [ -n "$CONFIG_WHITELIST" ] || [ "$CONFIG_CANCEL_ON_VIOLATION" = "true" ]; then
+        DISCONNECTED_MODE="true"
+        info "  Disconnected mode: enabled (network monitoring without credentials)"
+    fi
+fi
+
+if { credentials_provided || [ "$DISCONNECTED_MODE" = "true" ]; } && [ "$SKIP_CONFIGURATION" != "true" ]; then
     if [ "$SHOULD_START_DAEMON" = "true" ]; then
         # Already set to true by service failure fallback
         info "  Decision: Service failure fallback - will start daemon manually"
@@ -2205,14 +2216,18 @@ if credentials_provided && [ "$SKIP_CONFIGURATION" != "true" ]; then
         info "  Decision: Service-based installation - daemon managed by service"
     fi
 else
-    info "  Decision: Skipping daemon start (no credentials or already configured)"
+    info "  Decision: Skipping daemon start (no credentials/network config or already configured)"
 fi
 
 info "  SHOULD_START_DAEMON: $SHOULD_START_DAEMON"
 
 if [ "$SHOULD_START_DAEMON" = "true" ]; then
     info ""
-    info "Starting background daemon with provided credentials..."
+    if [ "$DISCONNECTED_MODE" = "true" ]; then
+        info "Starting background daemon in disconnected mode..."
+    else
+        info "Starting background daemon with provided credentials..."
+    fi
     
     # Export AI configuration before starting daemon
     AGENTIC_PROVIDER_NAME=""
@@ -2248,12 +2263,21 @@ if [ "$SHOULD_START_DAEMON" = "true" ]; then
             NOHUP_CMD="nohup"
         fi
 
-        set -- start \
-            --user "$CONFIG_USER" \
-            --domain "$CONFIG_DOMAIN" \
-            --pin "$CONFIG_PIN"
+        # Use different command based on mode
+        if [ "$DISCONNECTED_MODE" = "true" ]; then
+            # Disconnected mode - no credentials required
+            set -- background-start-disconnected
+        else
+            # Connected mode - requires credentials
+            set -- start \
+                --user "$CONFIG_USER" \
+                --domain "$CONFIG_DOMAIN" \
+                --pin "$CONFIG_PIN"
+            
+            [ -n "$CONFIG_DEVICE_ID" ] && set -- "$@" --device-id "$CONFIG_DEVICE_ID"
+        fi
         
-        [ -n "$CONFIG_DEVICE_ID" ] && set -- "$@" --device-id "$CONFIG_DEVICE_ID"
+        # Common options for both modes
         [ "$CONFIG_START_LANSCAN" = "true" ] && set -- "$@" --network-scan
         [ "$CONFIG_START_CAPTURE" = "true" ] && set -- "$@" --packet-capture
         [ -n "$CONFIG_WHITELIST" ] && set -- "$@" --whitelist "$CONFIG_WHITELIST"
