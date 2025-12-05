@@ -991,14 +991,20 @@ install_linux_via_apt() {
 
         if ! command -v gpg >/dev/null 2>&1; then
             info "Installing gnupg..."
-            $SUDO apt-get update -qq < /dev/null
-            $SUDO apt-get install -y gnupg < /dev/null
+            $SUDO apt-get install -y gnupg < /dev/null 2>/dev/null || {
+                warn "Failed to install gnupg without update, trying with update..."
+                $SUDO apt-get update -qq < /dev/null
+                $SUDO apt-get install -y gnupg < /dev/null
+            }
         fi
 
         if ! command -v wget >/dev/null 2>&1 && ! command -v curl >/dev/null 2>&1; then
             info "Installing wget..."
-            $SUDO apt-get update -qq < /dev/null
-            $SUDO apt-get install -y wget < /dev/null
+            $SUDO apt-get install -y wget < /dev/null 2>/dev/null || {
+                warn "Failed to install wget without update, trying with update..."
+                $SUDO apt-get update -qq < /dev/null
+                $SUDO apt-get install -y wget < /dev/null
+            }
         fi
 
         if command -v wget >/dev/null 2>&1; then
