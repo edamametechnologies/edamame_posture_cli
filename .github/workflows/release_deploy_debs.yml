@@ -29,7 +29,8 @@ jobs:
             target: armv7-unknown-linux-gnueabihf
             deb_arch: armhf
           - os: ubuntu
-            runs-on: ubuntu-latest
+            # Old version to generate compatible binaries for older devices (glibc)
+            runs-on: ubuntu-20.04
             arch: amd64
             target: x86_64-unknown-linux-gnu
             deb_arch: amd64
