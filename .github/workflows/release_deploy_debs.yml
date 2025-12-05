@@ -29,11 +29,13 @@ jobs:
             target: armv7-unknown-linux-gnueabihf
             deb_arch: armhf
           - os: ubuntu
-            # Old version to generate compatible binaries for older devices (glibc)
-            runs-on: ubuntu-20.04
+            # We have a hard time finding an older version to generate compatible binaries for older devices (glibc)
+            # So we use cross-compilation for this target
+            runs-on: ubuntu-latest
             arch: amd64
             target: x86_64-unknown-linux-gnu
             deb_arch: amd64
+            # For performance reasons, we use native builds for this target
           - os: ubuntu
             runs-on: ubuntu-24.04-arm
             arch: aarch64
@@ -96,7 +98,7 @@ jobs:
 
       # Install protoc for native builds
       - name: Install protoc for native builds
-        if: (matrix.target == 'x86_64-unknown-linux-gnu' || matrix.target == 'aarch64-unknown-linux-gnu')
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
         run: |
           wait_for_apt_locks() {
             echo "Checking for apt/dpkg locks..."
@@ -166,7 +168,7 @@ jobs:
 
       # Install Cross for Linux (only for cross-compilation, not native builds)
       - name: Install Cross for Linux
-        if: (matrix.target == 'armv7-unknown-linux-gnueabihf' || matrix.target == 'i686-unknown-linux-gnu')
+        if: (matrix.target == 'armv7-unknown-linux-gnueabihf' || matrix.target == 'i686-unknown-linux-gnu' || matrix.target == 'x86_64-unknown-linux-gnu')
         run: cargo install cross --git https://github.com/cross-rs/cross
 
       ############################################################################################
@@ -177,10 +179,7 @@ jobs:
       - name: Build application for Linux
         run: |
           # Use native cargo for native targets, cross for cross-compilation
-          if [[ "${{ matrix.target }}" == "x86_64-unknown-linux-gnu" && "${{ matrix.runs-on }}" == "ubuntu-latest" ]]; then
-            echo "Native build on x86_64"
-            cargo build --release --target ${{ matrix.target }}
-          elif [[ "${{ matrix.target }}" == "aarch64-unknown-linux-gnu" && "${{ matrix.runs-on }}" == "ubuntu-24.04-arm" ]]; then
+          if [[ "${{ matrix.target }}" == "aarch64-unknown-linux-gnu" ]]; then
             echo "Native build on aarch64"
             cargo build --release --target ${{ matrix.target }}
           else
@@ -195,10 +194,7 @@ jobs:
       - name: Build application in debug mode for Linux
         run: |
           # Use native cargo for native targets, cross for cross-compilation
-          if [[ "${{ matrix.target }}" == "x86_64-unknown-linux-gnu" && "${{ matrix.runs-on }}" == "ubuntu-latest" ]]; then
-            echo "Native debug build on x86_64"
-            cargo build --target ${{ matrix.target }}
-          elif [[ "${{ matrix.target }}" == "aarch64-unknown-linux-gnu" && "${{ matrix.runs-on }}" == "ubuntu-24.04-arm" ]]; then
+          if [[ "${{ matrix.target }}" == "aarch64-unknown-linux-gnu" ]]; then
             echo "Native debug build on aarch64"
             cargo build --target ${{ matrix.target }}
           else
