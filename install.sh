@@ -2140,12 +2140,26 @@ if [ "$PLATFORM" = "linux" ] && [ "$SKIP_CONFIGURATION" != "true" ]; then
     configure_service
 elif [ "$SKIP_CONFIGURATION" = "true" ]; then
     info "Service configuration skipped (already configured with matching credentials)"
-    # Display status of the daemon
+    # Display status of the daemon (don't fail if daemon is down)
     info "Daemon status:"
+    set +e  # Temporarily disable exit on error
     STATUS=$($RESOLVED_BINARY_PATH status 2>&1)
-    echo "$STATUS" | while IFS= read -r line; do
-        info "  $line"
-    done
+    STATUS_EXIT=$?
+    set -e  # Re-enable exit on error
+    
+    if [ $STATUS_EXIT -ne 0 ]; then
+        warn "Failed to get daemon status (exit code: $STATUS_EXIT)"
+        if [ -n "$STATUS" ]; then
+            warn "Status output:"
+            echo "$STATUS" | while IFS= read -r line; do
+                warn "  $line"
+            done
+        fi
+    else
+        echo "$STATUS" | while IFS= read -r line; do
+            info "  $line"
+        done
+    fi
 fi
 
 # For non-service installations with credentials, start background daemon
