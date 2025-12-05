@@ -1426,6 +1426,8 @@ ensure_privileged_runner() {
     fi
 
     if command -v doas >/dev/null 2>&1; then
+        # Note: doas environment preservation depends on doas.conf (keepenv rule)
+        # For CI/CD detection, the cancellation script embeds values directly
         SUDO="doas"
         return 0
     fi
