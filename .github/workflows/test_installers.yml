@@ -1,0 +1,200 @@
+name: Test Posture Installers
+
+on:
+  schedule:
+    # Run every 6 hours
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+
+# Auto cancel previous runs if they were not completed.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FALLBACK_VERSION: "0.9.75"
+  REPO_BASE: "https://github.com/edamametechnologies/edamame_posture_cli"
+
+jobs:
+  linux-apt:
+    name: Ubuntu (APT package)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Determine latest version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${FALLBACK_VERSION}"
+          LATEST_URL="${REPO_BASE}/releases/latest"
+          if REDIRECT=$(curl -s -I "$LATEST_URL" | grep -i "^location:" | sed 's/location: *//i' | tr -d '\r'); then
+            if TAG=$(echo "$REDIRECT" | grep -o "v[0-9]\+\.[0-9]\+\.[0-9]\+"); then
+              VERSION="${TAG#v}"
+              echo "Found latest version: ${VERSION}"
+            else
+              echo "Could not parse latest tag, using fallback ${VERSION}"
+            fi
+          else
+            echo "Could not discover latest tag, using fallback ${VERSION}"
+          fi
+          echo "version=${VERSION}" >> "${GITHUB_OUTPUT}"
+
+      - name: Install prerequisites
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y curl gnupg ca-certificates
+
+      - name: Install edamame-posture via APT
+        run: |
+          set -euo pipefail
+          curl -sL https://edamame.s3.eu-west-1.amazonaws.com/repo/public.key | \
+            sudo gpg --dearmor -o /usr/share/keyrings/edamame.gpg
+          echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/edamame.gpg] https://edamame.s3.eu-west-1.amazonaws.com/repo stable main" | \
+            sudo tee /etc/apt/sources.list.d/edamame.list >/dev/null
+          sudo apt-get update -qq
+          sudo apt-get install -y edamame-posture
+
+      - name: Verify binary is available
+        run: |
+          set -euo pipefail
+          command -v edamame_posture
+          edamame_posture get-core-version
+          edamame_posture --help | head -n 20
+
+      - name: Ensure service is running
+        run: |
+          set -euo pipefail
+          sudo systemctl daemon-reload || true
+          sudo systemctl start edamame_posture.service || true
+          sleep 5
+          if sudo systemctl is-active --quiet edamame_posture.service; then
+            echo "✅ edamame_posture service is running"
+          else
+            echo "❌ edamame_posture service is not active"
+            sudo systemctl status edamame_posture.service --no-pager || true
+            exit 1
+          fi
+
+  linux-apk:
+    name: Alpine (APK package)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    container: alpine:3.19
+    steps:
+      - name: Prepare Alpine
+        run: |
+          set -euo pipefail
+          apk add --no-cache curl ca-certificates bash
+          update-ca-certificates
+
+      - name: Add repository and install edamame-posture
+        run: |
+          set -euo pipefail
+          ARCH="$(uname -m)"
+          REPO_URL="https://edamame.s3.eu-west-1.amazonaws.com/repo/alpine/v3.15/main"
+          wget -q -O /etc/apk/keys/edamame.rsa.pub "${REPO_URL}/${ARCH}/edamame.rsa.pub" || true
+          echo "${REPO_URL}" >> /etc/apk/repositories
+          apk update
+          apk add --no-cache edamame-posture || { echo "apk install failed"; exit 1; }
+
+      - name: Verify binary is available
+        run: |
+          set -euo pipefail
+          command -v edamame_posture
+          edamame_posture get-core-version
+          edamame_posture --help | head -n 20
+
+      - name: Ensure service is running (Alpine)
+        run: |
+            set -euo pipefail
+            rc-service edamame_posture status
+            rc-service edamame_posture start
+            sleep 5
+            if rc-service edamame_posture status | grep -q "started"; then
+                echo "✅ edamame_posture service is running"
+            else
+                echo "❌ edamame_posture service is not active"
+                rc-service edamame_posture status --no-pager || true
+                exit 1
+            fi
+
+  linux-binary:
+    name: Linux (direct binary)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Determine latest version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${FALLBACK_VERSION}"
+          LATEST_URL="${REPO_BASE}/releases/latest"
+          if REDIRECT=$(curl -s -I "$LATEST_URL" | grep -i "^location:" | sed 's/location: *//i' | tr -d '\r'); then
+            if TAG=$(echo "$REDIRECT" | grep -o "v[0-9]\+\.[0-9]\+\.[0-9]\+"); then
+              VERSION="${TAG#v}"
+            fi
+          fi
+          echo "version=${VERSION}" >> "${GITHUB_OUTPUT}"
+
+      - name: Download binary artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.version.outputs.version }}"
+          ASSET="edamame_posture-${VERSION}-x86_64-unknown-linux-gnu"
+          URL="${REPO_BASE}/releases/download/v${VERSION}/${ASSET}"
+          echo "Downloading ${URL}"
+          curl -fsSL "${URL}" -o edamame_posture
+          chmod +x edamame_posture
+          ls -la edamame_posture
+
+      - name: Verify binary runs
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./edamame_posture get-core-version
+          ./edamame_posture --help | head -n 20
+
+  macos-brew:
+    name: macOS (Homebrew)
+    runs-on: macos-latest
+    timeout-minutes: 25
+    steps:
+      - name: Install via Homebrew
+        run: |
+          set -euo pipefail
+          brew update
+          brew tap edamametechnologies/tap
+          brew install edamame-posture
+
+      - name: Verify binary is available
+        run: |
+          set -euo pipefail
+          command -v edamame_posture
+          edamame_posture get-core-version
+          edamame_posture --help | head -n 20
+
+      - name: Check background process (best-effort)
+        run: |
+          set -euo pipefail
+          pgrep -f edamame_posture || true
+
+  windows-choco:
+    name: Windows (Chocolatey)
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - name: Install via Chocolatey
+        shell: pwsh
+        run: |
+          choco install edamame-posture -y
+
+      - name: Verify binary is available
+        shell: pwsh
+        run: |
+          $exe = Get-Command edamame_posture.exe -ErrorAction Stop
+          Write-Host "Binary path: $($exe.Source)"
+          & $exe.Source get-core-version
+          & $exe.Source --help | Select-Object -First 20
