@@ -988,6 +988,7 @@ fix_broken_package_state() {
 
 install_linux_via_apt() {
     info "Installing via APT..."
+    APT_UPDATE_NEEDED="false"
     
     # Fix broken package state BEFORE any apt operations
     # This prevents dpkg errors when installing other packages
@@ -1036,10 +1037,22 @@ install_linux_via_apt() {
         echo "deb [arch=${DEB_ARCH} signed-by=/usr/share/keyrings/edamame.gpg] https://edamame.s3.eu-west-1.amazonaws.com/repo stable main" | \
             $SUDO tee /etc/apt/sources.list.d/edamame.list >/dev/null
         info "Repository added"
+        APT_UPDATE_NEEDED="true"
     fi
 
-    info "Updating package list..."
-    $SUDO apt-get update -qq < /dev/null
+    # Decide if we really need to refresh package lists
+    if ! dpkg -l edamame-posture 2>/dev/null | grep -q "^ii"; then
+        APT_UPDATE_NEEDED="true"
+    elif apt list --upgradable 2>/dev/null | grep -q "^edamame-posture/"; then
+        APT_UPDATE_NEEDED="true"
+    fi
+
+    if [ "$APT_UPDATE_NEEDED" = "true" ]; then
+        info "Updating package list..."
+        $SUDO apt-get update -qq < /dev/null
+    else
+        info "Skipping apt-get update (package already installed and no upgrade detected)"
+    fi
 
     info "Installing edamame-posture..."
     # Run apt-get install and capture output
@@ -1335,15 +1348,15 @@ case "$PLATFORM" in
             GLIBC_VERSION=$(detect_glibc_version)
             case "$ARCH" in
                 x86_64)
-                    # We build the x86_64 binary on glibc 2.29 or older
+                    # We build the x86_64 deb binary on glibc 2.29 or older
                     if [ -n "$GLIBC_VERSION" ] && version_lt "$GLIBC_VERSION" "2.29"; then
                         LINUX_LIBC_FLAVOR="musl"
                         PLATFORM="linux-musl"
                     fi
                     ;;
                 aarch64)
-                    # We build the aarch64 binary on glibc 2.39 or older
-                    if [ -n "$GLIBC_VERSION" ] && version_lt "$GLIBC_VERSION" "2.39"; then
+                    # We build the aarch64 deb binary on glibc 2.35 or older
+                    if [ -n "$GLIBC_VERSION" ] && version_lt "$GLIBC_VERSION" "2.35"; then
                         LINUX_LIBC_FLAVOR="musl"
                         PLATFORM="linux-musl"
                     fi

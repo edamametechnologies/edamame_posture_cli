@@ -98,8 +98,8 @@ jobs:
       # Setup
       ############################################################################################
 
-      # Install protoc for native builds
-      - name: Install protoc for native builds
+      # Install protoc and libpcap-dev for native builds
+      - name: Install protoc and libpcap-dev for native builds
         if: matrix.target == 'aarch64-unknown-linux-gnu'
         run: |
           wait_for_apt_locks() {
