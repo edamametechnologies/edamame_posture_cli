@@ -76,6 +76,22 @@ error() {
     exit 1
 }
 
+show_daemon_status() {
+    local binary="$1"
+    info "Daemon status:"
+    set +e  # Temporarily disable exit on error
+    STATUS=$($binary status 2>&1)
+    STATUS_EXIT=$?
+    set -e  # Re-enable exit on error
+    if [ $STATUS_EXIT -ne 0 ]; then
+        warn "Failed to get daemon status (exit code: $STATUS_EXIT)"
+    else
+        echo "$STATUS" | while IFS= read -r line; do
+            info "  $line"
+        done
+    fi
+}
+
 detect_platform() {
     local uname_out
     uname_out=$(uname -s 2>/dev/null || echo "unknown")
@@ -1805,6 +1821,11 @@ fi
 # Configure service if configuration parameters were provided
 configure_service() {
     CONF_FILE="/etc/edamame_posture.conf"
+    yaml_escape() {
+        # Escape backslashes and double quotes for safe YAML double-quoted values
+        # Uses a single sed pass to avoid placeholder churn
+        printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
+    }
     
     # Only configure if config file exists (Debian/Ubuntu/Raspbian/Alpine with service)
     if [ ! -f "$CONF_FILE" ]; then
@@ -1823,29 +1844,43 @@ configure_service() {
     
     # Create temporary config file
     TMP_CONF=$(mktemp)
-    cat > "$TMP_CONF" <<'EOF'
+    ESC_USER=$(yaml_escape "$CONFIG_USER")
+    ESC_DOMAIN=$(yaml_escape "$CONFIG_DOMAIN")
+    ESC_PIN=$(yaml_escape "$CONFIG_PIN")
+    ESC_DEVICE_ID=$(yaml_escape "$CONFIG_DEVICE_ID")
+    ESC_WHITELIST=$(yaml_escape "$CONFIG_WHITELIST")
+    ESC_AGENTIC_MODE=$(yaml_escape "$CONFIG_AGENTIC_MODE")
+    ESC_CLAUDE_KEY=$(yaml_escape "$CONFIG_CLAUDE_KEY")
+    ESC_OPENAI_KEY=$(yaml_escape "$CONFIG_OPENAI_KEY")
+    ESC_OLLAMA_URL=$(yaml_escape "$CONFIG_OLLAMA_URL")
+    ESC_AGENTIC_INTERVAL=$(yaml_escape "$CONFIG_AGENTIC_INTERVAL")
+    ESC_SLACK_BOT_TOKEN=$(yaml_escape "$CONFIG_SLACK_BOT_TOKEN")
+    ESC_SLACK_ACTIONS_CHANNEL=$(yaml_escape "$CONFIG_SLACK_ACTIONS_CHANNEL")
+    ESC_SLACK_ESCALATIONS_CHANNEL=$(yaml_escape "$CONFIG_SLACK_ESCALATIONS_CHANNEL")
+
+    cat > "$TMP_CONF" <<EOF
 # EDAMAME Posture Service Configuration
 # This file is read by the systemd service to configure edamame_posture
 
 # ============================================================================
 # Connection Settings (leave empty for disconnected mode)
 # ============================================================================
-edamame_user: "CONFIG_USER_PLACEHOLDER"
-edamame_domain: "CONFIG_DOMAIN_PLACEHOLDER"
-edamame_pin: "CONFIG_PIN_PLACEHOLDER"
-edamame_device_id: "CONFIG_DEVICE_ID_PLACEHOLDER"
+edamame_user: "${ESC_USER}"
+edamame_domain: "${ESC_DOMAIN}"
+edamame_pin: "${ESC_PIN}"
+edamame_device_id: "${ESC_DEVICE_ID}"
 
 # ============================================================================
 # Network Monitoring (optional)
 # ============================================================================
-start_lanscan: "CONFIG_START_LANSCAN_PLACEHOLDER"
-start_capture: "CONFIG_START_CAPTURE_PLACEHOLDER"
-whitelist_name: "CONFIG_WHITELIST_PLACEHOLDER"
-fail_on_whitelist: "CONFIG_FAIL_ON_WHITELIST_PLACEHOLDER"
-fail_on_blacklist: "CONFIG_FAIL_ON_BLACKLIST_PLACEHOLDER"
-fail_on_anomalous: "CONFIG_FAIL_ON_ANOMALOUS_PLACEHOLDER"
-cancel_on_violation: "CONFIG_CANCEL_ON_VIOLATION_PLACEHOLDER"
-include_local_traffic: "CONFIG_INCLUDE_LOCAL_TRAFFIC_PLACEHOLDER"
+start_lanscan: "${CONFIG_START_LANSCAN}"
+start_capture: "${CONFIG_START_CAPTURE}"
+whitelist_name: "${ESC_WHITELIST}"
+fail_on_whitelist: "${CONFIG_FAIL_ON_WHITELIST}"
+fail_on_blacklist: "${CONFIG_FAIL_ON_BLACKLIST}"
+fail_on_anomalous: "${CONFIG_FAIL_ON_ANOMALOUS}"
+cancel_on_violation: "${CONFIG_CANCEL_ON_VIOLATION}"
+include_local_traffic: "${CONFIG_INCLUDE_LOCAL_TRAFFIC}"
 
 # ============================================================================
 # AI Assistant (Agentic) Configuration
@@ -1855,63 +1890,41 @@ include_local_traffic: "CONFIG_INCLUDE_LOCAL_TRAFFIC_PLACEHOLDER"
 # - auto: Automatically process and resolve safe/low-risk todos; escalate high-risk items
 # - analyze: Gather recommendations without executing changes
 # - disabled: No AI processing (default)
-agentic_mode: "CONFIG_AGENTIC_MODE_PLACEHOLDER"
+agentic_mode: "${ESC_AGENTIC_MODE}"
 
 # ============================================================================
 # LLM Provider Configuration (first non-empty API key/URL will be used)
 # ============================================================================
 
 # Claude (Anthropic) - Recommended
-claude_api_key: "CONFIG_CLAUDE_KEY_PLACEHOLDER"
+claude_api_key: "${ESC_CLAUDE_KEY}"
 
 # OpenAI
-openai_api_key: "CONFIG_OPENAI_KEY_PLACEHOLDER"
+openai_api_key: "${ESC_OPENAI_KEY}"
 
 # Ollama (Local) - Privacy First
-ollama_base_url: "CONFIG_OLLAMA_URL_PLACEHOLDER"
+ollama_base_url: "${ESC_OLLAMA_URL}"
 
 # ============================================================================
 # Slack Notifications (optional)
 # ============================================================================
 
 # Slack Bot Token (starts with xoxb-)
-slack_bot_token: "CONFIG_SLACK_BOT_TOKEN_PLACEHOLDER"
+slack_bot_token: "${ESC_SLACK_BOT_TOKEN}"
 
 # Slack Actions Channel (channel ID, e.g., C01234567)
-slack_actions_channel: "CONFIG_SLACK_ACTIONS_CHANNEL_PLACEHOLDER"
+slack_actions_channel: "${ESC_SLACK_ACTIONS_CHANNEL}"
 
 # Slack Escalations Channel (channel ID, e.g., C07654321)
-slack_escalations_channel: "CONFIG_SLACK_ESCALATIONS_CHANNEL_PLACEHOLDER"
+slack_escalations_channel: "${ESC_SLACK_ESCALATIONS_CHANNEL}"
 
 # ============================================================================
 # Agentic Processing Configuration
 # ============================================================================
 
 # Processing interval in seconds
-agentic_interval: "CONFIG_AGENTIC_INTERVAL_PLACEHOLDER"
+agentic_interval: "${ESC_AGENTIC_INTERVAL}"
 EOF
-    
-    # Replace placeholders with actual values (using portable sed syntax)
-    sed "s|CONFIG_USER_PLACEHOLDER|${CONFIG_USER}|g" "$TMP_CONF" > "${TMP_CONF}.new" && mv "${TMP_CONF}.new" "$TMP_CONF"
-    sed "s|CONFIG_DOMAIN_PLACEHOLDER|${CONFIG_DOMAIN}|g" "$TMP_CONF" > "${TMP_CONF}.new" && mv "${TMP_CONF}.new" "$TMP_CONF"
-    sed "s|CONFIG_PIN_PLACEHOLDER|${CONFIG_PIN}|g" "$TMP_CONF" > "${TMP_CONF}.new" && mv "${TMP_CONF}.new" "$TMP_CONF"
-    sed "s|CONFIG_DEVICE_ID_PLACEHOLDER|${CONFIG_DEVICE_ID}|g" "$TMP_CONF" > "${TMP_CONF}.new" && mv "${TMP_CONF}.new" "$TMP_CONF"
-    sed "s|CONFIG_START_LANSCAN_PLACEHOLDER|${CONFIG_START_LANSCAN}|g" "$TMP_CONF" > "${TMP_CONF}.new" && mv "${TMP_CONF}.new" "$TMP_CONF"
-    sed "s|CONFIG_START_CAPTURE_PLACEHOLDER|${CONFIG_START_CAPTURE}|g" "$TMP_CONF" > "${TMP_CONF}.new" && mv "${TMP_CONF}.new" "$TMP_CONF"
-    sed "s|CONFIG_WHITELIST_PLACEHOLDER|${CONFIG_WHITELIST}|g" "$TMP_CONF" > "${TMP_CONF}.new" && mv "${TMP_CONF}.new" "$TMP_CONF"
-    sed "s|CONFIG_FAIL_ON_WHITELIST_PLACEHOLDER|${CONFIG_FAIL_ON_WHITELIST}|g" "$TMP_CONF" > "${TMP_CONF}.new" && mv "${TMP_CONF}.new" "$TMP_CONF"
-    sed "s|CONFIG_FAIL_ON_BLACKLIST_PLACEHOLDER|${CONFIG_FAIL_ON_BLACKLIST}|g" "$TMP_CONF" > "${TMP_CONF}.new" && mv "${TMP_CONF}.new" "$TMP_CONF"
-    sed "s|CONFIG_FAIL_ON_ANOMALOUS_PLACEHOLDER|${CONFIG_FAIL_ON_ANOMALOUS}|g" "$TMP_CONF" > "${TMP_CONF}.new" && mv "${TMP_CONF}.new" "$TMP_CONF"
-    sed "s|CONFIG_CANCEL_ON_VIOLATION_PLACEHOLDER|${CONFIG_CANCEL_ON_VIOLATION}|g" "$TMP_CONF" > "${TMP_CONF}.new" && mv "${TMP_CONF}.new" "$TMP_CONF"
-    sed "s|CONFIG_INCLUDE_LOCAL_TRAFFIC_PLACEHOLDER|${CONFIG_INCLUDE_LOCAL_TRAFFIC}|g" "$TMP_CONF" > "${TMP_CONF}.new" && mv "${TMP_CONF}.new" "$TMP_CONF"
-    sed "s|CONFIG_CLAUDE_KEY_PLACEHOLDER|${CONFIG_CLAUDE_KEY}|g" "$TMP_CONF" > "${TMP_CONF}.new" && mv "${TMP_CONF}.new" "$TMP_CONF"
-    sed "s|CONFIG_OPENAI_KEY_PLACEHOLDER|${CONFIG_OPENAI_KEY}|g" "$TMP_CONF" > "${TMP_CONF}.new" && mv "${TMP_CONF}.new" "$TMP_CONF"
-    sed "s|CONFIG_OLLAMA_URL_PLACEHOLDER|${CONFIG_OLLAMA_URL}|g" "$TMP_CONF" > "${TMP_CONF}.new" && mv "${TMP_CONF}.new" "$TMP_CONF"
-    sed "s|CONFIG_AGENTIC_MODE_PLACEHOLDER|${CONFIG_AGENTIC_MODE}|g" "$TMP_CONF" > "${TMP_CONF}.new" && mv "${TMP_CONF}.new" "$TMP_CONF"
-    sed "s|CONFIG_AGENTIC_INTERVAL_PLACEHOLDER|${CONFIG_AGENTIC_INTERVAL}|g" "$TMP_CONF" > "${TMP_CONF}.new" && mv "${TMP_CONF}.new" "$TMP_CONF"
-    sed "s|CONFIG_SLACK_BOT_TOKEN_PLACEHOLDER|${CONFIG_SLACK_BOT_TOKEN}|g" "$TMP_CONF" > "${TMP_CONF}.new" && mv "${TMP_CONF}.new" "$TMP_CONF"
-    sed "s|CONFIG_SLACK_ACTIONS_CHANNEL_PLACEHOLDER|${CONFIG_SLACK_ACTIONS_CHANNEL}|g" "$TMP_CONF" > "${TMP_CONF}.new" && mv "${TMP_CONF}.new" "$TMP_CONF"
-    sed "s|CONFIG_SLACK_ESCALATIONS_CHANNEL_PLACEHOLDER|${CONFIG_SLACK_ESCALATIONS_CHANNEL}|g" "$TMP_CONF" > "${TMP_CONF}.new" && mv "${TMP_CONF}.new" "$TMP_CONF"
     
     # Copy to final location
     $SUDO cp "$TMP_CONF" "$CONF_FILE"
@@ -2046,6 +2059,7 @@ EOF
                         # This can happen if APK postinst started it before OpenRC was fully initialized
                         if edamame_posture status >/dev/null 2>&1; then
                             info "Daemon is already running (likely started by APK postinst)"
+                            show_daemon_status "edamame_posture"
                             # Stop it first so we can restart with proper credentials
                             info "Stopping existing daemon to reconfigure with provided credentials..."
                             edamame_posture stop >/dev/null 2>&1 || true
@@ -2069,35 +2083,18 @@ EOF
                     if command -v systemctl >/dev/null 2>&1 && systemd_available; then
                         $SUDO systemctl daemon-reload 2>/dev/null || true
                         $SUDO systemctl enable edamame_posture.service 2>/dev/null || true
-                        $SUDO systemctl restart edamame_posture.service 2>/dev/null || \
-                        warn "Failed to restart service. Check: sudo systemctl status edamame_posture"
+                        if $SUDO systemctl restart edamame_posture.service 2>/dev/null; then
+                            :
+                        else
+                            warn "Failed to restart service. Check: sudo systemctl status edamame_posture"
+                            SHOULD_START_DAEMON="true"  # fall back to manual daemon start
+                        fi
                     else
                         warn "systemd is not available in this environment (PID 1: $(ps -p 1 -o comm= 2>/dev/null | tr -d ' ' || echo 'unknown')). Skipping service enablement; start edamame_posture manually if needed."
+                        SHOULD_START_DAEMON="true"  # fall back to manual daemon start when systemd missing
                     fi
                     ;;
             esac
-            
-            info "✓ Service started"
-            
-            # Give service time to initialize, especially if packet capture is enabled
-            if [ "$CONFIG_START_CAPTURE" = "true" ] || [ "$CONFIG_START_LANSCAN" = "true" ]; then
-                info "Waiting for service to initialize (network scanning/packet capture enabled)..."
-                
-                # Debug: verify config file has the network flags
-                if [ -f "$CONF_FILE" ]; then
-                    info "Verifying config file contains network flags..."
-                    CONF_LANSCAN=$($SUDO grep "^start_lanscan:" "$CONF_FILE" | head -1 || echo "missing")
-                    CONF_CAPTURE=$($SUDO grep "^start_capture:" "$CONF_FILE" | head -1 || echo "missing")
-                    info "  start_lanscan: $CONF_LANSCAN"
-                    info "  start_capture: $CONF_CAPTURE"
-                    
-                    # Also check what the wrapper script will see
-                    info "Testing daemon wrapper's ability to read config..."
-                    $SUDO cat "$CONF_FILE" | head -20 | grep -E "^(start_lanscan|start_capture):" || info "  No network flags found in first 20 lines"
-                fi
-                
-                sleep 5
-            fi
     else
         info "✓ Service already running with valid credentials"
     fi
@@ -2142,24 +2139,7 @@ elif [ "$SKIP_CONFIGURATION" = "true" ]; then
     info "Service configuration skipped (already configured with matching credentials)"
     # Display status of the daemon (don't fail if daemon is down)
     info "Daemon status:"
-    set +e  # Temporarily disable exit on error
-    STATUS=$($RESOLVED_BINARY_PATH status 2>&1)
-    STATUS_EXIT=$?
-    set -e  # Re-enable exit on error
-    
-    if [ $STATUS_EXIT -ne 0 ]; then
-        warn "Failed to get daemon status (exit code: $STATUS_EXIT)"
-        if [ -n "$STATUS" ]; then
-            warn "Status output:"
-            echo "$STATUS" | while IFS= read -r line; do
-                warn "  $line"
-            done
-        fi
-    else
-        echo "$STATUS" | while IFS= read -r line; do
-            info "  $line"
-        done
-    fi
+    show_daemon_status "$RESOLVED_BINARY_PATH"
 fi
 
 # For non-service installations with credentials, start background daemon
@@ -2285,24 +2265,7 @@ if [ "$SHOULD_START_DAEMON" = "true" ]; then
     sleep 5
     
     # Verify it started
-    if [ -n "$SUDO" ]; then
-        STATUS=$($SUDO "$RESOLVED_BINARY_PATH" status 2>&1)
-        if echo "$STATUS" | grep -q "connected: true"; then
-            info "✓ Daemon is running and connected"
-            info "Status output:"
-            echo "$STATUS" | while IFS= read -r line; do
-                info "  $line"
-            done
-        else
-            warn "Daemon may not have started successfully. Check with: $SUDO $RESOLVED_BINARY_PATH status"
-            warn "Status output:"
-            echo "$STATUS" | while IFS= read -r line; do
-                warn "  $line"
-            done
-        fi
-    else
-        STATUS=$("$RESOLVED_BINARY_PATH" status 2>&1)
-    fi
+    show_daemon_status "$RESOLVED_BINARY_PATH"
 fi
 
 info ""
