@@ -29,15 +29,16 @@ jobs:
             target: armv7-unknown-linux-gnueabihf
             deb_arch: armhf
           - os: ubuntu
-            # We have a hard time finding an older version to generate compatible binaries for older devices (glibc)
+            # We have a hard time finding an older version of Ubuntu to generate compatible binaries for older glibc
             # So we use cross-compilation for this target
             runs-on: ubuntu-latest
             arch: amd64
             target: x86_64-unknown-linux-gnu
             deb_arch: amd64
             # For performance reasons, we use native builds for this target
+            # We use an older version of Ubuntu to generate compatible binaries for older glibc
           - os: ubuntu
-            runs-on: ubuntu-24.04-arm
+            runs-on: ubuntu-22.04-arm
             arch: aarch64
             target: aarch64-unknown-linux-gnu
             deb_arch: arm64         
