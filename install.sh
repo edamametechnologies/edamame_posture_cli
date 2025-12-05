@@ -1311,7 +1311,9 @@ case "$PLATFORM" in
             LINUX_LIBC_FLAVOR="musl"
         else
             GLIBC_VERSION=$(detect_glibc_version)
-            if [ -n "$GLIBC_VERSION" ] && version_lt "$GLIBC_VERSION" "2.29"; then
+            # Require glibc >= 2.34 since the glibc binary is compiled on Ubuntu 24.04
+            # Ubuntu 20.04 (glibc 2.31) and older should use musl binary
+            if [ -n "$GLIBC_VERSION" ] && version_lt "$GLIBC_VERSION" "2.34"; then
                 LINUX_LIBC_FLAVOR="musl"
                 PLATFORM="linux-musl"
             fi
