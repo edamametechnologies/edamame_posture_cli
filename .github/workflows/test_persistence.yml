@@ -237,14 +237,17 @@ jobs:
           apt-get install -y curl
 
       - name: Use the local universal install script - step 1
+        id: install-1
         shell: bash
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh | sh -s -- \
           --user ${{ vars.EDAMAME_POSTURE_USER }} \
           --domain ${{ vars.EDAMAME_POSTURE_DOMAIN }} \
           --pin ${{ secrets.EDAMAME_POSTURE_PIN }}
+        continue-on-error: true
 
       - name: Check if the daemon is running
+        id: check-1
         shell: bash
         run: |
           # Locate the binary
@@ -265,16 +268,20 @@ jobs:
           
           echo "Found binary at: $BINARY"
           $BINARY status
+        continue-on-error: true
 
       - name: Use the local universal install script - step 2
+        id: install-2
         shell: bash
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh | sh -s -- \
           --user ${{ vars.EDAMAME_POSTURE_USER }} \
           --domain ${{ vars.EDAMAME_POSTURE_DOMAIN }} \
           --pin ${{ secrets.EDAMAME_POSTURE_PIN }}
+        continue-on-error: true
 
       - name: Check if the daemon is running
+        id: check-2
         shell: bash
         run: |
           # Locate the binary
@@ -295,6 +302,37 @@ jobs:
           
           echo "Found binary at: $BINARY"
           $BINARY status
+        continue-on-error: true
+
+      - name: Slack alerts
+        if: |
+          steps.install-1.outcome != 'success' ||
+          steps.check-1.outcome != 'success' ||
+          steps.install-2.outcome != 'success' ||
+          steps.check-2.outcome != 'success'
+        uses: slackapi/slack-github-action@v1.26.0
+        with:
+          channel-id: 'C072J0U9TH7'
+          slack-message: |
+            *Container Persistence Test Results for ${{ github.repository }} (${{ matrix.container_name }})*:
+            - Install 1: ${{ steps.install-1.outcome == 'success' && '✅ Success' || '❌ Failed' }}
+            - Check 1: ${{ steps.check-1.outcome == 'success' && '✅ Success' || '❌ Failed' }}
+            - Install 2: ${{ steps.install-2.outcome == 'success' && '✅ Success' || '❌ Failed' }}
+            - Check 2: ${{ steps.check-2.outcome == 'success' && '✅ Success' || '❌ Failed' }}
+            More details: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        continue-on-error: true
+
+      - name: Fail job if tests failed
+        if: |
+          steps.install-1.outcome != 'success' ||
+          steps.check-1.outcome != 'success' ||
+          steps.install-2.outcome != 'success' ||
+          steps.check-2.outcome != 'success'
+        run: |
+          echo "❌ Persistence container tests did not succeed"
+          exit 1
 
   test-alpine:
     timeout-minutes: 120
