@@ -136,7 +136,7 @@ jobs:
         run: |
             set -euo pipefail
             # Check if rc-service is available
-            if ! command -v rc-service >/dev/null 2>&1; then
+            if command -v rc-service >/dev/null 2>&1; then
                 rc-service edamame_posture status
                 rc-service edamame_posture start
                 sleep 5
