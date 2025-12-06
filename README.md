@@ -90,6 +90,7 @@ EDAMAME Posture is a lightweight, developer-friendly security posture assessment
 - [Business Rules](#business-rules)
   - [Business Rules Visualization and Principles](#business-rules-visualization-and-principles)
 - [Requirements](#requirements)
+  - [eBPF Process Attribution (Linux)](#ebpf-process-attribution-linux)
 - [Error Handling](#error-handling)
 - [EDAMAME Ecosystem](#edamame-ecosystem)
 - [Author](#author)
@@ -912,20 +913,20 @@ For Alpine Linux users, install via the APK repository:
 If you prefer not to add a repository, you can install the Debian package manually:
 
 1. **Download** the Debian package for your platform:
-   - **x86_64 (64-bit):** [edamame-posture_0.9.82-1_amd64.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.82/edamame-posture_0.9.82-1_amd64.deb)
-   - **i686 (32-bit):** [edamame-posture_0.9.82-1_i386.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.82/edamame-posture_0.9.82-1_i386.deb)
-   - **aarch64 (ARM 64-bit):** [edamame-posture_0.9.82-1_arm64.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.82/edamame-posture_0.9.82-1_arm64.deb)
+   - **x86_64 (64-bit):** [edamame-posture_0.9.83-1_amd64.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.83/edamame-posture_0.9.83-1_amd64.deb)
+   - **i686 (32-bit):** [edamame-posture_0.9.83-1_i386.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.83/edamame-posture_0.9.83-1_i386.deb)
+   - **aarch64 (ARM 64-bit):** [edamame-posture_0.9.83-1_arm64.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.83/edamame-posture_0.9.83-1_arm64.deb)
      - For Raspberry Pi 3/4/5 running 64-bit OS
-   - **armv7 (ARM 32-bit):** [edamame-posture_0.9.82-1_armhf.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.82/edamame-posture_0.9.82-1_armhf.deb)
+   - **armv7 (ARM 32-bit):** [edamame-posture_0.9.83-1_armhf.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.83/edamame-posture_0.9.83-1_armhf.deb)
      - For Raspberry Pi 2/3/4/Zero 2 running 32-bit OS (Raspberry Pi OS)
 
    > **Note**: These Debian packages have been tested on Linux Mint 20 and newer, Ubuntu 20.04 and newer, and Raspberry Pi OS (Raspbian).
 
 2. **Install** the package using either method:
    ```bash
-   sudo apt install ./edamame-posture_0.9.82-1_amd64.deb
+   sudo apt install ./edamame-posture_0.9.83-1_amd64.deb
    # or
-   sudo dpkg -i edamame-posture_0.9.82-1_amd64.deb
+   sudo dpkg -i edamame-posture_0.9.83-1_amd64.deb
    ```
 
 3. **Configure** the service by editing the configuration file:
@@ -980,17 +981,17 @@ If you prefer not to add a repository, you can install the Debian package manual
 For other Linux distributions or portable installation:
 
 1. **Download Binary**: From the Releases page, download the binary for your architecture:
-   - **x86_64 (64-bit)**: [edamame_posture-0.9.82-x86_64-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.82/edamame_posture-0.9.82-x86_64-unknown-linux-gnu)  
-   - **i686 (32-bit)**: [edamame_posture-0.9.82-i686-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.82/edamame_posture-0.9.82-i686-unknown-linux-gnu)  
-   - **aarch64 (ARM 64-bit)**: [edamame_posture-0.9.82-aarch64-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.82/edamame_posture-0.9.82-aarch64-unknown-linux-gnu)  
-   - **armv7 (ARM 32-bit)**: [edamame_posture-0.9.82-armv7-unknown-linux-gnueabihf](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.82/edamame_posture-0.9.82-armv7-unknown-linux-gnueabihf)
-   - **x86_64 (64-bit) for Alpine Linux (musl)**: [edamame_posture-0.9.82-x86_64-unknown-linux-musl](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.82/edamame_posture-0.9.82-x86_64-unknown-linux-musl) 
-   - **aarch64 (ARM 64-bit) for Alpine Linux (musl)**: [edamame_posture-0.9.82-aarch64-unknown-linux-musl](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.82/edamame_posture-0.9.82-aarch64-unknown-linux-musl)
+   - **x86_64 (64-bit)**: [edamame_posture-0.9.83-x86_64-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.83/edamame_posture-0.9.83-x86_64-unknown-linux-gnu)  
+   - **i686 (32-bit)**: [edamame_posture-0.9.83-i686-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.83/edamame_posture-0.9.83-i686-unknown-linux-gnu)  
+   - **aarch64 (ARM 64-bit)**: [edamame_posture-0.9.83-aarch64-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.83/edamame_posture-0.9.83-aarch64-unknown-linux-gnu)  
+   - **armv7 (ARM 32-bit)**: [edamame_posture-0.9.83-armv7-unknown-linux-gnueabihf](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.83/edamame_posture-0.9.83-armv7-unknown-linux-gnueabihf)
+   - **x86_64 (64-bit) for Alpine Linux (musl)**: [edamame_posture-0.9.83-x86_64-unknown-linux-musl](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.83/edamame_posture-0.9.83-x86_64-unknown-linux-musl) 
+   - **aarch64 (ARM 64-bit) for Alpine Linux (musl)**: [edamame_posture-0.9.83-aarch64-unknown-linux-musl](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.83/edamame_posture-0.9.83-aarch64-unknown-linux-musl)
 
 2. **Install Binary**: Extract if needed and place the edamame_posture binary into a directory in your PATH (such as `/usr/local/bin`). For example:
 ```bash
-chmod +x edamame_posture-0.9.82-x86_64-unknown-linux-gnu  
-sudo mv edamame_posture-0.9.82-x86_64-unknown-linux-gnu /usr/local/bin/edamame_posture
+chmod +x edamame_posture-0.9.83-x86_64-unknown-linux-gnu  
+sudo mv edamame_posture-0.9.83-x86_64-unknown-linux-gnu /usr/local/bin/edamame_posture
 ```
 
 ### macOS
@@ -1019,7 +1020,7 @@ brew upgrade edamame-posture
 For a manual installation on macOS:
 
 1. **Download** the macOS universal binary:
-   - [edamame_posture-0.9.82-universal-apple-darwin](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.82/edamame_posture-0.9.82-universal-apple-darwin)  
+   - [edamame_posture-0.9.83-universal-apple-darwin](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.83/edamame_posture-0.9.83-universal-apple-darwin)  
 
 2. **Install** by placing the binary in your `PATH` and making it executable:
    ```bash
@@ -1053,7 +1054,7 @@ choco upgrade edamame-posture
 For a manual installation on Windows:
 
 1. **Download** the Windows binary:
-   - [edamame_posture-0.9.82-x86_64-pc-windows-msvc.exe](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.82/edamame_posture-0.9.82-x86_64-pc-windows-msvc.exe)
+   - [edamame_posture-0.9.83-x86_64-pc-windows-msvc.exe](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.83/edamame_posture-0.9.83-x86_64-pc-windows-msvc.exe)
 
 2. **Install Npcap** (Required for traffic capture feature):
    - Install [Npcap](https://npcap.com/#download), the packet capture library from the Nmap team
@@ -2468,9 +2469,9 @@ jobs:
 
       - name: Install EDAMAME Posture
         run: |
-          curl -LO https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.82/edamame_posture-0.9.82-x86_64-unknown-linux-gnu
-          chmod +x edamame_posture-0.9.82-x86_64-unknown-linux-gnu
-          sudo mv edamame_posture-0.9.82-x86_64-unknown-linux-gnu /usr/local/bin/edamame_posture
+          curl -LO https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.83/edamame_posture-0.9.83-x86_64-unknown-linux-gnu
+          chmod +x edamame_posture-0.9.83-x86_64-unknown-linux-gnu
+          sudo mv edamame_posture-0.9.83-x86_64-unknown-linux-gnu /usr/local/bin/edamame_posture
 
       - name: Extract and verify signature from last commit
         run: |
@@ -2552,6 +2553,46 @@ Most EDAMAME Posture commands require administrator or root privileges to run pr
 
 - **Dependencies**: On Windows, the open-source helper service and packet capture driver (Npcap) might be needed for full functionality (as noted on the EDAMAME download page). On Linux, tcpdump or similar capabilities are bundled in the CLI for network capture (no separate install needed). On macOS, the tool may use built-in system extensions for network capture.
 - **Permissions**: The user running EDAMAME Posture should have the rights to perform system changes (install software, change configs) for `remediate` to be fully effective.
+
+### eBPF Process Attribution (Linux)
+
+On Linux, EDAMAME Posture uses eBPF (extended Berkeley Packet Filter) for high-performance Layer 7 process attribution during network capture. This provides accurate mapping of network connections to the processes that initiated them.
+
+**Benefits:**
+- **Near-zero overhead** - Runs directly in kernel space
+- **Real-time visibility** - Captures process info at connection time
+- **Accurate attribution** - Maps connections to PIDs, process names, and paths
+
+**Requirements:**
+- Linux kernel 4.18+ (5.x+ recommended)
+- BTF (BPF Type Format) support in kernel
+- Root privileges or `CAP_SYS_ADMIN` + `CAP_BPF`
+
+**Platform Support:**
+
+| Environment | eBPF Status | Notes |
+|-------------|-------------|-------|
+| Native Linux (Ubuntu 20.04+) | ✅ Full support | Best performance |
+| Native Linux (Alpine 3.18+) | ✅ Full support | musl libc compatible |
+| GitHub Actions (ubuntu-latest) | ✅ Full support | Works out of the box |
+| Docker containers | ⚠️ Limited | Requires `--privileged` or specific caps |
+| macOS / Windows | ❌ Not available | Falls back to netstat-based resolution |
+
+**Automatic Fallback:**
+
+When eBPF is unavailable (non-Linux platforms, containers without privileges, older kernels), EDAMAME Posture automatically falls back to traditional netstat-based process resolution. This ensures network capture and L7 attribution work across all platforms, with eBPF providing enhanced performance where available.
+
+**CI/CD Integration:**
+
+In GitHub Actions, eBPF works automatically on native Ubuntu runners. For container-based jobs, add capabilities:
+
+```yaml
+container:
+  image: ubuntu:24.04
+  options: --cap-add=SYS_ADMIN --cap-add=BPF --cap-add=NET_ADMIN
+```
+
+For detailed eBPF documentation including architecture, troubleshooting, and testing, see [flodbadd/EBPF.md](https://github.com/edamametechnologies/flodbadd/blob/main/EBPF.md).
 
 ## Error Handling
 EDAMAME Posture CLI is designed to provide clear error messages and codes for common issues:

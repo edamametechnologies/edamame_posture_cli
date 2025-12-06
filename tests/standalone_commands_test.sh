@@ -15,6 +15,7 @@ get_device_info_result="❓"
 get_system_info_result="❓"
 lanscan_result="❓"
 capture_result="❓"
+ebpf_result="❓"
 merge_custom_whitelists_result="❓"
 augment_custom_whitelists_result="❓"
 mcp_generate_psk_result="❓"
@@ -45,6 +46,7 @@ finish() {
     echo "  $get_system_info_result get-system-info"
     echo "  $lanscan_result lanscan"
     echo "  $capture_result capture"
+    echo "  $ebpf_result ebpf (Linux only)"
     echo "  $merge_custom_whitelists_result merge-custom-whitelists"
     echo "  $augment_custom_whitelists_result augment-custom-whitelists"
     echo "- MCP/Agentic Commands:"
@@ -203,6 +205,46 @@ $SUDO_CMD "$BINARY_PATH" $VERBOSE_FLAG lanscan && lanscan_result="✅" || lansca
 # Perform a capture
 echo "Capture:"
 $SUDO_CMD "$BINARY_PATH" $VERBOSE_FLAG capture 5 && capture_result="✅" || capture_result="❌"
+
+# Test eBPF availability (Linux only)
+echo "eBPF availability check:"
+if [[ "$(uname)" == "Linux" ]]; then
+    # Run a short capture and check if eBPF is enabled in the logs
+    CAPTURE_OUTPUT=$($SUDO_CMD "$BINARY_PATH" $VERBOSE_FLAG capture 2 2>&1 || true)
+    
+    # Check for eBPF initialization messages
+    if echo "$CAPTURE_OUTPUT" | grep -qi "eBPF.*enabled\|eBPF.*initialised\|kprobe attached"; then
+        echo "✅ eBPF is enabled and working"
+        ebpf_result="✅"
+    elif echo "$CAPTURE_OUTPUT" | grep -qi "eBPF.*disabled\|eBPF.*failed\|eBPF.*not available"; then
+        echo "⚠️ eBPF is disabled or not available (may be expected in containers)"
+        # Check if we're in a container (limited eBPF support)
+        if [[ -f /.dockerenv ]] || grep -q 'docker\|lxc\|containerd' /proc/1/cgroup 2>/dev/null; then
+            echo "   Running in container - eBPF limitations expected"
+            ebpf_result="⚠️"
+        else
+            echo "   Running on native host - eBPF should work"
+            ebpf_result="❌"
+        fi
+    else
+        echo "⚠️ Could not determine eBPF status from capture output"
+        # Check kernel version and BPF support
+        if [[ -f /proc/sys/kernel/unprivileged_bpf_disabled ]]; then
+            BPF_DISABLED=$(cat /proc/sys/kernel/unprivileged_bpf_disabled)
+            echo "   unprivileged_bpf_disabled = $BPF_DISABLED"
+        fi
+        # In containers, eBPF kprobes may not work
+        if [[ -f /.dockerenv ]] || grep -q 'docker\|lxc\|containerd' /proc/1/cgroup 2>/dev/null; then
+            echo "   Running in container - eBPF kprobes require privileged mode"
+            ebpf_result="⚠️"
+        else
+            ebpf_result="⚠️"
+        fi
+    fi
+else
+    echo "⏭️ Skipping eBPF test (Linux only)"
+    ebpf_result="⏭️"
+fi
 
 # Test augment-custom-whitelists command
 echo "Augment custom whitelists:"

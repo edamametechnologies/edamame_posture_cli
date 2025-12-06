@@ -1,6 +1,6 @@
 [package]
 name = "edamame_posture"
-version = "0.9.82"
+version = "0.9.83"
 edition = "2021"
 description = "EDAMAME Security posture analysis and remediation"
 
@@ -65,8 +65,11 @@ windows = { version = "0.58.0", features = [ "Win32_System_Environment",  "Win32
 widestring = "1.1.0"
 
 # Linux
-[target.'cfg(any(target_os = "linux"))'.dependencies]
+[target.'cfg(target_os = "linux")'.dependencies]
 cargo-deb = "3.3.0"
+# Enable eBPF for Linux targets - provides L7 process resolution
+#flodbadd = { path = "../flodbadd", features = [ "packetcapture", "asyncpacketcapture", "ebpf" ] }
+flodbadd = { git = "https://github.com/edamametechnologies/flodbadd", branch = "main", features = [ "packetcapture", "asyncpacketcapture", "ebpf" ] }
 # See cargo-deb crate for configuration: https://crates.io/crates/cargo-deb
 [package.metadata.deb]
 name = "edamame-posture"
