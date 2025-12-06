@@ -143,6 +143,9 @@ jobs:
           wait_for_apt_locks
           run_apt install -y protobuf-compiler libpcap-dev
 
+          # eBPF development tools for L7 process resolution
+          run_apt install -y clang llvm libbpf-dev linux-headers-$(uname -r) || true
+
           # For cross-compilation tools
           if [[ "${{ matrix.arch }}" == "aarch64" ]]; then
             run_apt install -y binutils-aarch64-linux-gnu
@@ -320,8 +323,9 @@ jobs:
     runs-on: ${{ matrix.runs-on }}
     container:
       image: ${{ matrix.container_image }}
-      # Needed for integration tests (pcap)
-      options: --cap-add=NET_ADMIN --cap-add=NET_RAW
+      # Needed for integration tests (pcap) and eBPF (kprobes require SYS_ADMIN/BPF capabilities)
+      # Note: eBPF kprobes may still not work in containers even with these capabilities
+      options: --cap-add=NET_ADMIN --cap-add=NET_RAW --cap-add=SYS_ADMIN --cap-add=SYS_PTRACE --cap-add=BPF
     env:
       CARGO_TERM_COLOR: always
       EDAMAME_APP_SENTRY: ${{ secrets.EDAMAME_APP_SENTRY }}
@@ -405,6 +409,8 @@ jobs:
         shell: sh
         run: |
           apk add --no-cache build-base protobuf-dev libpcap-dev git curl pkgconf eudev-dev
+          # eBPF development tools (may not be available in older Alpine)
+          apk add --no-cache clang llvm libbpf-dev bpftool linux-headers || true
 
       - name: Install additional packages w/ apt for Linux
         if: ${{ !contains(matrix.container_image, 'alpine') }}
@@ -412,6 +418,8 @@ jobs:
           apt-get update -y
           # psmisc is needed for killall
           apt-get install -y protobuf-compiler libpcap-dev psmisc
+          # eBPF development tools (may not be available in older Ubuntu)
+          apt-get install -y clang llvm libbpf-dev || true
 
       # Install Rust in container
       - name: Install Rust in container
