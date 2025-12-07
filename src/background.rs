@@ -242,7 +242,7 @@ pub fn background_get_device_info() -> i32 {
             return ERROR_CODE_SERVER_ERROR;
         }
     };
-    println!("Device information for the background process:");
+    println!("Device information from the background process:");
     println!("{}", info);
     0
 }
