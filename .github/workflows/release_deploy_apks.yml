@@ -95,8 +95,9 @@ jobs:
             bison \
             wget
           
-          # eBPF development tools for L7 process resolution
-          apk add --no-cache clang llvm || true
+          # eBPF development tools for L7 process resolution (REQUIRED for eBPF compilation)
+          apk add --no-cache clang llvm
+          # libbpf-dev and linux-headers
           apk add --no-cache libbpf-dev linux-headers || true
           
           # For aarch64, we need to build libpcap from source with -fPIC
