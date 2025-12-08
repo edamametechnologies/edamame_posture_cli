@@ -349,32 +349,23 @@ jobs:
 
     steps:
 
-      - name: Install curl (apk)
+      # Needed when we are running in a container
+      - name: Setup permissions for git and install missing packages (apk)
         if: ${{ contains(matrix.container_image, 'alpine') }}
         shell: sh
         run: |
           apk update
-          apk add --no-cache curl bash
+          apk add --no-cache build-base git curl bash sudo pkgconf
+          git config --global --add safe.directory '*'
 
-      - name: Install curl (apt) and run universal install
+      - name: Setup permissions for git and install missing packages (apt)
         if: ${{ !contains(matrix.container_image, 'alpine') }}
         shell: bash
         run: |
+          export DEBIAN_FRONTEND=noninteractive
           apt-get update -y
-          apt-get install -y curl
-          curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh | sh -s -- \
-          --user ${{ vars.EDAMAME_POSTURE_USER }} \
-          --domain ${{ vars.EDAMAME_POSTURE_DOMAIN }} \
-          --pin ${{ secrets.EDAMAME_POSTURE_PIN }}
-
-      - name: Run universal install (apk)
-        if: ${{ contains(matrix.container_image, 'alpine') }}
-        shell: sh
-        run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh | sh -s -- \
-          --user ${{ vars.EDAMAME_POSTURE_USER }} \
-          --domain ${{ vars.EDAMAME_POSTURE_DOMAIN }} \
-          --pin ${{ secrets.EDAMAME_POSTURE_PIN }}
+          apt-get install -y git curl
+          git config --global --add safe.directory '*'
 
       - name: Setup EDAMAME Posture
         uses: edamametechnologies/edamame_posture_action@v0
@@ -410,7 +401,7 @@ jobs:
         if: ${{ contains(matrix.container_image, 'alpine') }}
         shell: sh
         run: |
-          apk add --no-cache build-base protobuf-dev libpcap-dev git curl pkgconf eudev-dev
+          apk add --no-cache protobuf-dev libpcap-dev eudev-dev
           # eBPF development tools (may not be available in older Alpine)
           apk add --no-cache clang llvm libbpf-dev bpftool linux-headers || true
 
