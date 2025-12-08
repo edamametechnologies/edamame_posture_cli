@@ -235,6 +235,12 @@ jobs:
         run: ./tests/basic_cargo_test.sh
         continue-on-error: true
 
+      - name: Run eBPF Diagnostic Test
+        id: ebpf_test
+        shell: bash
+        run: ./tests/ebpf_test.sh
+        continue-on-error: true
+
       - name: Run Standalone Commands Test
         id: standalone_tests
         shell: bash
@@ -442,6 +448,12 @@ jobs:
         continue-on-error: true
         env:
           SUDO_CMD: "" # No sudo needed in container
+
+      - name: Run eBPF Diagnostic Test
+        id: ebpf_test
+        shell: bash
+        run: ./tests/ebpf_test.sh
+        continue-on-error: true
 
       - name: Run Standalone Commands Test
         id: standalone_tests
