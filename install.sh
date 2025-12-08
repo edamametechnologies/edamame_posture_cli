@@ -363,9 +363,9 @@ fetch_latest_version() {
     local api_url="${REPO_BASE_URL}/releases/latest"
     local json=""
     if command -v curl >/dev/null 2>&1; then
-        json=$(curl -fsSL "$api_url" 2>/dev/null || echo "")
+        json=$(curl --connect-timeout 10 --max-time 30 -fsSL "$api_url" 2>/dev/null) || json=""
     elif command -v wget >/dev/null 2>&1; then
-        json=$(wget -q -O - "$api_url" 2>/dev/null || echo "")
+        json=$(wget --timeout=30 -q -O - "$api_url" 2>/dev/null) || json=""
     fi
     echo "$json" | grep -m1 '"tag_name"' | sed -E 's/.*"v?([^"]+)".*/\1/' | sed 's/^v//'
 }
@@ -408,9 +408,9 @@ fetch_release_feed() {
     local api="https://api.github.com/repos/edamametechnologies/edamame_posture_cli/releases?per_page=2"
     local response=""
     if command -v curl >/dev/null 2>&1; then
-        response=$(curl -fsSL "$api" 2>/dev/null || echo "")
+        response=$(curl --connect-timeout 10 --max-time 30 -fsSL "$api" 2>/dev/null) || response=""
     elif command -v wget >/dev/null 2>&1; then
-        response=$(wget -q -O - "$api" 2>/dev/null || echo "")
+        response=$(wget --timeout=30 -q -O - "$api" 2>/dev/null) || response=""
     fi
     if [ -n "$response" ]; then
         GITHUB_RELEASES_RESPONSE="$response"
@@ -490,9 +490,9 @@ fetch_release_by_tag() {
     local api="https://api.github.com/repos/edamametechnologies/edamame_posture_cli/releases/tags/v${version}"
     local response=""
     if command -v curl >/dev/null 2>&1; then
-        response=$(curl -fsSL "$api" 2>/dev/null || echo "")
+        response=$(curl --connect-timeout 10 --max-time 30 -fsSL "$api" 2>/dev/null) || response=""
     elif command -v wget >/dev/null 2>&1; then
-        response=$(wget -q -O - "$api" 2>/dev/null || echo "")
+        response=$(wget --timeout=30 -q -O - "$api" 2>/dev/null) || response=""
     fi
     printf '%s\n' "$response"
     if [ -n "$response" ]; then
