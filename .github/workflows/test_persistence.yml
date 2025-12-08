@@ -343,49 +343,45 @@ jobs:
           - os: ubuntu
             runs-on: ubuntu-latest
             arch: x86_64
-            target: x86_64-unknown-linux-musl
+            container_image: alpine:3.20
+            container_name: alpine-3.20-x86_64
           - os: ubuntu
             runs-on: ubuntu-24.04-arm
             arch: aarch64
-            target: aarch64-unknown-linux-musl
+            container_image: alpine:3.20
+            container_name: alpine-3.20-aarch64
     runs-on: ${{ matrix.runs-on }}
+    container:
+      image: ${{ matrix.container_image }}
 
     steps:
-      # Linux musl (using cross is not possible due to libpcap)
-      # Setup Alpine Linux
-      - name: Setup Alpine Linux
-        uses: jirutka/setup-alpine@v1
-        with:
-          arch: ${{ matrix.arch }}
-          apk-tools-url: ${{ startsWith(matrix.arch, 'x86') && 'https://gitlab.alpinelinux.org/api/v4/projects/5/packages/generic/v2.14.7/x86_64/apk.static#!sha256!bdd044e0fd6cc388c5e571e1093efa5f35f7767cc5aa338b0a2576a429009a62' || 'https://gitlab.alpinelinux.org/api/v4/projects/5/packages/generic/v2.14.7/aarch64/apk.static#!sha256!27a975638ddc95a411c9f17c63383e335da9edf6bb7de2281d950c291a11f878' }}
-
       # Install dependencies with apk
       - name: Install dependencies with apk
+        shell: sh
         run: |
+          apk update
           apk add --no-cache \
             git \
             curl \
+            bash \
             pkgconf \
             eudev-dev \
-            perl \
-            flex \
-            bison \
             openrc
           
           # Initialize openrc
           mkdir -p /run/openrc
           touch /run/openrc/softlevel
-        shell: alpine.sh --root {0}
 
       - name: Use the local universal install script - step 1
+        shell: sh
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh | sh -s -- \
           --user ${{ vars.EDAMAME_POSTURE_USER }} \
           --domain ${{ vars.EDAMAME_POSTURE_DOMAIN }} \
           --pin ${{ secrets.EDAMAME_POSTURE_PIN }}
-        shell: alpine.sh --root {0}
 
       - name: Check if the daemon is running
+        shell: sh
         run: |
           # Locate the binary
           if command -v edamame_posture >/dev/null 2>&1; then
@@ -396,8 +392,6 @@ jobs:
             BINARY="/usr/local/bin/edamame_posture"
           elif [ -f "$HOME/edamame_posture" ]; then
             BINARY="$HOME/edamame_posture"
-          elif [ -f "$HOME/edamame_posture.exe" ]; then
-            BINARY="$HOME/edamame_posture.exe"
           else
             echo "ERROR: edamame_posture binary not found"
             exit 127
@@ -405,17 +399,17 @@ jobs:
           
           echo "Found binary at: $BINARY"
           $BINARY status
-        shell: alpine.sh --root {0}
 
       - name: Use the local universal install script - step 2
+        shell: sh
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh | sh -s -- \
           --user ${{ vars.EDAMAME_POSTURE_USER }} \
           --domain ${{ vars.EDAMAME_POSTURE_DOMAIN }} \
           --pin ${{ secrets.EDAMAME_POSTURE_PIN }}
-        shell: alpine.sh --root {0}
 
       - name: Check if the daemon is running
+        shell: sh
         run: |
           # Locate the binary
           if command -v edamame_posture >/dev/null 2>&1; then
@@ -426,8 +420,6 @@ jobs:
             BINARY="/usr/local/bin/edamame_posture"
           elif [ -f "$HOME/edamame_posture" ]; then
             BINARY="$HOME/edamame_posture"
-          elif [ -f "$HOME/edamame_posture.exe" ]; then
-            BINARY="$HOME/edamame_posture.exe"
           else
             echo "ERROR: edamame_posture binary not found"
             exit 127
@@ -435,12 +427,12 @@ jobs:
           
           echo "Found binary at: $BINARY"
           $BINARY status
-        shell: alpine.sh --root {0}
 
-      - name: Cleanup Alpine daemon before chroot teardown
+      - name: Cleanup Alpine daemon
         if: always()
+        shell: sh
         run: |
-          echo "Stopping edamame_posture daemon to allow clean chroot teardown..."
+          echo "Stopping edamame_posture daemon..."
           # Stop via service if available
           if command -v rc-service >/dev/null 2>&1; then
             rc-service edamame_posture stop 2>/dev/null || true
@@ -451,4 +443,3 @@ jobs:
           pkill -9 edamame_posture 2>/dev/null || true
           sleep 1
           echo "Cleanup complete"
-        shell: alpine.sh --root {0}
