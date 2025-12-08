@@ -133,4 +133,98 @@ all_test: test commands_test test_integration_local
 	@echo "--- All Local Tests Completed ---"
 	@echo "Note: 'make test_integration_connected' can be run separately if credentials are configured."
 
+# =============================================================================
+# Lima VM targets for eBPF testing on macOS
+# =============================================================================
+
+LIMA_VM_NAME ?= posture-ebpf-test
+LIMA_CONFIG  ?= Lima.linux-test.yml
+
+.PHONY: lima_check lima_create lima_start lima_stop lima_delete lima_shell lima_test lima_status
+
+# Check if Lima is installed
+lima_check:
+	@which limactl > /dev/null || (echo "Lima not installed. Install with: brew install lima" && exit 1)
+
+# Create the Lima VM
+lima_create: lima_check
+	@echo "Creating Lima VM '$(LIMA_VM_NAME)'..."
+	limactl create --name=$(LIMA_VM_NAME) $(LIMA_CONFIG)
+
+# Start the Lima VM
+lima_start: lima_check
+	@if limactl list -q | grep -q "^$(LIMA_VM_NAME)$$"; then \
+		echo "Starting Lima VM '$(LIMA_VM_NAME)'..."; \
+		limactl start $(LIMA_VM_NAME); \
+	else \
+		echo "VM '$(LIMA_VM_NAME)' doesn't exist. Creating it first..."; \
+		$(MAKE) lima_create; \
+		limactl start $(LIMA_VM_NAME); \
+	fi
+
+# Stop the Lima VM
+lima_stop: lima_check
+	-limactl stop $(LIMA_VM_NAME)
+
+# Delete the Lima VM
+lima_delete: lima_check
+	-limactl delete $(LIMA_VM_NAME)
+
+# Open a shell in the Lima VM
+lima_shell: lima_start
+	limactl shell $(LIMA_VM_NAME)
+
+# Show Lima VM status
+lima_status: lima_check
+	@limactl list
+
+# Build and verify eBPF in Lima VM
+# Since edamame_posture depends on private repos that need git auth,
+# we test flodbadd directly which exercises the same eBPF code.
+lima_test: lima_start
+	@echo "============================================================"
+	@echo "Testing eBPF support in Lima VM '$(LIMA_VM_NAME)'..."
+	@echo "============================================================"
+	limactl shell $(LIMA_VM_NAME) -- bash -c '\
+		set -e; \
+		\
+		# Install Rust if not present \
+		if [ ! -f $$HOME/.cargo/env ]; then \
+			echo "Installing Rust..."; \
+			curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y; \
+		fi; \
+		source $$HOME/.cargo/env; \
+		\
+		echo "=== Environment ==="; \
+		echo "Kernel: $$(uname -r)"; \
+		echo "Clang: $$(clang --version 2>/dev/null | head -1 || echo NOT INSTALLED)"; \
+		echo "Rust: $$(rustc --version)"; \
+		echo "Architecture: $$(uname -m)"; \
+		echo ""; \
+		\
+		echo "=== Building flodbadd with eBPF (release) ==="; \
+		cd /Users/flyonnet/Programming/flodbadd; \
+		cargo build --release --features packetcapture,asyncpacketcapture,ebpf 2>&1 | tee /tmp/build.log; \
+		\
+		echo ""; \
+		echo "=== Checking eBPF build output ==="; \
+		grep -E "eBPF program compiled|eBPF program will be embedded" /tmp/build.log || echo "⚠️ No eBPF compilation messages"; \
+		\
+		echo ""; \
+		echo "=== Testing eBPF runtime support ==="; \
+		sudo -E RUSTUP_HOME=$$HOME/.rustup CARGO_HOME=$$HOME/.cargo \
+			$$HOME/.cargo/bin/cargo run --release --features packetcapture,asyncpacketcapture,ebpf --example check_ebpf 2>&1 | tee /tmp/ebpf_check.log; \
+		\
+		echo ""; \
+		echo "=== Final Status ==="; \
+		if grep -q "eBPF support: Enabled" /tmp/ebpf_check.log; then \
+			echo "✅ eBPF is ENABLED and working!"; \
+		elif grep -q "eBPF available: true" /tmp/ebpf_check.log; then \
+			echo "✅ eBPF is available!"; \
+		else \
+			echo "❌ eBPF not working:"; \
+			grep -i "ebpf" /tmp/ebpf_check.log; \
+			exit 1; \
+		fi \
+	'
 
