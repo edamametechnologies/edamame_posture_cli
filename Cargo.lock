@@ -2307,7 +2307,7 @@ dependencies = [
 [[package]]
 name = "flodbadd"
 version = "0.9.83"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#84947e6e59b898ddc413e8e61293a26c0fe874a1"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#c58c941edf098dbd5fe5d89f6fccb4a6df69e3ef"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -3054,7 +3054,7 @@ dependencies = [
  "js-sys",
  "log",
  "wasm-bindgen",
- "windows-core 0.57.0",
+ "windows-core 0.58.0",
 ]
 
 [[package]]
@@ -3416,7 +3416,7 @@ dependencies = [
 [[package]]
 name = "l7_ebpf_program"
 version = "0.1.0"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#84947e6e59b898ddc413e8e61293a26c0fe874a1"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#c58c941edf098dbd5fe5d89f6fccb4a6df69e3ef"
 
 [[package]]
 name = "lazy_static"
