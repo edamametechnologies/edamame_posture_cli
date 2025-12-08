@@ -93,7 +93,7 @@ clap = "4.1.1"
 # clap_complete = "4.5.1"
 vergen-gitcl = { version = "1.0.5", features = [ "build", "cargo", "rustc", "si" ] }
 
-[target.'cfg(target_os = "windows")'.dependencies]
+[target.'cfg(target_os = "windows")'.build-dependencies]
 # For the winpcap installation support in Windows
 # Local copy in order to allow rapid development/debug
 #flodbadd = { path = "../flodbadd", features = [ "packetcapture", "asyncpacketcapture" ] }
