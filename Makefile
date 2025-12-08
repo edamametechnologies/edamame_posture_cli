@@ -228,3 +228,175 @@ lima_test: lima_start
 		fi \
 	'
 
+# -----------------------------------------------------------------------------
+# Ubuntu 22.04 LTS
+# -----------------------------------------------------------------------------
+
+UBUNTU2204_VM_NAME ?= posture-ubuntu2204-test
+UBUNTU2204_CONFIG  ?= Lima.ubuntu2204-test.yml
+
+.PHONY: ubuntu2204_create ubuntu2204_start ubuntu2204_stop ubuntu2204_delete ubuntu2204_test
+
+ubuntu2204_create: lima_check
+	limactl create --name=$(UBUNTU2204_VM_NAME) $(UBUNTU2204_CONFIG)
+
+ubuntu2204_start: lima_check
+	@if limactl list -q | grep -q "^$(UBUNTU2204_VM_NAME)$$"; then \
+		limactl start $(UBUNTU2204_VM_NAME); \
+	else \
+		$(MAKE) ubuntu2204_create; \
+		limactl start $(UBUNTU2204_VM_NAME); \
+	fi
+
+ubuntu2204_stop: lima_check
+	-limactl stop $(UBUNTU2204_VM_NAME)
+
+ubuntu2204_delete: lima_check
+	-limactl delete $(UBUNTU2204_VM_NAME)
+
+ubuntu2204_test: ubuntu2204_start
+	@echo "============================================================"
+	@echo "Testing eBPF on Ubuntu 22.04 LTS..."
+	@echo "============================================================"
+	limactl shell $(UBUNTU2204_VM_NAME) -- bash -c '\
+		set -e; \
+		if [ ! -f $$HOME/.cargo/env ]; then \
+			echo "Installing Rust..."; \
+			curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y; \
+		fi; \
+		source $$HOME/.cargo/env; \
+		echo "=== Environment ==="; \
+		cat /etc/lsb-release | grep DESCRIPTION || true; \
+		echo "Kernel: $$(uname -r)"; \
+		echo "Clang: $$(clang --version 2>/dev/null | head -1 || echo NOT INSTALLED)"; \
+		echo "Architecture: $$(uname -m)"; \
+		echo ""; \
+		cd /Users/flyonnet/Programming/flodbadd; \
+		cargo build --release --features packetcapture,asyncpacketcapture,ebpf 2>&1 | grep -E "eBPF|Compiling flodbadd|Finished" || true; \
+		sudo -E RUSTUP_HOME=$$HOME/.rustup CARGO_HOME=$$HOME/.cargo \
+			$$HOME/.cargo/bin/cargo run --release --features packetcapture,asyncpacketcapture,ebpf --example check_ebpf 2>&1 | tail -5; \
+	'
+
+# -----------------------------------------------------------------------------
+# Ubuntu 20.04 LTS
+# -----------------------------------------------------------------------------
+
+UBUNTU2004_VM_NAME ?= posture-ubuntu2004-test
+UBUNTU2004_CONFIG  ?= Lima.ubuntu2004-test.yml
+
+.PHONY: ubuntu2004_create ubuntu2004_start ubuntu2004_stop ubuntu2004_delete ubuntu2004_test
+
+ubuntu2004_create: lima_check
+	limactl create --name=$(UBUNTU2004_VM_NAME) $(UBUNTU2004_CONFIG)
+
+ubuntu2004_start: lima_check
+	@if limactl list -q | grep -q "^$(UBUNTU2004_VM_NAME)$$"; then \
+		limactl start $(UBUNTU2004_VM_NAME); \
+	else \
+		$(MAKE) ubuntu2004_create; \
+		limactl start $(UBUNTU2004_VM_NAME); \
+	fi
+
+ubuntu2004_stop: lima_check
+	-limactl stop $(UBUNTU2004_VM_NAME)
+
+ubuntu2004_delete: lima_check
+	-limactl delete $(UBUNTU2004_VM_NAME)
+
+ubuntu2004_test: ubuntu2004_start
+	@echo "============================================================"
+	@echo "Testing eBPF on Ubuntu 20.04 LTS..."
+	@echo "============================================================"
+	limactl shell $(UBUNTU2004_VM_NAME) -- bash -c '\
+		set -e; \
+		if [ ! -f $$HOME/.cargo/env ]; then \
+			echo "Installing Rust..."; \
+			curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y; \
+		fi; \
+		source $$HOME/.cargo/env; \
+		echo "=== Environment ==="; \
+		cat /etc/lsb-release | grep DESCRIPTION || true; \
+		echo "Kernel: $$(uname -r)"; \
+		echo "Clang: $$(clang --version 2>/dev/null | head -1 || echo NOT INSTALLED)"; \
+		echo "Architecture: $$(uname -m)"; \
+		echo ""; \
+		cd /Users/flyonnet/Programming/flodbadd; \
+		cargo build --release --features packetcapture,asyncpacketcapture,ebpf 2>&1 | grep -E "eBPF|Compiling flodbadd|Finished" || true; \
+		sudo -E RUSTUP_HOME=$$HOME/.rustup CARGO_HOME=$$HOME/.cargo \
+			$$HOME/.cargo/bin/cargo run --release --features packetcapture,asyncpacketcapture,ebpf --example check_ebpf 2>&1 | tail -5; \
+	'
+
+# -----------------------------------------------------------------------------
+# Alpine Linux 3.20
+# -----------------------------------------------------------------------------
+
+ALPINE_VM_NAME ?= posture-alpine-test
+ALPINE_CONFIG  ?= Lima.alpine-test.yml
+
+.PHONY: alpine_create alpine_start alpine_stop alpine_delete alpine_test
+
+alpine_create: lima_check
+	limactl create --name=$(ALPINE_VM_NAME) $(ALPINE_CONFIG)
+
+alpine_start: lima_check
+	@if limactl list -q | grep -q "^$(ALPINE_VM_NAME)$$"; then \
+		limactl start $(ALPINE_VM_NAME); \
+	else \
+		$(MAKE) alpine_create; \
+		limactl start $(ALPINE_VM_NAME); \
+	fi
+
+alpine_stop: lima_check
+	-limactl stop $(ALPINE_VM_NAME)
+
+alpine_delete: lima_check
+	-limactl delete $(ALPINE_VM_NAME)
+
+alpine_test: alpine_start
+	@echo "============================================================"
+	@echo "Testing eBPF on Alpine Linux (musl libc)..."
+	@echo "============================================================"
+	limactl shell $(ALPINE_VM_NAME) -- sh -c '\
+		set -e; \
+		if [ ! -f $$HOME/.cargo/env ]; then \
+			echo "Installing Rust..."; \
+			curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y; \
+		fi; \
+		. $$HOME/.cargo/env; \
+		echo "=== Environment ==="; \
+		cat /etc/alpine-release || true; \
+		echo "Kernel: $$(uname -r)"; \
+		echo "Clang: $$(clang --version 2>/dev/null | head -1 || echo NOT INSTALLED)"; \
+		echo "Architecture: $$(uname -m)"; \
+		echo "libc: musl"; \
+		echo ""; \
+		cd /Users/flyonnet/Programming/flodbadd; \
+		cargo build --release --features packetcapture,asyncpacketcapture,ebpf 2>&1 | grep -E "eBPF|Compiling flodbadd|Finished" || true; \
+		sudo -E RUSTUP_HOME=$$HOME/.rustup CARGO_HOME=$$HOME/.cargo \
+			$$HOME/.cargo/bin/cargo run --release --features packetcapture,asyncpacketcapture,ebpf --example check_ebpf 2>&1 | tail -5; \
+	'
+
+# =============================================================================
+# Test all distributions
+# =============================================================================
+
+.PHONY: test_all_distros stop_all_vms
+
+test_all_distros:
+	@echo "Testing eBPF on all supported distributions..."
+	@echo ""
+	@echo "=== Ubuntu 24.04 (latest) ===" && $(MAKE) lima_test && echo "✅ PASSED" || echo "❌ FAILED"
+	@echo "=== Ubuntu 22.04 LTS ===" && $(MAKE) ubuntu2204_test && echo "✅ PASSED" || echo "❌ FAILED"
+	@echo "=== Ubuntu 20.04 LTS ===" && $(MAKE) ubuntu2004_test && echo "✅ PASSED" || echo "❌ FAILED"
+	@echo "=== Alpine 3.20 ===" && $(MAKE) alpine_test && echo "✅ PASSED" || echo "❌ FAILED"
+	@echo ""
+	@echo "All distribution tests complete!"
+
+stop_all_vms:
+	@echo "Stopping all Lima VMs..."
+	-limactl stop posture-ebpf-test
+	-limactl stop posture-ubuntu2204-test
+	-limactl stop posture-ubuntu2004-test
+	-limactl stop posture-alpine-test
+	@echo "All VMs stopped."
+
