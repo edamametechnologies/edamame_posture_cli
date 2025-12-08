@@ -216,15 +216,30 @@ if [[ "$(uname)" == "Linux" ]]; then
     if echo "$CAPTURE_OUTPUT" | grep -qi "eBPF.*enabled\|eBPF.*initialised\|kprobe attached"; then
         echo "✅ eBPF is enabled and working"
         ebpf_result="✅"
+    elif echo "$CAPTURE_OUTPUT" | grep -qi "eBPF.*not embedded"; then
+        # This is a BUILD issue - eBPF object was not compiled/embedded
+        echo "❌ eBPF object not embedded - clang/llvm was not available during build"
+        ebpf_result="❌"
+    elif echo "$CAPTURE_OUTPUT" | grep -qi "failed to create map\|map error"; then
+        # This is a RUNTIME/KERNEL restriction - not a build issue
+        echo "⚠️ eBPF failed due to kernel restrictions (map creation denied)"
+        echo "   This is expected on some CI runners without full BPF privileges"
+        ebpf_result="⚠️"
     elif echo "$CAPTURE_OUTPUT" | grep -qi "eBPF.*disabled\|eBPF.*failed\|eBPF.*not available"; then
-        echo "⚠️ eBPF is disabled or not available (may be expected in containers)"
+        echo "⚠️ eBPF is disabled or not available"
         # Check if we're in a container (limited eBPF support)
         if [[ -f /.dockerenv ]] || grep -q 'docker\|lxc\|containerd' /proc/1/cgroup 2>/dev/null; then
             echo "   Running in container - eBPF limitations expected"
             ebpf_result="⚠️"
         else
-            echo "   Running on native host - eBPF should work"
-            ebpf_result="❌"
+            # Check if it's a kernel permission issue vs. build issue
+            if echo "$CAPTURE_OUTPUT" | grep -qi "Loading embedded object"; then
+                echo "   eBPF object was embedded but loading failed (kernel restriction)"
+                ebpf_result="⚠️"
+            else
+                echo "   Running on native host - eBPF should work"
+                ebpf_result="❌"
+            fi
         fi
     else
         echo "⚠️ Could not determine eBPF status from capture output"
