@@ -1,0 +1,99 @@
+# Lima VM configuration for eBPF testing on macOS
+# Usage:
+#   limactl create --name=posture-ebpf-test Lima.linux-test.yml
+#   limactl start posture-ebpf-test
+#   limactl shell posture-ebpf-test
+#
+# Or use the Makefile targets:
+#   make lima_create    # Create the VM
+#   make lima_start     # Start the VM
+#   make lima_test      # Build and verify eBPF
+#   make lima_stop      # Stop the VM
+#   make lima_delete    # Delete the VM
+
+images:
+- location: "https://cloud-images.ubuntu.com/releases/24.04/release/ubuntu-24.04-server-cloudimg-amd64.img"
+  arch: "x86_64"
+- location: "https://cloud-images.ubuntu.com/releases/24.04/release/ubuntu-24.04-server-cloudimg-arm64.img"
+  arch: "aarch64"
+
+# VM resources
+cpus: 4
+memory: "8GiB"
+disk: "50GiB"
+
+# Mount the workspace
+mounts:
+- location: "~"
+  writable: true
+- location: "/tmp/lima"
+  writable: true
+
+# Provisioning script - runs on first boot
+provision:
+- mode: system
+  script: |
+    set -eux
+
+    # Update package list
+    apt-get update
+
+    # Install build essentials
+    apt-get install -y \
+      build-essential \
+      pkg-config \
+      curl \
+      wget \
+      git \
+      jq
+
+    # Install eBPF development tools (REQUIRED for eBPF compilation)
+    apt-get install -y \
+      clang \
+      llvm \
+      libelf-dev \
+      zlib1g-dev \
+      libbpf-dev \
+      linux-headers-$(uname -r) || true
+
+    # Install libpcap for packet capture
+    apt-get install -y libpcap-dev
+
+    # Install protobuf compiler
+    apt-get install -y protobuf-compiler
+
+    # Configure kernel for eBPF
+    sysctl -w kernel.perf_event_paranoid=-1
+    sysctl -w kernel.unprivileged_bpf_disabled=0
+    sysctl -w net.core.bpf_jit_enable=1 || true
+
+    # Make kernel settings persistent
+    cat >> /etc/sysctl.d/99-ebpf.conf << 'EOF'
+    kernel.perf_event_paranoid=-1
+    kernel.unprivileged_bpf_disabled=0
+    net.core.bpf_jit_enable=1
+    EOF
+
+    # Mount debugfs and bpffs
+    mount -t debugfs none /sys/kernel/debug 2>/dev/null || true
+    mount -t bpf none /sys/fs/bpf 2>/dev/null || true
+
+    # Install Rust (for the lima user)
+    sudo -u $(id -un 1000) bash -c 'curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y'
+
+    echo "eBPF environment setup complete!"
+    echo "Kernel version: $(uname -r)"
+    echo "Clang version: $(clang --version | head -1)"
+
+message: |
+  eBPF test VM for edamame_posture is ready!
+  
+  To build and verify eBPF:
+    make lima_test
+  
+  Or manually:
+    limactl shell posture-ebpf-test
+    cd ~/Programming/edamame_posture
+    cargo build --release 2>&1 | grep -i ebpf
+    ./target/release/edamame_posture get-system-info 2>&1 | grep -i ebpf
+
