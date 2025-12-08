@@ -272,12 +272,14 @@ fi
 # ============================================================================
 
 echo "MCP: Generate PSK:"
-MCP_PSK=$($SUDO_CMD "$BINARY_PATH" $VERBOSE_FLAG mcp-generate-psk 2>/dev/null | head -1 || echo "")
-if [[ -n "$MCP_PSK" && ${#MCP_PSK} -ge 32 ]]; then
+# Don't use verbose flag here - we need clean output for parsing
+MCP_PSK=$($SUDO_CMD "$BINARY_PATH" mcp-generate-psk 2>/dev/null | head -1 || echo "")
+# PSK should be exactly 32 characters (24 bytes base64 encoded) and valid base64
+if [[ -n "$MCP_PSK" && ${#MCP_PSK} -eq 32 && "$MCP_PSK" =~ ^[A-Za-z0-9+/=]+$ ]]; then
     echo "✅ Generated PSK (length: ${#MCP_PSK})"
     mcp_generate_psk_result="✅"
 else
-    echo "❌ Failed to generate PSK or PSK too short"
+    echo "❌ Failed to generate PSK: empty='$([[ -z "$MCP_PSK" ]] && echo yes || echo no)', length=${#MCP_PSK}, valid_base64='$([[ "$MCP_PSK" =~ ^[A-Za-z0-9+/=]+$ ]] && echo yes || echo no)'"
     mcp_generate_psk_result="❌"
 fi
 
@@ -329,5 +331,35 @@ else
     mcp_stop_result="⏭️"
 fi
 
+# Check for any failed tests (❌) and exit with error if found
+# This ensures the trap captures the correct exit status
+failed_tests=""
+[[ "$get_core_info_result" == "❌" ]] && failed_tests="$failed_tests get-core-info"
+[[ "$get_core_version_result" == "❌" ]] && failed_tests="$failed_tests get-core-version"
+[[ "$help_result" == "❌" ]] && failed_tests="$failed_tests help"
+[[ "$score_result" == "❌" ]] && failed_tests="$failed_tests score"
+[[ "$remediate_result" == "❌" ]] && failed_tests="$failed_tests remediate"
+[[ "$request_signature_result" == "❌" ]] && failed_tests="$failed_tests request-signature"
+[[ "$request_report_result" == "❌" ]] && failed_tests="$failed_tests request-report"
+[[ "$check_policy_result" == "❌" ]] && failed_tests="$failed_tests check-policy"
+[[ "$check_policy_for_domain_result" == "❌" ]] && failed_tests="$failed_tests check-policy-for-domain"
+[[ "$get_device_info_result" == "❌" ]] && failed_tests="$failed_tests get-device-info"
+[[ "$get_system_info_result" == "❌" ]] && failed_tests="$failed_tests get-system-info"
+[[ "$lanscan_result" == "❌" ]] && failed_tests="$failed_tests lanscan"
+[[ "$capture_result" == "❌" ]] && failed_tests="$failed_tests capture"
+# Note: ebpf_result ❌ only fails on native Linux (not containers), handled separately
+[[ "$merge_custom_whitelists_result" == "❌" ]] && failed_tests="$failed_tests merge-custom-whitelists"
+[[ "$augment_custom_whitelists_result" == "❌" ]] && failed_tests="$failed_tests augment-custom-whitelists"
+[[ "$mcp_generate_psk_result" == "❌" ]] && failed_tests="$failed_tests mcp-generate-psk"
+[[ "$mcp_start_result" == "❌" ]] && failed_tests="$failed_tests mcp-start"
+[[ "$mcp_status_result" == "❌" ]] && failed_tests="$failed_tests mcp-status"
+[[ "$mcp_stop_result" == "❌" ]] && failed_tests="$failed_tests mcp-stop"
+
+if [[ -n "$failed_tests" ]]; then
+    echo ""
+    echo "❌ Failed tests:$failed_tests"
+    exit 1
+fi
+
 # Original success message removed, handled by trap
-# echo "--- Standalone Commands Test Completed ---" 
+# echo "--- Standalone Commands Test Completed ---"

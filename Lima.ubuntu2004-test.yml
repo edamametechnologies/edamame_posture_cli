@@ -1,0 +1,38 @@
+# Lima VM configuration for Ubuntu 20.04 LTS eBPF testing
+images:
+- location: "https://cloud-images.ubuntu.com/releases/20.04/release/ubuntu-20.04-server-cloudimg-amd64.img"
+  arch: "x86_64"
+- location: "https://cloud-images.ubuntu.com/releases/20.04/release/ubuntu-20.04-server-cloudimg-arm64.img"
+  arch: "aarch64"
+
+cpus: 4
+memory: "8GiB"
+disk: "50GiB"
+
+mounts:
+- location: "~"
+  writable: true
+- location: "/tmp/lima"
+  writable: true
+
+provision:
+- mode: system
+  script: |
+    set -eux
+    apt-get update
+    apt-get install -y build-essential pkg-config curl wget git jq
+    apt-get install -y clang llvm libelf-dev zlib1g-dev libbpf-dev || true
+    apt-get install -y linux-headers-$(uname -r) || true
+    apt-get install -y libpcap-dev protobuf-compiler
+    sysctl -w kernel.perf_event_paranoid=-1
+    sysctl -w kernel.unprivileged_bpf_disabled=0
+    sysctl -w net.core.bpf_jit_enable=1 || true
+    mount -t debugfs none /sys/kernel/debug 2>/dev/null || true
+    mount -t bpf none /sys/fs/bpf 2>/dev/null || true
+    sudo -u $(id -un 1000) bash -c 'curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y'
+    echo "Ubuntu 20.04 eBPF environment ready!"
+
+message: |
+  Ubuntu 20.04 LTS eBPF test VM ready!
+  Run: make ubuntu2004_test
+
