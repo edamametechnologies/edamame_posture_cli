@@ -1,0 +1,49 @@
+# Lima VM configuration for Alpine Linux eBPF testing
+# Using nocloud images which work better with Lima
+images:
+- location: "https://dl-cdn.alpinelinux.org/alpine/v3.20/releases/cloud/nocloud_alpine-3.20.3-aarch64-uefi-cloudinit-r0.qcow2"
+  arch: "aarch64"
+- location: "https://dl-cdn.alpinelinux.org/alpine/v3.20/releases/cloud/nocloud_alpine-3.20.3-x86_64-uefi-cloudinit-r0.qcow2"
+  arch: "x86_64"
+
+cpus: 4
+memory: "8GiB"
+disk: "50GiB"
+
+# Alpine doesn't use systemd
+containerd:
+  system: false
+  user: false
+
+mounts:
+- location: "~"
+  writable: true
+- location: "/tmp/lima"
+  writable: true
+
+provision:
+- mode: system
+  script: |
+    #!/bin/ash
+    set -eux
+    apk update
+    apk add --no-cache build-base pkgconf curl wget git jq bash sudo
+    apk add --no-cache clang llvm libelf zlib-dev libbpf-dev || true
+    apk add --no-cache linux-headers || true
+    apk add --no-cache libpcap-dev protobuf-dev eudev-dev
+    # eBPF kernel settings
+    sysctl -w kernel.perf_event_paranoid=-1 2>/dev/null || true
+    sysctl -w kernel.unprivileged_bpf_disabled=0 2>/dev/null || true
+    mount -t debugfs none /sys/kernel/debug 2>/dev/null || true
+    mount -t bpf none /sys/fs/bpf 2>/dev/null || true
+    echo "Alpine 3.20 eBPF environment ready!"
+
+- mode: user
+  script: |
+    #!/bin/ash
+    # Install Rust
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+
+message: |
+  Alpine 3.20 eBPF test VM ready!
+  Run: make alpine_test
