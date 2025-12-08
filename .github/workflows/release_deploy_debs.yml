@@ -162,10 +162,9 @@ jobs:
           wait_for_apt_locks
           run_apt install -y protobuf-compiler libpcap-dev
 
-          # eBPF development tools for L7 process resolution
           # Install clang/llvm first (required for eBPF compilation)
           run_apt install -y clang llvm libbpf-dev
-          run_apt install -y linux-headers-$(uname -r) || true
+          run_apt install -y linux-headers-$(uname -r)
   
       # Install Rust
       - name: Install Rust
