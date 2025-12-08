@@ -402,8 +402,11 @@ jobs:
         shell: sh
         run: |
           apk add --no-cache protobuf-dev libpcap-dev eudev-dev
-          # eBPF development tools (may not be available in older Alpine)
-          apk add --no-cache clang llvm libbpf-dev bpftool linux-headers || true
+          # eBPF development tools for L7 process resolution
+          # Install clang/llvm first (required for eBPF compilation)
+          apk add --no-cache clang llvm || true
+          # Then libbpf-dev and linux-headers (may not be available in older Alpine)
+          apk add --no-cache libbpf-dev bpftool linux-headers || true
 
       - name: Install additional packages w/ apt for Linux
         if: ${{ !contains(matrix.container_image, 'alpine') }}
@@ -411,8 +414,11 @@ jobs:
           apt-get update -y
           # psmisc is needed for killall
           apt-get install -y protobuf-compiler libpcap-dev psmisc
-          # eBPF development tools (may not be available in older Ubuntu)
-          apt-get install -y clang llvm libbpf-dev || true
+          # eBPF development tools for L7 process resolution
+          # Install clang/llvm first (required for eBPF compilation)
+          apt-get install -y clang llvm || true
+          # Then libbpf-dev (may not be available in older Ubuntu like 18.04)
+          apt-get install -y libbpf-dev || true
 
       # Install Rust in container
       - name: Install Rust in container
