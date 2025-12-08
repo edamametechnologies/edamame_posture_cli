@@ -87,14 +87,14 @@ assets = [
 
 [build-dependencies]
 
-[target.'cfg(target_os = "windows")'.dependencies]
-# For the winpcap installation support in Windows
-# Local copy in order to allow rapid development/debug
-#flodbadd = { path = "../flodbadd", features = [ "packetcapture", "asyncpacketcapture" ] }
-flodbadd = { git = "https://github.com/edamametechnologies/flodbadd", branch = "main", features = [ "packetcapture", "asyncpacketcapture" ] }
-
 # Build metadata
 clap = "4.1.1"
 # Easier to generate completions with the cli once it's built
 # clap_complete = "4.5.1"
 vergen-gitcl = { version = "1.0.5", features = [ "build", "cargo", "rustc", "si" ] }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+# For the winpcap installation support in Windows
+# Local copy in order to allow rapid development/debug
+#flodbadd = { path = "../flodbadd", features = [ "packetcapture", "asyncpacketcapture" ] }
+flodbadd = { git = "https://github.com/edamametechnologies/flodbadd", branch = "main", features = [ "packetcapture", "asyncpacketcapture" ] }
