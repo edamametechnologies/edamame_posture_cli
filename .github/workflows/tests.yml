@@ -144,7 +144,9 @@ jobs:
           run_apt install -y protobuf-compiler libpcap-dev
 
           # eBPF development tools for L7 process resolution
-          run_apt install -y clang llvm libbpf-dev linux-headers-$(uname -r) || true
+          # Install clang/llvm first (required), then try linux-headers (optional, often fails on runners)
+          run_apt install -y clang llvm libbpf-dev
+          run_apt install -y linux-headers-$(uname -r) || true
 
           # For cross-compilation tools
           if [[ "${{ matrix.arch }}" == "aarch64" ]]; then
