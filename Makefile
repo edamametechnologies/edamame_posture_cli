@@ -195,37 +195,15 @@ lima_test: lima_start
 		fi; \
 		source $$HOME/.cargo/env; \
 		\
-		echo "=== Environment ==="; \
-		echo "Kernel: $$(uname -r)"; \
-		echo "Clang: $$(clang --version 2>/dev/null | head -1 || echo NOT INSTALLED)"; \
-		echo "Rust: $$(rustc --version)"; \
-		echo "Architecture: $$(uname -m)"; \
-		echo ""; \
+		cd /Users/flyonnet/Programming/flodbadd; \
 		\
 		echo "=== Building flodbadd with eBPF (release) ==="; \
-		cd /Users/flyonnet/Programming/flodbadd; \
-		cargo build --release --features packetcapture,asyncpacketcapture,ebpf 2>&1 | tee /tmp/build.log; \
-		\
-		echo ""; \
-		echo "=== Checking eBPF build output ==="; \
+		cargo build --release --features packetcapture,asyncpacketcapture,ebpf --examples 2>&1 | tee /tmp/build.log; \
 		grep -E "eBPF program compiled|eBPF program will be embedded" /tmp/build.log || echo "⚠️ No eBPF compilation messages"; \
 		\
 		echo ""; \
-		echo "=== Testing eBPF runtime support ==="; \
-		sudo -E RUSTUP_HOME=$$HOME/.rustup CARGO_HOME=$$HOME/.cargo \
-			$$HOME/.cargo/bin/cargo run --release --features packetcapture,asyncpacketcapture,ebpf --example check_ebpf 2>&1 | tee /tmp/ebpf_check.log; \
-		\
-		echo ""; \
-		echo "=== Final Status ==="; \
-		if grep -q "eBPF support: Enabled" /tmp/ebpf_check.log; then \
-			echo "✅ eBPF is ENABLED and working!"; \
-		elif grep -q "eBPF available: true" /tmp/ebpf_check.log; then \
-			echo "✅ eBPF is available!"; \
-		else \
-			echo "❌ eBPF not working:"; \
-			grep -i "ebpf" /tmp/ebpf_check.log; \
-			exit 1; \
-		fi \
+		echo "=== Running eBPF Diagnostic Test ==="; \
+		BINARY_PATH=./target/release/examples/check_ebpf ./tests/ebpf_test.sh \
 	'
 
 # -----------------------------------------------------------------------------
@@ -265,16 +243,9 @@ ubuntu2204_test: ubuntu2204_start
 			curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y; \
 		fi; \
 		source $$HOME/.cargo/env; \
-		echo "=== Environment ==="; \
-		cat /etc/lsb-release | grep DESCRIPTION || true; \
-		echo "Kernel: $$(uname -r)"; \
-		echo "Clang: $$(clang --version 2>/dev/null | head -1 || echo NOT INSTALLED)"; \
-		echo "Architecture: $$(uname -m)"; \
-		echo ""; \
 		cd /Users/flyonnet/Programming/flodbadd; \
-		cargo build --release --features packetcapture,asyncpacketcapture,ebpf 2>&1 | grep -E "eBPF|Compiling flodbadd|Finished" || true; \
-		sudo -E RUSTUP_HOME=$$HOME/.rustup CARGO_HOME=$$HOME/.cargo \
-			$$HOME/.cargo/bin/cargo run --release --features packetcapture,asyncpacketcapture,ebpf --example check_ebpf 2>&1 | tail -5; \
+		cargo build --release --features packetcapture,asyncpacketcapture,ebpf --examples 2>&1 | grep -E "eBPF|Compiling flodbadd|Finished" || true; \
+		BINARY_PATH=./target/release/examples/check_ebpf ./tests/ebpf_test.sh \
 	'
 
 # -----------------------------------------------------------------------------
@@ -314,16 +285,9 @@ ubuntu2004_test: ubuntu2004_start
 			curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y; \
 		fi; \
 		source $$HOME/.cargo/env; \
-		echo "=== Environment ==="; \
-		cat /etc/lsb-release | grep DESCRIPTION || true; \
-		echo "Kernel: $$(uname -r)"; \
-		echo "Clang: $$(clang --version 2>/dev/null | head -1 || echo NOT INSTALLED)"; \
-		echo "Architecture: $$(uname -m)"; \
-		echo ""; \
 		cd /Users/flyonnet/Programming/flodbadd; \
-		cargo build --release --features packetcapture,asyncpacketcapture,ebpf 2>&1 | grep -E "eBPF|Compiling flodbadd|Finished" || true; \
-		sudo -E RUSTUP_HOME=$$HOME/.rustup CARGO_HOME=$$HOME/.cargo \
-			$$HOME/.cargo/bin/cargo run --release --features packetcapture,asyncpacketcapture,ebpf --example check_ebpf 2>&1 | tail -5; \
+		cargo build --release --features packetcapture,asyncpacketcapture,ebpf --examples 2>&1 | grep -E "eBPF|Compiling flodbadd|Finished" || true; \
+		BINARY_PATH=./target/release/examples/check_ebpf ./tests/ebpf_test.sh \
 	'
 
 # -----------------------------------------------------------------------------
@@ -363,17 +327,9 @@ alpine_test: alpine_start
 			curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y; \
 		fi; \
 		. $$HOME/.cargo/env; \
-		echo "=== Environment ==="; \
-		cat /etc/alpine-release || true; \
-		echo "Kernel: $$(uname -r)"; \
-		echo "Clang: $$(clang --version 2>/dev/null | head -1 || echo NOT INSTALLED)"; \
-		echo "Architecture: $$(uname -m)"; \
-		echo "libc: musl"; \
-		echo ""; \
 		cd /Users/flyonnet/Programming/flodbadd; \
-		cargo build --release --features packetcapture,asyncpacketcapture,ebpf 2>&1 | grep -E "eBPF|Compiling flodbadd|Finished" || true; \
-		sudo -E RUSTUP_HOME=$$HOME/.rustup CARGO_HOME=$$HOME/.cargo \
-			$$HOME/.cargo/bin/cargo run --release --features packetcapture,asyncpacketcapture,ebpf --example check_ebpf 2>&1 | tail -5; \
+		cargo build --release --features packetcapture,asyncpacketcapture,ebpf --examples 2>&1 | grep -E "eBPF|Compiling flodbadd|Finished" || true; \
+		BINARY_PATH=./target/release/examples/check_ebpf ./tests/ebpf_test.sh \
 	'
 
 # =============================================================================
