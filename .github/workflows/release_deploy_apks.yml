@@ -95,10 +95,10 @@ jobs:
             bison \
             wget
           
-          # eBPF development tools for L7 process resolution (REQUIRED for eBPF compilation)
+          # eBPF development tools for L7 process resolution
           apk add --no-cache clang llvm
           # libbpf-dev and linux-headers
-          apk add --no-cache libbpf-dev linux-headers || true
+          apk add --no-cache libbpf-dev linux-headers
           
           # For aarch64, we need to build libpcap from source with -fPIC
           # The Alpine libpcap-dev package doesn't have -fPIC on aarch64
