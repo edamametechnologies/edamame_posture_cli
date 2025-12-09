@@ -183,7 +183,8 @@ lima_status: lima_check
 # we test flodbadd directly which exercises the same eBPF code.
 lima_test: lima_start
 	@echo "============================================================"
-	@echo "Testing eBPF support in Lima VM '$(LIMA_VM_NAME)'..."
+	@echo "Running eBPF Integration Tests in Lima VM '$(LIMA_VM_NAME)'..."
+	@echo "This runs flodbadd's comprehensive eBPF test suite."
 	@echo "============================================================"
 	limactl shell $(LIMA_VM_NAME) -- bash -c '\
 		set -e; \
@@ -198,12 +199,42 @@ lima_test: lima_start
 		cd /Users/flyonnet/Programming/flodbadd; \
 		\
 		echo "=== Building flodbadd with eBPF (release) ==="; \
-		cargo build --release --features packetcapture,asyncpacketcapture,ebpf --examples 2>&1 | tee /tmp/build.log; \
-		grep -E "eBPF program compiled|eBPF program will be embedded" /tmp/build.log || echo "⚠️ No eBPF compilation messages"; \
+		cargo build --release --features packetcapture,asyncpacketcapture,ebpf --examples 2>&1 | \
+			grep -E "eBPF program compiled|eBPF program will be embedded|Compiling flodbadd|Finished" || true; \
 		\
 		echo ""; \
-		echo "=== Running eBPF Diagnostic Test ==="; \
-		BINARY_PATH=./target/release/examples/check_ebpf ./tests/ebpf_test.sh \
+		echo "=== eBPF Diagnostic Test ==="; \
+		BINARY_PATH=./target/release/examples/check_ebpf ./tests/ebpf_test.sh; \
+		\
+		echo ""; \
+		echo "=== Running Full eBPF Integration Tests ==="; \
+		echo "Testing: L7 eBPF, DNS eBPF, IPv6, realistic traffic..."; \
+		sudo -E RUSTUP_HOME=$$HOME/.rustup CARGO_HOME=$$HOME/.cargo \
+			$$HOME/.cargo/bin/cargo test --features packetcapture,asyncpacketcapture,ebpf \
+			--test ebpf_l7_integration_test \
+			--test dns_ebpf_integration_test \
+			--test ipv6_ebpf_test \
+			--test realistic_traffic_test \
+			-- --nocapture --test-threads=1; \
+		\
+		echo ""; \
+		echo "✅ All eBPF integration tests passed!" \
+	'
+
+# Quick eBPF-only test (L7 and DNS)
+lima_test_ebpf: lima_start
+	@echo "Running eBPF-specific tests in Lima VM..."
+	limactl shell $(LIMA_VM_NAME) -- bash -c '\
+		set -e; \
+		source $$HOME/.cargo/env 2>/dev/null || true; \
+		cd /Users/flyonnet/Programming/flodbadd; \
+		echo "=== L7 eBPF Tests ==="; \
+		sudo -E $$HOME/.cargo/bin/cargo test --features packetcapture,asyncpacketcapture,ebpf \
+			test_ebpf -- --nocapture --test-threads=1; \
+		echo ""; \
+		echo "=== DNS eBPF Tests ==="; \
+		sudo -E $$HOME/.cargo/bin/cargo test --features packetcapture,asyncpacketcapture,ebpf \
+			dns_ebpf -- --nocapture --test-threads=1 \
 	'
 
 # -----------------------------------------------------------------------------
@@ -244,8 +275,14 @@ ubuntu2204_test: ubuntu2204_start
 		fi; \
 		source $$HOME/.cargo/env; \
 		cd /Users/flyonnet/Programming/flodbadd; \
-		cargo build --release --features packetcapture,asyncpacketcapture,ebpf --examples 2>&1 | grep -E "eBPF|Compiling flodbadd|Finished" || true; \
-		BINARY_PATH=./target/release/examples/check_ebpf ./tests/ebpf_test.sh \
+		cargo build --release --features packetcapture,asyncpacketcapture,ebpf --examples; \
+		BINARY_PATH=./target/release/examples/check_ebpf ./tests/ebpf_test.sh; \
+		echo ""; \
+		echo "=== Running eBPF Integration Tests ==="; \
+		sudo -E RUSTUP_HOME=$$HOME/.rustup CARGO_HOME=$$HOME/.cargo \
+			$$HOME/.cargo/bin/cargo test --features packetcapture,asyncpacketcapture,ebpf \
+			--test ebpf_l7_integration_test --test dns_ebpf_integration_test \
+			-- --nocapture --test-threads=1 \
 	'
 
 # -----------------------------------------------------------------------------
@@ -286,8 +323,14 @@ ubuntu2004_test: ubuntu2004_start
 		fi; \
 		source $$HOME/.cargo/env; \
 		cd /Users/flyonnet/Programming/flodbadd; \
-		cargo build --release --features packetcapture,asyncpacketcapture,ebpf --examples 2>&1 | grep -E "eBPF|Compiling flodbadd|Finished" || true; \
-		BINARY_PATH=./target/release/examples/check_ebpf ./tests/ebpf_test.sh \
+		cargo build --release --features packetcapture,asyncpacketcapture,ebpf --examples; \
+		BINARY_PATH=./target/release/examples/check_ebpf ./tests/ebpf_test.sh; \
+		echo ""; \
+		echo "=== Running eBPF Integration Tests ==="; \
+		sudo -E RUSTUP_HOME=$$HOME/.rustup CARGO_HOME=$$HOME/.cargo \
+			$$HOME/.cargo/bin/cargo test --features packetcapture,asyncpacketcapture,ebpf \
+			--test ebpf_l7_integration_test --test dns_ebpf_integration_test \
+			-- --nocapture --test-threads=1 \
 	'
 
 # -----------------------------------------------------------------------------
@@ -328,8 +371,14 @@ alpine_test: alpine_start
 		fi; \
 		. $$HOME/.cargo/env; \
 		cd /Users/flyonnet/Programming/flodbadd; \
-		cargo build --release --features packetcapture,asyncpacketcapture,ebpf --examples 2>&1 | grep -E "eBPF|Compiling flodbadd|Finished" || true; \
-		BINARY_PATH=./target/release/examples/check_ebpf ./tests/ebpf_test.sh \
+		cargo build --release --features packetcapture,asyncpacketcapture,ebpf --examples; \
+		BINARY_PATH=./target/release/examples/check_ebpf ./tests/ebpf_test.sh; \
+		echo ""; \
+		echo "=== Running eBPF Integration Tests ==="; \
+		sudo -E RUSTUP_HOME=$$HOME/.rustup CARGO_HOME=$$HOME/.cargo \
+			$$HOME/.cargo/bin/cargo test --features packetcapture,asyncpacketcapture,ebpf \
+			--test ebpf_l7_integration_test --test dns_ebpf_integration_test \
+			-- --nocapture --test-threads=1 \
 	'
 
 # =============================================================================
