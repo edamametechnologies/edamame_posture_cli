@@ -1829,7 +1829,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "0.9.83"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#ee52ef08d90b901874f24b9bb3d206214f578c93"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#f1086ad45f9426182419b0795c26529566b9d825"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1911,7 +1911,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "0.9.83"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#23bb95a1e15ecb65f64fe45798eedbf61e57aa5c"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#63eefdc0fa125ef575db327c6110a7a03e2f010a"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -3058,7 +3058,7 @@ dependencies = [
  "js-sys",
  "log",
  "wasm-bindgen",
- "windows-core 0.57.0",
+ "windows-core 0.62.2",
 ]
 
 [[package]]
@@ -4984,7 +4984,7 @@ version = "0.14.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ac6c3320f9abac597dcbc668774ef006702672474aad53c6d596b62e487b40b1"
 dependencies = [
- "heck 0.4.1",
+ "heck 0.5.0",
  "itertools 0.14.0",
  "log",
  "multimap",
