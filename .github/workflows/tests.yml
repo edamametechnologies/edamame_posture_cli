@@ -189,6 +189,11 @@ jobs:
       - name: Build application
         shell: bash
         run: |
+          # Force rebuild of flodbadd to ensure eBPF is compiled with current clang
+          if [ "${{ matrix.os }}" = "ubuntu" ]; then
+            echo "Cleaning flodbadd to force eBPF recompilation..."
+            cargo clean -p flodbadd 2>/dev/null || true
+          fi
           cargo build --release
 
       - name: Signing for macOS
@@ -439,6 +444,9 @@ jobs:
         run: |
           # Ensure cargo is in path
           export PATH="$HOME/.cargo/bin:$PATH"
+          # Force rebuild of flodbadd to ensure eBPF is compiled with current clang
+          echo "Cleaning flodbadd to force eBPF recompilation..."
+          cargo clean -p flodbadd 2>/dev/null || true
           cargo build --release
 
       - name: Run Basic Cargo Tests
