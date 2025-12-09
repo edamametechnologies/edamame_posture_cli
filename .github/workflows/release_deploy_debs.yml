@@ -88,15 +88,15 @@ jobs:
           wait_for_api: true
           wait_for_https: true
 
+      ############################################################################################
+      # Setup
+      ############################################################################################
+
       - name: Configure Git Authentication to import private crates
         run: |
           git config --global user.email "dev@edamame.tech"
           git config --global user.name "EDAMAME Dev"
           git config --global url."https://edamamedev:${{ secrets.DEV_GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
-
-      ############################################################################################
-      # Setup
-      ############################################################################################
 
       # Install protoc and libpcap-dev for native builds
       - name: Install protoc and libpcap-dev for native builds
