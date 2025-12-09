@@ -46,14 +46,47 @@ jobs:
       EDAMAME_CLIENT_CA_PEM: ${{ secrets.EDAMAME_CLIENT_CA_PEM }}
       LAMBDA_SIGNATURE: ${{ secrets.LAMBDA_SIGNATURE }}
       MIXPANEL_TOKEN: ${{ secrets.MIXPANEL_TOKEN }}
-      ABUILD_PRIVATE_KEY_B64: ${{ secrets.ABUILD_PRIVATE_KEY_B64 }}
-      ABUILD_PUBLIC_KEY_B64: ${{ secrets.ABUILD_PUBLIC_KEY_B64 }}
-
+      APPLE_APPSTORE_CONNECT_API_ISSUER_ID: ${{ secrets.APPLE_APPSTORE_CONNECT_API_ISSUER_ID }}
+      APPLE_APPSTORE_CONNECT_API_KEY_ID: ${{ secrets.APPLE_APPSTORE_CONNECT_API_KEY_ID }}
+      APPLE_APPSTORE_CONNECT_API_KEY: ${{ secrets.APPLE_APPSTORE_CONNECT_API_KEY }}
+      MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.DEV_GITHUB_TOKEN_B64 }}
+      MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      # Required for cross to not show warnings and fail
+      CROSS_NO_WARNINGS: 0
+      # Debug mode
+      EDAMAME_LOG_LEVEL: debug
+    
     steps:
+
+
+      - name: Setup EDAMAME Posture
+        uses: edamametechnologies/edamame_posture_action@v0
+        with:
+          edamame_user: ${{ vars.EDAMAME_POSTURE_USER }}
+          edamame_domain: ${{ vars.EDAMAME_POSTURE_DOMAIN }}
+          edamame_pin: ${{ secrets.EDAMAME_POSTURE_PIN }}
+          edamame_id: ${{ github.run_id }}
+          network_scan: true
+          auto_remediate: true
+          checkout: true
+          # We are using the token of the private repo to checkout the public repo and properly wait for access to the private repo
+          token: ${{ secrets.DEV_GITHUB_TOKEN }}
+          wait_for_api: true
+          wait_for_https: true
 
       ############################################################################################
       # Setup
       ############################################################################################
+
+      - name: Configure Git Authentication to import private crates
+        shell: sh
+        run: |
+          git config --global user.email "dev@edamame.tech"
+          git config --global user.name "EDAMAME Dev"
+          git config --global url."https://edamamedev:${{ secrets.DEV_GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
 
       # Install base packages needed for git and checkout
       - name: Install base packages
@@ -66,13 +99,6 @@ jobs:
         shell: sh
         run: |
           git config --global --add safe.directory '*'
-
-      - name: Configure Git Authentication to import private crates
-        shell: sh
-        run: |
-          git config --global user.email "dev@edamame.tech"
-          git config --global user.name "EDAMAME Dev"
-          git config --global url."https://edamamedev:${{ secrets.DEV_GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
 
       # Manual checkout for containers
       - name: Checkout repository
