@@ -322,21 +322,14 @@ elif [[ -z "$BINARY_PATH" ]]; then
     fi
 fi
 
-if [[ -z "$BINARY_PATH" ]] || [[ ! -f "$BINARY_PATH" ]]; then
-    echo "⚠️  No binary found for runtime test"
-    echo "   Searched: ./target/release/edamame_posture, ./target/release/examples/check_ebpf"
-    ls -la ./target/release/ 2>/dev/null | head -10 || echo "   (target/release not found)"
-    
-    # Only use cargo run if FLODBADD_PATH is explicitly set (for flodbadd repo)
-    if [[ -n "$FLODBADD_PATH" ]] && [[ -d "$FLODBADD_PATH" ]]; then
-        echo "   FLODBADD_PATH set: $FLODBADD_PATH (will use cargo run)"
-        BINARY_PATH=""
-        USE_CARGO_RUN="yes"
-    else
-        BINARY_PATH=""
-        USE_CARGO_RUN="no"
-    fi
-else
+# Check if cargo is available (for fallback)
+CARGO_PATH=$(which cargo 2>/dev/null || echo "")
+if [[ -z "$CARGO_PATH" ]] && [[ -f "$HOME/.cargo/env" ]]; then
+    source "$HOME/.cargo/env"
+    CARGO_PATH=$(which cargo 2>/dev/null || echo "")
+fi
+
+if [[ -n "$BINARY_PATH" ]] && [[ -f "$BINARY_PATH" ]]; then
     echo "✅ Binary found: $BINARY_PATH"
     USE_CARGO_RUN="no"
     
@@ -348,6 +341,17 @@ else
             echo "⚠️  No eBPF symbols detected in binary"
         fi
     fi
+elif [[ -n "$CARGO_PATH" ]]; then
+    echo "ℹ️  No binary found - will use cargo run with flodbadd check_ebpf example"
+    echo "   Cargo path: $CARGO_PATH"
+    BINARY_PATH=""
+    USE_CARGO_RUN="yes"
+else
+    echo "⚠️  No binary or cargo found for runtime test"
+    echo "   Searched: ./target/release/edamame_posture, ./target/release/examples/check_ebpf"
+    ls -la ./target/release/ 2>/dev/null | head -10 || echo "   (target/release not found)"
+    BINARY_PATH=""
+    USE_CARGO_RUN="no"
 fi
 
 # =============================================================================
@@ -451,7 +455,6 @@ else
         
     elif [[ "$USE_CARGO_RUN" == "yes" ]]; then
         echo "Running flodbadd check_ebpf example via cargo..."
-        cd "$FLODBADD_PATH"
         
         # Source cargo env if needed
         if [[ -f "$HOME/.cargo/env" ]]; then
@@ -460,24 +463,31 @@ else
         
         # Use full path to cargo since sudo may not have it in PATH
         CARGO_PATH=$(which cargo 2>/dev/null || echo "cargo")
-        CARGO_OUTPUT=$($SUDO_CMD "$CARGO_PATH" run --release --features packetcapture,asyncpacketcapture,ebpf --example check_ebpf 2>&1 || true)
         
-        if echo "$CARGO_OUTPUT" | grep -qi "eBPF support: Enabled\|eBPF available: true"; then
+        # Run the check_ebpf example from flodbadd dependency
+        echo "Building and running check_ebpf example..."
+        CARGO_OUTPUT=$($SUDO_CMD "$CARGO_PATH" run -p flodbadd --release --features packetcapture,asyncpacketcapture,ebpf --example check_ebpf 2>&1 || true)
+        
+        if echo "$CARGO_OUTPUT" | grep -qi "eBPF support: Enabled\|eBPF available: true\|kprobe attached"; then
             EBPF_STATUS="enabled"
             EBPF_DETAIL="check_ebpf example reports eBPF enabled"
             echo "✅ eBPF is ENABLED (via check_ebpf example)"
-        elif echo "$CARGO_OUTPUT" | grep -qi "not embedded\|clang"; then
+        elif echo "$CARGO_OUTPUT" | grep -qi "not embedded\|clang\|was clang available"; then
             EBPF_STATUS="not_embedded"
             EBPF_DETAIL="eBPF not compiled (clang missing)"
             echo "❌ eBPF NOT EMBEDDED"
+        elif echo "$CARGO_OUTPUT" | grep -qiE "unprivileged_bpf_disabled|failed to create map|map error|not running as root"; then
+            EBPF_STATUS="kernel_restricted"
+            EBPF_DETAIL="eBPF object embedded but kernel restrictions prevent loading"
+            echo "⚠️  eBPF EMBEDDED, but kernel restrictions prevent loading"
         else
             EBPF_STATUS="unknown"
             echo "⚠️  Status unclear from cargo output"
         fi
         
         echo ""
-        echo "check_ebpf output:"
-        echo "$CARGO_OUTPUT" | tail -10
+        echo "check_ebpf output (last 15 lines):"
+        echo "$CARGO_OUTPUT" | tail -15
     else
         echo "⚠️  No binary or cargo path available for runtime test"
         EBPF_STATUS="no_binary"
