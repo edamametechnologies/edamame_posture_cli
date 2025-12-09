@@ -1331,16 +1331,6 @@ dependencies = [
 
 [[package]]
 name = "ctor"
-version = "0.2.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "32a2785755761f3ddc1492979ce1e48d2c00d09311c39e4466429188f3dd6501"
-dependencies = [
- "quote",
- "syn 2.0.111",
-]
-
-[[package]]
-name = "ctor"
 version = "0.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "424e0138278faeb2b401f174ad17e715c829512d74f3d1e81eb43365c2e0590e"
@@ -1849,7 +1839,7 @@ dependencies = [
  "base64 0.22.1",
  "bincode 2.0.1",
  "chrono",
- "ctor 0.6.3",
+ "ctor",
  "dashmap 6.1.0",
  "dotenv-build",
  "edamame_backend",
@@ -2307,7 +2297,7 @@ dependencies = [
 [[package]]
 name = "flodbadd"
 version = "0.9.83"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#ba6ed37cec25d028224e3909c8f5f606c0721e82"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#0936fa3f9cdf839eeb8634b57068a7faae0a7ba3"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -2316,7 +2306,7 @@ dependencies = [
  "bytemuck",
  "chrono",
  "csv",
- "ctor 0.2.9",
+ "ctor",
  "dashmap 6.1.0",
  "dns-parser",
  "edamame_backend",
@@ -2361,7 +2351,7 @@ dependencies = [
  "uuid",
  "wez-mdns",
  "windows 0.62.2",
- "zip 5.1.1",
+ "zip 6.0.0",
 ]
 
 [[package]]
@@ -3068,7 +3058,7 @@ dependencies = [
  "js-sys",
  "log",
  "wasm-bindgen",
- "windows-core 0.58.0",
+ "windows-core 0.57.0",
 ]
 
 [[package]]
@@ -3430,7 +3420,7 @@ dependencies = [
 [[package]]
 name = "l7_ebpf_program"
 version = "0.1.0"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#ba6ed37cec25d028224e3909c8f5f606c0721e82"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#0936fa3f9cdf839eeb8634b57068a7faae0a7ba3"
 
 [[package]]
 name = "lazy_static"
@@ -8286,9 +8276,9 @@ dependencies = [
 
 [[package]]
 name = "zip"
-version = "5.1.1"
+version = "6.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2f852905151ac8d4d06fdca66520a661c09730a74c6d4e2b0f27b436b382e532"
+checksum = "eb2a05c7c36fde6c09b08576c9f7fb4cda705990f73b58fe011abf7dfb24168b"
 dependencies = [
  "aes",
  "arbitrary",
