@@ -463,7 +463,7 @@ if [[ -n "$EBPF_DETAIL" ]]; then
 fi
 echo ""
 
-# Exit code based on status
+# Exit code based on status and environment
 case "$EBPF_STATUS" in
     enabled)
         echo "✅ eBPF is fully functional"
@@ -471,20 +471,36 @@ case "$EBPF_STATUS" in
         ;;
     kernel_restricted)
         echo "⚠️  eBPF build OK, but kernel restrictions prevent loading"
-        echo "   This is expected on some CI runners and containers"
-        exit 0  # Not a failure - build is correct
+        if [[ "$CONTAINER_TYPE" == "native" ]]; then
+            echo "   ⚠️  On native host - kernel may have strict BPF settings"
+        else
+            echo "   This is expected in containers"
+        fi
+        exit 0  # Not a failure - build is correct, kernel prevented loading
         ;;
     not_embedded)
-        echo "❌ eBPF was not compiled into the binary"
-        echo "   Ensure clang and llvm are installed during build"
-        exit 1  # This is a build failure
+        echo "❌ eBPF was NOT compiled into the binary"
+        echo "   Ensure clang and llvm are installed BEFORE cargo build"
+        if [[ "$CONTAINER_TYPE" == "native" ]]; then
+            echo ""
+            echo "   🔴 FAILURE: On native Linux, eBPF should be embedded!"
+            echo "      This is a BUILD failure - clang was not available or failed"
+            exit 1
+        else
+            echo ""
+            echo "   ⚠️  In container environment - may be expected if clang not installed"
+            exit 1  # Still fail - clang should be installed
+        fi
         ;;
     skipped|no_binary)
         echo "⏭️  Runtime test was skipped"
         exit 0
         ;;
     *)
-        echo "⚠️  eBPF status inconclusive"
+        echo "⚠️  eBPF status inconclusive: $EBPF_STATUS"
+        if [[ "$CONTAINER_TYPE" == "native" ]]; then
+            echo "   On native Linux - this may indicate a problem"
+        fi
         exit 0  # Don't fail on inconclusive
         ;;
 esac
