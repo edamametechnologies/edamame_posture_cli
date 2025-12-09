@@ -195,21 +195,12 @@ jobs:
             echo "clang: $(which clang 2>/dev/null || echo 'NOT FOUND')"
             clang --version 2>/dev/null | head -1 || echo "clang not available"
             echo "libbpf headers: $(ls /usr/include/bpf/bpf_helpers.h 2>/dev/null || echo 'NOT FOUND')"
-            echo "arch include: $(ls -d /usr/include/x86_64-linux-gnu 2>/dev/null || ls -d /usr/include/aarch64-linux-gnu 2>/dev/null || echo 'NOT FOUND')"
-            # Force rebuild of flodbadd to ensure eBPF is compiled with current clang
-            echo "=== Cleaning flodbadd for fresh eBPF compilation ==="
-            cargo clean -p flodbadd 2>/dev/null || true
-            cargo clean -p l7_ebpf_program 2>/dev/null || true
           fi
-          # Build with verbose output to see build.rs messages
-          cargo build --release -vv 2>&1 | tee /tmp/build.log
+          cargo build --release 2>&1 | tee /tmp/build.log
           # Show eBPF-related build messages
           if [ "${{ matrix.os }}" = "ubuntu" ]; then
-            echo "=== eBPF Build Messages (from build.rs) ==="
-            grep -iE "eBPF|l7_ebpf|warning:.*flodbadd|Running.*build.*script" /tmp/build.log | head -80 || echo "(no eBPF messages)"
-            echo ""
-            echo "=== Checking if eBPF object exists in target ==="
-            find ./target -name "l7_ebpf.o" -o -name "*ebpf*.o" 2>/dev/null | head -10 || echo "No eBPF object files found"
+            echo "=== eBPF Build Messages ==="
+            grep -iE "eBPF|l7_ebpf" /tmp/build.log | head -30 || echo "(no eBPF messages)"
           fi
 
       - name: Signing for macOS
@@ -280,12 +271,13 @@ jobs:
         continue-on-error: true
 
       - name: Slack alerts
-        if: steps.cargo_tests.outcome == 'failure' || steps.standalone_tests.outcome == 'failure' || steps.integration_tests.outcome == 'failure'
+        if: steps.ebpf_test.outcome == 'failure' || steps.cargo_tests.outcome == 'failure' || steps.standalone_tests.outcome == 'failure' || steps.integration_tests.outcome == 'failure'
         uses: slackapi/slack-github-action@v1.26.0
         with:
           channel-id: 'C072J0U9TH7'
           slack-message: |
             *Native Test Results for ${{ github.repository }} (${{ matrix.os }}-${{ matrix.arch }})*:
+            - eBPF Test: ${{ steps.ebpf_test.outcome != 'failure' && '✅ Success' || '❌ Failed' }}
             - Cargo Tests: ${{ steps.cargo_tests.outcome != 'failure' && '✅ Success' || '❌ Failed' }}
             - Standalone Tests: ${{ steps.standalone_tests.outcome != 'failure' && '✅ Success' || '❌ Failed' }}
             - Integration Tests: ${{ steps.integration_tests.outcome != 'failure' && '✅ Success' || '❌ Failed' }}
@@ -312,9 +304,10 @@ jobs:
 
       - name: Fail job if tests failed
         shell: bash
-        if: steps.cargo_tests.outcome == 'failure' || steps.standalone_tests.outcome == 'failure' || steps.integration_tests.outcome == 'failure'
+        if: steps.ebpf_test.outcome == 'failure' || steps.cargo_tests.outcome == 'failure' || steps.standalone_tests.outcome == 'failure' || steps.integration_tests.outcome == 'failure'
         run: |
           echo "## Test Results Summary (Native - ${{ matrix.os }}-${{ matrix.arch }})"
+          echo "- eBPF Test: ${{ steps.ebpf_test.outcome != 'failure' && '✅ Success' || '❌ Failed' }}"
           echo "- Cargo Tests: ${{ steps.cargo_tests.outcome != 'failure' && '✅ Success' || '❌ Failed' }}"
           echo "- Standalone Tests: ${{ steps.standalone_tests.outcome != 'failure' && '✅ Success' || '❌ Failed' }}"
           echo "- Integration Tests: ${{ steps.integration_tests.outcome != 'failure' && '✅ Success' || '❌ Failed' }}"
@@ -466,19 +459,10 @@ jobs:
           echo "clang: $(which clang 2>/dev/null || echo 'NOT FOUND')"
           clang --version 2>/dev/null | head -1 || echo "clang not available"
           echo "libbpf headers: $(ls /usr/include/bpf/bpf_helpers.h 2>/dev/null || echo 'NOT FOUND')"
-          echo "arch include: $(ls -d /usr/include/x86_64-linux-gnu 2>/dev/null || ls -d /usr/include/aarch64-linux-gnu 2>/dev/null || echo 'NOT FOUND')"
-          # Force rebuild of flodbadd to ensure eBPF is compiled with current clang
-          echo "=== Cleaning flodbadd for fresh eBPF compilation ==="
-          cargo clean -p flodbadd 2>/dev/null || true
-          cargo clean -p l7_ebpf_program 2>/dev/null || true
-          # Build with verbose output to see build.rs messages
-          cargo build --release -vv 2>&1 | tee /tmp/build.log
+          cargo build --release 2>&1 | tee /tmp/build.log
           # Show eBPF-related build messages
-          echo "=== eBPF Build Messages (from build.rs) ==="
-          grep -iE "eBPF|l7_ebpf|warning:.*flodbadd|Running.*build.*script" /tmp/build.log | head -80 || echo "(no eBPF messages)"
-          echo ""
-          echo "=== Checking if eBPF object exists in target ==="
-          find ./target -name "l7_ebpf.o" -o -name "*ebpf*.o" 2>/dev/null | head -10 || echo "No eBPF object files found"
+          echo "=== eBPF Build Messages ==="
+          grep -iE "eBPF|l7_ebpf" /tmp/build.log | head -30 || echo "(no eBPF messages)"
 
       - name: Run eBPF Diagnostic Test
         id: ebpf_test
@@ -522,12 +506,13 @@ jobs:
       - name: Slack alerts
         # Won't work on 18.04 because of glibc version
         # Won't work on ARM64 Alpine because of JavaScript support
-        if: (steps.cargo_tests.outcome == 'failure' || steps.standalone_tests.outcome == 'failure' || steps.integration_tests.outcome == 'failure') && !contains(matrix.container_name, '18.04') && !contains(matrix.container_name, 'aarch64-musl')
+        if: (steps.ebpf_test.outcome == 'failure' || steps.cargo_tests.outcome == 'failure' || steps.standalone_tests.outcome == 'failure' || steps.integration_tests.outcome == 'failure') && !contains(matrix.container_name, '18.04') && !contains(matrix.container_name, 'aarch64-musl')
         uses: slackapi/slack-github-action@v1.26.0
         with:
           channel-id: 'C072J0U9TH7'
           slack-message: |
             *Container Test Results for ${{ github.repository }} (${{ matrix.container_name }})*:
+            - eBPF Test: ${{ steps.ebpf_test.outcome != 'failure' && '✅ Success' || '❌ Failed' }}
             - Cargo Tests: ${{ steps.cargo_tests.outcome != 'failure' && '✅ Success' || '❌ Failed' }}
             - Standalone Tests: ${{ steps.standalone_tests.outcome != 'failure' && '✅ Success' || '❌ Failed' }}
             - Integration Tests: ${{ steps.integration_tests.outcome != 'failure' && '✅ Success' || '❌ Failed' }}
@@ -538,9 +523,10 @@ jobs:
 
       - name: Fail job if tests failed
         shell: bash
-        if: steps.cargo_tests.outcome == 'failure' || steps.standalone_tests.outcome == 'failure' || steps.integration_tests.outcome == 'failure'
+        if: steps.ebpf_test.outcome == 'failure' || steps.cargo_tests.outcome == 'failure' || steps.standalone_tests.outcome == 'failure' || steps.integration_tests.outcome == 'failure'
         run: |
           echo "## Test Results Summary (Container - ${{ matrix.container_name }})"
+          echo "- eBPF Test: ${{ steps.ebpf_test.outcome != 'failure' && '✅ Success' || '❌ Failed' }}"
           echo "- Cargo Tests: ${{ steps.cargo_tests.outcome != 'failure' && '✅ Success' || '❌ Failed' }}"
           echo "- Standalone Tests: ${{ steps.standalone_tests.outcome != 'failure' && '✅ Success' || '❌ Failed' }}"
           echo "- Integration Tests: ${{ steps.integration_tests.outcome != 'failure' && '✅ Success' || '❌ Failed' }}"
