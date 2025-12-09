@@ -10,10 +10,11 @@ pre-build = [
     "apt update -y && apt install -y protobuf-compiler libpcap-dev:$CROSS_DEB_ARCH clang llvm libbpf-dev linux-libc-dev"
 ]
 
+# No eBPF tools for i686 - aya doesn't support 32-bit
 [target.i686-unknown-linux-gnu]
 pre-build = [
     "dpkg --add-architecture $CROSS_DEB_ARCH",
-    "apt update -y && apt install -y protobuf-compiler libpcap-dev:$CROSS_DEB_ARCH clang llvm libbpf-dev linux-libc-dev"
+    "apt update -y && apt install -y protobuf-compiler libpcap-dev:$CROSS_DEB_ARCH"
 ]
 
 [target.i686-unknown-linux-gnu.env]
@@ -34,10 +35,11 @@ pre-build = [
     "apt update -y && apt install -y protobuf-compiler libpcap-dev:$CROSS_DEB_ARCH clang llvm libbpf-dev linux-libc-dev"
 ]
 
+# No eBPF tools for armv7 - aya doesn't support 32-bit
 [target.armv7-unknown-linux-gnueabihf]
 pre-build = [
     "dpkg --add-architecture $CROSS_DEB_ARCH",
-    "apt update -y && apt install -y protobuf-compiler libpcap-dev:$CROSS_DEB_ARCH clang llvm libbpf-dev linux-libc-dev"
+    "apt update -y && apt install -y protobuf-compiler libpcap-dev:$CROSS_DEB_ARCH"
 ]
 
 [build.env]
