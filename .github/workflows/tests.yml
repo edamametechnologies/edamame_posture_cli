@@ -195,15 +195,21 @@ jobs:
             echo "clang: $(which clang 2>/dev/null || echo 'NOT FOUND')"
             clang --version 2>/dev/null | head -1 || echo "clang not available"
             echo "libbpf headers: $(ls /usr/include/bpf/bpf_helpers.h 2>/dev/null || echo 'NOT FOUND')"
+            echo "arch include: $(ls -d /usr/include/x86_64-linux-gnu 2>/dev/null || ls -d /usr/include/aarch64-linux-gnu 2>/dev/null || echo 'NOT FOUND')"
             # Force rebuild of flodbadd to ensure eBPF is compiled with current clang
             echo "=== Cleaning flodbadd for fresh eBPF compilation ==="
             cargo clean -p flodbadd 2>/dev/null || true
+            cargo clean -p l7_ebpf_program 2>/dev/null || true
           fi
-          cargo build --release 2>&1 | tee /tmp/build.log
+          # Build with verbose output to see build.rs messages
+          cargo build --release -vv 2>&1 | tee /tmp/build.log
           # Show eBPF-related build messages
           if [ "${{ matrix.os }}" = "ubuntu" ]; then
-            echo "=== eBPF Build Messages ==="
-            grep -iE "ebpf|l7_ebpf|clang|warning.*eBPF" /tmp/build.log | head -50 || echo "(no eBPF messages)"
+            echo "=== eBPF Build Messages (from build.rs) ==="
+            grep -iE "eBPF|l7_ebpf|warning:.*flodbadd|Running.*build.*script" /tmp/build.log | head -80 || echo "(no eBPF messages)"
+            echo ""
+            echo "=== Checking if eBPF object exists in target ==="
+            find ./target -name "l7_ebpf.o" -o -name "*ebpf*.o" 2>/dev/null | head -10 || echo "No eBPF object files found"
           fi
 
       - name: Signing for macOS
@@ -460,13 +466,19 @@ jobs:
           echo "clang: $(which clang 2>/dev/null || echo 'NOT FOUND')"
           clang --version 2>/dev/null | head -1 || echo "clang not available"
           echo "libbpf headers: $(ls /usr/include/bpf/bpf_helpers.h 2>/dev/null || echo 'NOT FOUND')"
+          echo "arch include: $(ls -d /usr/include/x86_64-linux-gnu 2>/dev/null || ls -d /usr/include/aarch64-linux-gnu 2>/dev/null || echo 'NOT FOUND')"
           # Force rebuild of flodbadd to ensure eBPF is compiled with current clang
           echo "=== Cleaning flodbadd for fresh eBPF compilation ==="
           cargo clean -p flodbadd 2>/dev/null || true
-          cargo build --release 2>&1 | tee /tmp/build.log
+          cargo clean -p l7_ebpf_program 2>/dev/null || true
+          # Build with verbose output to see build.rs messages
+          cargo build --release -vv 2>&1 | tee /tmp/build.log
           # Show eBPF-related build messages
-          echo "=== eBPF Build Messages ==="
-          grep -iE "ebpf|l7_ebpf|clang|warning.*eBPF" /tmp/build.log | head -50 || echo "(no eBPF messages)"
+          echo "=== eBPF Build Messages (from build.rs) ==="
+          grep -iE "eBPF|l7_ebpf|warning:.*flodbadd|Running.*build.*script" /tmp/build.log | head -80 || echo "(no eBPF messages)"
+          echo ""
+          echo "=== Checking if eBPF object exists in target ==="
+          find ./target -name "l7_ebpf.o" -o -name "*ebpf*.o" 2>/dev/null | head -10 || echo "No eBPF object files found"
 
       - name: Run eBPF Diagnostic Test
         id: ebpf_test
