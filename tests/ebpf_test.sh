@@ -302,20 +302,31 @@ echo "=== Binary Detection ==="
 if [[ -n "$1" ]]; then
     BINARY_PATH="$1"
 elif [[ -z "$BINARY_PATH" ]]; then
-    # Try to find edamame_posture or flodbadd binary
-    FOUND_BINARY=$(find ./target -type f \( -name edamame_posture -o -name edamame_posture.exe \) -print -quit 2>/dev/null || echo "")
-    if [[ -z "$FOUND_BINARY" ]]; then
-        # Try flodbadd examples
-        FOUND_BINARY=$(find ./target -type f -name check_ebpf -print -quit 2>/dev/null || echo "")
+    # Try common release binary paths first (faster than find)
+    for path in "./target/release/edamame_posture" "./target/release/examples/check_ebpf"; do
+        if [[ -f "$path" ]]; then
+            BINARY_PATH="$path"
+            break
+        fi
+    done
+    
+    # Fallback to find if not found
+    if [[ -z "$BINARY_PATH" ]]; then
+        FOUND_BINARY=$(find ./target -type f \( -name edamame_posture -o -name edamame_posture.exe \) -print -quit 2>/dev/null || echo "")
+        if [[ -z "$FOUND_BINARY" ]]; then
+            # Try flodbadd examples
+            FOUND_BINARY=$(find ./target -type f -name check_ebpf -print -quit 2>/dev/null || echo "")
+        fi
+        BINARY_PATH="$FOUND_BINARY"
     fi
-    BINARY_PATH="$FOUND_BINARY"
 fi
 
 if [[ -z "$BINARY_PATH" ]] || [[ ! -f "$BINARY_PATH" ]]; then
     echo "⚠️  No binary found for runtime test"
-    echo "   Searched: ./target for edamame_posture or check_ebpf"
+    echo "   Searched: ./target/release/edamame_posture, ./target/release/examples/check_ebpf"
+    ls -la ./target/release/ 2>/dev/null | head -10 || echo "   (target/release not found)"
     
-    # Check if we have flodbadd path for cargo-based test
+    # Only use cargo run if FLODBADD_PATH is explicitly set (for flodbadd repo)
     if [[ -n "$FLODBADD_PATH" ]] && [[ -d "$FLODBADD_PATH" ]]; then
         echo "   FLODBADD_PATH set: $FLODBADD_PATH (will use cargo run)"
         BINARY_PATH=""
@@ -412,7 +423,9 @@ else
             source "$HOME/.cargo/env"
         fi
         
-        CARGO_OUTPUT=$($SUDO_CMD cargo run --release --features packetcapture,asyncpacketcapture,ebpf --example check_ebpf 2>&1 || true)
+        # Use full path to cargo since sudo may not have it in PATH
+        CARGO_PATH=$(which cargo 2>/dev/null || echo "cargo")
+        CARGO_OUTPUT=$($SUDO_CMD "$CARGO_PATH" run --release --features packetcapture,asyncpacketcapture,ebpf --example check_ebpf 2>&1 || true)
         
         if echo "$CARGO_OUTPUT" | grep -qi "eBPF support: Enabled\|eBPF available: true"; then
             EBPF_STATUS="enabled"
