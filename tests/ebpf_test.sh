@@ -374,23 +374,47 @@ else
     EBPF_DETAIL=""
 
     if [[ -n "$BINARY_PATH" ]]; then
-        echo "Running get-device-info to test eBPF..."
-        # Use get-device-info instead of capture - it's faster and shows eBPF status directly
-        # Also handle SIGPIPE (exit 141) which can happen with capture commands
-        CAPTURE_OUTPUT=$($SUDO_CMD "$BINARY_PATH" get-device-info 2>&1) || {
+        # Step 1: Get eBPF status from get-device-info
+        echo "Step 1: Running get-device-info to check eBPF status..."
+        DEVICE_INFO=$($SUDO_CMD "$BINARY_PATH" get-device-info 2>&1) || {
             EXIT_CODE=$?
             if [[ $EXIT_CODE -eq 141 ]]; then
-                echo "⚠️  Got SIGPIPE (exit 141) - this is usually harmless"
+                echo "⚠️  Got SIGPIPE (exit 141) - continuing anyway"
             else
-                echo "⚠️  Command exited with code $EXIT_CODE"
+                echo "⚠️  get-device-info exited with code $EXIT_CODE"
             fi
-            CAPTURE_OUTPUT=""
         }
         
-        # Parse eBPF status from output
-        # Look for the eBPF support line from get-device-info
-        EBPF_LINE=$(echo "$CAPTURE_OUTPUT" | grep -i "ebpf" | head -1 || echo "")
-        echo "eBPF status line: $EBPF_LINE"
+        # Parse eBPF status from device info
+        EBPF_LINE=$(echo "$DEVICE_INFO" | grep -i "ebpf" | head -1 || echo "")
+        echo "eBPF status: $EBPF_LINE"
+        
+        # Step 2: Run a short capture to verify eBPF is actually working
+        echo ""
+        echo "Step 2: Running short capture to verify eBPF in action..."
+        # Capture for 2 seconds, redirect to temp file to avoid SIGPIPE issues
+        CAPTURE_TEMP=$(mktemp)
+        # Use timeout to prevent hanging, and ignore SIGPIPE (141) and other capture-related exits
+        timeout 10s $SUDO_CMD "$BINARY_PATH" -v capture 2 > "$CAPTURE_TEMP" 2>&1 || {
+            EXIT_CODE=$?
+            case $EXIT_CODE in
+                124) echo "⚠️  Capture timed out (this shouldn't happen for 2s capture)" ;;
+                141) echo "ℹ️  Capture ended with SIGPIPE (harmless)" ;;
+                0)   echo "✅ Capture completed normally" ;;
+                *)   echo "ℹ️  Capture exited with code $EXIT_CODE" ;;
+            esac
+        }
+        CAPTURE_OUTPUT=$(cat "$CAPTURE_TEMP" 2>/dev/null || echo "")
+        rm -f "$CAPTURE_TEMP"
+        
+        # Show capture output relevant to eBPF
+        echo ""
+        echo "Capture eBPF log entries:"
+        echo "$CAPTURE_OUTPUT" | grep -i "eBPF\|BPF\|kprobe\|l7_" | head -10 || echo "(none found)"
+        
+        # Determine eBPF status from both sources
+        echo ""
+        echo "=== Analyzing eBPF Status ==="
         
         if echo "$EBPF_LINE" | grep -q "Enabled:.*kprobe attached"; then
             EBPF_STATUS="enabled"
@@ -400,11 +424,15 @@ else
             EBPF_STATUS="not_embedded"
             EBPF_DETAIL="eBPF object was not compiled/embedded during build"
             echo "❌ eBPF object NOT EMBEDDED (clang/llvm not available at build time)"
-        elif echo "$EBPF_LINE" | grep -qE "unprivileged_bpf_disabled|container may lack|doesn't support kprobes|SYS_ADMIN|CAP_BPF|failed to create map|map error"; then
+        elif echo "$EBPF_LINE" | grep -qE "unprivileged_bpf_disabled|container may lack|doesn't support kprobes|SYS_ADMIN|CAP_BPF"; then
             EBPF_STATUS="kernel_restricted"
             EBPF_DETAIL="eBPF object embedded but kernel restrictions prevent loading"
             echo "⚠️  eBPF object embedded, but KERNEL RESTRICTIONS prevent loading"
             echo "   This is a runtime restriction, not a build issue"
+        elif echo "$CAPTURE_OUTPUT" | grep -qi "failed to create map\|map error"; then
+            EBPF_STATUS="kernel_restricted"
+            EBPF_DETAIL="eBPF map creation denied by kernel"
+            echo "⚠️  eBPF object embedded, but KERNEL DENIED map creation"
         elif echo "$EBPF_LINE" | grep -q "Disabled:"; then
             EBPF_STATUS="disabled"
             EBPF_DETAIL="$EBPF_LINE"
@@ -413,18 +441,13 @@ else
             EBPF_STATUS="not_supported"
             EBPF_DETAIL="eBPF not supported on this platform"
             echo "⏭️  eBPF not supported (non-Linux)"
-        elif [[ -z "$CAPTURE_OUTPUT" ]]; then
+        elif [[ -z "$DEVICE_INFO" ]] && [[ -z "$CAPTURE_OUTPUT" ]]; then
             EBPF_STATUS="no_output"
             echo "⚠️  No output from binary - command may have failed"
         else
             EBPF_STATUS="unknown"
             echo "⚠️  Could not determine eBPF status from output"
         fi
-        
-        # Show relevant log lines
-        echo ""
-        echo "Relevant eBPF log entries:"
-        echo "$CAPTURE_OUTPUT" | grep -i "eBPF\|BPF\|kprobe\|l7_" | head -10 || echo "(none found)"
         
     elif [[ "$USE_CARGO_RUN" == "yes" ]]; then
         echo "Running flodbadd check_ebpf example via cargo..."
