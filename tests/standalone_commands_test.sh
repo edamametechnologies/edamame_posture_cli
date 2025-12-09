@@ -186,12 +186,13 @@ $SUDO_CMD "$BINARY_PATH" $VERBOSE_FLAG check-policy 1.0 "encrypted disk disabled
 # Test check-policy-for-domain command
 echo "Check policy (with domain):"
 # Domain value from tests.yml: edamame.tech, Context: Github
-# Note: Use single quotes to avoid shell interpretation of special characters like &
+# Use explicit exit code capture pattern to avoid issues with & in policy name
 POLICY_NAME='Github & Gitlab'
-if $SUDO_CMD "$BINARY_PATH" $VERBOSE_FLAG check-policy-for-domain "edamame.tech" "$POLICY_NAME"; then
+check_policy_for_domain_exit=0
+$SUDO_CMD "$BINARY_PATH" $VERBOSE_FLAG check-policy-for-domain "edamame.tech" "$POLICY_NAME" || check_policy_for_domain_exit=$?
+if [[ $check_policy_for_domain_exit -eq 0 ]]; then
     check_policy_for_domain_result="✅"
 else
-    check_policy_for_domain_exit=$?
     echo "check-policy-for-domain exited with code: $check_policy_for_domain_exit"
     check_policy_for_domain_result="❌"
 fi
