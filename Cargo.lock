@@ -1829,7 +1829,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "0.9.83"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#f1086ad45f9426182419b0795c26529566b9d825"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#e20af346459bb3e73b23e3c1f87bd3ee17d1e753"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1911,7 +1911,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "0.9.83"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#63eefdc0fa125ef575db327c6110a7a03e2f010a"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#1c971c6d4eaa4f7a06427ea96fc6c9a64c7f3160"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1976,7 +1976,7 @@ dependencies = [
 [[package]]
 name = "edamame_models"
 version = "0.1.1"
-source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#9a13c5c00f3874da8b6aed93fe18fc7201dbcfa6"
+source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#ec9013094bb9e545ac3ea881dbe4552e9dcd421a"
 dependencies = [
  "anyhow",
  "chrono",
@@ -2297,7 +2297,7 @@ dependencies = [
 [[package]]
 name = "flodbadd"
 version = "0.9.83"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#0936fa3f9cdf839eeb8634b57068a7faae0a7ba3"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#b482c4dedb0210fa1410e401fe5da19e7d20e4b5"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -3118,9 +3118,9 @@ checksum = "7aedcccd01fc5fe81e6b489c15b247b8b0690feb23304303a9e560f37efc560a"
 
 [[package]]
 name = "icu_properties"
-version = "2.1.1"
+version = "2.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e93fcd3157766c0c8da2f8cff6ce651a31f0810eaa1c51ec363ef790bbb5fb99"
+checksum = "020bfc02fe870ec3a66d93e677ccca0562506e5872c650f893269e08615d74ec"
 dependencies = [
  "icu_collections",
  "icu_locale_core",
@@ -3132,9 +3132,9 @@ dependencies = [
 
 [[package]]
 name = "icu_properties_data"
-version = "2.1.1"
+version = "2.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "02845b3647bb045f1100ecd6480ff52f34c35f82d9880e029d329c21d1054899"
+checksum = "616c294cf8d725c6afcd8f55abc17c56464ef6211f9ed59cccffe534129c77af"
 
 [[package]]
 name = "icu_provider"
@@ -3420,7 +3420,7 @@ dependencies = [
 [[package]]
 name = "l7_ebpf_program"
 version = "0.1.0"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#0936fa3f9cdf839eeb8634b57068a7faae0a7ba3"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#b482c4dedb0210fa1410e401fe5da19e7d20e4b5"
 
 [[package]]
 name = "lazy_static"
@@ -3604,9 +3604,9 @@ dependencies = [
 
 [[package]]
 name = "libp2p-identity"
-version = "0.2.12"
+version = "0.2.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3104e13b51e4711ff5738caa1fb54467c8604c2e94d607e27745bcf709068774"
+checksum = "f0c7892c221730ba55f7196e98b0b8ba5e04b4155651736036628e9f73ed6fc3"
 dependencies = [
  "bs58",
  "ed25519-dalek",
