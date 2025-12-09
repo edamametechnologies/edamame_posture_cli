@@ -79,7 +79,8 @@ jobs:
           edamame_id: ${{ github.run_id }}
           network_scan: true
           auto_remediate: true
-          checkout: true
+          # Don't checkout the repo, as we will do that in the next step
+          checkout: false
           # We are using the token of the private repo to checkout the public repo and properly wait for access to the private repo
           token: ${{ secrets.DEV_GITHUB_TOKEN }}
           wait_for_api: true
