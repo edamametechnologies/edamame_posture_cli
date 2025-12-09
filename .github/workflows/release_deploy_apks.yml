@@ -61,6 +61,14 @@ jobs:
     
     steps:
 
+      # Needed when we are running in a container
+      - name: Setup permissions for git and install missing packages (apk)
+        if: ${{ contains(matrix.container_image, 'alpine') }}
+        shell: sh
+        run: |
+          apk update
+          apk add --no-cache build-base git curl bash sudo pkgconf
+          git config --global --add safe.directory '*'
 
       - name: Setup EDAMAME Posture
         uses: edamametechnologies/edamame_posture_action@v0
@@ -87,18 +95,6 @@ jobs:
           git config --global user.email "dev@edamame.tech"
           git config --global user.name "EDAMAME Dev"
           git config --global url."https://edamamedev:${{ secrets.DEV_GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
-
-      # Install base packages needed for git and checkout
-      - name: Install base packages
-        shell: sh
-        run: |
-          apk update
-          apk add --no-cache git curl bash sudo
-
-      - name: Setup git safe directory
-        shell: sh
-        run: |
-          git config --global --add safe.directory '*'
 
       # Manual checkout for containers
       - name: Checkout repository
