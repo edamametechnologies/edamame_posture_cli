@@ -166,10 +166,7 @@ jobs:
 
           # Install clang/llvm first (required for eBPF compilation)
           run_apt install -y clang llvm libbpf-dev
-          # Try to install kernel headers - try specific version first, then generic fallback
-          run_apt install -y linux-headers-$(uname -r) || run_apt install -y linux-headers-generic || echo "Warning: Could not install kernel headers"
-          # Also ensure linux-libc-dev is installed (provides kernel type definitions)
-          run_apt install -y linux-libc-dev
+          run_apt install -y linux-headers-$(uname -r)
   
       # Install Rust
       - name: Install Rust
