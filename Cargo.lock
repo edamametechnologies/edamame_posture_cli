@@ -2307,7 +2307,7 @@ dependencies = [
 [[package]]
 name = "flodbadd"
 version = "0.9.83"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#695f45c3846d7e58dde92191f30a7ce700269f99"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#aaeff4a5ae7a4b575a50097427b80e77e5c59aab"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -3068,7 +3068,7 @@ dependencies = [
  "js-sys",
  "log",
  "wasm-bindgen",
- "windows-core 0.62.2",
+ "windows-core 0.57.0",
 ]
 
 [[package]]
@@ -3430,7 +3430,7 @@ dependencies = [
 [[package]]
 name = "l7_ebpf_program"
 version = "0.1.0"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#695f45c3846d7e58dde92191f30a7ce700269f99"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#aaeff4a5ae7a4b575a50097427b80e77e5c59aab"
 
 [[package]]
 name = "lazy_static"
@@ -4994,7 +4994,7 @@ version = "0.14.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ac6c3320f9abac597dcbc668774ef006702672474aad53c6d596b62e487b40b1"
 dependencies = [
- "heck 0.5.0",
+ "heck 0.4.1",
  "itertools 0.14.0",
  "log",
  "multimap",
