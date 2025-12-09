@@ -413,13 +413,10 @@ fn get_signature() -> (String, i32) {
 }
 
 pub fn base_check_policy_for_domain(domain: String, policy_name: String) -> i32 {
-    println!("Getting signature for domain policy check...");
     let (signature, exit_code) = get_signature();
     if exit_code != 0 {
-        eprintln!("Failed to get signature (exit code: {})", exit_code);
         return exit_code;
     }
-    println!("Signature obtained, proceeding with policy check...");
 
     base_check_policy_for_domain_with_signature(signature, domain, policy_name)
 }
