@@ -527,10 +527,11 @@ jobs:
 
       - name: Fail job if tests failed
         shell: bash
-        if: steps.ebpf_test.outcome == 'failure' || steps.cargo_tests.outcome == 'failure' || steps.standalone_tests.outcome == 'failure' || steps.integration_tests.outcome == 'failure'
+        # eBPF test failure is ignored on Ubuntu 18.04 (doesn't support eBPF well)
+        if: (steps.ebpf_test.outcome == 'failure' && !contains(matrix.container_name, '18.04')) || steps.cargo_tests.outcome == 'failure' || steps.standalone_tests.outcome == 'failure' || steps.integration_tests.outcome == 'failure'
         run: |
           echo "## Test Results Summary (Container - ${{ matrix.container_name }})"
-          echo "- eBPF Test: ${{ steps.ebpf_test.outcome != 'failure' && '✅ Success' || '❌ Failed' }}"
+          echo "- eBPF Test: ${{ steps.ebpf_test.outcome != 'failure' && '✅ Success' || (contains(matrix.container_name, '18.04') && '⚠️ Ignored (18.04)' || '❌ Failed') }}"
           echo "- Cargo Tests: ${{ steps.cargo_tests.outcome != 'failure' && '✅ Success' || '❌ Failed' }}"
           echo "- Standalone Tests: ${{ steps.standalone_tests.outcome != 'failure' && '✅ Success' || '❌ Failed' }}"
           echo "- Integration Tests: ${{ steps.integration_tests.outcome != 'failure' && '✅ Success' || '❌ Failed' }}"
