@@ -981,10 +981,15 @@ fn run_base() {
                 }
             }
         }
-        Some(("background-create-custom-whitelists", _)) => {
+        Some(("background-create-custom-whitelists", sub_matches)) => {
             // Initialize the core with all options disabled
             initialize_core("".to_string(), false, false, false, false, false, verbose);
-            exit_code = background_create_custom_whitelists();
+            let include_process = sub_matches.get_flag("include-process");
+            if include_process {
+                exit_code = background_create_custom_whitelists_with_process();
+            } else {
+                exit_code = background_create_custom_whitelists();
+            }
             is_background = true;
         }
         Some(("background-create-and-set-custom-whitelists", _)) => {
