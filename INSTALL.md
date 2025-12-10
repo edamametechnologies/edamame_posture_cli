@@ -13,7 +13,9 @@ This document explains how `install.sh` provisions EDAMAME Posture across platfo
    - [Windows](#windows)
 4. [Binary Fallback Details](#binary-fallback-details)
 5. [Service Configuration & Verification](#service-configuration--verification)
-6. [GitHub Action Integration](#github-action-integration)
+6. [Daemon Management Decision Tree](#daemon-management-decision-tree)
+7. [GitHub Action Integration](#github-action-integration)
+8. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -130,10 +132,102 @@ Note: When credentials (`--user`, `--domain`, `--pin`) are omitted, the installe
 
 ### Installation Flow by Platform
 
+#### High-Level Flow Chart
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                    INSTALLER START                                   │
+└─────────────────────────────────────────────────────────────────────┘
+                                │
+                                ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│              1. CHECK EXISTING INSTALLATION                          │
+│  ┌─────────────────────────────────────────────────────────────┐    │
+│  │ • Locate binary via `command -v edamame_posture`            │    │
+│  │ • Check default install dir ($HOME on Windows)              │    │
+│  └─────────────────────────────────────────────────────────────┘    │
+└─────────────────────────────────────────────────────────────────────┘
+                                │
+              Binary found?     │
+           ┌────────────────────┼────────────────────┐
+           │ NO                 │                    │ YES
+           ▼                    │                    ▼
+┌──────────────────────┐        │      ┌──────────────────────────────┐
+│ SKIP_INSTALLATION=   │        │      │  2. VERSION/SHA CHECK        │
+│   false              │        │      │  ┌────────────────────────┐  │
+│ Proceed to install   │        │      │  │ Package: check upgrade │  │
+└──────────────────────┘        │      │  │ Binary: compare SHA256 │  │
+           │                    │      │  └────────────────────────┘  │
+           │                    │      └──────────────────────────────┘
+           │                    │                    │
+           │                    │       Up to date?  │
+           │                    │      ┌─────────────┼─────────────┐
+           │                    │      │ NO          │             │ YES
+           │                    │      ▼             │             ▼
+           │                    │  ┌─────────────┐   │   ┌─────────────────────┐
+           │                    │  │ Update      │   │   │ 3. CREDENTIAL CHECK │
+           │                    │  │ needed      │   │   │ (if provided)       │
+           │                    │  └─────────────┘   │   └─────────────────────┘
+           │                    │      │             │             │
+           │                    │      │             │   ┌─────────┼─────────┐
+           │                    │      │             │   │ Daemon  │         │
+           │                    │      │             │   │ status  │         │
+           │                    │      │             │   │ check   │         │
+           │                    │      │             │   └─────────┴─────────┘
+           │                    │      │             │         │
+           │                    │      │             │    ┌────┼────┐
+           │                    │      │             │    │    │    │
+           │                    │      │             │ SUCCESS FAIL
+           │                    │      │             │    │    │
+           │                    │      │             │    ▼    ▼
+           │                    │      │             │  ┌──────────────────┐
+           │                    │      │             │  │ Parse status or  │
+           │                    │      │             │  │ check config     │
+           │                    │      │             │  │ (Linux only)     │
+           │                    │      │             │  └──────────────────┘
+           │                    │      │             │         │
+           ▼                    ▼      ▼             ▼         ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                    4. DETERMINE ACTION                               │
+│  ┌─────────────────────────────────────────────────────────────┐    │
+│  │ SKIP_INSTALLATION: true/false                               │    │
+│  │ SKIP_CONFIGURATION: true/false                              │    │
+│  │ SHOULD_START_DAEMON: true/false                             │    │
+│  └─────────────────────────────────────────────────────────────┘    │
+└─────────────────────────────────────────────────────────────────────┘
+                                │
+                                ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│              5. PLATFORM-SPECIFIC INSTALLATION                       │
+│  ┌───────────────┐  ┌───────────────┐  ┌───────────────┐           │
+│  │ Linux         │  │ macOS         │  │ Windows       │           │
+│  │ APT/APK/Binary│  │ Homebrew/Bin  │  │ Choco/Binary  │           │
+│  └───────────────┘  └───────────────┘  └───────────────┘           │
+└─────────────────────────────────────────────────────────────────────┘
+                                │
+                                ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│              6. SERVICE/DAEMON MANAGEMENT                            │
+│  ┌───────────────────────────────────────────────────────────────┐  │
+│  │ Linux: configure_service() → systemd/OpenRC                   │  │
+│  │ macOS/Windows: Manual daemon start via background process     │  │
+│  └───────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────┘
+                                │
+                                ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                    INSTALLER COMPLETE                                │
+│  • Write state file (if --state-file provided)                      │
+│  • Display Quick Start commands                                      │
+│  • Show daemon status                                                │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
 #### Pre-Installation Check (All Platforms)
 **Before any package manager operations**, the installer performs an intelligent check:
 
 1. **Locate existing binary** via `command -v edamame_posture`
+   - On Windows, also checks default install directory (`$HOME/edamame_posture.exe`)
    - If not found → proceed with installation
 
 2. **Version/SHA verification**
@@ -148,16 +242,23 @@ Note: When credentials (`--user`, `--domain`, `--pin`) are omitted, the installe
 
 3. **Credential verification** (only if credentials provided via `--user`/`--domain`/`--pin`)
    - Call `edamame_posture status` and parse output
-   - Extract: Connected user, Connected domain, Connection status
-   - If credentials match AND version is latest → **SKIP EVERYTHING** (zero package operations, zero service restarts)
-   - If credentials differ → **SKIP INSTALLATION**, proceed to reconfiguration only
-   - If not connected → **SKIP INSTALLATION**, proceed to reconfiguration only
+   - Extract: Connected user, Connected domain, Device ID, Connection status
+   - **Decision matrix:**
+
+| Status Check | Credentials Match | Platform | Action |
+|--------------|-------------------|----------|--------|
+| Success | Yes | Any | SKIP EVERYTHING |
+| Success | No | Linux | Reconfigure service |
+| Success | No | Windows/macOS | Start daemon with new credentials |
+| Failed (transport error) | N/A | Linux | Check config file, reconfigure if needed |
+| Failed (transport error) | N/A | Windows/macOS | **Start daemon** (daemon not running) |
 
 This early check ensures:
 - Idempotent behavior (running twice with same params does nothing on second run)
 - Minimal operations (no unnecessary APT/APK/Homebrew/Choco calls)
 - Fast execution (2-3 seconds vs 10-15 seconds for redundant operations)
 - Smart updates (automatic upgrades when new versions available)
+- **Daemon auto-start on Windows/macOS when not running**
 
 #### Linux
 1. **Privilege detection**  
@@ -172,15 +273,22 @@ This early check ensures:
 3. **Fallbacks**  
    - For unsupported distros or if package installation fails/`--force-binary`, download the correct release binary (GNU vs MUSL decided by GLIBC detection) and drop it into `--install-dir`.
 
+4. **Service configuration**
+   - Creates/updates `/etc/edamame_posture.conf` with all provided parameters
+   - Enables and starts systemd/OpenRC service
+   - If systemd/OpenRC unavailable (containers), falls back to manual daemon start
+
 #### macOS
 1. **Pre-check** (see above): If Homebrew installation exists and is up-to-date with matching credentials → skip everything
 2. Try installing/upgrading the [`edamametechnologies/tap`](https://github.com/edamametechnologies/homebrew-tap) formula via Homebrew (only if needed)
 3. If Homebrew is unavailable or fails (or `--force-binary`), download the universal macOS binary to `--install-dir`
+4. **Daemon management**: No system service; daemon started as background process when credentials provided
 
 #### Windows
 1. **Pre-check** (see above): If Chocolatey installation exists and is up-to-date with matching credentials → skip everything
 2. Attempt to install/upgrade `edamame-posture` via Chocolatey (only if needed)
 3. If Chocolatey is unavailable or errors (or `--force-binary`), download the `x86_64-pc-windows-msvc(.exe)` artifact to `--install-dir`
+4. **Daemon management**: No system service; daemon started as background process when credentials provided
 
 ---
 
@@ -276,6 +384,100 @@ All parameters passed to `install.sh` via flags are written to this file, and th
 
 ---
 
+### Daemon Management Decision Tree
+
+The installer uses a sophisticated decision tree to determine when and how to start the daemon:
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                 DAEMON START DECISION                                │
+└─────────────────────────────────────────────────────────────────────┘
+                                │
+                                ▼
+                    ┌───────────────────────┐
+                    │ Credentials provided? │
+                    │ (--user/--domain/--pin)│
+                    └───────────────────────┘
+                           │
+              ┌────────────┼────────────┐
+              │ NO         │            │ YES
+              ▼            │            ▼
+    ┌──────────────────┐   │   ┌──────────────────────────┐
+    │ Network flags?   │   │   │ SKIP_CONFIGURATION set? │
+    │ (lanscan/capture)│   │   │ (from pre-check)         │
+    └──────────────────┘   │   └──────────────────────────┘
+           │               │              │
+      ┌────┼────┐          │         ┌────┼────┐
+      │NO  │    │YES       │         │ NO │    │ YES
+      ▼    │    ▼          │         ▼    │    ▼
+   ┌─────┐ │ ┌──────────┐  │   ┌───────┐  │  ┌─────────────────────┐
+   │DONE │ │ │Disconnect│  │   │Config │  │  │ SHOULD_START_DAEMON │
+   │(no  │ │ │mode      │  │   │service│  │  │ already set?        │
+   │start│ │ │daemon    │  │   │(Linux)│  │  └─────────────────────┘
+   └─────┘ │ └──────────┘  │   └───────┘  │         │
+           │               │              │    ┌────┼────┐
+           │               │              │    │ NO │    │ YES
+           │               │              │    ▼    │    ▼
+           │               │              │  ┌────┐ │  ┌───────────┐
+           │               │              │  │Skip│ │  │ START     │
+           │               │              │  │    │ │  │ DAEMON    │
+           │               │              │  └────┘ │  └───────────┘
+           │               │              │         │
+           └───────────────┴──────────────┴─────────┘
+```
+
+#### Key Variables
+
+| Variable | Purpose | Set When |
+|----------|---------|----------|
+| `SKIP_INSTALLATION` | Skip package manager operations | Binary exists and is up-to-date |
+| `SKIP_CONFIGURATION` | Skip `configure_service()` | Linux: credentials match; Windows/macOS: always (no config file) |
+| `SHOULD_START_DAEMON` | Force manual daemon start | See table below |
+
+#### When SHOULD_START_DAEMON is Set to True
+
+| Scenario | Platform | Reason |
+|----------|----------|--------|
+| Status check failed (daemon not running) | Windows/macOS | No service manager, must start manually |
+| Credentials mismatch | Windows/macOS | Need to restart with new credentials |
+| Service start failed (OpenRC/systemd) | Linux | Fallback to manual start |
+| Binary installation (no package) | Any | No service file installed |
+| Homebrew/Chocolatey installation | macOS/Windows | No service file with these package managers |
+
+#### Daemon Start Process
+
+When `SHOULD_START_DAEMON=true`:
+
+1. **Stop existing daemon** (if any)
+   - Windows: `taskkill //F //IM edamame_posture.exe`
+   - Linux/macOS: `edamame_posture stop` then `pkill -f edamame_posture`
+
+2. **Export AI configuration** (if agentic mode enabled)
+   - `EDAMAME_LLM_API_KEY`
+   - `EDAMAME_LLM_BASE_URL` (for Ollama)
+   - Slack tokens and channels
+
+3. **Build command based on mode**
+   - **Connected mode**: `edamame_posture start --user ... --domain ... --pin ...`
+   - **Disconnected mode**: `edamame_posture background-start-disconnected`
+
+4. **Add network flags**
+   - `--network-scan` if `--start-lanscan`
+   - `--packet-capture` if `--start-capture`
+   - `--whitelist <name>` if `--whitelist`
+   - Enforcement flags (`--fail-on-*`, `--cancel-on-violation`)
+
+5. **Start in background**
+   - Uses `nohup` if available
+   - Redirects output to `/dev/null`
+   - Uses `sudo` if needed (Linux/macOS)
+
+6. **Wait and verify**
+   - Sleep 5 seconds
+   - Call `edamame_posture status` to verify startup
+
+---
+
 ### GitHub Action Integration
 The composite Action delegates ALL configuration to `install.sh`, passing action inputs as installer flags:
 
@@ -320,5 +522,110 @@ platform=linux
 - An optional "Inspect service status" step runs `systemctl status` / `rc-service status` when available
 - The daemon is already running with all action-specified parameters (started by `install.sh`)
 
-Use this doc as the canonical reference when debugging installer behavior or extending it with new distribution-specific paths.
+---
 
+### Troubleshooting
+
+#### Common Issues
+
+##### "transport error" / "target machine actively refused it" (Windows)
+**Symptom:** Status check fails with connection refused error.
+
+**Cause:** The daemon is not running. This can happen when:
+- First-time installation on a machine
+- Daemon was stopped manually
+- Previous installer run didn't start the daemon
+
+**Solution:** The installer now automatically detects this condition and starts the daemon when credentials are provided. If you see this error in logs followed by "Will start daemon" or "Daemon not responding... will start daemon", the installer will handle it.
+
+##### Credentials not matching (CI/CD)
+**Symptom:** Installer reports "Existing installation has different credentials" but doesn't update.
+
+**Cause:** On Windows/macOS, there's no config file to update (unlike Linux with `/etc/edamame_posture.conf`).
+
+**Solution:** The installer will stop the existing daemon and start a new one with the provided credentials.
+
+##### "Cannot get status from existing installation"
+**Symptom:** Status check fails but binary exists.
+
+**Cause:** Daemon is not running or not responding to RPC calls.
+
+**Platform-specific behavior:**
+- **Linux:** Checks `/etc/edamame_posture.conf` for credentials; reconfigures and restarts service if needed
+- **Windows/macOS:** Sets `SHOULD_START_DAEMON=true` to start the daemon manually
+
+##### Daemon not starting (Linux containers)
+**Symptom:** "systemd is not available" warning.
+
+**Cause:** Running in a container without systemd (PID 1 is not `systemd`).
+
+**Solution:** The installer falls back to manual daemon start or you can run:
+```bash
+sudo edamame_posture start --user USER --domain DOMAIN --pin PIN [other flags]
+```
+
+##### Binary SHA mismatch
+**Symptom:** "Binary SHA differs from latest release" message.
+
+**Cause:** Existing binary is from an older version.
+
+**Solution:** This is normal behavior - the installer will update the binary automatically.
+
+#### Debug Information
+
+The installer outputs detailed decision information:
+
+```
+[INFO] Daemon start decision:
+[INFO]   Credentials provided: yes
+[INFO]   SKIP_CONFIGURATION: true
+[INFO]   INSTALLED_VIA_PACKAGE_MANAGER: false
+[INFO]   INSTALL_METHOD: existing
+[INFO]   SHOULD_START_DAEMON (current): true
+[INFO]   Decision: Binary installation - will start daemon
+[INFO]   SHOULD_START_DAEMON: true
+```
+
+Use this output to understand why the installer made specific decisions.
+
+#### Manual Daemon Commands
+
+If automatic daemon management fails, you can start the daemon manually:
+
+**Connected mode:**
+```bash
+# Linux/macOS
+sudo edamame_posture start --user USER --domain DOMAIN --pin PIN --device-id DEVICE_ID
+
+# Windows (PowerShell as Admin)
+.\edamame_posture.exe start --user USER --domain DOMAIN --pin PIN --device-id DEVICE_ID
+```
+
+**Disconnected mode:**
+```bash
+# Linux/macOS
+sudo edamame_posture background-start-disconnected --network-scan --packet-capture
+
+# Windows
+.\edamame_posture.exe background-start-disconnected --network-scan --packet-capture
+```
+
+**Check status:**
+```bash
+edamame_posture status
+```
+
+**Stop daemon:**
+```bash
+# Linux/macOS
+sudo edamame_posture stop
+
+# Windows
+.\edamame_posture.exe stop
+# or
+taskkill /F /IM edamame_posture.exe
+```
+
+---
+
+Use this doc as the canonical reference when debugging installer behavior or extending it with new distribution-specific paths.

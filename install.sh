@@ -1686,6 +1686,15 @@ check_existing_installation() {
         else
             SKIP_CONFIGURATION="true"
         fi
+        
+        # Daemon is not responding - if credentials are provided, we need to start it
+        # On non-Linux platforms (Windows/macOS), there's no service to restart,
+        # so we must start the daemon manually
+        if credentials_provided && [ "$PLATFORM" != "linux" ]; then
+            info "Daemon not responding on $PLATFORM with credentials provided - will start daemon"
+            SHOULD_START_DAEMON="true"
+        fi
+        
         return 1  # Skip installation, conditionally reconfigure
     fi
     
@@ -1759,15 +1768,14 @@ check_existing_installation() {
         if [ "$PLATFORM" = "linux" ]; then
             info "Will skip installation but reconfigure with new credentials"
         else
-            warn "Cannot reconfigure on $PLATFORM (no service configuration support)"
-            warn "Binary exists but has different credentials - manual reconfiguration needed"
+            info "Will restart daemon on $PLATFORM with new credentials"
         fi
     else
         info "Existing installation is not connected"
         if [ "$PLATFORM" = "linux" ]; then
             info "Will skip installation but reconfigure"
         else
-            info "Cannot reconfigure on $PLATFORM (no service configuration support)"
+            info "Will start daemon on $PLATFORM with provided credentials"
         fi
     fi
     
@@ -1782,6 +1790,15 @@ check_existing_installation() {
     else
         SKIP_CONFIGURATION="true"
     fi
+    
+    # On non-Linux platforms (Windows/macOS), there's no service configuration,
+    # so we must start/restart the daemon manually when credentials are provided
+    # and either: daemon is not connected OR credentials don't match
+    if credentials_provided && [ "$PLATFORM" != "linux" ]; then
+        info "Will start/restart daemon on $PLATFORM with provided credentials"
+        SHOULD_START_DAEMON="true"
+    fi
+    
     return 1  # Skip installation, conditionally reconfigure
 }
 
@@ -2230,6 +2247,12 @@ if [ "$SHOULD_START_DAEMON" = "true" ]; then
     else
         info "Starting background daemon with provided credentials..."
     fi
+    
+    # Stop any existing daemon before starting a new one
+    # This is important on Windows/macOS where the daemon might be running with different credentials
+    info "Stopping any existing daemon..."
+    stop_existing_posture || true
+    sleep 2
     
     # Export AI configuration before starting daemon
     AGENTIC_PROVIDER_NAME=""
