@@ -1769,7 +1769,7 @@ dependencies = [
 [[package]]
 name = "edamame_backend"
 version = "0.3.5"
-source = "git+https://github.com/edamametechnologies/edamame_backend?branch=main#3ac8248e38d64f60ad67b1b2720164fec682b250"
+source = "git+https://github.com/edamametechnologies/edamame_backend?branch=main#329c3920c31a4cf30f5220bc5794f93398962136"
 dependencies = [
  "anyhow",
  "blake3",
@@ -1783,7 +1783,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "0.9.83"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#2df995707750cb12ef2d5da4bc73dc6efb90809f"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#93a3888e03877c01d67fcb965c419bad45f59959"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1865,7 +1865,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "0.9.83"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#c0c2427e3c9dfa3f9339aa0e056e9a1855a95f54"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#c2432340b7c678476fc029b3838d0766231c8abb"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -2251,7 +2251,7 @@ dependencies = [
 [[package]]
 name = "flodbadd"
 version = "0.9.83"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#4be8427d556339b1bae9cfbb079764d65874e57c"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#d47fc9d124f47a230f94b67fe8315dd8ae931e5f"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -3012,7 +3012,7 @@ dependencies = [
  "js-sys",
  "log",
  "wasm-bindgen",
- "windows-core 0.58.0",
+ "windows-core 0.62.2",
 ]
 
 [[package]]
@@ -3374,7 +3374,7 @@ dependencies = [
 [[package]]
 name = "l7_ebpf_program"
 version = "0.1.0"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#4be8427d556339b1bae9cfbb079764d65874e57c"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#d47fc9d124f47a230f94b67fe8315dd8ae931e5f"
 
 [[package]]
 name = "lazy_static"
