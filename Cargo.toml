@@ -17,9 +17,10 @@ edamame_core = { git = "https://github.com/edamametechnologies/edamame_core", br
 flodbadd = { git = "https://github.com/edamametechnologies/flodbadd", branch = "main", features = [ "packetcapture", "asyncpacketcapture", "ebpf" ] }
 
 # No eBPF for 32-bit Linux (i686, armv7) - aya doesn't support these architectures
-#[target.'cfg(all(target_os = "linux", any(target_arch = "x86", target_arch = "arm")))'.dependencies]
+# Local copy in order to allow rapid development/debug
+#[target.'cfg(not(all(target_os = "linux", any(target_arch = "x86_64", target_arch = "aarch64"))))'.dependencies]
 #flodbadd = { path = "../flodbadd", features = [ "packetcapture", "asyncpacketcapture" ] }
-[target.'cfg(all(target_os = "linux", any(target_arch = "x86", target_arch = "arm")))'.dependencies]
+[target.'cfg(not(all(target_os = "linux", any(target_arch = "x86_64", target_arch = "aarch64"))))'.dependencies]
 flodbadd = { git = "https://github.com/edamametechnologies/flodbadd", branch = "main", features = [ "packetcapture", "asyncpacketcapture" ] }
 
 # Error handling
