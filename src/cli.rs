@@ -338,6 +338,11 @@ pub fn build_cli() -> Command {
         Command::new("background-create-custom-whitelists")
             .alias("create-custom-whitelists")
             .about("Create custom whitelists from current sessions")
+            .arg(
+                arg!(--"include-process" "Include process names in whitelist entries for stricter matching")
+                    .required(false)
+                    .action(clap::ArgAction::SetTrue),
+            )
     )
     .subcommand(
         Command::new("background-create-and-set-custom-whitelists")
