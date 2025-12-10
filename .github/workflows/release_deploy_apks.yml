@@ -1,4 +1,5 @@
 name: Build and publish for linux apks
+
 on:
   workflow_dispatch:
 
@@ -22,15 +23,11 @@ jobs:
             runs-on: ubuntu-latest
             arch: x86_64
             target: x86_64-unknown-linux-musl
-            container_image: alpine:3.15
           - os: ubuntu
             runs-on: ubuntu-24.04-arm
             arch: aarch64
             target: aarch64-unknown-linux-musl
-            container_image: alpine:3.15
     runs-on: ${{ matrix.runs-on }}
-    container:
-      image: ${{ matrix.container_image }}
 
     env:
       EDAMAME_APP_SENTRY: ${{ secrets.EDAMAME_APP_SENTRY }}
@@ -46,29 +43,10 @@ jobs:
       EDAMAME_CLIENT_CA_PEM: ${{ secrets.EDAMAME_CLIENT_CA_PEM }}
       LAMBDA_SIGNATURE: ${{ secrets.LAMBDA_SIGNATURE }}
       MIXPANEL_TOKEN: ${{ secrets.MIXPANEL_TOKEN }}
-      APPLE_APPSTORE_CONNECT_API_ISSUER_ID: ${{ secrets.APPLE_APPSTORE_CONNECT_API_ISSUER_ID }}
-      APPLE_APPSTORE_CONNECT_API_KEY_ID: ${{ secrets.APPLE_APPSTORE_CONNECT_API_KEY_ID }}
-      APPLE_APPSTORE_CONNECT_API_KEY: ${{ secrets.APPLE_APPSTORE_CONNECT_API_KEY }}
-      MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.DEV_GITHUB_TOKEN_B64 }}
-      MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      AWS_REGION: ${{ secrets.AWS_REGION }}
-      # Required for cross to not show warnings and fail
-      CROSS_NO_WARNINGS: 0
-      # Debug mode
-      EDAMAME_LOG_LEVEL: debug
-    
-    steps:
+      ABUILD_PRIVATE_KEY_B64: ${{ secrets.ABUILD_PRIVATE_KEY_B64 }}
+      ABUILD_PUBLIC_KEY_B64: ${{ secrets.ABUILD_PUBLIC_KEY_B64 }}
 
-      # Needed when we are running in a container
-      - name: Setup permissions for git and install missing packages (apk)
-        if: ${{ contains(matrix.container_image, 'alpine') }}
-        shell: sh
-        run: |
-          apk update
-          apk add --no-cache build-base git curl bash sudo pkgconf
-          git config --global --add safe.directory '*'
+    steps:
 
       - name: Setup EDAMAME Posture
         uses: edamametechnologies/edamame_posture_action@v0
@@ -79,9 +57,7 @@ jobs:
           edamame_id: ${{ github.run_id }}
           network_scan: true
           auto_remediate: true
-          # Don't checkout the repo, as we will do that in the next step
-          checkout: false
-          # We are using the token of the private repo to checkout the public repo and properly wait for access to the private repo
+          checkout: true
           token: ${{ secrets.DEV_GITHUB_TOKEN }}
           wait_for_api: true
           wait_for_https: true
@@ -90,42 +66,33 @@ jobs:
       # Setup
       ############################################################################################
 
-      - name: Configure Git Authentication to import private crates
-        shell: sh
-        run: |
-          git config --global user.email "dev@edamame.tech"
-          git config --global user.name "EDAMAME Dev"
-          git config --global url."https://edamamedev:${{ secrets.DEV_GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
+      # Setup Alpine Linux
+      - name: Setup Alpine Linux
+        uses: jirutka/setup-alpine@v1
+        with:
+          arch: ${{ matrix.arch }}
+          apk-tools-url: ${{ startsWith(matrix.arch, 'x86') && 'https://gitlab.alpinelinux.org/api/v4/projects/5/packages/generic/v2.14.7/x86_64/apk.static#!sha256!bdd044e0fd6cc388c5e571e1093efa5f35f7767cc5aa338b0a2576a429009a62' || 'https://gitlab.alpinelinux.org/api/v4/projects/5/packages/generic/v2.14.7/aarch64/apk.static#!sha256!27a975638ddc95a411c9f17c63383e335da9edf6bb7de2281d950c291a11f878' }}
 
-      # Manual checkout for containers
-      - name: Checkout repository
-        shell: sh
-        run: |
-          git clone https://github.com/${{ github.repository }}.git .
-          git checkout "${{ github.head_ref || github.ref_name }}"
-
-      # Install build dependencies
-      - name: Install build dependencies
-        shell: sh
+      # Install dependencies with apk
+      - name: Install dependencies with apk
         run: |
           apk add --no-cache \
             build-base \
             protobuf-dev \
+            git \
+            curl \
             pkgconf \
             eudev-dev \
             perl \
             flex \
-            bison \
-            wget
+            bison
           
           # eBPF development tools for L7 process resolution
-          apk add --no-cache clang llvm
-          # libbpf-dev and linux-headers
-          apk add --no-cache libbpf-dev linux-headers
+          apk add --no-cache clang llvm || true
+          apk add --no-cache libbpf-dev linux-headers || true
           
           # For aarch64, we need to build libpcap from source with -fPIC
-          # The Alpine libpcap-dev package doesn't have -fPIC on aarch64
-          if [ "${{ matrix.arch }}" = "aarch64" ]; then
+          if [[ "${{ matrix.arch }}" == "aarch64" ]]; then
             echo "Building libpcap from source with -fPIC for aarch64..."
             cd /tmp
             wget https://www.tcpdump.org/release/libpcap-1.10.5.tar.gz
@@ -134,63 +101,58 @@ jobs:
             CFLAGS="-fPIC" ./configure --prefix=/usr --disable-shared --enable-static
             make -j$(nproc)
             make install
-            echo "libpcap installed to /usr/lib/libpcap.a"
-            cd -
           else
-            echo "Installing libpcap-dev from Alpine package..."
             apk add --no-cache libpcap-dev
           fi
+        shell: alpine.sh --root {0}
 
       # Install Rust
-      - name: Install Rust
-        shell: sh
+      - name: Install Rust for Alpine
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+          source $HOME/.cargo/env
+          rustup --version
+        shell: alpine.sh {0}
+
+      # Configure Git Authentication
+      - name: Configure Git Authentication to import private crates
+        run: |
+          git config --global user.email "dev@edamame.tech"
+          git config --global user.name "EDAMAME Dev"
+          git config --global url."https://edamamedev:${{ secrets.DEV_GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
+        shell: alpine.sh {0}
 
       ############################################################################################
       # Build
       ############################################################################################
 
-      # Build application for Linux musl
       - name: Build application for Linux musl
-        shell: sh
         run: |
-          . $HOME/.cargo/env
           rustup target add ${{ matrix.target }}
           cargo build --release --target ${{ matrix.target }}
+        shell: alpine.sh {0}
         env:
           VERGEN_GIT_BRANCH: ${{ github.ref_name }}
 
-      # Build application in debug mode for Linux musl
       - name: Build application in debug mode for Linux musl
-        shell: sh
         run: |
-          . $HOME/.cargo/env
           cargo build --target ${{ matrix.target }}
+        shell: alpine.sh {0}
         env:
           VERGEN_GIT_BRANCH: ${{ github.ref_name }}
 
       # Package Alpine APK
       - name: Package Alpine APK
-        if: github.ref == 'refs/heads/main'
-        shell: sh
         run: |
-          # Install alpine-sdk for apk building tools
-          apk add --no-cache alpine-sdk
+          apk add --no-cache alpine-sdk sudo
           
-          # Get version from Cargo.toml
           VERSION=$(grep '^version =' ./Cargo.toml | awk '{print $3}' | tr -d '"')
+          WORKSPACE_PATH="${GITHUB_WORKSPACE:-$(pwd)}"
           
-          # Get workspace path
-          WORKSPACE_PATH="$(pwd)"
-          
-          # Create APK build directory
           mkdir -p /tmp/apk-build/edamame-posture
           cd /tmp/apk-build/edamame-posture
           
-          # Create APKBUILD file
-          cat > APKBUILD << 'APKEOF'
+          cat > APKBUILD << 'EOF'
           # Maintainer: EDAMAME Technologies <dev@edamame.tech>
           pkgname=edamame-posture
           pkgver=VERSION_PLACEHOLDER
@@ -208,88 +170,66 @@ jobs:
               install -Dm755 "$startdir/edamame_posture.init" "$pkgdir/etc/init.d/edamame_posture"
               install -Dm600 "$startdir/edamame_posture.conf" "$pkgdir/etc/edamame_posture.conf"
           }
-          APKEOF
+          EOF
           
-          # Create post-install script
-          cat > edamame-posture.post-install << 'POSTEOF'
+          cat > edamame-posture.post-install << 'EOF'
           #!/bin/sh
-          # Post-install script for edamame-posture
-          
-          # Add service to default runlevel (enable on boot)
           if ! rc-update show default 2>/dev/null | grep -q "edamame_posture"; then
-              echo "Enabling edamame_posture service in default runlevel..."
               rc-update add edamame_posture default 2>/dev/null || true
           fi
-          
-          # Start the service
-          echo "Starting edamame_posture service..."
           rc-service edamame_posture start 2>/dev/null || true
-          
-          echo "Please configure /etc/edamame_posture.conf and restart the service"
-          
           exit 0
-          POSTEOF
+          EOF
           
-          # Replace placeholders
           sed -i "s/VERSION_PLACEHOLDER/$VERSION/g" APKBUILD
-          if [ "${{ matrix.arch }}" = "x86_64" ]; then
+          if [[ "${{ matrix.arch }}" == "x86_64" ]]; then
             sed -i "s/ARCH_PLACEHOLDER/x86_64/g" APKBUILD
           else
             sed -i "s/ARCH_PLACEHOLDER/aarch64/g" APKBUILD
           fi
           
-          # Copy binary and service files
           cp "$WORKSPACE_PATH/target/${{ matrix.target }}/release/edamame_posture" ./edamame_posture
           cp "$WORKSPACE_PATH/linux/edamame_posture_daemon.sh" ./edamame_posture_daemon.sh
           cp "$WORKSPACE_PATH/alpine/edamame_posture.init" ./edamame_posture.init
           cp "$WORKSPACE_PATH/linux/edamame_posture.conf" ./edamame_posture.conf
           
-          # Setup abuild keys
+          # Setup abuild key
           mkdir -p "$HOME/.abuild"
+          KEY_PATH="$HOME/.abuild/edamame.rsa"
           if [ -n "$ABUILD_PRIVATE_KEY_B64" ] && [ -n "$ABUILD_PUBLIC_KEY_B64" ]; then
-            echo "$ABUILD_PRIVATE_KEY_B64" | base64 -d > "$HOME/.abuild/edamame.rsa"
-            chmod 600 "$HOME/.abuild/edamame.rsa"
-            echo "$ABUILD_PUBLIC_KEY_B64" | base64 -d > "$HOME/.abuild/edamame.rsa.pub"
-            mkdir -p /etc/apk/keys
-            cp "$HOME/.abuild/edamame.rsa.pub" /etc/apk/keys/edamame.rsa.pub
-            PRIVKEY="$HOME/.abuild/edamame.rsa"
+            echo "$ABUILD_PRIVATE_KEY_B64" | base64 -d > "$KEY_PATH"
+            chmod 600 "$KEY_PATH"
+            echo "$ABUILD_PUBLIC_KEY_B64" | base64 -d > "${KEY_PATH}.pub"
           else
             abuild-keygen -a -i -n
-            # Find the generated key (has dynamic name based on email)
-            PRIVKEY=$(find "$HOME/.abuild" -name "*.rsa" ! -name "*.pub" | head -1)
+            NEW_KEY=$(find "$HOME/.abuild" -name "*.rsa" ! -name "edamame.rsa" -type f | head -1)
+            if [ -n "$NEW_KEY" ]; then
+              mv "$NEW_KEY" "$KEY_PATH"
+              [ -f "${NEW_KEY}.pub" ] && mv "${NEW_KEY}.pub" "${KEY_PATH}.pub"
+            fi
           fi
-          
-          cat > "$HOME/.abuild/abuild.conf" << CONFEOF
+          install -Dm644 "${KEY_PATH}.pub" "/etc/apk/keys/edamame.rsa.pub"
+          cat > "$HOME/.abuild/abuild.conf" << EOC
           PACKAGER="EDAMAME Technologies <dev@edamame.tech>"
-          PACKAGER_PRIVKEY=$PRIVKEY
-          CONFEOF
+          PACKAGER_PRIVKEY=${KEY_PATH}
+          EOC
           
-          # Build APK
           abuild -F -P /tmp/apk-packages
           
-          # Copy APK back to workspace
           mkdir -p "$WORKSPACE_PATH/target/${{ matrix.target }}/apk"
           APK_PATH=$(find /tmp/apk-packages -name "edamame-posture-${VERSION}-r1.apk" -type f | head -1)
           if [ -n "$APK_PATH" ]; then
             cp "$APK_PATH" "$WORKSPACE_PATH/target/${{ matrix.target }}/apk/"
-            echo "APK copied to: $WORKSPACE_PATH/target/${{ matrix.target }}/apk/"
           else
             echo "ERROR: Could not find APK file!"
             exit 1
           fi
+        shell: alpine.sh --root {0}
 
       ############################################################################################
       # Release
       ############################################################################################
 
-      # Install gh CLI for release management
-      - name: Install GitHub CLI
-        if: github.ref == 'refs/heads/main'
-        shell: sh
-        run: |
-          apk add --no-cache github-cli
-
-      # Main only
       - name: Check for existing release
         if: github.ref == 'refs/heads/main'
         id: get_release
@@ -308,16 +248,13 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # Update the tag if it exists
       - name: Update the tag if it exists
         if: github.ref == 'refs/heads/main' && steps.get_release.outputs.exists == 'true'
-        shell: sh
         run: |
           gh release edit ${{ steps.get_release.outputs.tag }} --repo ${{ github.repository }} --target ${{ github.sha }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
-      # Create release if it doesn't exist
       - name: Create release if it doesn't exist
         if: github.ref == 'refs/heads/main' && steps.get_release.outputs.exists != 'true'
         id: create_release
@@ -330,7 +267,6 @@ jobs:
           draft: false
           prerelease: false
 
-      # Upload release asset
       - name: Upload asset to release
         if: github.ref == 'refs/heads/main'
         uses: shogo82148/actions-upload-release-asset@v1
@@ -343,7 +279,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # Upload debug binary
       - name: Upload debug asset to release
         if: github.ref == 'refs/heads/main'
         uses: shogo82148/actions-upload-release-asset@v1
@@ -370,7 +305,6 @@ jobs:
 
       - name: Upload .apk file to S3 and update repository index
         if: github.ref == 'refs/heads/main'
-        shell: sh
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -378,56 +312,56 @@ jobs:
         run: |
           set -e
           
-          # Get version
           VERSION=$(grep '^version =' ./Cargo.toml | awk '{print $3}' | tr -d '"')
           
-          # Install awscli
           apk add --no-cache aws-cli alpine-sdk
           
-          # Setup abuild signing key
+          # Setup abuild key
+          mkdir -p "$HOME/.abuild"
+          KEY_PATH="$HOME/.abuild/edamame.rsa"
           if [ -n "$ABUILD_PRIVATE_KEY_B64" ] && [ -n "$ABUILD_PUBLIC_KEY_B64" ]; then
-            mkdir -p "$HOME/.abuild"
-            echo "$ABUILD_PRIVATE_KEY_B64" | base64 -d > "$HOME/.abuild/edamame.rsa"
-            chmod 600 "$HOME/.abuild/edamame.rsa"
-            echo "$ABUILD_PUBLIC_KEY_B64" | base64 -d > "$HOME/.abuild/edamame.rsa.pub"
-            mkdir -p /etc/apk/keys
-            cp "$HOME/.abuild/edamame.rsa.pub" /etc/apk/keys/edamame.rsa.pub
+            echo "$ABUILD_PRIVATE_KEY_B64" | base64 -d > "$KEY_PATH"
+            chmod 600 "$KEY_PATH"
+            echo "$ABUILD_PUBLIC_KEY_B64" | base64 -d > "${KEY_PATH}.pub"
+          else
+            abuild-keygen -a -i -n
+            NEW_KEY=$(find "$HOME/.abuild" -name "*.rsa" ! -name "edamame.rsa" -type f | head -1)
+            if [ -n "$NEW_KEY" ]; then
+              mv "$NEW_KEY" "$KEY_PATH"
+              [ -f "${NEW_KEY}.pub" ] && mv "${NEW_KEY}.pub" "${KEY_PATH}.pub"
+            fi
           fi
+          install -Dm644 "${KEY_PATH}.pub" "/etc/apk/keys/edamame.rsa.pub"
           
-          # Setup Alpine repo structure in S3
           REPO_BASE_PATH="repo/alpine/v3.15"
           REPO_MAIN_PATH="${REPO_BASE_PATH}/main/${{ matrix.arch }}"
           
-          # Upload APK file
           aws s3 cp target/${{ matrix.target }}/apk/edamame-posture-${VERSION}-r1.apk \
             s3://edamame/${REPO_MAIN_PATH}/edamame-posture-${VERSION}-r1.apk \
             --acl public-read
           
-          # Update repository index
           WORK_DIR="/tmp/apk-index"
           mkdir -p "$WORK_DIR"
           cd "$WORK_DIR"
           
-          # Download existing packages
           aws s3 sync s3://edamame/${REPO_MAIN_PATH}/ . --exclude "*" --include "*.apk" || true
           
-          # Generate and sign APKINDEX
           PKG_COUNT=$(ls -1 *.apk 2>/dev/null | wc -l)
           if [ "$PKG_COUNT" -gt 0 ]; then
             apk index -o APKINDEX.unsigned.tar.gz *.apk
-            if [ -f "$HOME/.abuild/edamame.rsa" ]; then
-              abuild-sign -k "$HOME/.abuild/edamame.rsa" APKINDEX.unsigned.tar.gz
-            fi
+            abuild-sign -k "$KEY_PATH" APKINDEX.unsigned.tar.gz
             if [ -f APKINDEX.tar.gz ]; then
               aws s3 cp APKINDEX.tar.gz s3://edamame/${REPO_MAIN_PATH}/APKINDEX.tar.gz --acl public-read
-            elif [ -f APKINDEX.unsigned.tar.gz ]; then
+            else
               aws s3 cp APKINDEX.unsigned.tar.gz s3://edamame/${REPO_MAIN_PATH}/APKINDEX.tar.gz --acl public-read
             fi
-            # Upload public key
-            if [ -f "$HOME/.abuild/edamame.rsa.pub" ]; then
-              aws s3 cp "$HOME/.abuild/edamame.rsa.pub" s3://edamame/${REPO_MAIN_PATH}/edamame.rsa.pub --acl public-read
-            fi
+            aws s3 cp "${KEY_PATH}.pub" s3://edamame/${REPO_MAIN_PATH}/edamame.rsa.pub --acl public-read
           fi
           
           echo "=== APK Repository Update Complete ==="
-          echo "Repository: https://edamame.s3.eu-west-1.amazonaws.com/${REPO_MAIN_PATH}"
+        shell: alpine.sh --root {0}
+
+      - name: Dump EDAMAME Posture sessions
+        uses: edamametechnologies/edamame_posture_action@v0
+        with:
+          dump_sessions_log: true
