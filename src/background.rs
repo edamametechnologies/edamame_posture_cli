@@ -439,6 +439,45 @@ pub fn background_create_custom_whitelists() -> i32 {
     exit_code
 }
 
+/// Create custom whitelists with process information included.
+/// This provides stricter matching (connections must come from the same process).
+pub fn background_create_custom_whitelists_with_process() -> i32 {
+    match rpc_create_custom_whitelists_with_process(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(whitelists) => {
+            if whitelists.is_empty() {
+                eprintln!("Failed to create custom whitelists with process");
+                return ERROR_CODE_SERVER_ERROR;
+            } else {
+                let json_value: serde_json::Value = match serde_json::from_str(&whitelists) {
+                    Ok(value) => value,
+                    Err(e) => {
+                        eprintln!("Error parsing whitelist JSON: {}", e);
+                        return ERROR_CODE_SERVER_ERROR;
+                    }
+                };
+                let pretty_json = match serde_json::to_string_pretty(&json_value) {
+                    Ok(json) => json,
+                    Err(e) => {
+                        eprintln!("Error formatting whitelist JSON: {}", e);
+                        return ERROR_CODE_SERVER_ERROR;
+                    }
+                };
+                println!("{}", pretty_json);
+                return 0;
+            }
+        }
+        Err(e) => {
+            eprintln!("Error creating custom whitelists with process: {}", e);
+            return ERROR_CODE_SERVER_ERROR;
+        }
+    }
+}
+
 pub fn background_set_custom_whitelists(whitelist_json: String) -> i32 {
     match rpc_set_custom_whitelists(
         whitelist_json,
