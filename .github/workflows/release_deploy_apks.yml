@@ -252,13 +252,16 @@ jobs:
             echo "$ABUILD_PUBLIC_KEY_B64" | base64 -d > "$HOME/.abuild/edamame.rsa.pub"
             mkdir -p /etc/apk/keys
             cp "$HOME/.abuild/edamame.rsa.pub" /etc/apk/keys/edamame.rsa.pub
+            PRIVKEY="$HOME/.abuild/edamame.rsa"
           else
             abuild-keygen -a -i -n
+            # Find the generated key (has dynamic name based on email)
+            PRIVKEY=$(find "$HOME/.abuild" -name "*.rsa" ! -name "*.pub" | head -1)
           fi
           
           cat > "$HOME/.abuild/abuild.conf" << CONFEOF
           PACKAGER="EDAMAME Technologies <dev@edamame.tech>"
-          PACKAGER_PRIVKEY=$HOME/.abuild/edamame.rsa
+          PACKAGER_PRIVKEY=$PRIVKEY
           CONFEOF
           
           # Build APK
