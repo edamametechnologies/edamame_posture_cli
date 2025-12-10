@@ -140,8 +140,6 @@ jobs:
               sleep 5
             done
           }
-
-          sudo dpkg --configure -a
           
           export DEBIAN_FRONTEND=noninteractive
           run_apt update -y
