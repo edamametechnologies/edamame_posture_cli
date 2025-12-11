@@ -42,8 +42,59 @@ jobs:
 
       - name: Install prerequisites
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y curl gnupg ca-certificates
+          wait_for_apt_locks() {
+            echo "Checking for apt/dpkg locks..."
+            local TIMEOUT=300
+            local TIME_PASSED=0
+            local LOCK_FILES=(
+              "/var/lib/apt/lists/lock"
+              "/var/lib/dpkg/lock-frontend"
+              "/var/lib/dpkg/lock"
+              "/var/cache/apt/archives/lock"
+            )
+            while [ $TIME_PASSED -lt $TIMEOUT ]; do
+              local LOCKED=false
+              if command -v fuser >/dev/null 2>&1; then
+                for lock_file in "${LOCK_FILES[@]}"; do
+                  if [ -f "$lock_file" ] && sudo fuser "$lock_file" >/dev/null 2>&1; then
+                    LOCKED=true
+                    break
+                  fi
+                done
+              fi
+              if [ "$LOCKED" = "false" ]; then
+                if ! sudo dpkg --configure -a 2>/dev/null; then
+                  LOCKED=true
+                fi
+              fi
+              if [ "$LOCKED" = "false" ]; then
+                echo "No apt/dpkg locks held, proceeding..."
+                return 0
+              fi
+              echo "Waiting for apt/dpkg locks... ($TIME_PASSED/${TIMEOUT}s)"
+              sleep 5
+              TIME_PASSED=$((TIME_PASSED + 5))
+            done
+            return 1
+          }
+          
+          run_apt() {
+            local MAX_ATTEMPTS=10
+            local ATTEMPTS=0
+            while [ $ATTEMPTS -lt $MAX_ATTEMPTS ]; do
+              ATTEMPTS=$((ATTEMPTS + 1))
+              echo "apt-get $* (attempt $ATTEMPTS/$MAX_ATTEMPTS)"
+              if ! wait_for_apt_locks; then sleep 5; continue; fi
+              if sudo -E apt-get "$@"; then return 0; fi
+              sleep 5
+            done
+            return 1
+          }
+          
+          export DEBIAN_FRONTEND=noninteractive
+          wait_for_apt_locks
+          run_apt update -qq
+          run_apt install -y curl gnupg ca-certificates
 
       - name: Install edamame-posture via APT
         id: install
@@ -53,8 +104,9 @@ jobs:
             sudo gpg --dearmor -o /usr/share/keyrings/edamame.gpg
           echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/edamame.gpg] https://edamame.s3.eu-west-1.amazonaws.com/repo stable main" | \
             sudo tee /etc/apt/sources.list.d/edamame.list >/dev/null
-          sudo apt-get update -qq
-          sudo apt-get install -y edamame-posture
+          wait_for_apt_locks
+          run_apt update -qq
+          run_apt install -y edamame-posture
 
       - name: Verify binary is available
         id: verify
