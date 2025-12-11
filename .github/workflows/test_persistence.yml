@@ -233,8 +233,59 @@ jobs:
       - name: Install curl (apt)
         if: ${{ !contains(matrix.container_image, 'alpine') }}
         run: |
-          apt-get update -y
-          apt-get install -y curl
+          wait_for_apt_locks() {
+            echo "Checking for apt/dpkg locks..."
+            TIMEOUT=300
+            TIME_PASSED=0
+            LOCK_FILES=(
+              "/var/lib/apt/lists/lock"
+              "/var/lib/dpkg/lock-frontend"
+              "/var/lib/dpkg/lock"
+              "/var/cache/apt/archives/lock"
+            )
+            while [ $TIME_PASSED -lt $TIMEOUT ]; do
+              LOCKED=false
+              if command -v fuser >/dev/null 2>&1; then
+                for lock_file in "${LOCK_FILES[@]}"; do
+                  if [ -f "$lock_file" ] && fuser "$lock_file" >/dev/null 2>&1; then
+                    LOCKED=true
+                    break
+                  fi
+                done
+              fi
+              if [ "$LOCKED" = "false" ]; then
+                if ! dpkg --configure -a 2>/dev/null; then
+                  LOCKED=true
+                fi
+              fi
+              if [ "$LOCKED" = "false" ]; then
+                echo "No apt/dpkg locks held, proceeding..."
+                return 0
+              fi
+              echo "Waiting for apt/dpkg locks... ($TIME_PASSED/${TIMEOUT}s)"
+              sleep 5
+              TIME_PASSED=$((TIME_PASSED + 5))
+            done
+            return 1
+          }
+          
+          run_apt() {
+            MAX_ATTEMPTS=10
+            ATTEMPTS=0
+            while [ $ATTEMPTS -lt $MAX_ATTEMPTS ]; do
+              ATTEMPTS=$((ATTEMPTS + 1))
+              echo "apt-get $* (attempt $ATTEMPTS/$MAX_ATTEMPTS)"
+              if ! wait_for_apt_locks; then sleep 5; continue; fi
+              if apt-get "$@"; then return 0; fi
+              sleep 5
+            done
+            return 1
+          }
+          
+          export DEBIAN_FRONTEND=noninteractive
+          wait_for_apt_locks
+          run_apt update -y
+          run_apt install -y curl
 
       - name: Use the local universal install script - step 1
         id: install-1
