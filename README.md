@@ -823,13 +823,13 @@ curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamamete
 Services installed via this script are automatically started and enabled for boot (systemd on Debian/Ubuntu, OpenRC on Alpine) whenever configuration parameters are supplied.
 
 **What it does:**
-- ✅ Automatically detects your Linux distribution
-- ✅ Adds the appropriate EDAMAME repository (APT for Debian/Ubuntu, APK for Alpine)
-- ✅ Imports signing keys securely
-- ✅ Installs edamame-posture via package manager
-- ✅ **Configures service with provided parameters**
-- ✅ **Starts and enables the service automatically (systemd on Debian/Ubuntu, OpenRC on Alpine)**
-- ✅ Verifies successful installation
+-Automatically detects your Linux distribution
+-Adds the appropriate EDAMAME repository (APT for Debian/Ubuntu, APK for Alpine)
+-Imports signing keys securely
+-Installs edamame-posture via package manager
+-**Configures service with provided parameters**
+-**Starts and enables the service automatically (systemd on Debian/Ubuntu, OpenRC on Alpine)**
+-Verifies successful installation
 
 **Supported distributions**: Alpine, Debian, Ubuntu, Raspbian (Raspberry Pi OS), Linux Mint, Pop!_OS, elementary OS, Zorin OS, and other Debian/Ubuntu derivatives
 
