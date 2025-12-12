@@ -1137,7 +1137,7 @@ For completeness, here is a list of EDAMAME Posture CLI subcommands with detaile
 - **get-whitelists** (alias for **background-get-whitelists**) – Get the current whitelists from the background process.
 - **get-whitelist-name** (alias for **background-get-whitelist-name**) – Get the name of the current active whitelist from the background process.
 - **mcp-generate-psk** – Generate a cryptographically secure 32-character PSK for MCP server authentication.
-- **mcp-start** `[PORT]` `[PSK]` `[ALL_INTERFACES]` – Start MCP server for external AI clients (e.g., Claude Desktop). Port defaults to 3000. If PSK not provided, one is auto-generated.
+- **mcp-start** `[PORT]` `[PSK]` `[--all-interfaces]` – Start MCP server for external AI clients (e.g., Claude Desktop). Port defaults to 3000. If PSK not provided, one is auto-generated. By default, binds to localhost only; use `--all-interfaces` to listen on all network interfaces.
 - **mcp-stop** – Stop the running MCP server.
 - **mcp-status** – Check MCP server status (running/stopped, port, URL).
 - **request-signature** – Generate a cryptographic signature of current posture. *Requires admin privileges*.
@@ -1558,6 +1558,9 @@ edamame_posture mcp-start 3000
 # With specific PSK:
 edamame_posture mcp-start 3000 "your-32-char-psk-here"
 
+# Listen on all network interfaces (for remote AI clients):
+edamame_posture mcp-start 3000 "your-32-char-psk-here" --all-interfaces
+
 # Output:
 # ✅ MCP server started successfully
 #    Port: 3000
@@ -1582,7 +1585,7 @@ edamame_posture mcp-start 3000 "your-32-char-psk-here"
 
 Starts the MCP server on specified port (default: 3000). If no PSK is provided, one is generated automatically and displayed.
 
-**Security Note**: The server binds to localhost (127.0.0.1) only and is not accessible from the network.
+**Security Note**: By default, the server binds to localhost (127.0.0.1) only and is not accessible from the network. Use the `--all-interfaces` flag to bind to all network interfaces (0.0.0.0), which allows remote AI clients to connect but requires proper network security measures.
 
 #### Stop MCP Server
 
