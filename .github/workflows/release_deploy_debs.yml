@@ -100,6 +100,7 @@ jobs:
 
       # Install protoc and libpcap-dev for native builds
       - name: Install protoc and libpcap-dev for native builds
+        shell: bash
         if: matrix.target == 'aarch64-unknown-linux-gnu'
         run: |
           wait_for_apt_locks() {
