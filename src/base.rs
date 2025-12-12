@@ -418,8 +418,8 @@ pub fn base_check_policy_for_domain(domain: String, policy_name: String) -> i32 
         return exit_code;
     }
 
-    // Sleep for 5 seconds to let the backend process the signature
-    sleep(Duration::from_secs(5));
+    // Sleep for 10 seconds to let the backend process the signature
+    sleep(Duration::from_secs(10));
 
     base_check_policy_for_domain_with_signature(signature, domain, policy_name)
 }
