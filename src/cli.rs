@@ -302,6 +302,11 @@ pub fn build_cli() -> Command {
                     .required(false)
                     .value_parser(clap::value_parser!(String)),
             )
+            .arg(
+                arg!([ALL_INTERFACES] "Listen on all interfaces")
+                    .required(false)
+                    .action(ArgAction::SetTrue),
+            )
     )
     .subcommand(Command::new("background-mcp-stop").alias("mcp-stop").about("Stop MCP server"))
     .subcommand(Command::new("background-mcp-status").alias("mcp-status").about("Get MCP server status"))

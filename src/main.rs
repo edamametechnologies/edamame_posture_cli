@@ -1031,10 +1031,10 @@ fn run_base() {
         Some(("background-mcp-start", sub_matches)) => {
             let port = *sub_matches.get_one::<u16>("PORT").unwrap_or(&3000);
             let psk = sub_matches.get_one::<String>("PSK").cloned();
-
+            let all_interfaces = sub_matches.get_flag("all-interfaces");
             // Initialize core (MCP server needs core manager)
             initialize_core("".to_string(), false, false, false, false, false, verbose);
-            exit_code = background_mcp_start(port, psk);
+            exit_code = background_mcp_start(port, psk, all_interfaces);
             is_background = true;
         }
         Some(("background-mcp-stop", _)) => {
