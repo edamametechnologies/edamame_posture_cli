@@ -41,6 +41,7 @@ jobs:
           echo "version=${VERSION}" >> "${GITHUB_OUTPUT}"
 
       - name: Install prerequisites
+        shell: bash
         run: |
           wait_for_apt_locks() {
             echo "Checking for apt/dpkg locks..."
