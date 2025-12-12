@@ -1476,11 +1476,26 @@ check_existing_installation() {
     # Locate existing binary
     EXISTING_BINARY=$(command -v edamame_posture 2>/dev/null || true)
     
-    # On Windows, also check the default install directory if not in PATH
-    if [ -z "$EXISTING_BINARY" ] && [ "$PLATFORM" = "windows" ]; then
-        CANDIDATE_BINARY="$HOME/edamame_posture.exe"
-        if [ -f "$CANDIDATE_BINARY" ]; then
-            EXISTING_BINARY="$CANDIDATE_BINARY"
+    # If not found in PATH, check common installation locations
+    if [ -z "$EXISTING_BINARY" ]; then
+        # Check platform-specific paths
+        if [ "$PLATFORM" = "windows" ]; then
+            # Windows: check home directory with .exe extension
+            CANDIDATE_BINARY="$HOME/edamame_posture.exe"
+            if [ -f "$CANDIDATE_BINARY" ]; then
+                EXISTING_BINARY="$CANDIDATE_BINARY"
+            fi
+        else
+            # Linux/macOS: check home directory and standard paths
+            for CANDIDATE_BINARY in \
+                "$HOME/edamame_posture" \
+                "/usr/local/bin/edamame_posture" \
+                "/usr/bin/edamame_posture"; do
+                if [ -f "$CANDIDATE_BINARY" ]; then
+                    EXISTING_BINARY="$CANDIDATE_BINARY"
+                    break
+                fi
+            done
         fi
     fi
     
