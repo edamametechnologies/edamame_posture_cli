@@ -228,6 +228,7 @@ complete -c edamame_posture -n "__fish_edamame_posture_using_subcommand backgrou
 complete -c edamame_posture -n "__fish_edamame_posture_using_subcommand background-set-custom-whitelists" -s h -l help -d 'Print help'
 complete -c edamame_posture -n "__fish_edamame_posture_using_subcommand background-set-custom-whitelists-from-file" -s v -l verbose -d 'Verbosity level (-v: info, -vv: debug, -vvv: trace)'
 complete -c edamame_posture -n "__fish_edamame_posture_using_subcommand background-set-custom-whitelists-from-file" -s h -l help -d 'Print help'
+complete -c edamame_posture -n "__fish_edamame_posture_using_subcommand background-create-custom-whitelists" -l include-process -d 'Include process names in whitelist entries for stricter matching'
 complete -c edamame_posture -n "__fish_edamame_posture_using_subcommand background-create-custom-whitelists" -s v -l verbose -d 'Verbosity level (-v: info, -vv: debug, -vvv: trace)'
 complete -c edamame_posture -n "__fish_edamame_posture_using_subcommand background-create-custom-whitelists" -s h -l help -d 'Print help'
 complete -c edamame_posture -n "__fish_edamame_posture_using_subcommand background-create-and-set-custom-whitelists" -s v -l verbose -d 'Verbosity level (-v: info, -vv: debug, -vvv: trace)'

@@ -832,7 +832,7 @@ pub fn background_mcp_generate_psk() -> i32 {
     0
 }
 
-pub fn background_mcp_start(port: u16, psk: Option<String>) -> i32 {
+pub fn background_mcp_start(port: u16, psk: Option<String>, all_interfaces: bool) -> i32 {
     use edamame_core::api::api_agentic::mcp_start_server;
 
     // Use provided PSK or generate new one
@@ -849,7 +849,7 @@ pub fn background_mcp_start(port: u16, psk: Option<String>) -> i32 {
         return ERROR_CODE_PARAM;
     }
 
-    match mcp_start_server(port, actual_psk.clone(), false) {
+    match mcp_start_server(port, actual_psk.clone(), false, all_interfaces) {
         result => {
             let json: serde_json::Value = match serde_json::from_str(&result) {
                 Ok(v) => v,

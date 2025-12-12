@@ -419,7 +419,7 @@ _edamame_posture() {
             return 0
             ;;
         edamame_posture__background__create__custom__whitelists)
-            opts="-v -h --verbose --help"
+            opts="-v -h --include-process --verbose --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -587,7 +587,7 @@ _edamame_posture() {
             return 0
             ;;
         edamame_posture__background__mcp__start)
-            opts="-v -h --verbose --help [PORT] [PSK]"
+            opts="-v -h --verbose --help [PORT] [PSK] [ALL_INTERFACES]"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0

@@ -1137,7 +1137,7 @@ For completeness, here is a list of EDAMAME Posture CLI subcommands with detaile
 - **get-whitelists** (alias for **background-get-whitelists**) – Get the current whitelists from the background process.
 - **get-whitelist-name** (alias for **background-get-whitelist-name**) – Get the name of the current active whitelist from the background process.
 - **mcp-generate-psk** – Generate a cryptographically secure 32-character PSK for MCP server authentication.
-- **mcp-start** `[PORT]` `[PSK]` – Start MCP server for external AI clients (e.g., Claude Desktop). Port defaults to 3000. If PSK not provided, one is auto-generated.
+- **mcp-start** `[PORT]` `[PSK]` `[ALL_INTERFACES]` – Start MCP server for external AI clients (e.g., Claude Desktop). Port defaults to 3000. If PSK not provided, one is auto-generated.
 - **mcp-stop** – Stop the running MCP server.
 - **mcp-status** – Check MCP server status (running/stopped, port, URL).
 - **request-signature** – Generate a cryptographic signature of current posture. *Requires admin privileges*.

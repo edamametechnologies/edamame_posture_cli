@@ -376,6 +376,7 @@ _arguments "${_arguments_options[@]}" : \
 '--help[Print help]' \
 '::PORT -- Port to listen on:_default' \
 '::PSK -- Pre-shared key for authentication (min 32 chars):_default' \
+'::ALL_INTERFACES -- Listen on all interfaces:_default' \
 && ret=0
 ;;
 (background-mcp-stop)
@@ -465,6 +466,7 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (background-create-custom-whitelists)
 _arguments "${_arguments_options[@]}" : \
+'--include-process[Include process names in whitelist entries for stricter matching]' \
 '*-v[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
 '*--verbose[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
 '-h[Print help]' \
