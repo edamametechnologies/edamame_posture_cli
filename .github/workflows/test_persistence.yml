@@ -44,14 +44,17 @@ jobs:
     steps:
 
       - name: Use the local universal install script - step 1
+        id: install-1
         shell: bash
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh | sh -s -- \
           --user ${{ vars.EDAMAME_POSTURE_USER }} \
           --domain ${{ vars.EDAMAME_POSTURE_DOMAIN }} \
-          --pin ${{ secrets.EDAMAME_POSTURE_PIN }}
-          
+          --pin ${{ secrets.EDAMAME_POSTURE_PIN }}  
+        continue-on-error: true
+
       - name: Check if the daemon is running
+        id: check-1
         shell: bash
         run: |
           # Locate the binary
@@ -72,16 +75,20 @@ jobs:
           
           echo "Found binary at: $BINARY"
           $BINARY status
+        continue-on-error: true
 
       - name: Use the local universal install script - step 2
+        id: install-2
         shell: bash
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh | sh -s -- \
           --user ${{ vars.EDAMAME_POSTURE_USER }} \
           --domain ${{ vars.EDAMAME_POSTURE_DOMAIN }} \
           --pin ${{ secrets.EDAMAME_POSTURE_PIN }}
+        continue-on-error: true
 
       - name: Check if the daemon is running
+        id: check-2
         shell: bash
         run: |
           # Locate the binary
@@ -102,6 +109,54 @@ jobs:
           
           echo "Found binary at: $BINARY"
           $BINARY status
+        continue-on-error: true
+
+      - name: Slack alerts
+        if: |
+          steps.install-1.outcome != 'success' ||
+          steps.check-1.outcome != 'success' ||
+          steps.install-2.outcome != 'success' ||
+          steps.check-2.outcome != 'success'
+        uses: slackapi/slack-github-action@v1.26.0
+        with:
+          channel-id: 'C072J0U9TH7'
+          slack-message: |
+            *Native Persistence Test Results for ${{ github.repository }} (${{ matrix.os }}-${{ matrix.arch }})*:
+            - Install 1: ${{ steps.install-1.outcome == 'success' && '✅ Success' || '❌ Failed' }}
+            - Check 1: ${{ steps.check-1.outcome == 'success' && '✅ Success' || '❌ Failed' }}
+            - Install 2: ${{ steps.install-2.outcome == 'success' && '✅ Success' || '❌ Failed' }}
+            - Check 2: ${{ steps.check-2.outcome == 'success' && '✅ Success' || '❌ Failed' }}
+            More details: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        continue-on-error: true
+
+      - name: Dump the logs (Non-Windows)
+        if: always() && runner.os != 'Windows'
+        shell: bash
+        run: |
+          echo "--- Dumping Native Logs (${{ matrix.os }}-${{ matrix.arch }}) --- "
+          find . -name "edamame_*.2*-*-*" -exec echo "--- {} ---" \; -exec sudo cat {} \; || echo "No logs found in default directory"
+          echo "--- Native Log Dump Complete ---"
+  
+      - name: Dump the logs (Windows)
+        if: always() && runner.os == 'Windows'
+        shell: bash
+        run: |
+          echo "--- Dumping Native Logs (${{ matrix.os }}-${{ matrix.arch }}) --- "
+          find . -name "edamame_*.2*-*-*" -exec echo "--- {} ---" \; -exec cat {} \; || echo "No logs found in default directory"
+          echo "--- Native Log Dump Complete ---"
+
+      - name: Fail job if tests failed
+        if: |
+          steps.install-1.outcome != 'success' ||
+          steps.check-1.outcome != 'success' ||
+          steps.install-2.outcome != 'success' ||
+          steps.check-2.outcome != 'success'
+        run: |
+          echo "❌ Persistence native tests did not succeed"
+          exit 1
+
 
   test-native-binary-only:
     timeout-minutes: 120
@@ -131,14 +186,17 @@ jobs:
 
     steps:
       - name: Use the local universal install script - step 1
+        id: install-1
         shell: bash
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh | sh -s -- \
           --user ${{ vars.EDAMAME_POSTURE_USER }} \
           --domain ${{ vars.EDAMAME_POSTURE_DOMAIN }} \
           --pin ${{ secrets.EDAMAME_POSTURE_PIN }}
-          
+        continue-on-error: true
+
       - name: Check if the daemon is running
+        id: check-1
         shell: bash
         run: |
           # Locate the binary
@@ -159,16 +217,20 @@ jobs:
           
           echo "Found binary at: $BINARY"
           $BINARY status
+        continue-on-error: true
 
       - name: Use the local universal install script - step 2
+        id: install-2
         shell: bash
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh | sh -s -- \
           --user ${{ vars.EDAMAME_POSTURE_USER }} \
           --domain ${{ vars.EDAMAME_POSTURE_DOMAIN }} \
           --pin ${{ secrets.EDAMAME_POSTURE_PIN }}
+        continue-on-error: true
 
       - name: Check if the daemon is running
+        id: check-2
         shell: bash
         run: |
           # Locate the binary
@@ -189,7 +251,54 @@ jobs:
           
           echo "Found binary at: $BINARY"
           $BINARY status
-          
+        continue-on-error: true
+      
+      - name: Slack alerts
+        if: |
+          steps.install-1.outcome != 'success' ||
+          steps.check-1.outcome != 'success' ||
+          steps.install-2.outcome != 'success' ||
+          steps.check-2.outcome != 'success'
+        uses: slackapi/slack-github-action@v1.26.0
+        with:
+          channel-id: 'C072J0U9TH7'
+          slack-message: |
+            *Native Persistence Test Results for ${{ github.repository }} (${{ matrix.os }}-${{ matrix.arch }})*:
+            - Install 1: ${{ steps.install-1.outcome == 'success' && '✅ Success' || '❌ Failed' }}
+            - Check 1: ${{ steps.check-1.outcome == 'success' && '✅ Success' || '❌ Failed' }}
+            - Install 2: ${{ steps.install-2.outcome == 'success' && '✅ Success' || '❌ Failed' }}
+            - Check 2: ${{ steps.check-2.outcome == 'success' && '✅ Success' || '❌ Failed' }}
+            More details: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        continue-on-error: true
+
+      - name: Dump the logs (Non-Windows)
+        if: always() && runner.os != 'Windows'
+        shell: bash
+        run: |
+          echo "--- Dumping Native Logs (${{ matrix.os }}-${{ matrix.arch }}) --- "
+          find . -name "edamame_*.2*-*-*" -exec echo "--- {} ---" \; -exec sudo cat {} \; || echo "No logs found in default directory"
+          echo "--- Native Log Dump Complete ---"
+  
+      - name: Dump the logs (Windows)
+        if: always() && runner.os == 'Windows'
+        shell: bash
+        run: |
+          echo "--- Dumping Native Logs (${{ matrix.os }}-${{ matrix.arch }}) --- "
+          find . -name "edamame_*.2*-*-*" -exec echo "--- {} ---" \; -exec cat {} \; || echo "No logs found in default directory"
+          echo "--- Native Log Dump Complete ---"        
+
+      - name: Fail job if tests failed
+        if: |
+          steps.install-1.outcome != 'success' ||
+          steps.check-1.outcome != 'success' ||
+          steps.install-2.outcome != 'success' ||
+          steps.check-2.outcome != 'success'
+        run: |
+          echo "❌ Persistence native tests did not succeed"
+          exit 1
+
   test-container:
     timeout-minutes: 90
     strategy:
@@ -376,6 +485,22 @@ jobs:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
         continue-on-error: true
 
+      - name: Dump the logs (Non-Windows)
+        if: always() && runner.os != 'Windows'
+        shell: bash
+        run: |
+          echo "--- Dumping Native Logs (${{ matrix.os }}-${{ matrix.arch }}) --- "
+          find . -name "edamame_*.2*-*-*" -exec echo "--- {} ---" \; -exec sudo cat {} \; || echo "No logs found in default directory"
+          echo "--- Native Log Dump Complete ---"
+
+      - name: Dump the logs (Windows)
+        if: always() && runner.os == 'Windows'
+        shell: bash
+        run: |
+          echo "--- Dumping Native Logs (${{ matrix.os }}-${{ matrix.arch }}) --- "
+          find . -name "edamame_*.2*-*-*" -exec echo "--- {} ---" \; -exec cat {} \; || echo "No logs found in default directory"
+          echo "--- Native Log Dump Complete ---"
+        
       - name: Fail job if tests failed
         if: |
           steps.install-1.outcome != 'success' ||
@@ -479,6 +604,22 @@ jobs:
           
           echo "Found binary at: $BINARY"
           $BINARY status
+
+      - name: Dump the logs (Non-Windows)
+        if: always() && runner.os != 'Windows'
+        shell: bash
+        run: |
+          echo "--- Dumping Native Logs (${{ matrix.os }}-${{ matrix.arch }}) --- "
+          find . -name "edamame_*.2*-*-*" -exec echo "--- {} ---" \; -exec sudo cat {} \; || echo "No logs found in default directory"
+          echo "--- Native Log Dump Complete ---"
+
+      - name: Dump the logs (Windows)
+        if: always() && runner.os == 'Windows'
+        shell: bash
+        run: |
+          echo "--- Dumping Native Logs (${{ matrix.os }}-${{ matrix.arch }}) --- "
+          find . -name "edamame_*.2*-*-*" -exec echo "--- {} ---" \; -exec cat {} \; || echo "No logs found in default directory"
+          echo "--- Native Log Dump Complete ---"
 
       - name: Cleanup Alpine daemon
         if: always()
