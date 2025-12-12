@@ -303,7 +303,9 @@ pub fn build_cli() -> Command {
                     .value_parser(clap::value_parser!(String)),
             )
             .arg(
-                arg!([ALL_INTERFACES] "Listen on all interfaces")
+                Arg::new("all-interfaces")
+                    .long("all-interfaces")
+                    .help("Listen on all interfaces")
                     .required(false)
                     .action(ArgAction::SetTrue),
             )
