@@ -1584,7 +1584,12 @@ check_existing_installation() {
         info "Checking binary version via SHA comparison..."
         
         # Prepare artifact info to get expected SHA
-        prepare_binary_artifact "$PLATFORM" "$LINUX_LIBC_FLAVOR"
+        # Normalize platform for prepare_binary_artifact (linux-musl -> linux)
+        local artifact_platform="$PLATFORM"
+        if [ "$artifact_platform" = "linux-musl" ]; then
+            artifact_platform="linux"
+        fi
+        prepare_binary_artifact "$artifact_platform" "$LINUX_LIBC_FLAVOR"
         
         if [ -n "$ARTIFACT_DIGEST" ]; then
             EXISTING_SHA=$(compute_sha256 "$EXISTING_BINARY" 2>/dev/null || true)
