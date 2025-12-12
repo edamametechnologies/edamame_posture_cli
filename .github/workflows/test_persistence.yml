@@ -232,6 +232,7 @@ jobs:
 
       - name: Install curl (apt)
         if: ${{ !contains(matrix.container_image, 'alpine') }}
+        shell: bash
         run: |
           wait_for_apt_locks() {
             echo "Checking for apt/dpkg locks..."
