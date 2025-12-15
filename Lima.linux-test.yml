@@ -97,3 +97,4 @@ message: |
     cargo build --release 2>&1 | grep -i ebpf
     ./target/release/edamame_posture get-system-info 2>&1 | grep -i ebpf
 
+

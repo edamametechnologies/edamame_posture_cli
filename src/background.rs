@@ -860,10 +860,21 @@ pub fn background_mcp_start(port: u16, psk: Option<String>, all_interfaces: bool
             };
 
             if json["success"].as_bool().unwrap_or(false) {
+                let bind_addr = if all_interfaces {
+                    "<your-ip-address>"
+                } else {
+                    "127.0.0.1"
+                };
                 println!("✅ MCP server started successfully");
                 println!("   Port: {}", json["port"]);
                 println!("   URL: {}", json["url"].as_str().unwrap_or(""));
                 println!("   PSK: {}", actual_psk);
+                if all_interfaces {
+                    println!("\n⚠️  Warning: Server is listening on ALL network interfaces");
+                    println!(
+                        "   Accessible from your local network - ensure your network is secure!"
+                    );
+                }
                 println!("\nClaude Desktop config:");
                 println!(
                     r#"{{
@@ -872,14 +883,14 @@ pub fn background_mcp_start(port: u16, psk: Option<String>, all_interfaces: bool
       "command": "npx",
       "args": [
         "mcp-remote",
-        "http://127.0.0.1:{}/mcp",
+        "http://{}:{}/mcp",
         "--header",
         "Authorization: Bearer {}"
       ]
     }}
   }}
 }}"#,
-                    port, actual_psk
+                    bind_addr, port, actual_psk
                 );
                 0
             } else {
