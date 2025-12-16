@@ -886,7 +886,7 @@ The easiest way to install on Debian-based distributions is via our APT reposito
    ```
    The edamame-cli is aimed at advanced users who want to integrate edamame-posture in their own scripts or workflows. It provides:
    - GRPC client for edamame-posture
-   - Allows for remote control of all controls of edamame-posture
+  - Allows local RPC control of edamame-posture for automation (for example, driving checks/remediations from scripts). This is not “remote admin control” via EDAMAME Hub.
 
 #### Alpine APK Repository Method
 For Alpine Linux users, install via the APK repository:
