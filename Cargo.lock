@@ -1802,7 +1802,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "0.9.83"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#d7769ced83dce042dbed345c0103e2ea6a435d13"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#a51f46e6742004e488dbd84650323cfc427246cd"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1846,7 +1846,6 @@ dependencies = [
  "once_cell",
  "parking_lot",
  "paste",
- "peak_alloc",
  "powershell_script",
  "prost",
  "public-ip",
@@ -1866,6 +1865,7 @@ dependencies = [
  "strum_macros",
  "surge-ping",
  "swift-rs",
+ "sysinfo 0.33.1",
  "tokio",
  "tokio-stream",
  "tonic",
@@ -4644,12 +4644,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "peak_alloc"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ccc90935a8dd139fdf341762773687a1e361d3f54b396a55d9dd1f7001e484bb"
-
-[[package]]
 name = "pem"
 version = "3.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6403,6 +6397,19 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.111",
+]
+
+[[package]]
+name = "sysinfo"
+version = "0.33.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4fc858248ea01b66f19d8e8a6d55f41deaf91e9d495246fd01368d99935c6c01"
+dependencies = [
+ "core-foundation-sys",
+ "libc",
+ "memchr",
+ "ntapi",
+ "windows 0.57.0",
 ]
 
 [[package]]
