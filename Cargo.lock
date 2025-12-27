@@ -1802,7 +1802,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "0.9.83"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#cfe76c80d28d0b0c65e9f5f93e78a427808737a0"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#f806bafa2f82033213235fe8d6e21dac8a1b840a"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1887,7 +1887,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "0.9.83"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#c31acb5194bd28af7e93ee991671a1655001c233"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#bf6bd727d0805288ae8627494d85720f0e2ee92f"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1952,7 +1952,7 @@ dependencies = [
 [[package]]
 name = "edamame_models"
 version = "0.1.1"
-source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#6595f917cfd417b588e789feefcad6004956dc90"
+source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#f5256f4d4b0edfac4e76f2a2bb4de781180aafd3"
 dependencies = [
  "anyhow",
  "chrono",
@@ -2273,7 +2273,7 @@ dependencies = [
 [[package]]
 name = "flodbadd"
 version = "0.9.83"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#a6b69847332ff52ea5c3343eea7bf1d96bb33990"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#62d3fa5a83783d7f0b66076505ef9ea5a75e5455"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -3445,7 +3445,7 @@ dependencies = [
 [[package]]
 name = "l7_ebpf_program"
 version = "0.1.0"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#a6b69847332ff52ea5c3343eea7bf1d96bb33990"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#62d3fa5a83783d7f0b66076505ef9ea5a75e5455"
 
 [[package]]
 name = "lazy_static"
