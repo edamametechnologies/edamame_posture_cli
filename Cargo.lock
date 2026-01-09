@@ -1809,7 +1809,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "0.9.83"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#c12a720014ec70ec4988876993148c6762eaa1a5"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#5a8ed595ec95401bc63a72fc574464b55a5ced90"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1894,7 +1894,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "0.9.83"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#564c8540cb2ff83bf01e12d310182eaaf16106a7"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#327168f2d72c892092e08e002c8cf9bbe2974998"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -6709,9 +6709,9 @@ dependencies = [
 
 [[package]]
 name = "toml"
-version = "0.9.10+spec-1.1.0"
+version = "0.9.11+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0825052159284a1a8b4d6c0c86cbc801f2da5afd2b225fa548c72f2e74002f48"
+checksum = "f3afc9a848309fe1aaffaed6e1546a7a14de1f935dc9d89d32afd9a44bab7c46"
 dependencies = [
  "indexmap 2.13.0",
  "serde_core",
