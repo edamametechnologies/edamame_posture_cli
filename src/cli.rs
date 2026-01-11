@@ -462,6 +462,13 @@ fn start_common_args() -> Vec<Arg> {
             .help("PIN")
             .value_parser(parse_digits_only)
             .default_value(""),
+        Arg::new("api_key")
+            .long("api-key")
+            .short('k')
+            .value_name("API_KEY")
+            .help("EDAMAME API key for headless authentication (alternative to user/domain/pin)")
+            .env("EDAMAME_API_KEY")
+            .value_parser(clap::value_parser!(String)),
         Arg::new("device_id")
             .long("device-id")
             .value_name("DEVICE_ID")
@@ -528,6 +535,13 @@ fn start_common_args() -> Vec<Arg> {
 
 fn disconnected_start_args() -> Vec<Arg> {
     vec![
+        Arg::new("api_key")
+            .long("api-key")
+            .short('k')
+            .value_name("API_KEY")
+            .help("EDAMAME API key for headless authentication")
+            .env("EDAMAME_API_KEY")
+            .value_parser(clap::value_parser!(String)),
         Arg::new("network_scan")
             .long("network-scan")
             .alias("lan-scan")
@@ -696,5 +710,129 @@ mod tests {
         );
         assert_eq!(sub_matches.get_one::<String>("agentic_provider"), None);
         assert_eq!(sub_matches.get_one::<u64>("agentic_interval"), Some(&3600));
+    }
+
+    #[test]
+    fn foreground_start_accepts_api_key() {
+        let matches = build_cli()
+            .try_get_matches_from([
+                "edamame_posture",
+                "foreground-start",
+                "--user",
+                "runner",
+                "--domain",
+                "example.com",
+                "--pin",
+                "123456",
+                "--api-key",
+                "edm_live_test123abc",
+            ])
+            .expect("foreground-start should accept --api-key");
+
+        let (_, sub_matches) = matches
+            .subcommand()
+            .expect("expected foreground-start subcommand");
+
+        assert_eq!(
+            sub_matches.get_one::<String>("api_key").map(String::as_str),
+            Some("edm_live_test123abc")
+        );
+    }
+
+    #[test]
+    fn foreground_start_api_key_short_flag() {
+        let matches = build_cli()
+            .try_get_matches_from([
+                "edamame_posture",
+                "foreground-start",
+                "--user",
+                "runner",
+                "--domain",
+                "example.com",
+                "--pin",
+                "123456",
+                "-k",
+                "edm_test_shortflag",
+            ])
+            .expect("foreground-start should accept -k short flag");
+
+        let (_, sub_matches) = matches
+            .subcommand()
+            .expect("expected foreground-start subcommand");
+
+        assert_eq!(
+            sub_matches.get_one::<String>("api_key").map(String::as_str),
+            Some("edm_test_shortflag")
+        );
+    }
+
+    #[test]
+    fn foreground_start_api_key_is_optional() {
+        let matches = build_cli()
+            .try_get_matches_from([
+                "edamame_posture",
+                "foreground-start",
+                "--user",
+                "runner",
+                "--domain",
+                "example.com",
+                "--pin",
+                "123456",
+            ])
+            .expect("foreground-start should work without --api-key");
+
+        let (_, sub_matches) = matches
+            .subcommand()
+            .expect("expected foreground-start subcommand");
+
+        assert!(sub_matches.get_one::<String>("api_key").is_none());
+    }
+
+    #[test]
+    fn disconnected_start_accepts_api_key() {
+        let matches = build_cli()
+            .try_get_matches_from([
+                "edamame_posture",
+                "background-start-disconnected",
+                "--api-key",
+                "edm_live_disconnected123",
+            ])
+            .expect("background-start-disconnected should accept --api-key");
+
+        let (_, sub_matches) = matches
+            .subcommand()
+            .expect("expected background-start-disconnected subcommand");
+
+        assert_eq!(
+            sub_matches.get_one::<String>("api_key").map(String::as_str),
+            Some("edm_live_disconnected123")
+        );
+    }
+
+    #[test]
+    fn background_start_accepts_api_key() {
+        let matches = build_cli()
+            .try_get_matches_from([
+                "edamame_posture",
+                "background-start",
+                "--user",
+                "testuser",
+                "--domain",
+                "test.example.com",
+                "--pin",
+                "000000",
+                "--api-key",
+                "edm_live_background456",
+            ])
+            .expect("background-start should accept --api-key");
+
+        let (_, sub_matches) = matches
+            .subcommand()
+            .expect("expected background-start subcommand");
+
+        assert_eq!(
+            sub_matches.get_one::<String>("api_key").map(String::as_str),
+            Some("edm_live_background456")
+        );
     }
 }
