@@ -206,6 +206,8 @@ fn run() {
                     Some(args[15].to_string())
                 }, // agentic_provider
                 args[16].parse().unwrap_or(300), // agentic_interval
+                // API key is inherited via EDAMAME_API_KEY env var
+                std::env::var("EDAMAME_API_KEY").ok(),
             );
         } else {
             eprintln!(
@@ -238,6 +240,7 @@ pub fn run_background(
     agentic_mode: String,
     agentic_provider: Option<String>,
     agentic_interval: u64,
+    api_key: Option<String>,
 ) {
     if fail_on_whitelist && whitelist_name.is_empty() {
         eprintln!(
@@ -252,6 +255,13 @@ pub fn run_background(
 
     // Admin check here (after core initialization)
     ensure_admin();
+    
+    // Set EDAMAME API key if provided (for headless authentication)
+    if let Some(ref key) = api_key {
+        if !key.is_empty() {
+            edamame_core::api::api_agentic::agentic_set_edamame_api_key(key.clone());
+        }
+    }
 
     background_process(
         user,
@@ -788,10 +798,21 @@ fn run_base() {
             let agentic_interval = *sub_matches
                 .get_one::<u64>("agentic_interval")
                 .unwrap_or(&3600);
+            let api_key = sub_matches
+                .get_one::<String>("api_key")
+                .cloned();
 
             // Initialize the core with all options disabled
             initialize_core("".to_string(), false, false, false, false, false, verbose);
             ensure_admin();
+            
+            // Set EDAMAME API key if provided (for headless authentication)
+            if let Some(ref key) = api_key {
+                if !key.is_empty() {
+                    edamame_core::api::api_agentic::agentic_set_edamame_api_key(key.clone());
+                }
+            }
+            
             background_start(
                 user,
                 domain,
@@ -827,10 +848,21 @@ fn run_base() {
                 .get_one::<String>("agentic_mode")
                 .map_or("disabled", |v| v.as_str())
                 .to_string();
+            let api_key = sub_matches
+                .get_one::<String>("api_key")
+                .cloned();
 
             // Initialize the core with all options disabled
             initialize_core("".to_string(), false, false, false, false, false, verbose);
             ensure_admin();
+            
+            // Set EDAMAME API key if provided (for headless authentication)
+            if let Some(ref key) = api_key {
+                if !key.is_empty() {
+                    edamame_core::api::api_agentic::agentic_set_edamame_api_key(key.clone());
+                }
+            }
+            
             background_start(
                 "".to_string(),
                 "".to_string(),
@@ -845,7 +877,7 @@ fn run_base() {
                 cancel_on_violation,
                 include_local_traffic,
                 agentic_mode,
-                None, // No provider in disconnected mode (would need API key)
+                None, // No provider in disconnected mode (but API key can be used)
                 300,  // Default interval
             );
             is_background = true;
@@ -888,6 +920,9 @@ fn run_base() {
             let agentic_interval = *sub_matches
                 .get_one::<u64>("agentic_interval")
                 .unwrap_or(&3600);
+            let api_key = sub_matches
+                .get_one::<String>("api_key")
+                .cloned();
 
             // Directly call the background process
             run_background(
@@ -907,6 +942,7 @@ fn run_base() {
                 agentic_mode,
                 agentic_provider,
                 agentic_interval,
+                api_key,
             );
         }
         Some(("background-stop", _)) => {
