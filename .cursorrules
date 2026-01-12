@@ -1,0 +1,46 @@
+# EDAMAME Posture - CLI Tool
+
+## Documentation (Read First)
+Before making changes, consult these files:
+- **CLAUDE.md** - Build commands, CLI commands, exit codes
+- **ARCHITECTURE.md** - Command flow, daemon architecture
+- **README.md** - Complete usage guide
+- **INSTALL.md** - Installation instructions
+
+## Project Context
+EDAMAME Posture is a CLI tool for:
+- Security posture assessment
+- Threat remediation with rollback
+- CI/CD policy enforcement
+- Background monitoring daemon
+- MCP server for AI integration
+
+## Key Files
+- `src/main.rs` - Entry point and command dispatch
+- `src/cli.rs` - Command-line argument parsing (clap)
+- `src/base.rs` - Core operations (score, threats, remediation)
+- `src/background.rs` - Background daemon operations
+- `src/daemon.rs` - Process lifecycle management
+
+## Build & Test
+```bash
+cargo build --release
+make test                      # Basic tests
+make commands_test             # CLI integration tests
+make all_test                  # Full test suite
+```
+
+## Exit Codes
+- 0: Success
+- 1: Policy/security check mismatch
+- 2: Server error
+- 3: Parameter error
+- 4: Timeout
+
+## CI/CD Usage
+```bash
+edamame-posture check-policy 3.5 "firewall disabled" "PCI-DSS,HIPAA"
+```
+
+## Part of EDAMAME Ecosystem
+Uses `edamame_core` for all security operations. See `../edamame_core/CLAUDE.md` for the full ecosystem.
