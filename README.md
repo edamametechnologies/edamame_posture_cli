@@ -179,7 +179,7 @@ This command also returns a non-zero exit code when the policy is not met, allow
 The `start` command initiates a background process that continuously monitors the device's security posture and can enable conditional access controls as defined in the EDAMAME Hub:
 
 ```
-edamame_posture start --user <USER> --domain <DOMAIN> --pin <PIN> [--device-id <DEVICE_ID>] [--network-scan] [--packet-capture] [--whitelist <NAME>] [--fail-on-whitelist] [--fail-on-blacklist] [--fail-on-anomalous] [--include-local-traffic] [--cancel-on-violation] [--api-key KEY] [--agentic-mode MODE] [--agentic-provider PROVIDER] [--agentic-interval SECONDS]
+edamame_posture start --user <USER> --domain <DOMAIN> --pin <PIN> [--device-id <DEVICE_ID>] [--network-scan] [--packet-capture] [--whitelist <NAME>] [--fail-on-whitelist] [--fail-on-blacklist] [--fail-on-anomalous] [--include-local-traffic] [--cancel-on-violation] [--agentic-mode MODE] [--agentic-provider PROVIDER] [--agentic-interval SECONDS]
 ```
 
 Example:
@@ -285,8 +285,8 @@ edamame_posture start \
   --pin 123456 \
   --network-scan \
   --packet-capture \
-  --api-key edm_live_xxx \
   --agentic-mode auto \
+  --agentic-provider edamame \
   --agentic-interval 300
 
 # Option 2: Bring Your Own LLM (e.g., Claude)
@@ -307,13 +307,16 @@ edamame_posture background-start-disconnected \
   --agentic-mode auto
 ```
 
-**Environment Variables**:
+**Environment Variables** (based on `--agentic-provider`):
 ```bash
-# EDAMAME Cloud LLM (create API key at portal.edamame.tech)
+# For --agentic-provider edamame (recommended - create API key at portal.edamame.tech)
 export EDAMAME_API_KEY="edm_live_..."
 
-# Or use Bring Your Own LLM
+# For --agentic-provider claude or openai (BYOLLM)
 export EDAMAME_LLM_API_KEY="sk-ant-..."
+
+# For --agentic-provider ollama
+export EDAMAME_LLM_BASE_URL="http://localhost:11434"
 
 # Slack integration (optional)
 export EDAMAME_AGENTIC_SLACK_BOT_TOKEN="xoxb-..."
@@ -541,13 +544,13 @@ edamame_posture start \
 For environments where connecting to a domain or central service isn't possible or desired, you can run the background monitor in disconnected mode:
 
 ```
-edamame_posture background-start-disconnected [--network-scan] [--packet-capture] [--whitelist <NAME>] [--fail-on-whitelist] [--fail-on-blacklist] [--fail-on-anomalous] [--include-local-traffic] [--cancel-on-violation] [--api-key KEY] [--agentic-mode MODE]
+edamame_posture background-start-disconnected [--network-scan] [--packet-capture] [--whitelist <NAME>] [--fail-on-whitelist] [--fail-on-blacklist] [--fail-on-anomalous] [--include-local-traffic] [--cancel-on-violation] [--agentic-mode MODE] [--agentic-provider PROVIDER]
 ```
 
 This enables all the monitoring and whitelist enforcement capabilities locally without requiring a registered domain:
 - Fully local, real-time monitoring and network traffic capture (enable with `--packet-capture`)
 - Whitelist enforcement without any external connectivity
-- AI Assistant support with EDAMAME Cloud LLM (`--api-key`) or BYOLLM (`EDAMAME_LLM_API_KEY` env var)
+- AI Assistant support with EDAMAME Cloud LLM (`--agentic-provider edamame` + `EDAMAME_API_KEY` env) or BYOLLM
 - Ideal for sensitive environments or isolated runners where external communication is not allowed
 
 ## Preventing Supply Chain Attacks
@@ -593,9 +596,11 @@ Example (GitHub Actions):
       --user ${{ vars.EDAMAME_USER }} \
       --domain ${{ vars.EDAMAME_DOMAIN }} \
       --pin ${{ secrets.EDAMAME_PIN }} \
-      --api-key ${{ secrets.EDAMAME_API_KEY }} \
       --agentic-mode auto \
+      --agentic-provider edamame \
       --agentic-interval 600
+    env:
+      EDAMAME_API_KEY: ${{ secrets.EDAMAME_API_KEY }}
 
 # Or with Bring Your Own LLM (e.g., Claude)
 - name: Setup EDAMAME Posture with AI (BYOLLM)
