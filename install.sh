@@ -19,14 +19,17 @@
 #   --include-local-traffic        Pass --include-local-traffic (include local traffic)
 #
 # AI Assistant Options:
-#   --claude-api-key KEY           Claude API key
-#   --openai-api-key KEY           OpenAI API key
-#   --ollama-base-url URL          Ollama base URL (default: http://localhost:11434)
 #   --agentic-mode MODE            AI mode: auto, analyze, or disabled (default: disabled)
+#   --agentic-provider PROVIDER    LLM provider: edamame (recommended), claude, openai, ollama
 #   --agentic-interval SECONDS     AI processing interval in seconds (default: 3600)
 #   --slack-bot-token TOKEN        Slack bot token
 #   --slack-actions-channel ID     Slack actions channel ID
 #   --slack-escalations-channel ID Slack escalations channel ID
+#
+# AI Environment Variables:
+#   EDAMAME_API_KEY                EDAMAME Cloud LLM API key (for agentic-provider=edamame)
+#   EDAMAME_LLM_API_KEY            BYOLLM API key (for agentic-provider=claude/openai)
+#   EDAMAME_LLM_BASE_URL           Ollama base URL (for agentic-provider=ollama)
 #
 # Installation Control:
 #   --install-dir PATH             Binary install directory (default: /usr/local/bin)
@@ -47,10 +50,18 @@
 #       --start-lanscan --start-capture \
 #       --whitelist github_ubuntu --fail-on-whitelist
 #
-#   AI Assistant with full monitoring:
+#   AI Assistant with EDAMAME Cloud LLM (recommended for headless):
+#     export EDAMAME_API_KEY="edm_live_..."
 #     curl -sSf https://raw.githubusercontent.com/.../install.sh | sh -s -- \
 #       --user myuser --domain example.com --pin 123456 \
-#       --claude-api-key sk-ant-... --agentic-mode auto \
+#       --agentic-mode auto --agentic-provider edamame \
+#       --start-lanscan --start-capture --whitelist builder
+#
+#   AI Assistant with BYOLLM (Claude):
+#     export EDAMAME_LLM_API_KEY="sk-ant-..."
+#     curl -sSf https://raw.githubusercontent.com/.../install.sh | sh -s -- \
+#       --user myuser --domain example.com --pin 123456 \
+#       --agentic-mode auto --agentic-provider claude \
 #       --start-lanscan --start-capture --whitelist builder
 
 set -e
@@ -1176,10 +1187,8 @@ CONFIG_USER=""
 CONFIG_DOMAIN=""
 CONFIG_PIN=""
 CONFIG_DEVICE_ID=""
-CONFIG_CLAUDE_KEY=""
-CONFIG_OPENAI_KEY=""
-CONFIG_OLLAMA_URL=""
 CONFIG_AGENTIC_MODE="disabled"
+CONFIG_AGENTIC_PROVIDER=""
 CONFIG_AGENTIC_INTERVAL="3600"
 CONFIG_SLACK_BOT_TOKEN=""
 CONFIG_SLACK_ACTIONS_CHANNEL=""
@@ -1240,29 +1249,25 @@ while [ $# -gt 0 ]; do
             CONFIG_INCLUDE_LOCAL_TRAFFIC="true"
             shift
             ;;
-        --claude-api-key)
-            CONFIG_CLAUDE_KEY="$2"
-            shift 2
-            ;;
-        --openai-api-key)
-            CONFIG_OPENAI_KEY="$2"
-            shift 2
-            ;;
-        --ollama-api-key)
-            # Deprecated but kept for compatibility
-            warn "Note: --ollama-api-key is deprecated, Ollama doesn't use API keys"
-            shift 2
-            ;;
-        --ollama-base-url)
-            CONFIG_OLLAMA_URL="$2"
-            shift 2
-            ;;
         --agentic-mode)
             CONFIG_AGENTIC_MODE="$2"
             shift 2
             ;;
+        --agentic-provider)
+            CONFIG_AGENTIC_PROVIDER="$2"
+            shift 2
+            ;;
         --agentic-interval)
             CONFIG_AGENTIC_INTERVAL="$2"
+            shift 2
+            ;;
+        # Legacy options for backwards compatibility (prefer --agentic-provider + env vars)
+        --claude-api-key|--openai-api-key)
+            warn "Note: $1 is deprecated. Use --agentic-provider with EDAMAME_LLM_API_KEY env var instead"
+            shift 2
+            ;;
+        --ollama-api-key|--ollama-base-url)
+            warn "Note: $1 is deprecated. Use --agentic-provider ollama with EDAMAME_LLM_BASE_URL env var instead"
             shift 2
             ;;
         --slack-bot-token)
@@ -1917,9 +1922,7 @@ configure_service() {
     ESC_DEVICE_ID=$(yaml_escape "$CONFIG_DEVICE_ID")
     ESC_WHITELIST=$(yaml_escape "$CONFIG_WHITELIST")
     ESC_AGENTIC_MODE=$(yaml_escape "$CONFIG_AGENTIC_MODE")
-    ESC_CLAUDE_KEY=$(yaml_escape "$CONFIG_CLAUDE_KEY")
-    ESC_OPENAI_KEY=$(yaml_escape "$CONFIG_OPENAI_KEY")
-    ESC_OLLAMA_URL=$(yaml_escape "$CONFIG_OLLAMA_URL")
+    ESC_AGENTIC_PROVIDER=$(yaml_escape "$CONFIG_AGENTIC_PROVIDER")
     ESC_AGENTIC_INTERVAL=$(yaml_escape "$CONFIG_AGENTIC_INTERVAL")
     ESC_SLACK_BOT_TOKEN=$(yaml_escape "$CONFIG_SLACK_BOT_TOKEN")
     ESC_SLACK_ACTIONS_CHANNEL=$(yaml_escape "$CONFIG_SLACK_ACTIONS_CHANNEL")
@@ -1960,17 +1963,16 @@ include_local_traffic: "${CONFIG_INCLUDE_LOCAL_TRAFFIC}"
 agentic_mode: "${ESC_AGENTIC_MODE}"
 
 # ============================================================================
-# LLM Provider Configuration (first non-empty API key/URL will be used)
+# LLM Provider Configuration
 # ============================================================================
-
-# Claude (Anthropic) - Recommended
-claude_api_key: "${ESC_CLAUDE_KEY}"
-
-# OpenAI
-openai_api_key: "${ESC_OPENAI_KEY}"
-
-# Ollama (Local) - Privacy First
-ollama_base_url: "${ESC_OLLAMA_URL}"
+#
+# Set agentic_provider and use environment variables for API keys:
+#   - edamame: EDAMAME Cloud LLM (recommended) - uses EDAMAME_API_KEY env var
+#   - claude:  Anthropic Claude (BYOLLM) - uses EDAMAME_LLM_API_KEY env var
+#   - openai:  OpenAI (BYOLLM) - uses EDAMAME_LLM_API_KEY env var
+#   - ollama:  Local Ollama - uses EDAMAME_LLM_BASE_URL env var
+#
+agentic_provider: "${ESC_AGENTIC_PROVIDER}"
 
 # ============================================================================
 # Slack Notifications (optional)
@@ -2274,19 +2276,12 @@ if [ "$SHOULD_START_DAEMON" = "true" ]; then
     stop_existing_posture || true
     sleep 2
     
-    # Export AI configuration before starting daemon
-    AGENTIC_PROVIDER_NAME=""
+    # AI configuration is handled via environment variables
+    # The daemon reads: EDAMAME_API_KEY (for edamame provider), 
+    #                   EDAMAME_LLM_API_KEY (for claude/openai), 
+    #                   EDAMAME_LLM_BASE_URL (for ollama)
+    AGENTIC_PROVIDER_NAME="$CONFIG_AGENTIC_PROVIDER"
     if [ "$CONFIG_AGENTIC_MODE" != "disabled" ]; then
-        if [ -n "$CONFIG_CLAUDE_KEY" ]; then
-            export EDAMAME_LLM_API_KEY="$CONFIG_CLAUDE_KEY"
-            AGENTIC_PROVIDER_NAME="claude"
-        elif [ -n "$CONFIG_OPENAI_KEY" ]; then
-            export EDAMAME_LLM_API_KEY="$CONFIG_OPENAI_KEY"
-            AGENTIC_PROVIDER_NAME="openai"
-        elif [ -n "$CONFIG_OLLAMA_URL" ]; then
-            export EDAMAME_LLM_BASE_URL="$CONFIG_OLLAMA_URL"
-            AGENTIC_PROVIDER_NAME="ollama"
-        fi
         
         if [ -n "$CONFIG_SLACK_BOT_TOKEN" ]; then
             export EDAMAME_AGENTIC_SLACK_BOT_TOKEN="$CONFIG_SLACK_BOT_TOKEN"
