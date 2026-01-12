@@ -752,6 +752,29 @@ pub fn background_configure_agentic(provider: String) {
 
     info!("Configuring AI Assistant provider: {}", provider);
 
+    // Handle EDAMAME Cloud LLM (recommended for headless/CI)
+    if provider == "edamame" {
+        let edamame_api_key = std::env::var("EDAMAME_API_KEY").unwrap_or_default();
+        if edamame_api_key.is_empty() {
+            error!("EDAMAME_API_KEY environment variable is required for provider 'edamame'");
+            error!("Get your API key at https://portal.edamame.tech/api-keys");
+            return;
+        }
+        
+        if !edamame_api_key.starts_with("edm_") && !edamame_api_key.starts_with("edak_") {
+            warn!("EDAMAME_API_KEY should start with 'edm_' or 'edak_' prefix");
+        }
+        
+        // Set the EDAMAME API key for headless authentication
+        if agentic_set_edamame_api_key(edamame_api_key) {
+            info!("AI Assistant configured with EDAMAME Cloud LLM");
+        } else {
+            error!("Failed to set EDAMAME API key");
+        }
+        return;
+    }
+
+    // Handle BYOLLM providers (claude, openai, ollama)
     let api_key = std::env::var("EDAMAME_LLM_API_KEY").unwrap_or_default();
     let model = std::env::var("EDAMAME_LLM_MODEL").unwrap_or_else(|_| {
         match provider.as_str() {
