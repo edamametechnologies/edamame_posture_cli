@@ -760,11 +760,11 @@ pub fn background_configure_agentic(provider: String) {
             error!("Get your API key at https://portal.edamame.tech/api-keys");
             return;
         }
-        
+
         if !edamame_api_key.starts_with("edm_") && !edamame_api_key.starts_with("edak_") {
             warn!("EDAMAME_API_KEY should start with 'edm_' or 'edak_' prefix");
         }
-        
+
         // Set the EDAMAME API key for headless authentication
         if agentic_set_edamame_api_key(edamame_api_key) {
             info!("AI Assistant configured with EDAMAME Cloud LLM");
