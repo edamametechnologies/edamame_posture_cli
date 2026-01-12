@@ -8,6 +8,14 @@ EDAMAME Posture is a cross-platform CLI tool for security posture assessment and
 
 Part of the EDAMAME ecosystem - see `../edamame_core/CLAUDE.md` for full ecosystem documentation.
 
+## Documentation Index
+
+- **[ARCHITECTURE.md](ARCHITECTURE.md)** - Module structure, command flow, daemon architecture
+- **[README.md](README.md)** - Complete usage guide and examples
+- **[INSTALL.md](INSTALL.md)** - Installation instructions for all platforms
+- **[install.sh](install.sh)** - Automated installation script
+- **[cve-2025-30066-explanation.md](cve-2025-30066-explanation.md)** - CVE explanation
+
 ## Build Commands
 
 ```bash
