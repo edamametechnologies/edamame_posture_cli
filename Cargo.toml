@@ -6,8 +6,8 @@ description = "EDAMAME Security posture analysis and remediation"
 
 [dependencies]
 # Local copy in order to allow rapid development/debug
-edamame_core = { path = "../edamame_core", features = [ "standalone", "swiftrs", "agentic" ] }
-#edamame_core = { git = "https://github.com/edamametechnologies/edamame_core", branch = "main", features = [ "standalone", "swiftrs", "agentic" ] }
+#edamame_core = { path = "../edamame_core", features = [ "standalone", "swiftrs", "agentic" ] }
+edamame_core = { git = "https://github.com/edamametechnologies/edamame_core", branch = "main", features = [ "standalone", "swiftrs", "agentic" ] }
 
 # Error handling
 anyhow = "1.0.82"
