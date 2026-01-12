@@ -1808,6 +1808,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "0.9.83"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#e9c0440a14d27bafcd167410a7623688e62cd7f1"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -3073,7 +3074,7 @@ dependencies = [
  "js-sys",
  "log",
  "wasm-bindgen",
- "windows-core 0.58.0",
+ "windows-core 0.62.2",
 ]
 
 [[package]]
