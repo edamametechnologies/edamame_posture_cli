@@ -1026,9 +1026,9 @@ dependencies = [
 
 [[package]]
 name = "clap_lex"
-version = "0.7.6"
+version = "0.7.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a1d728cc89cf3aee9ff92b05e62b19ee65a02b5702cff7d5a377e32c6ae29d8d"
+checksum = "c3e64b0cc0439b12df2fa678eae89a1c56a529fd067a9115f7827f1fffd22b32"
 
 [[package]]
 name = "colorchoice"
@@ -1808,7 +1808,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "0.9.83"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#dec151d5b0a2467bd19c5c62a0d684cc3cbd9676"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#408dba8d506ebae341328a9f4b3ce4a1e52e4f71"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1958,7 +1958,7 @@ dependencies = [
 [[package]]
 name = "edamame_models"
 version = "0.1.1"
-source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#dac5faf052f83e1992d527a11421ef8cb045d4ed"
+source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#753179dbfe3850fdd18ccbb2f02734b58d576147"
 dependencies = [
  "anyhow",
  "chrono",
@@ -2279,7 +2279,7 @@ dependencies = [
 [[package]]
 name = "flodbadd"
 version = "0.9.83"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#c93955fff5303ed5352bd2b85738a044f703d6d0"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#5a3576876f75f9f2a7ce30aed129f5c2e94fd218"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -3451,7 +3451,7 @@ dependencies = [
 [[package]]
 name = "l7_ebpf_program"
 version = "0.1.0"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#c93955fff5303ed5352bd2b85738a044f703d6d0"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#5a3576876f75f9f2a7ce30aed129f5c2e94fd218"
 
 [[package]]
 name = "lazy_static"
@@ -6807,9 +6807,9 @@ dependencies = [
 
 [[package]]
 name = "tower"
-version = "0.5.2"
+version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d039ad9159c98b70ecfd540b2573b97f7f52c3e8d9f8ad57a24b916a536975f9"
+checksum = "ebe5ef63511595f1344e2d5cfa636d973292adc0eec1f0ad45fae9f0851ab1d4"
 dependencies = [
  "futures-core",
  "futures-util",
@@ -7016,7 +7016,7 @@ checksum = "562d481066bde0658276a35467c4af00bdc6ee726305698a55b86e61d7ad82bb"
 [[package]]
 name = "undeadlock"
 version = "0.9.83"
-source = "git+https://github.com/edamametechnologies/undeadlock?branch=main#33752a5165a386455751a7859bcdc6f8ee8a7af1"
+source = "git+https://github.com/edamametechnologies/undeadlock?branch=main#d9bc91f8675745aef194af8dfe9ea750be8bd243"
 dependencies = [
  "dashmap 6.1.0",
  "futures",
