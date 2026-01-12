@@ -103,6 +103,42 @@ show_daemon_status() {
     fi
 }
 
+# Wait for daemon to be ready (connected) after service start
+# Returns 0 if daemon is ready, 1 if timeout
+wait_for_daemon_ready() {
+    local binary="$1"
+    local max_wait="${2:-30}"  # Default 30 seconds timeout
+    local wait_interval=2
+    local elapsed=0
+    
+    info "Waiting for daemon to be ready (max ${max_wait}s)..."
+    
+    while [ $elapsed -lt $max_wait ]; do
+        set +e
+        STATUS=$($binary status 2>&1)
+        STATUS_EXIT=$?
+        set -e
+        
+        if [ $STATUS_EXIT -eq 0 ]; then
+            # Check if connected
+            IS_CONNECTED=$(echo "$STATUS" | grep "Is connected:" | sed 's/.*Is connected: //' | tr -d ' ')
+            IS_SUCCESS=$(echo "$STATUS" | grep "Is success:" | sed 's/.*Is success: //' | tr -d ' ')
+            
+            if [ "$IS_CONNECTED" = "true" ] && [ "$IS_SUCCESS" = "true" ]; then
+                info "✓ Daemon is ready (connected and successful)"
+                return 0
+            fi
+        fi
+        
+        sleep $wait_interval
+        elapsed=$((elapsed + wait_interval))
+        info "  Still waiting... (${elapsed}s elapsed)"
+    done
+    
+    warn "Daemon did not become ready within ${max_wait}s"
+    return 1
+}
+
 detect_platform() {
     local uname_out
     uname_out=$(uname -s 2>/dev/null || echo "unknown")
@@ -2114,6 +2150,10 @@ EOF
                             if $SUDO rc-service edamame_posture restart >/dev/null 2>&1 || \
                                $SUDO rc-service edamame_posture start >/dev/null 2>&1; then
                                 service_started="true"
+                                # Wait for daemon to be ready after service start
+                                if ! wait_for_daemon_ready "edamame_posture" 30; then
+                                    warn "Service started but daemon not ready - may need more time to initialize"
+                                fi
                             else
                                 warn "Failed to start service via rc-service"
                             fi
@@ -2153,7 +2193,10 @@ EOF
                         $SUDO systemctl daemon-reload 2>/dev/null || true
                         $SUDO systemctl enable edamame_posture.service 2>/dev/null || true
                         if $SUDO systemctl restart edamame_posture.service 2>/dev/null; then
-                            :
+                            # Wait for daemon to be ready after service start
+                            if ! wait_for_daemon_ready "edamame_posture" 30; then
+                                warn "Service started but daemon not ready - may need more time to initialize"
+                            fi
                         else
                             warn "Failed to restart service. Check: sudo systemctl status edamame_posture"
                             SHOULD_START_DAEMON="true"  # fall back to manual daemon start
