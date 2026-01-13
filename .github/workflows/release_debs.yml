@@ -1,0 +1,402 @@
+name: Build and publish for linux debs
+
+on:
+  workflow_dispatch:
+
+# Auto cancel previous runs if they were not completed.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+# Write permissions are required to upload the release asset.
+permissions: write-all
+    
+jobs:
+  build:
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu
+            runs-on: ubuntu-latest
+            arch: i386
+            target: i686-unknown-linux-gnu
+            deb_arch: i386
+          - os: ubuntu
+            runs-on: ubuntu-latest
+            arch: armhf
+            target: armv7-unknown-linux-gnueabihf
+            deb_arch: armhf
+          - os: ubuntu
+            # We have a hard time finding an older version of Ubuntu to generate compatible binaries for older glibc
+            # So we use cross-compilation for this target
+            runs-on: ubuntu-latest
+            arch: amd64
+            target: x86_64-unknown-linux-gnu
+            deb_arch: amd64
+            # For performance reasons, we use native builds for this target
+            # We use an older version of Ubuntu to generate compatible binaries for older glibc
+          - os: ubuntu
+            runs-on: ubuntu-22.04-arm
+            arch: aarch64
+            target: aarch64-unknown-linux-gnu
+            deb_arch: arm64         
+    runs-on: ${{ matrix.runs-on }}
+
+    env:
+      EDAMAME_APP_SENTRY: ${{ secrets.EDAMAME_APP_SENTRY }}
+      PWNED_API_KEY: ${{ secrets.PWNED_API_KEY }}
+      EDAMAME_TARGET: ${{ secrets.EDAMAME_TARGET }}
+      EDAMAME_CORE_TARGET: ${{ secrets.EDAMAME_CORE_TARGET }}
+      EDAMAME_CORE_SERVER: ${{ secrets.EDAMAME_CORE_SERVER }}
+      EDAMAME_CA_PEM: ${{ secrets.EDAMAME_CA_PEM }}
+      EDAMAME_CLIENT_PEM: ${{ secrets.EDAMAME_CLIENT_PEM }}
+      EDAMAME_CLIENT_KEY: ${{ secrets.EDAMAME_CLIENT_KEY }}
+      EDAMAME_SERVER_PEM: ${{ secrets.EDAMAME_SERVER_PEM }}
+      EDAMAME_SERVER_KEY: ${{ secrets.EDAMAME_SERVER_KEY }}
+      EDAMAME_CLIENT_CA_PEM: ${{ secrets.EDAMAME_CLIENT_CA_PEM }}
+      LAMBDA_SIGNATURE: ${{ secrets.LAMBDA_SIGNATURE }}
+      MIXPANEL_TOKEN: ${{ secrets.MIXPANEL_TOKEN }}
+      APPLE_APPSTORE_CONNECT_API_ISSUER_ID: ${{ secrets.APPLE_APPSTORE_CONNECT_API_ISSUER_ID }}
+      APPLE_APPSTORE_CONNECT_API_KEY_ID: ${{ secrets.APPLE_APPSTORE_CONNECT_API_KEY_ID }}
+      APPLE_APPSTORE_CONNECT_API_KEY: ${{ secrets.APPLE_APPSTORE_CONNECT_API_KEY }}
+      MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.DEV_GITHUB_TOKEN_B64 }}
+      MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      # Required for cross to not show warnings and fail
+      CROSS_NO_WARNINGS: 0
+      # Debug mode
+      EDAMAME_LOG_LEVEL: debug
+    
+    steps:
+
+      - name: Setup EDAMAME Posture
+        uses: edamametechnologies/edamame_posture_action@v1
+        with:
+          edamame_user: ${{ vars.EDAMAME_POSTURE_USER }}
+          edamame_domain: ${{ vars.EDAMAME_POSTURE_DOMAIN }}
+          edamame_pin: ${{ secrets.EDAMAME_POSTURE_PIN }}
+          edamame_id: ${{ github.run_id }}
+          network_scan: true
+          auto_whitelist: true
+          auto_remediate: true
+          checkout: true
+          # We are using the token of the private repo to checkout the public repo and properly wait for access to the private repo
+          token: ${{ secrets.DEV_GITHUB_TOKEN }}
+          wait_for_api: true
+          wait_for_https: true
+
+      ############################################################################################
+      # Setup
+      ############################################################################################
+
+      - name: Configure Git Authentication to import private crates
+        run: |
+          git config --global user.email "dev@edamame.tech"
+          git config --global user.name "EDAMAME Dev"
+          git config --global url."https://edamamedev:${{ secrets.DEV_GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
+
+      # Install protoc and libpcap-dev for native builds
+      - name: Install protoc and libpcap-dev for native builds
+        shell: bash
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        run: |
+          wait_for_apt_locks() {
+            echo "Checking for apt/dpkg locks..."
+            local TIMEOUT=300
+            local TIME_PASSED=0
+            local LOCK_FILES=(
+              "/var/lib/apt/lists/lock"
+              "/var/lib/dpkg/lock-frontend"
+              "/var/lib/dpkg/lock"
+              "/var/cache/apt/archives/lock"
+            )
+            
+            while [ $TIME_PASSED -lt $TIMEOUT ]; do
+              local LOCKED=false
+              local HAS_LOCK_CHECKER=false
+              
+              # Method 1: Check with fuser if available
+              if command -v fuser >/dev/null 2>&1; then
+                HAS_LOCK_CHECKER=true
+                for lock_file in "${LOCK_FILES[@]}"; do
+                  if [ -f "$lock_file" ] && sudo fuser "$lock_file" >/dev/null 2>&1; then
+                    LOCKED=true
+                    echo "  Lock held: $lock_file (by process $(sudo fuser "$lock_file" 2>/dev/null))"
+                    break
+                  fi
+                done
+              fi
+              
+              # Method 2: Check with lsof as fallback
+              if [ "$LOCKED" = "false" ] && command -v lsof >/dev/null 2>&1; then
+                HAS_LOCK_CHECKER=true
+                for lock_file in "${LOCK_FILES[@]}"; do
+                  if [ -f "$lock_file" ] && sudo lsof "$lock_file" >/dev/null 2>&1; then
+                    LOCKED=true
+                    echo "  Lock held (lsof): $lock_file"
+                    break
+                  fi
+                done
+              fi
+              
+              # If no lock checker is available, just proceed
+              # (apt will fail with a clear error if there's actually a lock)
+              if [ "$HAS_LOCK_CHECKER" = "false" ]; then
+                echo "No lock checker (fuser/lsof) available, proceeding..."
+                return 0
+              fi
+              
+              if [ "$LOCKED" = "false" ]; then
+                echo "No apt/dpkg locks held, proceeding..."
+                return 0
+              fi
+              
+              echo "Waiting for apt/dpkg locks to be released... ($TIME_PASSED/${TIMEOUT}s)"
+              sleep 5
+              TIME_PASSED=$((TIME_PASSED + 5))
+            done
+            
+            echo "Timed out waiting for apt/dpkg locks after $TIMEOUT seconds."
+            return 1
+          }
+
+          run_apt() {
+            local MAX_ATTEMPTS=10
+            local ATTEMPTS=0
+            
+            # Uses sudo if available
+            if command -v sudo >/dev/null 2>&1; then PREFIX="sudo -E "; else PREFIX=""; fi
+            
+            while [ $ATTEMPTS -lt $MAX_ATTEMPTS ]; do
+              ATTEMPTS=$((ATTEMPTS + 1))
+              
+              # ALWAYS wait for locks before each attempt
+              echo "apt-get $* (attempt $ATTEMPTS/$MAX_ATTEMPTS)"
+              if ! wait_for_apt_locks; then
+                echo "Failed to acquire locks, retrying..."
+                sleep 5
+                continue
+              fi
+              
+              # Try the apt command
+              if $PREFIX apt-get "$@"; then
+                return 0
+              fi
+              
+              RC=$?
+              echo "apt-get $* failed (rc=$RC)"
+              
+              # Check if dpkg was interrupted
+              if [ $RC -eq 100 ]; then
+                echo "Attempting dpkg --configure -a to fix interrupted state..."
+                sudo dpkg --configure -a || true
+              fi
+              
+              # Wait before retry
+              echo "Waiting 5s before retry..."
+              sleep 5
+            done
+            
+            echo "apt-get $* failed after $MAX_ATTEMPTS attempts"
+            return 1
+          }
+          
+          export DEBIAN_FRONTEND=noninteractive
+          
+          # Initial wait for any background apt processes (unattended-upgrades, etc.)
+          echo "Waiting for any background apt processes to complete..."
+          wait_for_apt_locks
+          
+          run_apt update -y
+          run_apt install -y protobuf-compiler libpcap-dev
+
+          # Install clang/llvm first (required for eBPF compilation)
+          run_apt install -y clang llvm libbpf-dev
+          run_apt install -y linux-headers-$(uname -r)
+  
+      # Install Rust
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      # Install Cross for Linux (only for cross-compilation, not native builds)
+      - name: Install Cross for Linux
+        if: (matrix.target == 'armv7-unknown-linux-gnueabihf' || matrix.target == 'i686-unknown-linux-gnu' || matrix.target == 'x86_64-unknown-linux-gnu')
+        run: cargo install cross --git https://github.com/cross-rs/cross
+
+      ############################################################################################
+      # Build
+      ############################################################################################
+
+      # Build application for Linux
+      - name: Build application for Linux
+        run: |
+          # Use native cargo for native targets, cross for cross-compilation
+          if [[ "${{ matrix.target }}" == "aarch64-unknown-linux-gnu" ]]; then
+            echo "Native build on aarch64"
+            cargo build --release --target ${{ matrix.target }}
+          else
+            echo "Cross-compilation build"
+            cross build --release --target ${{ matrix.target }}
+          fi
+          # Copy the binary to the standard release folder
+          mkdir -p target/release
+          cp target/${{ matrix.target }}/release/edamame_posture target/release/edamame_posture
+
+      # Build application in debug mode for Linux
+      - name: Build application in debug mode for Linux
+        run: |
+          # Use native cargo for native targets, cross for cross-compilation
+          if [[ "${{ matrix.target }}" == "aarch64-unknown-linux-gnu" ]]; then
+            echo "Native debug build on aarch64"
+            cargo build --target ${{ matrix.target }}
+          else
+            echo "Cross-compilation debug build"
+            cross build --target ${{ matrix.target }}
+          fi
+
+      - name: Package Debian package with cargo deb
+        run: |
+          # Install binutils for objcopy and strip (configured in .cargo/config.toml)
+          if [[ ${{ matrix.target }} == "armv7-unknown-linux-gnueabihf" ]]; then
+            echo "Installing arm-linux-gnueabihf-binutils..."
+            sudo apt-get install binutils-arm-linux-gnueabihf
+          fi
+          if [[ ${{ matrix.target }} == "aarch64-unknown-linux-gnu" ]]; then
+            echo "Installing aarch64-linux-gnu-binutils..."
+            sudo apt-get install binutils-aarch64-linux-gnu
+          fi
+
+          # Verify binutils installation
+          which objcopy || echo "Warning: objcopy not found"
+          which strip || echo "Warning: strip not found"
+
+          # Install cargo-deb
+          echo "Installing cargo-deb..."
+          cargo install cargo-deb
+          echo "Packaging .deb with cargo deb..."
+          cargo deb --no-build --target ${{ matrix.target }}
+
+      ############################################################################################
+      # Release
+      ############################################################################################
+
+      # Main only
+      - name: Check for existing release
+        if: github.ref == 'refs/heads/main'
+        id: get_release
+        shell: bash
+        run: |
+          VERSION=$(grep '^version =' ./Cargo.toml | awk '{print $3}' | tr -d '"')
+          echo "::set-output name=version::$VERSION"
+          VERSION_TAG=v${VERSION}
+          echo "::set-output name=tag::$VERSION_TAG"
+          if [[ -n "$(gh release view $VERSION_TAG --repo ${{ github.repository }} --json id -q .id)" ]]; then
+            echo "::set-output name=exists::true"
+            echo "::set-output name=upload_url::$(gh release view $VERSION_TAG --json uploadUrl -q .uploadUrl )"
+          else
+            echo "::set-output name=exists::false"
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Update the tag if it exists and points to a different commit
+      - name: Update the tag if it exists and points to a different commit
+        if: github.ref == 'refs/heads/main' && steps.get_release.outputs.exists == 'true'
+        run: |
+          gh release edit ${{ steps.get_release.outputs.tag }} --repo ${{ github.repository }} --target ${{ github.sha }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      # Main only
+      - name: Create release if it doesn't exist
+        if: github.ref == 'refs/heads/main' && steps.get_release.outputs.exists != 'true'
+        # This populates steps.get_release.outputs.upload_url with the upload_url of the release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.get_release.outputs.tag }}
+          release_name: Release ${{ steps.get_release.outputs.tag }}
+          draft: false
+          prerelease: false
+
+      # Main only
+      - name: Upload asset to release
+        if: github.ref == 'refs/heads/main'
+        # Supports overwrite
+        uses: shogo82148/actions-upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.get_release.outputs.exists == 'true' && steps.get_release.outputs.upload_url || steps.create_release.outputs.upload_url }}
+          # Path to the release for each target triplet
+          asset_path: target/${{ matrix.target }}/release/edamame_posture${{ matrix.os == 'windows' && '.exe' || '' }}
+          asset_name: edamame_posture-${{ steps.get_release.outputs.version }}-${{ matrix.target }}${{ matrix.os == 'windows' && '.exe' || '' }}
+          asset_content_type: application/octet-stream
+          overwrite: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Main only - Upload debug binary
+      - name: Upload debug asset to release
+        if: github.ref == 'refs/heads/main'
+        # Supports overwrite
+        uses: shogo82148/actions-upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.get_release.outputs.exists == 'true' && steps.get_release.outputs.upload_url || steps.create_release.outputs.upload_url }}
+          # Path to the debug binary for each target triplet
+          asset_path: target/${{ matrix.target }}/debug/edamame_posture${{ matrix.os == 'windows' && '.exe' || '' }}
+          asset_name: edamame_posture-${{ steps.get_release.outputs.version }}-${{ matrix.target }}-debug${{ matrix.os == 'windows' && '.exe' || '' }}
+          asset_content_type: application/octet-stream
+          overwrite: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload .deb asset to release
+        if: github.ref == 'refs/heads/main'  
+        uses: shogo82148/actions-upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.get_release.outputs.exists == 'true' && steps.get_release.outputs.upload_url || steps.create_release.outputs.upload_url }}
+          asset_path: target/${{ matrix.target }}/debian/edamame-posture_${{ steps.get_release.outputs.version }}-1_${{ matrix.deb_arch }}.deb
+          asset_name: edamame-posture_${{ steps.get_release.outputs.version }}-1_${{ matrix.deb_arch }}.deb
+          asset_content_type: application/vnd.debian.binary-package
+          overwrite: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload .deb files to S3
+        if: github.ref == 'refs/heads/main'
+        env:
+          GPG_PRIVATE_KEY_B64: ${{ secrets.GPG_PRIVATE_KEY_B64 }}
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+        run: | 
+          # Create GPG directory
+          mkdir -p ~/.gnupg
+          chmod 700 ~/.gnupg
+
+          # Import GPG key
+          echo "$GPG_PRIVATE_KEY_B64" | base64 -d | gpg --batch --yes --passphrase "$GPG_PASSPHRASE" --import
+
+          # Get the key ID (last 16 characters of the fingerprint)
+          KEY_ID=$(gpg --list-secret-keys --keyid-format LONG | grep sec | awk '{print $2}' | cut -d'/' -f2)
+
+          # Install deb-s3
+          sudo gem install deb-s3
+
+          # Upload .deb files to S3 with explicit GPG signing
+          deb-s3 upload --bucket edamame --prefix repo \
+            target/${{ matrix.target }}/debian/edamame-posture_${{ steps.get_release.outputs.version }}-1_${{ matrix.deb_arch }}.deb \
+            --sign=$KEY_ID \
+            --gpg-options="--batch --pinentry-mode loopback --passphrase $GPG_PASSPHRASE" \
+            --suite stable \
+            --origin edamame.tech
+
+      - name: Dump EDAMAME Posture sessions
+        uses: edamametechnologies/edamame_posture_action@v1
+        with:
+          dump_sessions_log: true
