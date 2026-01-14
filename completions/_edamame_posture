@@ -407,6 +407,14 @@ _arguments "${_arguments_options[@]}" : \
 '--help[Print help]' \
 && ret=0
 ;;
+(background-agentic-summary)
+_arguments "${_arguments_options[@]}" : \
+'*-v[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'*--verbose[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
 (background-status)
 _arguments "${_arguments_options[@]}" : \
 '*-v[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
@@ -763,6 +771,10 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
+(background-agentic-summary)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
 (background-status)
 _arguments "${_arguments_options[@]}" : \
 && ret=0
@@ -900,6 +912,7 @@ _edamame_posture_commands() {
 'background-mcp-stop:Stop MCP server' \
 'background-mcp-status:Get MCP server status' \
 'background-mcp-generate-psk:Generate a secure PSK for MCP server' \
+'background-agentic-summary:Get comprehensive agentic status summary (provider, mode, todos, actions, Slack)' \
 'background-status:Get status of reporting background process' \
 'background-last-report-signature:Get last report signature of background process' \
 'background-get-history:Get history of score modifications' \
@@ -929,6 +942,11 @@ _edamame_posture_commands() {
 _edamame_posture__augment-custom-whitelists_commands() {
     local commands; commands=()
     _describe -t commands 'edamame_posture augment-custom-whitelists commands' commands "$@"
+}
+(( $+functions[_edamame_posture__background-agentic-summary_commands] )) ||
+_edamame_posture__background-agentic-summary_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture background-agentic-summary commands' commands "$@"
 }
 (( $+functions[_edamame_posture__background-create-and-set-custom-whitelists_commands] )) ||
 _edamame_posture__background-create-and-set-custom-whitelists_commands() {
@@ -1200,6 +1218,7 @@ _edamame_posture__help_commands() {
 'background-mcp-stop:Stop MCP server' \
 'background-mcp-status:Get MCP server status' \
 'background-mcp-generate-psk:Generate a secure PSK for MCP server' \
+'background-agentic-summary:Get comprehensive agentic status summary (provider, mode, todos, actions, Slack)' \
 'background-status:Get status of reporting background process' \
 'background-last-report-signature:Get last report signature of background process' \
 'background-get-history:Get history of score modifications' \
@@ -1229,6 +1248,11 @@ _edamame_posture__help_commands() {
 _edamame_posture__help__augment-custom-whitelists_commands() {
     local commands; commands=()
     _describe -t commands 'edamame_posture help augment-custom-whitelists commands' commands "$@"
+}
+(( $+functions[_edamame_posture__help__background-agentic-summary_commands] )) ||
+_edamame_posture__help__background-agentic-summary_commands() {
+    local commands; commands=()
+    _describe -t commands 'edamame_posture help background-agentic-summary commands' commands "$@"
 }
 (( $+functions[_edamame_posture__help__background-create-and-set-custom-whitelists_commands] )) ||
 _edamame_posture__help__background-create-and-set-custom-whitelists_commands() {
