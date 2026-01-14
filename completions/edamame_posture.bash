@@ -587,7 +587,7 @@ _edamame_posture() {
             return 0
             ;;
         edamame_posture__background__mcp__start)
-            opts="-v -h --verbose --help [PORT] [PSK] [ALL_INTERFACES]"
+            opts="-v -h --all-interfaces --verbose --help [PORT] [PSK]"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -699,7 +699,7 @@ _edamame_posture() {
             return 0
             ;;
         edamame_posture__background__start)
-            opts="-u -d -p -n -c -v -h --user --domain --pin --device-id --network-scan --packet-capture --whitelist --fail-on-whitelist --fail-on-blacklist --fail-on-anomalous --include-local-traffic --agentic-mode --agentic-provider --agentic-interval --cancel-on-violation --verbose --help"
+            opts="-u -d -p -k -n -c -v -h --user --domain --pin --api-key --device-id --network-scan --packet-capture --whitelist --fail-on-whitelist --fail-on-blacklist --fail-on-anomalous --include-local-traffic --agentic-mode --agentic-provider --agentic-interval --cancel-on-violation --verbose --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -726,6 +726,14 @@ _edamame_posture() {
                     return 0
                     ;;
                 -p)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --api-key)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -k)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -757,12 +765,20 @@ _edamame_posture() {
             return 0
             ;;
         edamame_posture__background__start__disconnected)
-            opts="-n -c -v -h --network-scan --packet-capture --whitelist --fail-on-whitelist --fail-on-blacklist --fail-on-anomalous --include-local-traffic --agentic-mode --cancel-on-violation --verbose --help"
+            opts="-k -n -c -v -h --api-key --network-scan --packet-capture --whitelist --fail-on-whitelist --fail-on-blacklist --fail-on-anomalous --include-local-traffic --agentic-mode --cancel-on-violation --verbose --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
+                --api-key)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -k)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
                 --whitelist)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
@@ -989,7 +1005,7 @@ _edamame_posture() {
             return 0
             ;;
         edamame_posture__foreground__start)
-            opts="-u -d -p -n -c -v -h --user --domain --pin --device-id --network-scan --packet-capture --whitelist --fail-on-whitelist --fail-on-blacklist --fail-on-anomalous --include-local-traffic --agentic-mode --agentic-provider --agentic-interval --cancel-on-violation --verbose --help"
+            opts="-u -d -p -k -n -c -v -h --user --domain --pin --api-key --device-id --network-scan --packet-capture --whitelist --fail-on-whitelist --fail-on-blacklist --fail-on-anomalous --include-local-traffic --agentic-mode --agentic-provider --agentic-interval --cancel-on-violation --verbose --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -1016,6 +1032,14 @@ _edamame_posture() {
                     return 0
                     ;;
                 -p)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --api-key)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -k)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;

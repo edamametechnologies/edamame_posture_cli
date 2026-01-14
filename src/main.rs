@@ -1079,6 +1079,12 @@ fn run_base() {
             exit_code = background_mcp_status();
             is_background = true;
         }
+        Some(("background-agentic-summary", _)) => {
+            // Initialize core
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_agentic_summary();
+            is_background = true;
+        }
         _ => {
             // Initialize the core with all options disabled
             initialize_core("".to_string(), false, false, false, false, false, verbose);
