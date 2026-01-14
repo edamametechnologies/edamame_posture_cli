@@ -27,8 +27,7 @@
 #   --slack-escalations-channel ID Slack escalations channel ID
 #
 # AI Environment Variables:
-#   EDAMAME_API_KEY                EDAMAME Portal LLM API key (for agentic-provider=edamame)
-#   EDAMAME_LLM_API_KEY            BYOLLM API key (for agentic-provider=claude/openai)
+#   EDAMAME_LLM_API_KEY            LLM API key for all providers (edamame, claude, openai)
 #   EDAMAME_LLM_BASE_URL           Ollama base URL (for agentic-provider=ollama)
 #
 # Installation Control:
@@ -51,13 +50,13 @@
 #       --whitelist github_ubuntu --fail-on-whitelist
 #
 #   AI Assistant with EDAMAME Portal LLM (recommended for headless):
-#     export EDAMAME_API_KEY="edm_live_..."
+#     export EDAMAME_LLM_API_KEY="edm_live_..."
 #     curl -sSf https://raw.githubusercontent.com/.../install.sh | sh -s -- \
 #       --user myuser --domain example.com --pin 123456 \
 #       --agentic-mode auto --agentic-provider edamame \
 #       --start-lanscan --start-capture --whitelist builder
 #
-#   AI Assistant with BYOLLM (Claude):
+#   AI Assistant with Claude:
 #     export EDAMAME_LLM_API_KEY="sk-ant-..."
 #     curl -sSf https://raw.githubusercontent.com/.../install.sh | sh -s -- \
 #       --user myuser --domain example.com --pin 123456 \
@@ -2003,9 +2002,9 @@ agentic_mode: "${ESC_AGENTIC_MODE}"
 # ============================================================================
 #
 # Set agentic_provider and use environment variables for API keys:
-#   - edamame: EDAMAME Portal LLM (recommended) - uses EDAMAME_API_KEY env var
-#   - claude:  Anthropic Claude (BYOLLM) - uses EDAMAME_LLM_API_KEY env var
-#   - openai:  OpenAI (BYOLLM) - uses EDAMAME_LLM_API_KEY env var
+#   - edamame: EDAMAME Portal LLM (recommended) - uses EDAMAME_LLM_API_KEY env var
+#   - claude:  Anthropic Claude - uses EDAMAME_LLM_API_KEY env var
+#   - openai:  OpenAI - uses EDAMAME_LLM_API_KEY env var
 #   - ollama:  Local Ollama - uses EDAMAME_LLM_BASE_URL env var
 #
 agentic_provider: "${ESC_AGENTIC_PROVIDER}"
