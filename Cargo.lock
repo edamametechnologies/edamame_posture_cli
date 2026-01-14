@@ -1808,7 +1808,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "0.9.83"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#9857ec451227ba8e060e6b80c05e6f57fa1ac518"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#b9dd600865120f3404af6cc14987ad31d83e2f11"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1893,7 +1893,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "0.9.83"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#9f565de517eb9a15e866b01a316e294bd5244b84"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#acfaaf6aef2b0e90d07ff882cf894cb13a317f82"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1958,7 +1958,7 @@ dependencies = [
 [[package]]
 name = "edamame_models"
 version = "0.1.1"
-source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#c0d0c6a18f358285aa6434188266554316ef322d"
+source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#14f65293cd42688169a00bc24693bfd4e0347446"
 dependencies = [
  "anyhow",
  "chrono",
@@ -2279,7 +2279,7 @@ dependencies = [
 [[package]]
 name = "flodbadd"
 version = "0.9.83"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#989c9c693834e378b4fc420abd3dc781402fcecb"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#e6abfd95d051e84c3eb0b7c2c6de6ee3b68e0c78"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -3451,7 +3451,7 @@ dependencies = [
 [[package]]
 name = "l7_ebpf_program"
 version = "0.1.0"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#989c9c693834e378b4fc420abd3dc781402fcecb"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#e6abfd95d051e84c3eb0b7c2c6de6ee3b68e0c78"
 
 [[package]]
 name = "lazy_static"
@@ -5261,7 +5261,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6db2770f06117d490610c7488547d543617b21bfa07796d7a12f6f1bd53850d1"
 dependencies = [
  "rand_chacha 0.9.0",
- "rand_core 0.9.4",
+ "rand_core 0.9.5",
 ]
 
 [[package]]
@@ -5281,7 +5281,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d3022b5f1df60f26e1ffddd6c66e8aa15de382ae63b3a0c1bfc0e4d3e3f325cb"
 dependencies = [
  "ppv-lite86",
- "rand_core 0.9.4",
+ "rand_core 0.9.5",
 ]
 
 [[package]]
@@ -5295,9 +5295,9 @@ dependencies = [
 
 [[package]]
 name = "rand_core"
-version = "0.9.4"
+version = "0.9.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4f1b3bc831f92381018fd9c6350b917c7b21f1eed35a65a51900e0e55a3d7afa"
+checksum = "76afc826de14238e6e8c374ddcc1fa19e374fd8dd986b0d2af0d02377261d83c"
 dependencies = [
  "getrandom 0.3.4",
 ]
@@ -6568,9 +6568,9 @@ dependencies = [
 
 [[package]]
 name = "time"
-version = "0.3.44"
+version = "0.3.45"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "91e7d9e3bb61134e77bde20dd4825b97c010155709965fedf0f49bb138e52a9d"
+checksum = "f9e442fc33d7fdb45aa9bfeb312c095964abdf596f7567261062b2a7107aaabd"
 dependencies = [
  "deranged",
  "itoa",
@@ -6578,22 +6578,22 @@ dependencies = [
  "num-conv",
  "num_threads",
  "powerfmt",
- "serde",
+ "serde_core",
  "time-core",
  "time-macros",
 ]
 
 [[package]]
 name = "time-core"
-version = "0.1.6"
+version = "0.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "40868e7c1d2f0b8d73e4a8c7f0ff63af4f6d19be117e90bd73eb1d62cf831c6b"
+checksum = "8b36ee98fd31ec7426d599183e8fe26932a8dc1fb76ddb6214d05493377d34ca"
 
 [[package]]
 name = "time-macros"
-version = "0.2.24"
+version = "0.2.25"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "30cfb0125f12d9c277f35663a0a33f8c30190f4e4574868a330595412d34ebf3"
+checksum = "71e552d1249bf61ac2a52db88179fd0673def1e1ad8243a00d9ec9ed71fee3dd"
 dependencies = [
  "num-conv",
  "time-core",
@@ -7016,7 +7016,7 @@ checksum = "562d481066bde0658276a35467c4af00bdc6ee726305698a55b86e61d7ad82bb"
 [[package]]
 name = "undeadlock"
 version = "0.9.83"
-source = "git+https://github.com/edamametechnologies/undeadlock?branch=main#d9bc91f8675745aef194af8dfe9ea750be8bd243"
+source = "git+https://github.com/edamametechnologies/undeadlock?branch=main#8956b5d53e75c5fa21f87218b447bfd75471859c"
 dependencies = [
  "dashmap 6.1.0",
  "futures",
@@ -8465,9 +8465,9 @@ checksum = "40990edd51aae2c2b6907af74ffb635029d5788228222c4bb811e9351c0caad3"
 
 [[package]]
 name = "zmij"
-version = "1.0.13"
+version = "1.0.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ac93432f5b761b22864c774aac244fa5c0fd877678a4c37ebf6cf42208f9c9ec"
+checksum = "bd8f3f50b848df28f887acb68e41201b5aea6bc8a8dacc00fb40635ff9a72fea"
 
 [[package]]
 name = "zopfli"
