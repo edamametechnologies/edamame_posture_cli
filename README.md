@@ -135,14 +135,14 @@ Store your API key in a secure location and set it as an environment variable:
 
 ```bash
 # Add to your shell profile (~/.bashrc, ~/.zshrc, or ~/.profile)
-export EDAMAME_API_KEY="edm_live_your_api_key_here"
+export EDAMAME_LLM_API_KEY="edm_live_your_api_key_here"
 
 # Reload your shell profile
 source ~/.bashrc  # or ~/.zshrc
 ```
 
 For CI/CD environments, store the API key as a secret:
-- **GitHub Actions**: Add as a repository secret named `EDAMAME_API_KEY`
+- **GitHub Actions**: Add as a repository secret named `EDAMAME_LLM_API_KEY`
 - **GitLab CI**: Add as a CI/CD variable (masked)
 - **Jenkins**: Add as a credential
 
@@ -287,8 +287,8 @@ Here's a complete setup script you can save and run:
 # setup-edamame-security.sh
 
 # Ensure environment variables are set
-if [ -z "$EDAMAME_API_KEY" ]; then
-    echo "Error: EDAMAME_API_KEY not set"
+if [ -z "$EDAMAME_LLM_API_KEY" ]; then
+    echo "Error: EDAMAME_LLM_API_KEY not set"
     echo "Get your API key at https://portal.edamame.tech/api-keys"
     exit 1
 fi
@@ -320,7 +320,7 @@ echo "Stop: edamame_posture background-stop"
 
 | Issue | Solution |
 |-------|----------|
-| "EDAMAME_API_KEY not set" | Ensure you exported the variable and used `sudo -E` |
+| "EDAMAME_LLM_API_KEY not set" | Ensure you exported the variable and used `sudo -E` |
 | "Permission denied" | Run with `sudo` for network capture features |
 | No Slack messages | Verify bot token and channel IDs; check bot is in channels |
 | "Daemon not running" | Check logs for errors: `edamame_posture background-logs` |
@@ -696,7 +696,7 @@ edamame_posture background-start-disconnected \
 **Environment Variables** (based on `--agentic-provider`):
 ```bash
 # For --agentic-provider edamame (recommended - create API key at portal.edamame.tech)
-export EDAMAME_API_KEY="edm_live_..."
+export EDAMAME_LLM_API_KEY="edm_live_..."
 
 # For --agentic-provider claude or openai (BYOLLM)
 export EDAMAME_LLM_API_KEY="sk-ant-..."
@@ -936,7 +936,7 @@ edamame_posture background-start-disconnected [--network-scan] [--packet-capture
 This enables all the monitoring and whitelist enforcement capabilities locally without requiring a registered domain:
 - Fully local, real-time monitoring and network traffic capture (enable with `--packet-capture`)
 - Whitelist enforcement without any external connectivity
-- AI Assistant support with EDAMAME Portal LLM (`--agentic-provider edamame` + `EDAMAME_API_KEY` env) or BYOLLM
+- AI Assistant support with EDAMAME Portal LLM (`--agentic-provider edamame` + `EDAMAME_LLM_API_KEY` env) or BYOLLM
 - Ideal for sensitive environments or isolated runners where external communication is not allowed
 
 ## Preventing Supply Chain Attacks
@@ -986,7 +986,7 @@ Example (GitHub Actions):
       --agentic-provider edamame \
       --agentic-interval 600
     env:
-      EDAMAME_API_KEY: ${{ secrets.EDAMAME_API_KEY }}
+      EDAMAME_LLM_API_KEY: ${{ secrets.EDAMAME_LLM_API_KEY }}
 
 # Or with Bring Your Own LLM (e.g., Claude)
 - name: Setup EDAMAME Posture with AI (BYOLLM)
