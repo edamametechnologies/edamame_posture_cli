@@ -992,7 +992,17 @@ pub fn background_agentic_summary() -> i32 {
     // LLM Provider
     println!("\n[LLM Provider]");
     println!("  Provider: {}", summary.provider);
-    println!("  Model: {}", if summary.model.is_empty() { "default" } else { &summary.model });
+    // For internal provider, model is managed by EDAMAME Cloud backend
+    let model_display = if summary.model.is_empty() {
+        if summary.provider == "internal" {
+            "managed by backend"
+        } else {
+            "default"
+        }
+    } else {
+        &summary.model
+    };
+    println!("  Model: {}", model_display);
     println!(
         "  API Key: {}",
         if summary.has_api_key { "configured" } else { "not set" }
