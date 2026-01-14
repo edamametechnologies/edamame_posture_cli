@@ -2319,8 +2319,7 @@ if [ "$SHOULD_START_DAEMON" = "true" ]; then
     sleep 2
     
     # AI configuration is handled via environment variables
-    # The daemon reads: EDAMAME_API_KEY (for edamame provider), 
-    #                   EDAMAME_LLM_API_KEY (for claude/openai), 
+    # The daemon reads: EDAMAME_LLM_API_KEY (for all LLM providers: edamame, claude, openai), 
     #                   EDAMAME_LLM_BASE_URL (for ollama)
     AGENTIC_PROVIDER_NAME="$CONFIG_AGENTIC_PROVIDER"
     if [ "$CONFIG_AGENTIC_MODE" != "disabled" ]; then
