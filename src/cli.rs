@@ -519,8 +519,8 @@ fn start_common_args() -> Vec<Arg> {
         Arg::new("agentic_provider")
             .long("agentic-provider")
             .value_name("PROVIDER")
-            .help("LLM provider: claude, openai, ollama, none")
-            .value_parser(["claude", "openai", "ollama", "none"]),
+            .help("LLM provider: edamame (Portal), claude, openai, ollama, none")
+            .value_parser(["edamame", "claude", "openai", "ollama", "none"]),
         Arg::new("agentic_interval")
             .long("agentic-interval")
             .value_name("SECONDS")
