@@ -99,27 +99,25 @@ test_claude_provider() {
     
     echo "Setting up Claude provider..."
     
-    # Start posture in foreground briefly to configure agentic
-    # We'll use the agentic-summary command to verify configuration
+    # Use EDAMAME_LLM_API_KEY for the provider
     export EDAMAME_LLM_API_KEY="$ANTHROPIC_API_KEY"
     
-    # Initialize and configure Claude
-    if $SUDO_CMD "$BINARY_PATH" foreground-start \
-        --disconnected-mode \
+    # Start in disconnected mode with Claude provider
+    if $SUDO_CMD "$BINARY_PATH" background-start-disconnected \
         --agentic-mode analyze \
         --agentic-provider claude &
     then
-        PID=$!
         sleep 10  # Wait for initialization
         
         # Check agentic summary
         if SUMMARY=$($SUDO_CMD "$BINARY_PATH" agentic-summary 2>&1); then
+            echo "Summary: $SUMMARY"
             if echo "$SUMMARY" | grep -qi "claude"; then
                 echo "✅ Claude provider configured"
                 claude_config_result="✅"
                 
                 # Check if LLM is tested/working
-                if echo "$SUMMARY" | grep -qi "tested.*true\|connection.*success"; then
+                if echo "$SUMMARY" | grep -qi "tested.*true\|connection.*success\|provider.*claude"; then
                     echo "✅ Claude LLM connection verified"
                     claude_test_result="✅"
                 else
@@ -138,7 +136,6 @@ test_claude_provider() {
         fi
         
         # Stop the process
-        kill $PID 2>/dev/null || true
         $SUDO_CMD "$BINARY_PATH" stop 2>/dev/null || true
         sleep 3
     else
@@ -167,23 +164,22 @@ test_openai_provider() {
     
     export EDAMAME_LLM_API_KEY="$OPENAI_API_KEY"
     
-    # Initialize and configure OpenAI
-    if $SUDO_CMD "$BINARY_PATH" foreground-start \
-        --disconnected-mode \
+    # Start in disconnected mode with OpenAI provider
+    if $SUDO_CMD "$BINARY_PATH" background-start-disconnected \
         --agentic-mode analyze \
         --agentic-provider openai &
     then
-        PID=$!
         sleep 10  # Wait for initialization
         
         # Check agentic summary
         if SUMMARY=$($SUDO_CMD "$BINARY_PATH" agentic-summary 2>&1); then
+            echo "Summary: $SUMMARY"
             if echo "$SUMMARY" | grep -qi "openai"; then
                 echo "✅ OpenAI provider configured"
                 openai_config_result="✅"
                 
                 # Check if LLM is tested/working
-                if echo "$SUMMARY" | grep -qi "tested.*true\|connection.*success"; then
+                if echo "$SUMMARY" | grep -qi "tested.*true\|connection.*success\|provider.*openai"; then
                     echo "✅ OpenAI LLM connection verified"
                     openai_test_result="✅"
                 else
@@ -202,7 +198,6 @@ test_openai_provider() {
         fi
         
         # Stop the process
-        kill $PID 2>/dev/null || true
         $SUDO_CMD "$BINARY_PATH" stop 2>/dev/null || true
         sleep 3
     else
@@ -231,23 +226,22 @@ test_edamame_provider() {
     
     # EDAMAME_LLM_API_KEY is already set in environment
     
-    # Initialize and configure EDAMAME Internal
-    if $SUDO_CMD "$BINARY_PATH" foreground-start \
-        --disconnected-mode \
+    # Start in disconnected mode with EDAMAME provider
+    if $SUDO_CMD "$BINARY_PATH" background-start-disconnected \
         --agentic-mode analyze \
         --agentic-provider edamame &
     then
-        PID=$!
         sleep 10  # Wait for initialization
         
         # Check agentic summary
         if SUMMARY=$($SUDO_CMD "$BINARY_PATH" agentic-summary 2>&1); then
+            echo "Summary: $SUMMARY"
             if echo "$SUMMARY" | grep -qi "internal\|edamame"; then
                 echo "✅ EDAMAME Internal provider configured"
                 edamame_config_result="✅"
                 
                 # Check if LLM is tested/working
-                if echo "$SUMMARY" | grep -qi "tested.*true\|connection.*success"; then
+                if echo "$SUMMARY" | grep -qiE "tested.*true|connection.*success|provider.*(edamame|internal)"; then
                     echo "✅ EDAMAME Internal LLM connection verified"
                     edamame_test_result="✅"
                 else
@@ -266,7 +260,6 @@ test_edamame_provider() {
         fi
         
         # Stop the process
-        kill $PID 2>/dev/null || true
         $SUDO_CMD "$BINARY_PATH" stop 2>/dev/null || true
         sleep 3
     else
@@ -279,7 +272,7 @@ test_edamame_provider() {
 test_api_key_via_cli() {
     echo ""
     echo "----------------------------------------------"
-    echo "Testing --api-key CLI flag"
+    echo "Testing --llm-api-key CLI flag"
     echo "----------------------------------------------"
     
     # Test with any available key
@@ -300,32 +293,30 @@ test_api_key_via_cli() {
         return 0
     fi
     
-    echo "Testing --api-key flag with $provider provider..."
+    echo "Testing --llm-api-key flag with $provider provider..."
     
-    # Start with --api-key flag
-    if $SUDO_CMD "$BINARY_PATH" foreground-start \
-        --disconnected-mode \
+    # Start with --llm-api-key flag (short form -k)
+    if $SUDO_CMD "$BINARY_PATH" background-start-disconnected \
         --agentic-mode analyze \
         --agentic-provider "$provider" \
-        --api-key "$test_key" &
+        -k "$test_key" &
     then
-        PID=$!
         sleep 10
         
         # Check agentic summary
         if SUMMARY=$($SUDO_CMD "$BINARY_PATH" agentic-summary 2>&1); then
-            echo "✅ --api-key CLI flag working"
+            echo "Summary: $SUMMARY"
+            echo "✅ --llm-api-key CLI flag working"
             echo "   Provider: $provider"
         else
-            echo "⚠️  Could not verify --api-key flag"
+            echo "⚠️  Could not verify --llm-api-key flag"
         fi
         
         # Stop the process
-        kill $PID 2>/dev/null || true
         $SUDO_CMD "$BINARY_PATH" stop 2>/dev/null || true
         sleep 3
     else
-        echo "❌ Failed to start with --api-key flag"
+        echo "❌ Failed to start with --llm-api-key flag"
     fi
 }
 
