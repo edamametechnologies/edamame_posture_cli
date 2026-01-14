@@ -312,6 +312,8 @@ _arguments "${_arguments_options[@]}" : \
 '--domain=[Domain name]:DOMAIN:_default' \
 '-p+[PIN]:PIN:_default' \
 '--pin=[PIN]:PIN:_default' \
+'-k+[EDAMAME API key for headless authentication (alternative to user/domain/pin)]:API_KEY:_default' \
+'--api-key=[EDAMAME API key for headless authentication (alternative to user/domain/pin)]:API_KEY:_default' \
 '--device-id=[Device ID suffix to flag the endpoint as a CI/CD runner when provided]:DEVICE_ID:_default' \
 '--whitelist=[Whitelist name to enforce during capture]:WHITELIST:_default' \
 '--agentic-mode=[AI assistant mode\: auto, analyze or disabled]:MODE:(auto analyze disabled)' \
@@ -340,6 +342,8 @@ _arguments "${_arguments_options[@]}" : \
 '--domain=[Domain name]:DOMAIN:_default' \
 '-p+[PIN]:PIN:_default' \
 '--pin=[PIN]:PIN:_default' \
+'-k+[EDAMAME API key for headless authentication (alternative to user/domain/pin)]:API_KEY:_default' \
+'--api-key=[EDAMAME API key for headless authentication (alternative to user/domain/pin)]:API_KEY:_default' \
 '--device-id=[Device ID suffix to flag the endpoint as a CI/CD runner when provided]:DEVICE_ID:_default' \
 '--whitelist=[Whitelist name to enforce during capture]:WHITELIST:_default' \
 '--agentic-mode=[AI assistant mode\: auto, analyze or disabled]:MODE:(auto analyze disabled)' \
@@ -370,13 +374,13 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (background-mcp-start)
 _arguments "${_arguments_options[@]}" : \
+'--all-interfaces[Listen on all interfaces]' \
 '*-v[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
 '*--verbose[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
 '-h[Print help]' \
 '--help[Print help]' \
 '::PORT -- Port to listen on:_default' \
 '::PSK -- Pre-shared key for authentication (min 32 chars):_default' \
-'::ALL_INTERFACES -- Listen on all interfaces:_default' \
 && ret=0
 ;;
 (background-mcp-stop)
@@ -429,6 +433,8 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (background-start-disconnected)
 _arguments "${_arguments_options[@]}" : \
+'-k+[EDAMAME API key for headless authentication]:API_KEY:_default' \
+'--api-key=[EDAMAME API key for headless authentication]:API_KEY:_default' \
 '--whitelist=[Whitelist name to enforce during capture]:WHITELIST:_default' \
 '--agentic-mode=[AI assistant mode for automated todo processing\: auto, analyze or disabled]:MODE:(auto analyze disabled)' \
 '-n[Enable LAN scanning]' \
