@@ -312,12 +312,12 @@ _arguments "${_arguments_options[@]}" : \
 '--domain=[Domain name]:DOMAIN:_default' \
 '-p+[PIN]:PIN:_default' \
 '--pin=[PIN]:PIN:_default' \
-'-k+[EDAMAME API key for headless authentication (alternative to user/domain/pin)]:API_KEY:_default' \
-'--api-key=[EDAMAME API key for headless authentication (alternative to user/domain/pin)]:API_KEY:_default' \
+'-k+[EDAMAME Portal LLM API key for AI assistant (edamame provider)]:API_KEY:_default' \
+'--llm-api-key=[EDAMAME Portal LLM API key for AI assistant (edamame provider)]:API_KEY:_default' \
 '--device-id=[Device ID suffix to flag the endpoint as a CI/CD runner when provided]:DEVICE_ID:_default' \
 '--whitelist=[Whitelist name to enforce during capture]:WHITELIST:_default' \
 '--agentic-mode=[AI assistant mode\: auto, analyze or disabled]:MODE:(auto analyze disabled)' \
-'--agentic-provider=[LLM provider\: claude, openai, ollama, none]:PROVIDER:(claude openai ollama none)' \
+'--agentic-provider=[LLM provider\: edamame (Portal), claude, openai, ollama, none]:PROVIDER:(edamame claude openai ollama none)' \
 '--agentic-interval=[Interval in seconds for automated todo processing (default\: 3600)]:SECONDS:_default' \
 '-n[Enable LAN scanning]' \
 '--network-scan[Enable LAN scanning]' \
@@ -342,12 +342,12 @@ _arguments "${_arguments_options[@]}" : \
 '--domain=[Domain name]:DOMAIN:_default' \
 '-p+[PIN]:PIN:_default' \
 '--pin=[PIN]:PIN:_default' \
-'-k+[EDAMAME API key for headless authentication (alternative to user/domain/pin)]:API_KEY:_default' \
-'--api-key=[EDAMAME API key for headless authentication (alternative to user/domain/pin)]:API_KEY:_default' \
+'-k+[EDAMAME Portal LLM API key for AI assistant (edamame provider)]:API_KEY:_default' \
+'--llm-api-key=[EDAMAME Portal LLM API key for AI assistant (edamame provider)]:API_KEY:_default' \
 '--device-id=[Device ID suffix to flag the endpoint as a CI/CD runner when provided]:DEVICE_ID:_default' \
 '--whitelist=[Whitelist name to enforce during capture]:WHITELIST:_default' \
 '--agentic-mode=[AI assistant mode\: auto, analyze or disabled]:MODE:(auto analyze disabled)' \
-'--agentic-provider=[LLM provider\: claude, openai, ollama, none]:PROVIDER:(claude openai ollama none)' \
+'--agentic-provider=[LLM provider\: edamame (Portal), claude, openai, ollama, none]:PROVIDER:(edamame claude openai ollama none)' \
 '--agentic-interval=[Interval in seconds for automated todo processing (default\: 3600)]:SECONDS:_default' \
 '-n[Enable LAN scanning]' \
 '--network-scan[Enable LAN scanning]' \
@@ -441,8 +441,8 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (background-start-disconnected)
 _arguments "${_arguments_options[@]}" : \
-'-k+[EDAMAME API key for headless authentication]:API_KEY:_default' \
-'--api-key=[EDAMAME API key for headless authentication]:API_KEY:_default' \
+'-k+[EDAMAME Portal LLM API key for AI assistant (edamame provider)]:API_KEY:_default' \
+'--llm-api-key=[EDAMAME Portal LLM API key for AI assistant (edamame provider)]:API_KEY:_default' \
 '--whitelist=[Whitelist name to enforce during capture]:WHITELIST:_default' \
 '--agentic-mode=[AI assistant mode for automated todo processing\: auto, analyze or disabled]:MODE:(auto analyze disabled)' \
 '-n[Enable LAN scanning]' \

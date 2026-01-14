@@ -155,13 +155,14 @@ complete -c edamame_posture -n "__fish_edamame_posture_using_subcommand backgrou
 complete -c edamame_posture -n "__fish_edamame_posture_using_subcommand foreground-start" -s u -l user -d 'User name' -r
 complete -c edamame_posture -n "__fish_edamame_posture_using_subcommand foreground-start" -s d -l domain -d 'Domain name' -r
 complete -c edamame_posture -n "__fish_edamame_posture_using_subcommand foreground-start" -s p -l pin -d 'PIN' -r
-complete -c edamame_posture -n "__fish_edamame_posture_using_subcommand foreground-start" -s k -l api-key -d 'EDAMAME API key for headless authentication (alternative to user/domain/pin)' -r
+complete -c edamame_posture -n "__fish_edamame_posture_using_subcommand foreground-start" -s k -l llm-api-key -d 'EDAMAME Portal LLM API key for AI assistant (edamame provider)' -r
 complete -c edamame_posture -n "__fish_edamame_posture_using_subcommand foreground-start" -l device-id -d 'Device ID suffix to flag the endpoint as a CI/CD runner when provided' -r
 complete -c edamame_posture -n "__fish_edamame_posture_using_subcommand foreground-start" -l whitelist -d 'Whitelist name to enforce during capture' -r
 complete -c edamame_posture -n "__fish_edamame_posture_using_subcommand foreground-start" -l agentic-mode -d 'AI assistant mode: auto, analyze or disabled' -r -f -a "auto\t''
 analyze\t''
 disabled\t''"
-complete -c edamame_posture -n "__fish_edamame_posture_using_subcommand foreground-start" -l agentic-provider -d 'LLM provider: claude, openai, ollama, none' -r -f -a "claude\t''
+complete -c edamame_posture -n "__fish_edamame_posture_using_subcommand foreground-start" -l agentic-provider -d 'LLM provider: edamame (Portal), claude, openai, ollama, none' -r -f -a "edamame\t''
+claude\t''
 openai\t''
 ollama\t''
 none\t''"
@@ -178,13 +179,14 @@ complete -c edamame_posture -n "__fish_edamame_posture_using_subcommand foregrou
 complete -c edamame_posture -n "__fish_edamame_posture_using_subcommand background-start" -s u -l user -d 'User name' -r
 complete -c edamame_posture -n "__fish_edamame_posture_using_subcommand background-start" -s d -l domain -d 'Domain name' -r
 complete -c edamame_posture -n "__fish_edamame_posture_using_subcommand background-start" -s p -l pin -d 'PIN' -r
-complete -c edamame_posture -n "__fish_edamame_posture_using_subcommand background-start" -s k -l api-key -d 'EDAMAME API key for headless authentication (alternative to user/domain/pin)' -r
+complete -c edamame_posture -n "__fish_edamame_posture_using_subcommand background-start" -s k -l llm-api-key -d 'EDAMAME Portal LLM API key for AI assistant (edamame provider)' -r
 complete -c edamame_posture -n "__fish_edamame_posture_using_subcommand background-start" -l device-id -d 'Device ID suffix to flag the endpoint as a CI/CD runner when provided' -r
 complete -c edamame_posture -n "__fish_edamame_posture_using_subcommand background-start" -l whitelist -d 'Whitelist name to enforce during capture' -r
 complete -c edamame_posture -n "__fish_edamame_posture_using_subcommand background-start" -l agentic-mode -d 'AI assistant mode: auto, analyze or disabled' -r -f -a "auto\t''
 analyze\t''
 disabled\t''"
-complete -c edamame_posture -n "__fish_edamame_posture_using_subcommand background-start" -l agentic-provider -d 'LLM provider: claude, openai, ollama, none' -r -f -a "claude\t''
+complete -c edamame_posture -n "__fish_edamame_posture_using_subcommand background-start" -l agentic-provider -d 'LLM provider: edamame (Portal), claude, openai, ollama, none' -r -f -a "edamame\t''
+claude\t''
 openai\t''
 ollama\t''
 none\t''"
@@ -217,7 +219,7 @@ complete -c edamame_posture -n "__fish_edamame_posture_using_subcommand backgrou
 complete -c edamame_posture -n "__fish_edamame_posture_using_subcommand background-last-report-signature" -s h -l help -d 'Print help'
 complete -c edamame_posture -n "__fish_edamame_posture_using_subcommand background-get-history" -s v -l verbose -d 'Verbosity level (-v: info, -vv: debug, -vvv: trace)'
 complete -c edamame_posture -n "__fish_edamame_posture_using_subcommand background-get-history" -s h -l help -d 'Print help'
-complete -c edamame_posture -n "__fish_edamame_posture_using_subcommand background-start-disconnected" -s k -l api-key -d 'EDAMAME API key for headless authentication' -r
+complete -c edamame_posture -n "__fish_edamame_posture_using_subcommand background-start-disconnected" -s k -l llm-api-key -d 'EDAMAME Portal LLM API key for AI assistant (edamame provider)' -r
 complete -c edamame_posture -n "__fish_edamame_posture_using_subcommand background-start-disconnected" -l whitelist -d 'Whitelist name to enforce during capture' -r
 complete -c edamame_posture -n "__fish_edamame_posture_using_subcommand background-start-disconnected" -l agentic-mode -d 'AI assistant mode for automated todo processing: auto, analyze or disabled' -r -f -a "auto\t''
 analyze\t''
