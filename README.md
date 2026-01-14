@@ -5,6 +5,7 @@ EDAMAME Posture is a lightweight, developer-friendly security posture assessment
 
 ## Table of Contents
 - [What is it?](#what-is-it)
+- [Quick Start: Background Mode with AI Security Assistant & Slack Alerts](#quick-start-background-mode-with-ai-security-assistant--slack-alerts)
 - [Overview](#overview)
   - [Security Without Undermining Productivity](#security-without-undermining-productivity)
   - [Security Beyond Compliance](#security-beyond-compliance)
@@ -94,6 +95,363 @@ EDAMAME Posture is a lightweight, developer-friendly security posture assessment
 - [Error Handling](#error-handling)
 - [EDAMAME Ecosystem](#edamame-ecosystem)
 - [Author](#author)
+
+## Quick Start: Background Mode with AI Security Assistant & Slack Alerts
+
+This guide walks you through the most common use case: running EDAMAME Posture in background mode with **EDAMAME Cloud LLM** for AI-powered security remediation and **Slack alerts** for real-time notifications.
+
+### What You'll Get
+
+- **Continuous security monitoring** with automatic threat detection
+- **AI-powered remediation** that analyzes and fixes security issues automatically
+- **Network visibility** with LAN scanning and traffic capture
+- **Slack notifications** for security actions and escalations
+
+### Prerequisites
+
+- EDAMAME Posture installed (see [Installation](#installation))
+- Root/administrator privileges (required for network capture)
+- A Slack workspace (for notifications)
+
+### Step 1: Create an EDAMAME Cloud Account
+
+1. Go to **[portal.edamame.tech](https://portal.edamame.tech)**
+2. Sign up for a free account
+3. Verify your email address
+
+### Step 2: Generate an API Key
+
+1. Log in to **[portal.edamame.tech](https://portal.edamame.tech)**
+2. Navigate to **API Keys** in the dashboard
+3. Click **Create New API Key**
+4. Give it a descriptive name (e.g., "workstation-security" or "ci-runner-prod")
+5. Copy the generated key (it starts with `edm_` or `edak_`)
+
+> ⚠️ **Important**: Store your API key securely! It cannot be retrieved after creation.
+
+### Step 3: Configure Environment Variables
+
+Store your API key in a secure location and set it as an environment variable:
+
+```bash
+# Add to your shell profile (~/.bashrc, ~/.zshrc, or ~/.profile)
+export EDAMAME_API_KEY="edm_live_your_api_key_here"
+
+# Reload your shell profile
+source ~/.bashrc  # or ~/.zshrc
+```
+
+For CI/CD environments, store the API key as a secret:
+- **GitHub Actions**: Add as a repository secret named `EDAMAME_API_KEY`
+- **GitLab CI**: Add as a CI/CD variable (masked)
+- **Jenkins**: Add as a credential
+
+### Step 4: Configure Slack Integration
+
+To receive Slack notifications, you need to create a Slack Bot and set up channels:
+
+#### 4.1 Create a Slack App
+
+1. Go to **[api.slack.com/apps](https://api.slack.com/apps)**
+2. Click **Create New App** → **From scratch**
+3. Name it (e.g., "EDAMAME Security") and select your workspace
+4. Under **OAuth & Permissions**, add these Bot Token Scopes:
+   - `chat:write` - Post messages
+   - `chat:write.public` - Post to public channels without joining
+5. Click **Install to Workspace** and authorize
+6. Copy the **Bot User OAuth Token** (starts with `xoxb-`)
+
+#### 4.2 Create Slack Channels
+
+Create two channels in your Slack workspace:
+- `#security-actions` - For automated security actions (low/medium risk fixes)
+- `#security-escalations` - For high-risk items requiring human review
+
+Get the channel IDs:
+1. Open each channel in Slack
+2. Click the channel name → **View channel details**
+3. Scroll to the bottom to find the **Channel ID** (starts with `C`)
+
+#### 4.3 Set Slack Environment Variables
+
+```bash
+# Add to your shell profile
+export EDAMAME_AGENTIC_SLACK_BOT_TOKEN="xoxb-your-bot-token"
+export EDAMAME_AGENTIC_SLACK_ACTIONS_CHANNEL="C01234567890"        # #security-actions channel ID
+export EDAMAME_AGENTIC_SLACK_ESCALATIONS_CHANNEL="C09876543210"   # #security-escalations channel ID
+```
+
+### Step 5: Start EDAMAME Posture with Network Monitoring
+
+Now start EDAMAME Posture in background mode with all features enabled:
+
+```bash
+# Start with full network monitoring and AI assistant
+sudo -E edamame_posture background-start-disconnected \
+  --network-scan \
+  --packet-capture \
+  --agentic-mode auto \
+  --agentic-provider edamame \
+  --agentic-interval 300
+```
+
+**Command breakdown:**
+| Flag | Description |
+|------|-------------|
+| `sudo -E` | Run with root privileges, preserving environment variables |
+| `background-start-disconnected` | Run in background without connecting to EDAMAME Hub |
+| `--network-scan` | Enable LAN device discovery (find devices on your network) |
+| `--packet-capture` | Enable network traffic capture (monitor all connections) |
+| `--agentic-mode auto` | Automatically remediate low-risk security issues |
+| `--agentic-provider edamame` | Use EDAMAME Cloud LLM for AI analysis |
+| `--agentic-interval 300` | Check for new security todos every 5 minutes |
+
+### Step 6: Verify the Daemon is Running
+
+```bash
+# Check if daemon is responding (returns connection status)
+edamame_posture background-status
+
+# View real-time logs to confirm startup
+edamame_posture background-logs
+```
+
+If the daemon is running, `background-status` will return connection status JSON. If it fails with "Error getting connection status", the daemon is not running.
+
+In the logs, you should see startup messages like:
+```
+[INFO] Starting background daemon in disconnected mode
+[INFO] Network scan enabled
+[INFO] Packet capture enabled
+[INFO] Agentic mode: auto, provider: edamame, interval: 300s
+[INFO] Core initialized successfully
+```
+
+### Step 7: Monitor Agentic Behavior
+
+Watch the AI assistant in action:
+
+```bash
+# Get a comprehensive summary of agentic status
+edamame_posture agentic-summary
+
+# Follow logs in real-time (Ctrl+C to stop)
+edamame_posture background-logs -f
+```
+
+The `agentic-summary` command shows:
+- LLM provider configuration and test status
+- Auto-processing mode, interval, and next run time
+- Subscription plan and usage
+- Security todos breakdown by type (threats, policies, network issues, etc.)
+- Action history counts (pending, executed, escalated, failed)
+- Recent actions with timestamps
+- Token usage statistics
+- Slack integration status
+
+Look for log entries like:
+```
+[INFO] Agentic: Processing 3 security todos
+[INFO] Agentic: Analyzing threat 'firewall disabled' with EDAMAME Cloud LLM
+[INFO] Agentic: Auto-resolved: Enabled system firewall (risk: low)
+[INFO] Agentic: Escalated to Slack: Suspicious network connection detected (risk: high)
+[INFO] Slack: Posted to #security-escalations: "High-risk item requires review..."
+```
+
+### Step 8: Receive Slack Alerts
+
+Once running, you'll receive Slack notifications:
+
+**In #security-actions:**
+```
+🤖 EDAMAME Security Bot
+Auto-resolved: Enabled system firewall
+Risk Level: Low
+Reasoning: Firewall was disabled, posing a security risk. 
+Enabled to protect against unauthorized network access.
+```
+
+**In #security-escalations:**
+```
+⚠️ EDAMAME Security Bot
+Escalated: Suspicious outbound connection detected
+Risk Level: High
+Details: Connection to 185.192.x.x:443 (unknown destination)
+Process: curl
+Recommendation: Investigate this connection and whitelist if legitimate.
+```
+
+### Step 9: Stop the Daemon (When Needed)
+
+```bash
+# Stop the background daemon
+edamame_posture background-stop
+```
+
+### Complete Example Script
+
+Here's a complete setup script you can save and run:
+
+```bash
+#!/bin/bash
+# setup-edamame-security.sh
+
+# Ensure environment variables are set
+if [ -z "$EDAMAME_API_KEY" ]; then
+    echo "Error: EDAMAME_API_KEY not set"
+    echo "Get your API key at https://portal.edamame.tech/api-keys"
+    exit 1
+fi
+
+if [ -z "$EDAMAME_AGENTIC_SLACK_BOT_TOKEN" ]; then
+    echo "Warning: Slack integration not configured"
+    echo "Set EDAMAME_AGENTIC_SLACK_BOT_TOKEN for notifications"
+fi
+
+# Start EDAMAME Posture with all features
+sudo -E edamame_posture background-start-disconnected \
+  --network-scan \
+  --packet-capture \
+  --agentic-mode auto \
+  --agentic-provider edamame \
+  --agentic-interval 300
+
+# Verify it's running
+sleep 2
+edamame_posture background-status
+
+echo ""
+echo "✅ EDAMAME Posture is now monitoring your system"
+echo "📊 View logs: edamame_posture background-logs -f"
+echo "🛑 Stop: edamame_posture background-stop"
+```
+
+### Troubleshooting
+
+| Issue | Solution |
+|-------|----------|
+| "EDAMAME_API_KEY not set" | Ensure you exported the variable and used `sudo -E` |
+| "Permission denied" | Run with `sudo` for network capture features |
+| No Slack messages | Verify bot token and channel IDs; check bot is in channels |
+| "Daemon not running" | Check logs for errors: `edamame_posture background-logs` |
+
+### Next Steps
+
+- **Add whitelist enforcement**: Use `--whitelist github_ubuntu --fail-on-whitelist` for stricter network control
+- **Enable blacklist checking**: Add `--fail-on-blacklist` to block known malicious IPs
+- **Connect to EDAMAME Hub**: Use `start` command with `--user`, `--domain`, `--pin` for centralized management
+
+---
+
+## Alternative: MCP Server Mode with Claude Desktop
+
+Instead of (or in addition to) automatic background processing, you can use EDAMAME Posture as an **MCP (Model Context Protocol) server**. This lets AI assistants like **Claude Desktop** or other MCP-compatible tools interact with your security posture directly.
+
+### What is MCP?
+
+MCP (Model Context Protocol) is an open standard for connecting AI assistants to external tools and data sources. EDAMAME Posture implements an MCP server that exposes security tools like:
+- `advisor.get_todos` - List security issues that need attention
+- `agentic.process_todos` - Run AI analysis on security issues
+- `advisor.get_action_history` - View past security actions
+- `advisor.undo_action` - Roll back automated fixes
+
+### Step 1: Start the MCP Server
+
+```bash
+# Generate a secure pre-shared key (PSK) for authentication
+edamame_posture mcp-generate-psk
+# Output: YourSecurePSK123456789012345678901234
+
+# Start the MCP server (requires root for full functionality)
+sudo -E edamame_posture mcp-start --port 3000
+```
+
+The server runs at `http://127.0.0.1:3000/mcp` by default.
+
+### Step 2: Configure Claude Desktop
+
+Add the following to your Claude Desktop configuration file:
+
+**macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+**Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+**Linux**: `~/.config/Claude/claude_desktop_config.json`
+
+```json
+{
+  "mcpServers": {
+    "edamame": {
+      "command": "npx",
+      "args": [
+        "mcp-remote",
+        "http://127.0.0.1:3000/mcp",
+        "--header",
+        "Authorization: Bearer YourSecurePSK123456789012345678901234"
+      ]
+    }
+  }
+}
+```
+
+> **Note**: Replace `YourSecurePSK123456789012345678901234` with the PSK generated in Step 1.
+
+### Step 3: Restart Claude Desktop
+
+After updating the config, restart Claude Desktop. You should now see EDAMAME tools available when chatting with Claude.
+
+### Example Conversations with Claude
+
+Once connected, you can ask Claude to help with security:
+
+**"What security issues need attention?"**
+> Claude uses `advisor.get_todos` to list threats, vulnerable network devices, suspicious sessions, etc.
+
+**"Fix all low-risk security issues"**
+> Claude uses `agentic.process_todos` with auto mode to remediate safe issues.
+
+**"Show me what security actions were taken today"**
+> Claude uses `advisor.get_action_history` to display recent automated fixes.
+
+**"Undo the last security action"**
+> Claude uses `advisor.undo_action` to roll back if something went wrong.
+
+### MCP Server Commands
+
+| Command | Description |
+|---------|-------------|
+| `mcp-start --port <PORT>` | Start MCP server on specified port |
+| `mcp-stop` | Stop the MCP server |
+| `mcp-status` | Check if MCP server is running |
+| `mcp-generate-psk` | Generate a secure pre-shared key |
+
+### Security Considerations
+
+- The MCP server binds to `127.0.0.1` (localhost) by default for security
+- PSK authentication is required - never share your PSK
+- All tool calls are logged for audit purposes
+- Use with `sudo -E` to enable full security scanning capabilities
+
+### Combining MCP with Background Mode
+
+You can run both modes simultaneously:
+
+```bash
+# Terminal 1: Start background monitoring with Slack alerts
+sudo -E edamame_posture background-start-disconnected \
+  --network-scan \
+  --packet-capture \
+  --agentic-mode auto \
+  --agentic-provider edamame \
+  --agentic-interval 300
+
+# Terminal 2: Start MCP server for interactive AI access
+sudo -E edamame_posture mcp-start --port 3000
+```
+
+This gives you the best of both worlds:
+- **Background mode**: Automatic continuous monitoring with Slack notifications
+- **MCP mode**: On-demand AI-assisted security queries via Claude Desktop
+
+---
 
 ## Overview
 EDAMAME Posture is a cross-platform CLI that safeguards your software development lifecycle, making it easy to:

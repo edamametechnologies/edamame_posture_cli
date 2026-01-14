@@ -979,6 +979,140 @@ pub fn background_mcp_status() -> i32 {
     }
 }
 
+pub fn background_agentic_summary() -> i32 {
+    use edamame_core::api::api_agentic::agentic_get_summary;
+
+    let summary = agentic_get_summary();
+
+    println!("╔══════════════════════════════════════════════════════════════╗");
+    println!("║                    AGENTIC STATUS SUMMARY                    ║");
+    println!("╚══════════════════════════════════════════════════════════════╝");
+
+    // LLM Provider
+    println!("\n📦 LLM Provider");
+    println!("   Provider: {}", summary.provider);
+    println!("   Model: {}", if summary.model.is_empty() { "default" } else { &summary.model });
+    println!(
+        "   API Key: {}",
+        if summary.has_api_key { "✅ configured" } else { "❌ not set" }
+    );
+    println!(
+        "   Tested: {}",
+        if summary.tested { "✅ yes" } else { "○ no" }
+    );
+
+    // Auto Processing
+    println!("\n⚙️  Auto Processing");
+    println!(
+        "   Enabled: {}",
+        if summary.auto_processing_enabled { "✅ yes" } else { "○ no" }
+    );
+    println!("   Mode: {}", summary.auto_processing_mode);
+    println!("   Interval: {}s", summary.auto_processing_interval_secs);
+    if let Some(ref last_run) = summary.auto_processing_last_run {
+        println!("   Last Run: {}", last_run);
+    }
+    if let Some(ref next_run) = summary.auto_processing_next_run {
+        println!("   Next Run: {}", next_run);
+    }
+
+    // Subscription
+    println!("\n💳 Subscription");
+    println!("   Plan: {}", summary.subscription_plan);
+    println!("   Usage: {:.1}%", summary.subscription_usage * 100.0);
+
+    // Todos
+    println!("\n📋 Security Todos ({})", summary.todo_counts.total);
+    if summary.todo_counts.total > 0 {
+        if summary.todo_counts.threats > 0 {
+            println!("   Threats: {}", summary.todo_counts.threats);
+        }
+        if summary.todo_counts.policies > 0 {
+            println!("   Policies: {}", summary.todo_counts.policies);
+        }
+        if summary.todo_counts.network_ports > 0 {
+            println!("   Network Ports: {}", summary.todo_counts.network_ports);
+        }
+        if summary.todo_counts.network_sessions > 0 {
+            println!("   Network Sessions: {}", summary.todo_counts.network_sessions);
+        }
+        if summary.todo_counts.pwned_breaches > 0 {
+            println!("   Pwned Breaches: {}", summary.todo_counts.pwned_breaches);
+        }
+        if summary.todo_counts.configure > 0 {
+            println!("   Configuration: {}", summary.todo_counts.configure);
+        }
+    }
+
+    // Actions
+    println!("\n🎬 Action History ({})", summary.action_counts.total);
+    if summary.action_counts.total > 0 {
+        if summary.action_counts.pending > 0 {
+            println!("   ⏳ Pending: {}", summary.action_counts.pending);
+        }
+        if summary.action_counts.executed > 0 {
+            println!("   ✅ Executed: {}", summary.action_counts.executed);
+        }
+        if summary.action_counts.escalated > 0 {
+            println!("   📤 Escalated: {}", summary.action_counts.escalated);
+        }
+        if summary.action_counts.failed > 0 {
+            println!("   ❌ Failed: {}", summary.action_counts.failed);
+        }
+        if summary.action_counts.undone > 0 {
+            println!("   ↩️  Undone: {}", summary.action_counts.undone);
+        }
+    }
+
+    // Recent Actions
+    if !summary.recent_actions.is_empty() {
+        println!("\n📜 Recent Actions (last {}):", summary.recent_actions.len());
+        for action in &summary.recent_actions {
+            let status_icon = if action.success { "✅" } else { "❌" };
+            println!(
+                "   {} {} - {} [{}]",
+                status_icon, action.action_type, action.result_status, action.timestamp
+            );
+        }
+    }
+
+    // Token Usage
+    println!("\n📊 Token Usage");
+    println!(
+        "   Last Hour: {} in / {} out",
+        summary.tokens_last_hour_input, summary.tokens_last_hour_output
+    );
+    println!(
+        "   Last 24h: {} in / {} out",
+        summary.tokens_last_24h_input, summary.tokens_last_24h_output
+    );
+
+    // Slack
+    println!("\n💬 Slack Integration");
+    println!(
+        "   Configured: {}",
+        if summary.slack_configured { "✅ yes" } else { "○ no" }
+    );
+    if summary.slack_configured {
+        println!("   Actions Channel: {}", summary.slack_actions_channel);
+        println!("   Escalations Channel: {}", summary.slack_escalations_channel);
+    }
+
+    // Status
+    println!("\n📈 Status");
+    println!("   Success Count: {}", summary.success_count);
+    println!("   Failure Count: {}", summary.failure_count);
+    if !summary.last_success_time.is_empty() {
+        println!("   Last Success: {}", summary.last_success_time);
+    }
+    if summary.error_code != "None" {
+        println!("   Last Error: {} - {}", summary.error_code, summary.error_reason);
+    }
+
+    println!();
+    0
+}
+
 /// Process security todos with AI in background mode
 pub fn background_process_agentic(mode: &str) {
     info!(
