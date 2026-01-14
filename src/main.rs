@@ -846,6 +846,12 @@ fn run_base() {
                 .get_one::<String>("agentic_mode")
                 .map_or("disabled", |v| v.as_str())
                 .to_string();
+            let agentic_provider = sub_matches
+                .get_one::<String>("agentic_provider")
+                .map(|v| v.to_string());
+            let agentic_interval = *sub_matches
+                .get_one::<u64>("agentic_interval")
+                .unwrap_or(&3600);
             let llm_api_key = sub_matches.get_one::<String>("llm_api_key").cloned();
 
             // Initialize the core with all options disabled
@@ -873,8 +879,8 @@ fn run_base() {
                 cancel_on_violation,
                 include_local_traffic,
                 agentic_mode,
-                None, // No provider in disconnected mode (but API key can be used)
-                300,  // Default interval
+                agentic_provider,
+                agentic_interval,
             );
             is_background = true;
         }
