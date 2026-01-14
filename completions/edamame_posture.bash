@@ -719,7 +719,7 @@ _edamame_posture() {
             return 0
             ;;
         edamame_posture__background__start)
-            opts="-u -d -p -k -n -c -v -h --user --domain --pin --api-key --device-id --network-scan --packet-capture --whitelist --fail-on-whitelist --fail-on-blacklist --fail-on-anomalous --include-local-traffic --agentic-mode --agentic-provider --agentic-interval --cancel-on-violation --verbose --help"
+            opts="-u -d -p -k -n -c -v -h --user --domain --pin --llm-api-key --device-id --network-scan --packet-capture --whitelist --fail-on-whitelist --fail-on-blacklist --fail-on-anomalous --include-local-traffic --agentic-mode --agentic-provider --agentic-interval --cancel-on-violation --verbose --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -749,7 +749,7 @@ _edamame_posture() {
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
-                --api-key)
+                --llm-api-key)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -770,7 +770,7 @@ _edamame_posture() {
                     return 0
                     ;;
                 --agentic-provider)
-                    COMPREPLY=($(compgen -W "claude openai ollama none" -- "${cur}"))
+                    COMPREPLY=($(compgen -W "edamame claude openai ollama none" -- "${cur}"))
                     return 0
                     ;;
                 --agentic-interval)
@@ -785,13 +785,13 @@ _edamame_posture() {
             return 0
             ;;
         edamame_posture__background__start__disconnected)
-            opts="-k -n -c -v -h --api-key --network-scan --packet-capture --whitelist --fail-on-whitelist --fail-on-blacklist --fail-on-anomalous --include-local-traffic --agentic-mode --cancel-on-violation --verbose --help"
+            opts="-k -n -c -v -h --llm-api-key --network-scan --packet-capture --whitelist --fail-on-whitelist --fail-on-blacklist --fail-on-anomalous --include-local-traffic --agentic-mode --cancel-on-violation --verbose --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
-                --api-key)
+                --llm-api-key)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -1025,7 +1025,7 @@ _edamame_posture() {
             return 0
             ;;
         edamame_posture__foreground__start)
-            opts="-u -d -p -k -n -c -v -h --user --domain --pin --api-key --device-id --network-scan --packet-capture --whitelist --fail-on-whitelist --fail-on-blacklist --fail-on-anomalous --include-local-traffic --agentic-mode --agentic-provider --agentic-interval --cancel-on-violation --verbose --help"
+            opts="-u -d -p -k -n -c -v -h --user --domain --pin --llm-api-key --device-id --network-scan --packet-capture --whitelist --fail-on-whitelist --fail-on-blacklist --fail-on-anomalous --include-local-traffic --agentic-mode --agentic-provider --agentic-interval --cancel-on-violation --verbose --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -1055,7 +1055,7 @@ _edamame_posture() {
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
-                --api-key)
+                --llm-api-key)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -1076,7 +1076,7 @@ _edamame_posture() {
                     return 0
                     ;;
                 --agentic-provider)
-                    COMPREPLY=($(compgen -W "claude openai ollama none" -- "${cur}"))
+                    COMPREPLY=($(compgen -W "edamame claude openai ollama none" -- "${cur}"))
                     return 0
                     ;;
                 --agentic-interval)
