@@ -752,7 +752,7 @@ pub fn background_configure_agentic(provider: String) {
 
     info!("Configuring AI Assistant provider: {}", provider);
 
-    // Handle EDAMAME Cloud LLM (recommended for headless/CI)
+    // Handle EDAMAME Portal LLM (recommended for headless/CI)
     if provider == "edamame" {
         let edamame_api_key = std::env::var("EDAMAME_API_KEY").unwrap_or_default();
         if edamame_api_key.is_empty() {
@@ -767,7 +767,7 @@ pub fn background_configure_agentic(provider: String) {
 
         // Set the EDAMAME API key for headless authentication
         if agentic_set_edamame_api_key(edamame_api_key) {
-            info!("AI Assistant configured with EDAMAME Cloud LLM");
+            info!("AI Assistant configured with EDAMAME Portal LLM");
         } else {
             error!("Failed to set EDAMAME API key");
         }

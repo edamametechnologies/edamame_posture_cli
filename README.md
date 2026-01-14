@@ -98,7 +98,7 @@ EDAMAME Posture is a lightweight, developer-friendly security posture assessment
 
 ## Quick Start: Background Mode with AI Security Assistant & Slack Alerts
 
-This guide walks you through the most common use case: running EDAMAME Posture in background mode with **EDAMAME Cloud LLM** for AI-powered security remediation and **Slack alerts** for real-time notifications.
+This guide walks you through the most common use case: running EDAMAME Posture in background mode with **EDAMAME Portal LLM** for AI-powered security remediation and **Slack alerts** for real-time notifications.
 
 ### What You'll Get
 
@@ -113,7 +113,7 @@ This guide walks you through the most common use case: running EDAMAME Posture i
 - Root/administrator privileges (required for network capture)
 - A Slack workspace (for notifications)
 
-### Step 1: Create an EDAMAME Cloud Account
+### Step 1: Create an EDAMAME Portal Account
 
 1. Go to **[portal.edamame.tech](https://portal.edamame.tech)**
 2. Sign up for a free account
@@ -183,10 +183,18 @@ export EDAMAME_AGENTIC_SLACK_ESCALATIONS_CHANNEL="C09876543210"   # #security-es
 
 ### Step 5: Start EDAMAME Posture with Network Monitoring
 
-Now start EDAMAME Posture in background mode with all features enabled:
+Now start EDAMAME Posture in background mode with all features enabled.
+
+**Choose your agentic mode:**
+
+| Mode | Description | Best For |
+|------|-------------|----------|
+| `auto` | AI automatically remediates low-risk issues, escalates high-risk to Slack | Hands-off security automation |
+| `analyze` | AI analyzes and recommends fixes, but waits for human confirmation | Review-first approach, learning the system |
+
+**Option A: Auto mode (recommended for production)**
 
 ```bash
-# Start with full network monitoring and AI assistant
 sudo -E edamame_posture background-start-disconnected \
   --network-scan \
   --packet-capture \
@@ -195,6 +203,28 @@ sudo -E edamame_posture background-start-disconnected \
   --agentic-interval 300
 ```
 
+In `auto` mode, the AI assistant will:
+- Automatically fix low-risk security issues (e.g., enable firewall, update settings)
+- Send notifications to Slack for actions taken
+- Escalate high-risk items to Slack for human review before acting
+
+**Option B: Analyze mode (recommended for initial setup)**
+
+```bash
+sudo -E edamame_posture background-start-disconnected \
+  --network-scan \
+  --packet-capture \
+  --agentic-mode analyze \
+  --agentic-provider edamame \
+  --agentic-interval 300
+```
+
+In `analyze` mode, the AI assistant will:
+- Analyze all security issues and provide recommendations
+- Send all recommendations to Slack for review
+- Wait for human confirmation before taking any action
+- Good for understanding what the AI would do before enabling auto mode
+
 **Command breakdown:**
 | Flag | Description |
 |------|-------------|
@@ -202,8 +232,8 @@ sudo -E edamame_posture background-start-disconnected \
 | `background-start-disconnected` | Run in background without connecting to EDAMAME Hub |
 | `--network-scan` | Enable LAN device discovery (find devices on your network) |
 | `--packet-capture` | Enable network traffic capture (monitor all connections) |
-| `--agentic-mode auto` | Automatically remediate low-risk security issues |
-| `--agentic-provider edamame` | Use EDAMAME Cloud LLM for AI analysis |
+| `--agentic-mode auto/analyze` | Set AI behavior (see above) |
+| `--agentic-provider edamame` | Use EDAMAME Portal LLM for AI analysis |
 | `--agentic-interval 300` | Check for new security todos every 5 minutes |
 
 ### Step 6: Verify the Daemon is Running
@@ -633,7 +663,7 @@ edamame_posture remediate-threat "threat-id"
 - **`disabled`**: No AI processing (default)
 
 ```bash
-# Option 1: EDAMAME Cloud LLM (recommended for simplicity)
+# Option 1: EDAMAME Portal LLM (recommended for simplicity)
 # Create an API key at portal.edamame.tech
 edamame_posture start \
   --user myuser \
@@ -906,7 +936,7 @@ edamame_posture background-start-disconnected [--network-scan] [--packet-capture
 This enables all the monitoring and whitelist enforcement capabilities locally without requiring a registered domain:
 - Fully local, real-time monitoring and network traffic capture (enable with `--packet-capture`)
 - Whitelist enforcement without any external connectivity
-- AI Assistant support with EDAMAME Cloud LLM (`--agentic-provider edamame` + `EDAMAME_API_KEY` env) or BYOLLM
+- AI Assistant support with EDAMAME Portal LLM (`--agentic-provider edamame` + `EDAMAME_API_KEY` env) or BYOLLM
 - Ideal for sensitive environments or isolated runners where external communication is not allowed
 
 ## Preventing Supply Chain Attacks
@@ -945,7 +975,7 @@ Example (GitHub Actions):
     # Start background monitoring in disconnected mode (with LAN scanning + capture enabled)
     sudo edamame_posture background-start-disconnected --network-scan --packet-capture --whitelist github_ubuntu
 
-# Or install and auto-configure with EDAMAME Cloud LLM (recommended)
+# Or install and auto-configure with EDAMAME Portal LLM (recommended)
 - name: Setup EDAMAME Posture with AI (Cloud LLM)
   run: |
     curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh | sh -s -- \
@@ -1339,7 +1369,7 @@ If you prefer not to add a repository, you can install the Debian package manual
    # Enable AI Assistant
    agentic_mode: "auto"  # or "analyze" or "disabled"
    
-   # Option 1: EDAMAME Cloud LLM (recommended - create key at portal.edamame.tech)
+   # Option 1: EDAMAME Portal LLM (recommended - create key at portal.edamame.tech)
    edamame_api_key: "edm_live_..."
    
    # Option 2: Bring Your Own LLM (choose ONE)
@@ -1474,8 +1504,8 @@ Once installed, EDAMAME Posture is invoked via the `edamame_posture` command. Mo
 - **dismiss-session** `<SESSION_UID>` / **dismiss-session-process** `<SESSION_UID>`: Silence a specific network session or every future session spawned by the same process. Use these commands after reviewing agentic/Slack summaries to acknowledge expected but noisy connections.
 - **check-policy** `<min_score>` `"<threat_ids>"` `"[tag_prefixes]"`: Check whether the system meets a specified security policy. You provide a minimum score threshold, a comma-separated list of critical threat IDs to ensure are not present (or have specific states), and optional tag prefixes for compliance frameworks. This command exits with code 0 if the policy is met, or non-zero if not met (making it perfect for CI gating).
 - **check-policy-for-domain** `<domain>` `<policy_name>`: Similar to check-policy, but retrieves the policy requirements from EDAMAME Hub for the given domain and policy name. This allows centralized policies to be enforced on the local machine. Requires that the machine is enrolled (or at least has a policy cached) for that domain.
-- **start** `--user <USER>` `--domain <DOMAIN>` `--pin <PIN>` `[--device-id <ID>]` `[--network-scan]` `[--packet-capture]` `[--whitelist <NAME>]` `[--fail-on-whitelist]` `[--fail-on-blacklist]` `[--fail-on-anomalous]` `[--include-local-traffic]` `[--cancel-on-violation]` `[--api-key <KEY>]` `[--agentic-mode <MODE>]` `[--agentic-provider <PROVIDER>]` `[--agentic-interval <SECONDS>]`: Start continuous monitoring and conditional access control. Typically run as a background service or daemon. You must supply your Hub user/email, domain, and one-time PIN (from Hub) to register the device session. Optional flags enable LAN scanning, packet capture, whitelist enforcement with failure conditions, local traffic inclusion, AI Assistant automation (with EDAMAME Cloud LLM via `--api-key` or BYOLLM), and pipeline cancellation on violations. This will keep running until stopped and enforce policy/network rules in real-time (e.g., locking down access if posture degrades).
-- **background-start-disconnected** `[--network-scan]` `[--packet-capture]` `[--whitelist <NAME>]` `[--fail-on-whitelist]` `[--fail-on-blacklist]` `[--fail-on-anomalous]` `[--include-local-traffic]` `[--cancel-on-violation]` `[--api-key KEY]` `[--agentic-mode MODE]`: Start the background monitoring in a local-only mode (no connection to EDAMAME Hub). Combine `--network-scan` for LAN discovery with `--packet-capture` when you need traffic capture + whitelist enforcement. Optional flags enable whitelist/blacklist/anomaly enforcement with failure conditions, local traffic inclusion, pipeline cancellation on violations, and AI Assistant mode (`auto`/`analyze`/`disabled`). For AI, use `--api-key` for EDAMAME Cloud LLM (create at portal.edamame.tech), or set `EDAMAME_LLM_API_KEY` for BYOLLM providers. This is useful for CI runners or standalone usage where you want monitoring without cloud integration. This process runs until killed; typically you'd run it in a screen/tmux or as a service.
+- **start** `--user <USER>` `--domain <DOMAIN>` `--pin <PIN>` `[--device-id <ID>]` `[--network-scan]` `[--packet-capture]` `[--whitelist <NAME>]` `[--fail-on-whitelist]` `[--fail-on-blacklist]` `[--fail-on-anomalous]` `[--include-local-traffic]` `[--cancel-on-violation]` `[--api-key <KEY>]` `[--agentic-mode <MODE>]` `[--agentic-provider <PROVIDER>]` `[--agentic-interval <SECONDS>]`: Start continuous monitoring and conditional access control. Typically run as a background service or daemon. You must supply your Hub user/email, domain, and one-time PIN (from Hub) to register the device session. Optional flags enable LAN scanning, packet capture, whitelist enforcement with failure conditions, local traffic inclusion, AI Assistant automation (with EDAMAME Portal LLM via `--api-key` or BYOLLM), and pipeline cancellation on violations. This will keep running until stopped and enforce policy/network rules in real-time (e.g., locking down access if posture degrades).
+- **background-start-disconnected** `[--network-scan]` `[--packet-capture]` `[--whitelist <NAME>]` `[--fail-on-whitelist]` `[--fail-on-blacklist]` `[--fail-on-anomalous]` `[--include-local-traffic]` `[--cancel-on-violation]` `[--api-key KEY]` `[--agentic-mode MODE]`: Start the background monitoring in a local-only mode (no connection to EDAMAME Hub). Combine `--network-scan` for LAN discovery with `--packet-capture` when you need traffic capture + whitelist enforcement. Optional flags enable whitelist/blacklist/anomaly enforcement with failure conditions, local traffic inclusion, pipeline cancellation on violations, and AI Assistant mode (`auto`/`analyze`/`disabled`). For AI, use `--api-key` for EDAMAME Portal LLM (create at portal.edamame.tech), or set `EDAMAME_LLM_API_KEY` for BYOLLM providers. This is useful for CI runners or standalone usage where you want monitoring without cloud integration. This process runs until killed; typically you'd run it in a screen/tmux or as a service.
 - **get-sessions** `--fail-on-whitelist` `--fail-on-blacklist` `--fail-on-anomalous` `--zeek-format` `--include-local-traffic`: Report network sessions from the background process. Use the `--fail-on-*` flags to cause a non-zero exit code when violations are detected, optionally format output as Zeek, and include local traffic if desired. Returns exit code 0 when no fatal violations are detected.
 - **flodbadd**: Perform a quick scan of the local network (LAN) to identify other devices on your subnet. This can reveal potential rogue devices or just provide situational awareness. It lists IP addresses and basic host info for devices it can detect.
 - **request-signature**: Generate a security posture signature for the current device state. The output is a cryptographic signature (token) that represents the current posture (including all threat checks and scores). This signature can be stored or embedded (for example, in a Git commit message) as proof of posture at a point in time.
