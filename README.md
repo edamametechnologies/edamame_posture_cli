@@ -127,7 +127,7 @@ This guide walks you through the most common use case: running EDAMAME Posture i
 4. Give it a descriptive name (e.g., "workstation-security" or "ci-runner-prod")
 5. Copy the generated key (it starts with `edm_` or `edak_`)
 
-> ⚠️ **Important**: Store your API key securely! It cannot be retrieved after creation.
+**Important**: Store your API key securely! It cannot be retrieved after creation.
 
 ### Step 3: Configure Environment Variables
 
@@ -218,15 +218,6 @@ edamame_posture background-logs
 
 If the daemon is running, `background-status` will return connection status JSON. If it fails with "Error getting connection status", the daemon is not running.
 
-In the logs, you should see startup messages like:
-```
-[INFO] Starting background daemon in disconnected mode
-[INFO] Network scan enabled
-[INFO] Packet capture enabled
-[INFO] Agentic mode: auto, provider: edamame, interval: 300s
-[INFO] Core initialized successfully
-```
-
 ### Step 7: Monitor Agentic Behavior
 
 Watch the AI assistant in action:
@@ -249,39 +240,8 @@ The `agentic-summary` command shows:
 - Token usage statistics
 - Slack integration status
 
-Look for log entries like:
-```
-[INFO] Agentic: Processing 3 security todos
-[INFO] Agentic: Analyzing threat 'firewall disabled' with EDAMAME Cloud LLM
-[INFO] Agentic: Auto-resolved: Enabled system firewall (risk: low)
-[INFO] Agentic: Escalated to Slack: Suspicious network connection detected (risk: high)
-[INFO] Slack: Posted to #security-escalations: "High-risk item requires review..."
-```
 
-### Step 8: Receive Slack Alerts
-
-Once running, you'll receive Slack notifications:
-
-**In #security-actions:**
-```
-🤖 EDAMAME Security Bot
-Auto-resolved: Enabled system firewall
-Risk Level: Low
-Reasoning: Firewall was disabled, posing a security risk. 
-Enabled to protect against unauthorized network access.
-```
-
-**In #security-escalations:**
-```
-⚠️ EDAMAME Security Bot
-Escalated: Suspicious outbound connection detected
-Risk Level: High
-Details: Connection to 185.192.x.x:443 (unknown destination)
-Process: curl
-Recommendation: Investigate this connection and whitelist if legitimate.
-```
-
-### Step 9: Stop the Daemon (When Needed)
+### Step 8: Stop the Daemon (When Needed)
 
 ```bash
 # Stop the background daemon
@@ -321,9 +281,9 @@ sleep 2
 edamame_posture background-status
 
 echo ""
-echo "✅ EDAMAME Posture is now monitoring your system"
-echo "📊 View logs: edamame_posture background-logs -f"
-echo "🛑 Stop: edamame_posture background-stop"
+echo "EDAMAME Posture is now monitoring your system"
+echo "View logs: edamame_posture background-logs -f"
+echo "Stop: edamame_posture background-stop"
 ```
 
 ### Troubleshooting
