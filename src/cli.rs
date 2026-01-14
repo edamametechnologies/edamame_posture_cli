@@ -584,6 +584,17 @@ fn disconnected_start_args() -> Vec<Arg> {
             .help("AI assistant mode for automated todo processing: auto, analyze or disabled")
             .default_value("disabled")
             .value_parser(["auto", "analyze", "disabled"]),
+        Arg::new("agentic_provider")
+            .long("agentic-provider")
+            .value_name("PROVIDER")
+            .help("LLM provider: edamame (Portal), claude, openai, ollama, none")
+            .value_parser(["edamame", "claude", "openai", "ollama", "none"]),
+        Arg::new("agentic_interval")
+            .long("agentic-interval")
+            .value_name("SECONDS")
+            .help("Interval in seconds for automated todo processing (default: 3600)")
+            .default_value("3600")
+            .value_parser(clap::value_parser!(u64)),
         Arg::new("cancel_on_violation")
             .long("cancel-on-violation")
             .help("Attempt to cancel the current CI pipeline when policy violations are detected")
