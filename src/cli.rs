@@ -463,12 +463,12 @@ fn start_common_args() -> Vec<Arg> {
             .help("PIN")
             .value_parser(parse_digits_only)
             .default_value(""),
-        Arg::new("api_key")
-            .long("api-key")
+        Arg::new("llm_api_key")
+            .long("llm-api-key")
             .short('k')
             .value_name("API_KEY")
-            .help("EDAMAME API key for headless authentication (alternative to user/domain/pin)")
-            .env("EDAMAME_API_KEY")
+            .help("EDAMAME Portal LLM API key for AI assistant (edamame provider)")
+            .env("EDAMAME_LLM_API_KEY")
             .value_parser(clap::value_parser!(String)),
         Arg::new("device_id")
             .long("device-id")
@@ -536,12 +536,12 @@ fn start_common_args() -> Vec<Arg> {
 
 fn disconnected_start_args() -> Vec<Arg> {
     vec![
-        Arg::new("api_key")
-            .long("api-key")
+        Arg::new("llm_api_key")
+            .long("llm-api-key")
             .short('k')
             .value_name("API_KEY")
-            .help("EDAMAME API key for headless authentication")
-            .env("EDAMAME_API_KEY")
+            .help("EDAMAME Portal LLM API key for AI assistant (edamame provider)")
+            .env("EDAMAME_LLM_API_KEY")
             .value_parser(clap::value_parser!(String)),
         Arg::new("network_scan")
             .long("network-scan")
