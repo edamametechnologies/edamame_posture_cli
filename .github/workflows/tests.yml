@@ -56,6 +56,10 @@ jobs:
       EDAMAME_CLIENT_CA_PEM: ${{ secrets.EDAMAME_CLIENT_CA_PEM }}
       LAMBDA_SIGNATURE: ${{ secrets.LAMBDA_SIGNATURE }}
       MIXPANEL_TOKEN: ${{ secrets.MIXPANEL_TOKEN }}
+      # LLM API keys for agentic tests
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      EDAMAME_LLM_API_KEY: ${{ secrets.EDAMAME_LLM_API_KEY }}
       # Debug mode
       EDAMAME_LOG_LEVEL: debug
 
@@ -321,8 +325,15 @@ jobs:
         run: ./tests/integration_test.sh
         continue-on-error: true
 
+      - name: Run LLM Provider Tests
+        id: llm_tests
+        if: matrix.os == 'ubuntu' || matrix.os == 'macos'
+        shell: bash
+        run: ./tests/llm_test.sh
+        continue-on-error: true
+
       - name: Slack alerts
-        if: steps.ebpf_test.outcome == 'failure' || steps.cargo_tests.outcome == 'failure' || steps.standalone_tests.outcome == 'failure' || steps.integration_tests.outcome == 'failure'
+        if: steps.ebpf_test.outcome == 'failure' || steps.cargo_tests.outcome == 'failure' || steps.standalone_tests.outcome == 'failure' || steps.integration_tests.outcome == 'failure' || steps.llm_tests.outcome == 'failure'
         uses: slackapi/slack-github-action@v1.26.0
         with:
           channel-id: 'C072J0U9TH7'
@@ -332,6 +343,7 @@ jobs:
             - Cargo Tests: ${{ steps.cargo_tests.outcome != 'failure' && '✅ Success' || '❌ Failed' }}
             - Standalone Tests: ${{ steps.standalone_tests.outcome != 'failure' && '✅ Success' || '❌ Failed' }}
             - Integration Tests: ${{ steps.integration_tests.outcome != 'failure' && '✅ Success' || '❌ Failed' }}
+            - LLM Tests: ${{ steps.llm_tests.outcome != 'failure' && '✅ Success' || '❌ Failed' }}
             Branch: ${{ github.ref }}
             More details: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
         env:
@@ -355,13 +367,14 @@ jobs:
 
       - name: Fail job if tests failed
         shell: bash
-        if: steps.ebpf_test.outcome == 'failure' || steps.cargo_tests.outcome == 'failure' || steps.standalone_tests.outcome == 'failure' || steps.integration_tests.outcome == 'failure'
+        if: steps.ebpf_test.outcome == 'failure' || steps.cargo_tests.outcome == 'failure' || steps.standalone_tests.outcome == 'failure' || steps.integration_tests.outcome == 'failure' || steps.llm_tests.outcome == 'failure'
         run: |
           echo "## Test Results Summary (Native - ${{ matrix.os }}-${{ matrix.arch }})"
           echo "- eBPF Test: ${{ steps.ebpf_test.outcome != 'failure' && '✅ Success' || '❌ Failed' }}"
           echo "- Cargo Tests: ${{ steps.cargo_tests.outcome != 'failure' && '✅ Success' || '❌ Failed' }}"
           echo "- Standalone Tests: ${{ steps.standalone_tests.outcome != 'failure' && '✅ Success' || '❌ Failed' }}"
           echo "- Integration Tests: ${{ steps.integration_tests.outcome != 'failure' && '✅ Success' || '❌ Failed' }}"
+          echo "- LLM Tests: ${{ steps.llm_tests.outcome != 'failure' && '✅ Success' || '❌ Failed' }}"
           echo ""
           echo "Forcing native job to fail because tests did not succeed."
           exit 1
@@ -415,6 +428,10 @@ jobs:
       EDAMAME_CLIENT_CA_PEM: ${{ secrets.EDAMAME_CLIENT_CA_PEM }}
       LAMBDA_SIGNATURE: ${{ secrets.LAMBDA_SIGNATURE }}
       MIXPANEL_TOKEN: ${{ secrets.MIXPANEL_TOKEN }}
+      # LLM API keys for agentic tests
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      EDAMAME_LLM_API_KEY: ${{ secrets.EDAMAME_LLM_API_KEY }}
       # Debug mode
       EDAMAME_LOG_LEVEL: debug
 
