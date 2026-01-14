@@ -206,8 +206,8 @@ fn run() {
                     Some(args[15].to_string())
                 }, // agentic_provider
                 args[16].parse().unwrap_or(300), // agentic_interval
-                // API key is inherited via EDAMAME_API_KEY env var
-                std::env::var("EDAMAME_API_KEY").ok(),
+                // LLM API key is inherited via EDAMAME_LLM_API_KEY env var
+                std::env::var("EDAMAME_LLM_API_KEY").ok(),
             );
         } else {
             eprintln!(
