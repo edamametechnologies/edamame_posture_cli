@@ -343,9 +343,9 @@ echo "🛑 Stop: edamame_posture background-stop"
 
 ---
 
-## Alternative: MCP Server Mode with Claude Desktop
+## Alternative: MCP Server Mode with AI Assistants
 
-Instead of (or in addition to) automatic background processing, you can use EDAMAME Posture as an **MCP (Model Context Protocol) server**. This lets AI assistants like **Claude Desktop** or other MCP-compatible tools interact with your security posture directly.
+Instead of (or in addition to) automatic background processing, you can use EDAMAME Posture as an **MCP (Model Context Protocol) server**. This lets AI assistants like **Claude Desktop**, **n8n**, or other MCP-compatible tools interact with your security posture directly.
 
 ### What is MCP?
 
@@ -362,13 +362,24 @@ MCP (Model Context Protocol) is an open standard for connecting AI assistants to
 edamame_posture mcp-generate-psk
 # Output: YourSecurePSK123456789012345678901234
 
-# Start the MCP server (requires root for full functionality)
+# Start the MCP server (localhost only, default)
 sudo -E edamame_posture mcp-start --port 3000
+
+# Or listen on all interfaces (for remote access, e.g., n8n on another host)
+sudo -E edamame_posture mcp-start --port 3000 --all-interfaces
 ```
 
-The server runs at `http://127.0.0.1:3000/mcp` by default.
+The server runs at `http://127.0.0.1:3000/mcp` by default, or `http://0.0.0.0:3000/mcp` with `--all-interfaces`.
 
-### Step 2: Configure Claude Desktop
+### MCP Server Options
+
+| Option | Description |
+|--------|-------------|
+| `--port <PORT>` | Port to listen on (default: 3000) |
+| `--all-interfaces` | Listen on all network interfaces (0.0.0.0) instead of localhost only |
+| `--enable-cors` | Enable CORS for browser-based clients |
+
+### Integration Option A: Claude Desktop
 
 Add the following to your Claude Desktop configuration file:
 
@@ -392,11 +403,35 @@ Add the following to your Claude Desktop configuration file:
 }
 ```
 
-> **Note**: Replace `YourSecurePSK123456789012345678901234` with the PSK generated in Step 1.
+Replace `YourSecurePSK123456789012345678901234` with the PSK generated in Step 1. Restart Claude Desktop after updating the config.
 
-### Step 3: Restart Claude Desktop
+### Integration Option B: n8n Workflow Automation
 
-After updating the config, restart Claude Desktop. You should now see EDAMAME tools available when chatting with Claude.
+n8n is a workflow automation tool that can integrate with MCP servers for building security automation workflows.
+
+**1. Start MCP server with network access (if n8n is on a different host):**
+
+```bash
+# On the EDAMAME host
+sudo -E edamame_posture mcp-start --port 3000 --all-interfaces
+```
+
+**2. In n8n, use the HTTP Request node to call MCP tools:**
+
+```
+URL: http://<edamame-host>:3000/mcp/tools/advisor.get_todos
+Method: POST
+Headers:
+  Authorization: Bearer YourSecurePSK123456789012345678901234
+  Content-Type: application/json
+Body: {}
+```
+
+**3. Example n8n workflow ideas:**
+- Periodic security check: Schedule `advisor.get_todos` every hour, send results to Slack/email
+- Auto-remediation pipeline: Get todos, filter by risk level, call `agentic.process_todos` for low-risk items
+- Security dashboard: Aggregate security status across multiple EDAMAME endpoints
+- Incident response: Trigger alerts when high-risk items are detected
 
 ### Example Conversations with Claude
 
@@ -419,6 +454,7 @@ Once connected, you can ask Claude to help with security:
 | Command | Description |
 |---------|-------------|
 | `mcp-start --port <PORT>` | Start MCP server on specified port |
+| `mcp-start --all-interfaces` | Listen on all interfaces (for remote access) |
 | `mcp-stop` | Stop the MCP server |
 | `mcp-status` | Check if MCP server is running |
 | `mcp-generate-psk` | Generate a secure pre-shared key |
@@ -426,7 +462,9 @@ Once connected, you can ask Claude to help with security:
 ### Security Considerations
 
 - The MCP server binds to `127.0.0.1` (localhost) by default for security
+- Use `--all-interfaces` only when remote access is required (e.g., n8n on another host)
 - PSK authentication is required - never share your PSK
+- When using `--all-interfaces`, ensure proper firewall rules are in place
 - All tool calls are logged for audit purposes
 - Use with `sudo -E` to enable full security scanning capabilities
 
@@ -449,7 +487,7 @@ sudo -E edamame_posture mcp-start --port 3000
 
 This gives you the best of both worlds:
 - **Background mode**: Automatic continuous monitoring with Slack notifications
-- **MCP mode**: On-demand AI-assisted security queries via Claude Desktop
+- **MCP mode**: On-demand AI-assisted security queries via Claude Desktop or n8n
 
 ---
 
