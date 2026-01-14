@@ -27,6 +27,9 @@ openai_test_result="❓"
 edamame_config_result="❓"
 edamame_test_result="❓"
 
+# Save original EDAMAME_LLM_API_KEY if set (for EDAMAME provider test)
+ORIGINAL_EDAMAME_LLM_API_KEY="${EDAMAME_LLM_API_KEY:-}"
+
 echo "=============================================="
 echo "  LLM Provider Integration Tests"
 echo "=============================================="
@@ -144,7 +147,8 @@ test_claude_provider() {
         claude_test_result="❌"
     fi
     
-    unset EDAMAME_LLM_API_KEY
+    # Restore original EDAMAME_LLM_API_KEY
+    export EDAMAME_LLM_API_KEY="$ORIGINAL_EDAMAME_LLM_API_KEY"
 }
 
 test_openai_provider() {
@@ -206,7 +210,8 @@ test_openai_provider() {
         openai_test_result="❌"
     fi
     
-    unset EDAMAME_LLM_API_KEY
+    # Restore original EDAMAME_LLM_API_KEY
+    export EDAMAME_LLM_API_KEY="$ORIGINAL_EDAMAME_LLM_API_KEY"
 }
 
 test_edamame_provider() {
