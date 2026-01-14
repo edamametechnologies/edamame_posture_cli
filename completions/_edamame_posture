@@ -445,6 +445,8 @@ _arguments "${_arguments_options[@]}" : \
 '--llm-api-key=[EDAMAME Portal LLM API key for AI assistant (edamame provider)]:API_KEY:_default' \
 '--whitelist=[Whitelist name to enforce during capture]:WHITELIST:_default' \
 '--agentic-mode=[AI assistant mode for automated todo processing\: auto, analyze or disabled]:MODE:(auto analyze disabled)' \
+'--agentic-provider=[LLM provider\: edamame (Portal), claude, openai, ollama, none]:PROVIDER:(edamame claude openai ollama none)' \
+'--agentic-interval=[Interval in seconds for automated todo processing (default\: 3600)]:SECONDS:_default' \
 '-n[Enable LAN scanning]' \
 '--network-scan[Enable LAN scanning]' \
 '-c[Enable packet capture]' \

@@ -224,6 +224,12 @@ complete -c edamame_posture -n "__fish_edamame_posture_using_subcommand backgrou
 complete -c edamame_posture -n "__fish_edamame_posture_using_subcommand background-start-disconnected" -l agentic-mode -d 'AI assistant mode for automated todo processing: auto, analyze or disabled' -r -f -a "auto\t''
 analyze\t''
 disabled\t''"
+complete -c edamame_posture -n "__fish_edamame_posture_using_subcommand background-start-disconnected" -l agentic-provider -d 'LLM provider: edamame (Portal), claude, openai, ollama, none' -r -f -a "edamame\t''
+claude\t''
+openai\t''
+ollama\t''
+none\t''"
+complete -c edamame_posture -n "__fish_edamame_posture_using_subcommand background-start-disconnected" -l agentic-interval -d 'Interval in seconds for automated todo processing (default: 3600)' -r
 complete -c edamame_posture -n "__fish_edamame_posture_using_subcommand background-start-disconnected" -s n -l network-scan -d 'Enable LAN scanning'
 complete -c edamame_posture -n "__fish_edamame_posture_using_subcommand background-start-disconnected" -s c -l packet-capture -d 'Enable packet capture'
 complete -c edamame_posture -n "__fish_edamame_posture_using_subcommand background-start-disconnected" -l fail-on-whitelist -d 'Treat whitelist violations as fatal (defaults to true when --whitelist is provided)'

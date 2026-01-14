@@ -785,7 +785,7 @@ _edamame_posture() {
             return 0
             ;;
         edamame_posture__background__start__disconnected)
-            opts="-k -n -c -v -h --llm-api-key --network-scan --packet-capture --whitelist --fail-on-whitelist --fail-on-blacklist --fail-on-anomalous --include-local-traffic --agentic-mode --cancel-on-violation --verbose --help"
+            opts="-k -n -c -v -h --llm-api-key --network-scan --packet-capture --whitelist --fail-on-whitelist --fail-on-blacklist --fail-on-anomalous --include-local-traffic --agentic-mode --agentic-provider --agentic-interval --cancel-on-violation --verbose --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -805,6 +805,14 @@ _edamame_posture() {
                     ;;
                 --agentic-mode)
                     COMPREPLY=($(compgen -W "auto analyze disabled" -- "${cur}"))
+                    return 0
+                    ;;
+                --agentic-provider)
+                    COMPREPLY=($(compgen -W "edamame claude openai ollama none" -- "${cur}"))
+                    return 0
+                    ;;
+                --agentic-interval)
+                    COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
                 *)
