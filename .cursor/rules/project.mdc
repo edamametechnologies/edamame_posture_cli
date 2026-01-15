@@ -8,7 +8,6 @@ alwaysApply: true
 > **Master Repository:** `edamame_app` - See `../edamame_app/.cursor/rules/workspace.mdc` for workspace-wide rules.
 
 ## Documentation (Read First)
-- **CLAUDE.md** - Build commands, CLI commands, exit codes
 - **ARCHITECTURE.md** - Command flow, daemon architecture
 - **README.md** - Complete usage guide
 - **INSTALL.md** - Installation instructions
@@ -34,6 +33,42 @@ cargo build --release
 make test                      # Basic tests
 make commands_test             # CLI integration tests
 make all_test                  # Full test suite
+```
+
+## CLI Commands
+
+### Score & System Info
+```bash
+edamame-posture get-score
+edamame-posture get-device-info
+edamame-posture list-threats
+edamame-posture lanscan
+```
+
+### Remediation
+```bash
+edamame-posture remediate-all-threats
+edamame-posture remediate-threat <THREAT_ID>
+edamame-posture rollback-threat <THREAT_ID>
+```
+
+### Policy & Compliance
+```bash
+edamame-posture check-policy <MIN_SCORE> "<THREATS>" "[TAGS]"
+edamame-posture check-policy-for-domain <DOMAIN> <POLICY>
+```
+
+### Background Daemon
+```bash
+edamame-posture start          # Start monitoring daemon
+edamame-posture stop           # Stop daemon
+edamame-posture status         # Check daemon status
+```
+
+### MCP Server
+```bash
+edamame-posture mcp-start
+edamame-posture mcp-stop
 ```
 
 ## Exit Codes
