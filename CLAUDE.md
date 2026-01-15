@@ -2,11 +2,11 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+> **Master Repository:** `edamame_app` - See `../edamame_app/CLAUDE.md` for workspace-wide rules and cross-repository guidance.
+
 ## Project Overview
 
 EDAMAME Posture is a cross-platform CLI tool for security posture assessment and remediation. Designed for developers and CI/CD pipelines, it provides security controls without requiring external connectivity.
-
-Part of the EDAMAME ecosystem - see `../edamame_core/CLAUDE.md` for full ecosystem documentation.
 
 ## Documentation Index
 
