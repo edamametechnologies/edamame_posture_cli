@@ -1005,18 +1005,23 @@ pub fn background_agentic_summary() -> i32 {
     println!("  Model: {}", model_display);
     println!(
         "  API Key: {}",
-        if summary.has_api_key { "configured" } else { "not set" }
+        if summary.has_api_key {
+            "configured"
+        } else {
+            "not set"
+        }
     );
-    println!(
-        "  Tested: {}",
-        if summary.tested { "yes" } else { "no" }
-    );
+    println!("  Tested: {}", if summary.tested { "yes" } else { "no" });
 
     // Auto Processing
     println!("\n[Auto Processing]");
     println!(
         "  Enabled: {}",
-        if summary.auto_processing_enabled { "yes" } else { "no" }
+        if summary.auto_processing_enabled {
+            "yes"
+        } else {
+            "no"
+        }
     );
     println!("  Mode: {}", summary.auto_processing_mode);
     println!("  Interval: {}s", summary.auto_processing_interval_secs);
@@ -1045,7 +1050,10 @@ pub fn background_agentic_summary() -> i32 {
             println!("  Network Ports: {}", summary.todo_counts.network_ports);
         }
         if summary.todo_counts.network_sessions > 0 {
-            println!("  Network Sessions: {}", summary.todo_counts.network_sessions);
+            println!(
+                "  Network Sessions: {}",
+                summary.todo_counts.network_sessions
+            );
         }
         if summary.todo_counts.pwned_breaches > 0 {
             println!("  Pwned Breaches: {}", summary.todo_counts.pwned_breaches);
@@ -1102,11 +1110,18 @@ pub fn background_agentic_summary() -> i32 {
     println!("\n[Slack Integration]");
     println!(
         "  Configured: {}",
-        if summary.slack_configured { "yes" } else { "no" }
+        if summary.slack_configured {
+            "yes"
+        } else {
+            "no"
+        }
     );
     if summary.slack_configured {
         println!("  Actions Channel: {}", summary.slack_actions_channel);
-        println!("  Escalations Channel: {}", summary.slack_escalations_channel);
+        println!(
+            "  Escalations Channel: {}",
+            summary.slack_escalations_channel
+        );
     }
 
     // Status
@@ -1117,7 +1132,10 @@ pub fn background_agentic_summary() -> i32 {
         println!("  Last Success: {}", summary.last_success_time);
     }
     if summary.error_code != "None" {
-        println!("  Last Error: {} - {}", summary.error_code, summary.error_reason);
+        println!(
+            "  Last Error: {} - {}",
+            summary.error_code, summary.error_reason
+        );
     }
 
     println!();
