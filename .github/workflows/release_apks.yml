@@ -225,6 +225,12 @@ jobs:
             echo "ERROR: Could not find APK file!"
             exit 1
           fi
+          
+          # Save keys to workspace for later steps (Alpine chroot doesn't persist state)
+          mkdir -p "$WORKSPACE_PATH/.abuild-keys"
+          cp "$KEY_PATH" "$WORKSPACE_PATH/.abuild-keys/edamame.rsa"
+          cp "${KEY_PATH}.pub" "$WORKSPACE_PATH/.abuild-keys/edamame.rsa.pub"
+          echo "Saved signing keys to workspace for S3 upload step"
         shell: alpine.sh --root {0}
 
       ############################################################################################
@@ -314,23 +320,26 @@ jobs:
           set -e
           
           VERSION=$(grep '^version =' ./Cargo.toml | awk '{print $3}' | tr -d '"')
+          WORKSPACE_PATH="${GITHUB_WORKSPACE:-$(pwd)}"
           
           apk add --no-cache aws-cli alpine-sdk
           
-          # Setup abuild key
+          # Use the SAME keys saved from the build step (critical for signature consistency)
           mkdir -p "$HOME/.abuild"
           KEY_PATH="$HOME/.abuild/edamame.rsa"
-          if [ -n "$ABUILD_PRIVATE_KEY_B64" ] && [ -n "$ABUILD_PUBLIC_KEY_B64" ]; then
+          if [ -f "$WORKSPACE_PATH/.abuild-keys/edamame.rsa" ]; then
+            echo "Using signing keys saved from build step"
+            cp "$WORKSPACE_PATH/.abuild-keys/edamame.rsa" "$KEY_PATH"
+            cp "$WORKSPACE_PATH/.abuild-keys/edamame.rsa.pub" "${KEY_PATH}.pub"
+            chmod 600 "$KEY_PATH"
+          elif [ -n "$ABUILD_PRIVATE_KEY_B64" ] && [ -n "$ABUILD_PUBLIC_KEY_B64" ]; then
+            echo "Using signing keys from secrets"
             echo "$ABUILD_PRIVATE_KEY_B64" | base64 -d > "$KEY_PATH"
             chmod 600 "$KEY_PATH"
             echo "$ABUILD_PUBLIC_KEY_B64" | base64 -d > "${KEY_PATH}.pub"
           else
-            abuild-keygen -a -i -n
-            NEW_KEY=$(find "$HOME/.abuild" -name "*.rsa" ! -name "edamame.rsa" -type f | head -1)
-            if [ -n "$NEW_KEY" ]; then
-              mv "$NEW_KEY" "$KEY_PATH"
-              [ -f "${NEW_KEY}.pub" ] && mv "${NEW_KEY}.pub" "${KEY_PATH}.pub"
-            fi
+            echo "ERROR: No signing keys available! Build step should have saved them."
+            exit 1
           fi
           install -Dm644 "${KEY_PATH}.pub" "/etc/apk/keys/edamame.rsa.pub"
           
