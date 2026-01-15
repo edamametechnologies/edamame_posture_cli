@@ -1,12 +1,13 @@
 ---
-description: "EDAMAME Posture project rules - CLI tool for security posture assessment"
+description: "EDAMAME Posture - CLI tool for security posture assessment"
 alwaysApply: true
 ---
 
 # EDAMAME Posture - CLI Tool
 
+> **Master Repository:** `edamame_app` - See `../edamame_app/.cursor/rules/workspace.mdc` for workspace-wide rules.
+
 ## Documentation (Read First)
-Before making changes, consult these files:
 - **CLAUDE.md** - Build commands, CLI commands, exit codes
 - **ARCHITECTURE.md** - Command flow, daemon architecture
 - **README.md** - Complete usage guide
@@ -47,5 +48,9 @@ make all_test                  # Full test suite
 edamame-posture check-policy 3.5 "firewall disabled" "PCI-DSS,HIPAA"
 ```
 
-## Part of EDAMAME Ecosystem
-Uses `edamame_core` for all security operations. See `../edamame_core/CLAUDE.md` for the full ecosystem.
+## Local Development
+Toggle local/git dependencies (run from edamame_app):
+```bash
+cd ../edamame_app && ./flip.sh local
+cd ../edamame_app && ./flip.sh git
+```
