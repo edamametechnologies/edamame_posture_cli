@@ -889,12 +889,12 @@ pub fn background_mcp_start(port: u16, psk: Option<String>, all_interfaces: bool
                 } else {
                     "127.0.0.1"
                 };
-                println!("✅ MCP server started successfully");
+                println!("[OK] MCP server started successfully");
                 println!("   Port: {}", json["port"]);
                 println!("   URL: {}", json["url"].as_str().unwrap_or(""));
                 println!("   PSK: {}", actual_psk);
                 if all_interfaces {
-                    println!("\n⚠️  Warning: Server is listening on ALL network interfaces");
+                    println!("\n[WARN] Warning: Server is listening on ALL network interfaces");
                     println!(
                         "   Accessible from your local network - ensure your network is secure!"
                     );
@@ -942,7 +942,7 @@ pub fn background_mcp_stop() -> i32 {
             };
 
             if json["success"].as_bool().unwrap_or(false) {
-                println!("✅ MCP server stopped");
+                println!("[OK] MCP server stopped");
                 0
             } else {
                 eprintln!(
@@ -969,7 +969,7 @@ pub fn background_mcp_status() -> i32 {
             };
 
             if json["running"].as_bool().unwrap_or(false) {
-                println!("✅ MCP server is running");
+                println!("[OK] MCP server is running");
                 println!("   Port: {}", json["port"]);
                 println!("   URL: {}", json["url"].as_str().unwrap_or(""));
             } else {
