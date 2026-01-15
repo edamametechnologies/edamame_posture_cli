@@ -1,3 +1,8 @@
+---
+description: "EDAMAME Posture project rules - CLI tool for security posture assessment"
+alwaysApply: true
+---
+
 # EDAMAME Posture - CLI Tool
 
 ## Documentation (Read First)
