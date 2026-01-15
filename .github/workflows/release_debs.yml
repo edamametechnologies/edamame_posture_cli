@@ -400,3 +400,12 @@ jobs:
         uses: edamametechnologies/edamame_posture_action@v1
         with:
           dump_sessions_log: true
+
+      - name: Slack alert on failure
+        if: failure()
+        uses: slackapi/slack-github-action@v1.26.0
+        with:
+          channel-id: 'C072J0U9TH7'
+          slack-message: "Release workflow ${{ github.workflow }} for ${{ github.repository }} on ${{ runner.os }} (${{ matrix.arch }}) failed: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
