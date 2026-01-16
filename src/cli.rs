@@ -314,6 +314,7 @@ pub fn build_cli() -> Command {
     .subcommand(Command::new("background-mcp-status").alias("mcp-status").about("Get MCP server status"))
     .subcommand(Command::new("background-mcp-generate-psk").alias("mcp-generate-psk").about("Generate a secure PSK for MCP server"))
     .subcommand(Command::new("background-agentic-summary").alias("agentic-summary").about("Get comprehensive agentic status summary (provider, mode, todos, actions, Slack)"))
+    .subcommand(Command::new("background-agentic-test-llm").alias("agentic-test-llm").about("Test LLM connection (makes actual API call)"))
     .subcommand(Command::new("background-status").alias("status").about("Get status of reporting background process"))
     .subcommand(Command::new("background-last-report-signature").alias("get-last-report-signature").about("Get last report signature of background process"))
     .subcommand(Command::new("background-get-history").alias("get-history").about("Get history of score modifications"))
