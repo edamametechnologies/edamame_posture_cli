@@ -119,13 +119,14 @@ test_claude_provider() {
                 echo "✅ Claude provider configured"
                 claude_config_result="✅"
                 
-                # Check if LLM is tested/working
-                if echo "$SUMMARY" | grep -qi "tested.*true\|connection.*success\|provider.*claude"; then
-                    echo "✅ Claude LLM connection verified"
+                # Check if LLM is tested/working - must explicitly show "Tested: yes"
+                if echo "$SUMMARY" | grep -qi "Tested: yes"; then
+                    echo "✅ Claude LLM connection verified (Tested: yes)"
                     claude_test_result="✅"
                 else
-                    echo "⚠️  Claude LLM connection status unclear"
-                    claude_test_result="⚠️"
+                    echo "❌ Claude LLM connection test failed (Tested: no or not found)"
+                    echo "   The LLM connection must be verified for this test to pass"
+                    claude_test_result="❌"
                 fi
             else
                 echo "❌ Claude provider not found in summary"
@@ -182,13 +183,14 @@ test_openai_provider() {
                 echo "✅ OpenAI provider configured"
                 openai_config_result="✅"
                 
-                # Check if LLM is tested/working
-                if echo "$SUMMARY" | grep -qi "tested.*true\|connection.*success\|provider.*openai"; then
-                    echo "✅ OpenAI LLM connection verified"
+                # Check if LLM is tested/working - must explicitly show "Tested: yes"
+                if echo "$SUMMARY" | grep -qi "Tested: yes"; then
+                    echo "✅ OpenAI LLM connection verified (Tested: yes)"
                     openai_test_result="✅"
                 else
-                    echo "⚠️  OpenAI LLM connection status unclear"
-                    openai_test_result="⚠️"
+                    echo "❌ OpenAI LLM connection test failed (Tested: no or not found)"
+                    echo "   The LLM connection must be verified for this test to pass"
+                    openai_test_result="❌"
                 fi
             else
                 echo "❌ OpenAI provider not found in summary"
@@ -245,13 +247,14 @@ test_edamame_provider() {
                 echo "✅ EDAMAME Internal provider configured"
                 edamame_config_result="✅"
                 
-                # Check if LLM is tested/working
-                if echo "$SUMMARY" | grep -qiE "tested.*true|connection.*success|provider.*(edamame|internal)"; then
-                    echo "✅ EDAMAME Internal LLM connection verified"
+                # Check if LLM is tested/working - must explicitly show "Tested: yes"
+                if echo "$SUMMARY" | grep -qi "Tested: yes"; then
+                    echo "✅ EDAMAME Internal LLM connection verified (Tested: yes)"
                     edamame_test_result="✅"
                 else
-                    echo "⚠️  EDAMAME Internal LLM connection status unclear"
-                    edamame_test_result="⚠️"
+                    echo "❌ EDAMAME Internal LLM connection test failed (Tested: no or not found)"
+                    echo "   The LLM connection must be verified for this test to pass"
+                    edamame_test_result="❌"
                 fi
             else
                 echo "❌ EDAMAME Internal provider not found in summary"
