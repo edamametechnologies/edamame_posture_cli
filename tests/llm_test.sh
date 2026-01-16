@@ -101,45 +101,65 @@ test_claude_provider() {
     fi
     
     echo "Setting up Claude provider..."
+    echo "DEBUG: ANTHROPIC_API_KEY is set (length: ${#ANTHROPIC_API_KEY} chars)"
     
     # Use EDAMAME_LLM_API_KEY for the provider
     export EDAMAME_LLM_API_KEY="$ANTHROPIC_API_KEY"
     
     # Start in disconnected mode with Claude provider
+    echo "DEBUG: Starting posture with claude provider..."
     if $SUDO_CMD "$BINARY_PATH" background-start-disconnected \
         --agentic-mode analyze \
         --agentic-provider claude &
     then
-        sleep 10  # Wait for initialization
+        echo "DEBUG: Waiting 15 seconds for initialization..."
+        sleep 15  # Wait for initialization (increased from 10)
+        
+        # Check daemon status first
+        echo "DEBUG: Checking daemon status..."
+        $SUDO_CMD "$BINARY_PATH" status 2>&1 || echo "DEBUG: status command failed"
         
         # Check agentic summary
+        echo "DEBUG: Getting agentic summary..."
         if SUMMARY=$($SUDO_CMD "$BINARY_PATH" agentic-summary 2>&1); then
-            echo "Summary: $SUMMARY"
+            echo "DEBUG: Full agentic-summary output:"
+            echo "----------------------------------------"
+            echo "$SUMMARY"
+            echo "----------------------------------------"
+            
             if echo "$SUMMARY" | grep -qi "claude"; then
                 echo "✅ Claude provider configured"
                 claude_config_result="✅"
+                
+                # Extract the Tested line for debugging
+                TESTED_LINE=$(echo "$SUMMARY" | grep -i "Tested:" || echo "Tested line not found")
+                echo "DEBUG: Tested line: '$TESTED_LINE'"
                 
                 # Check if LLM is tested/working - must explicitly show "Tested: yes"
                 if echo "$SUMMARY" | grep -qi "Tested: yes"; then
                     echo "✅ Claude LLM connection verified (Tested: yes)"
                     claude_test_result="✅"
                 else
-                    echo "❌ Claude LLM connection test failed (Tested: no or not found)"
+                    echo "❌ Claude LLM connection test failed"
+                    echo "   Expected 'Tested: yes' but got: '$TESTED_LINE'"
                     echo "   The LLM connection must be verified for this test to pass"
                     claude_test_result="❌"
                 fi
             else
                 echo "❌ Claude provider not found in summary"
+                echo "   Looking for 'claude' in output"
                 claude_config_result="❌"
                 claude_test_result="❌"
             fi
         else
             echo "❌ Failed to get agentic summary"
+            echo "DEBUG: agentic-summary command returned error"
             claude_config_result="❌"
             claude_test_result="❌"
         fi
         
         # Stop the process
+        echo "DEBUG: Stopping posture..."
         $SUDO_CMD "$BINARY_PATH" stop 2>/dev/null || true
         sleep 3
     else
@@ -166,44 +186,64 @@ test_openai_provider() {
     fi
     
     echo "Setting up OpenAI provider..."
+    echo "DEBUG: OPENAI_API_KEY is set (length: ${#OPENAI_API_KEY} chars)"
     
     export EDAMAME_LLM_API_KEY="$OPENAI_API_KEY"
     
     # Start in disconnected mode with OpenAI provider
+    echo "DEBUG: Starting posture with openai provider..."
     if $SUDO_CMD "$BINARY_PATH" background-start-disconnected \
         --agentic-mode analyze \
         --agentic-provider openai &
     then
-        sleep 10  # Wait for initialization
+        echo "DEBUG: Waiting 15 seconds for initialization..."
+        sleep 15  # Wait for initialization (increased from 10)
+        
+        # Check daemon status first
+        echo "DEBUG: Checking daemon status..."
+        $SUDO_CMD "$BINARY_PATH" status 2>&1 || echo "DEBUG: status command failed"
         
         # Check agentic summary
+        echo "DEBUG: Getting agentic summary..."
         if SUMMARY=$($SUDO_CMD "$BINARY_PATH" agentic-summary 2>&1); then
-            echo "Summary: $SUMMARY"
+            echo "DEBUG: Full agentic-summary output:"
+            echo "----------------------------------------"
+            echo "$SUMMARY"
+            echo "----------------------------------------"
+            
             if echo "$SUMMARY" | grep -qi "openai"; then
                 echo "✅ OpenAI provider configured"
                 openai_config_result="✅"
+                
+                # Extract the Tested line for debugging
+                TESTED_LINE=$(echo "$SUMMARY" | grep -i "Tested:" || echo "Tested line not found")
+                echo "DEBUG: Tested line: '$TESTED_LINE'"
                 
                 # Check if LLM is tested/working - must explicitly show "Tested: yes"
                 if echo "$SUMMARY" | grep -qi "Tested: yes"; then
                     echo "✅ OpenAI LLM connection verified (Tested: yes)"
                     openai_test_result="✅"
                 else
-                    echo "❌ OpenAI LLM connection test failed (Tested: no or not found)"
+                    echo "❌ OpenAI LLM connection test failed"
+                    echo "   Expected 'Tested: yes' but got: '$TESTED_LINE'"
                     echo "   The LLM connection must be verified for this test to pass"
                     openai_test_result="❌"
                 fi
             else
                 echo "❌ OpenAI provider not found in summary"
+                echo "   Looking for 'openai' in output"
                 openai_config_result="❌"
                 openai_test_result="❌"
             fi
         else
             echo "❌ Failed to get agentic summary"
+            echo "DEBUG: agentic-summary command returned error"
             openai_config_result="❌"
             openai_test_result="❌"
         fi
         
         # Stop the process
+        echo "DEBUG: Stopping posture..."
         $SUDO_CMD "$BINARY_PATH" stop 2>/dev/null || true
         sleep 3
     else
@@ -230,44 +270,65 @@ test_edamame_provider() {
     fi
     
     echo "Setting up EDAMAME Internal provider..."
+    echo "DEBUG: EDAMAME_LLM_API_KEY is set (length: ${#EDAMAME_LLM_API_KEY} chars)"
     
     # EDAMAME_LLM_API_KEY is already set in environment
     
     # Start in disconnected mode with EDAMAME provider
+    echo "DEBUG: Starting posture with edamame provider..."
     if $SUDO_CMD "$BINARY_PATH" background-start-disconnected \
         --agentic-mode analyze \
         --agentic-provider edamame &
     then
-        sleep 10  # Wait for initialization
+        echo "DEBUG: Waiting 15 seconds for initialization..."
+        sleep 15  # Wait for initialization (increased from 10)
+        
+        # Check daemon status first
+        echo "DEBUG: Checking daemon status..."
+        $SUDO_CMD "$BINARY_PATH" status 2>&1 || echo "DEBUG: status command failed"
         
         # Check agentic summary
+        echo "DEBUG: Getting agentic summary..."
         if SUMMARY=$($SUDO_CMD "$BINARY_PATH" agentic-summary 2>&1); then
-            echo "Summary: $SUMMARY"
+            echo "DEBUG: Full agentic-summary output:"
+            echo "----------------------------------------"
+            echo "$SUMMARY"
+            echo "----------------------------------------"
+            
+            # Check for provider configuration
             if echo "$SUMMARY" | grep -qi "internal\|edamame"; then
                 echo "✅ EDAMAME Internal provider configured"
                 edamame_config_result="✅"
+                
+                # Extract the Tested line for debugging
+                TESTED_LINE=$(echo "$SUMMARY" | grep -i "Tested:" || echo "Tested line not found")
+                echo "DEBUG: Tested line: '$TESTED_LINE'"
                 
                 # Check if LLM is tested/working - must explicitly show "Tested: yes"
                 if echo "$SUMMARY" | grep -qi "Tested: yes"; then
                     echo "✅ EDAMAME Internal LLM connection verified (Tested: yes)"
                     edamame_test_result="✅"
                 else
-                    echo "❌ EDAMAME Internal LLM connection test failed (Tested: no or not found)"
+                    echo "❌ EDAMAME Internal LLM connection test failed"
+                    echo "   Expected 'Tested: yes' but got: '$TESTED_LINE'"
                     echo "   The LLM connection must be verified for this test to pass"
                     edamame_test_result="❌"
                 fi
             else
                 echo "❌ EDAMAME Internal provider not found in summary"
+                echo "   Looking for 'internal' or 'edamame' in output"
                 edamame_config_result="❌"
                 edamame_test_result="❌"
             fi
         else
             echo "❌ Failed to get agentic summary"
+            echo "DEBUG: agentic-summary command returned error"
             edamame_config_result="❌"
             edamame_test_result="❌"
         fi
         
         # Stop the process
+        echo "DEBUG: Stopping posture..."
         $SUDO_CMD "$BINARY_PATH" stop 2>/dev/null || true
         sleep 3
     else
