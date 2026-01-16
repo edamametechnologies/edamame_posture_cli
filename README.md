@@ -239,14 +239,18 @@ In `analyze` mode, the AI assistant will:
 ### Step 6: Verify the Daemon is Running
 
 ```bash
-# Check if daemon is responding (returns connection status)
+# Check if daemon is responding (returns connection and AI assistant status)
 edamame_posture background-status
 
 # View real-time logs to confirm startup
 edamame_posture background-logs
 ```
 
-If the daemon is running, `background-status` will return connection status JSON. If it fails with "Error getting connection status", the daemon is not running.
+If the daemon is running, `background-status` will return:
+- **Connection status**: user, domain, connection state, last report time
+- **AI Assistant status**: mode (disabled/analyze/auto), interval, enabled state, last/next run times
+
+If it fails with "Error getting connection status", the daemon is not running.
 
 ### Step 7: Monitor Agentic Behavior
 
