@@ -62,6 +62,7 @@ include_local_traffic="$(get_config_value "include_local_traffic")"
 # Agentic configuration
 agentic_mode="$(get_config_value "agentic_mode")"
 agentic_interval="$(get_config_value "agentic_interval")"
+llm_api_key="$(get_config_value "llm_api_key")"
 claude_api_key="$(get_config_value "claude_api_key")"
 openai_api_key="$(get_config_value "openai_api_key")"
 ollama_base_url="$(get_config_value "ollama_base_url")"
@@ -82,8 +83,13 @@ cancel_on_violation=$(echo "$cancel_on_violation" | tr '[:upper:]' '[:lower:]')
 include_local_traffic=$(echo "$include_local_traffic" | tr '[:upper:]' '[:lower:]')
 
 # Determine LLM provider based on which API key is configured (first non-empty wins)
+# Priority: edamame > claude > openai > ollama
 agentic_provider="none"
-if [ -n "$claude_api_key" ]; then
+if [ -n "$llm_api_key" ]; then
+  agentic_provider="edamame"
+  export EDAMAME_LLM_API_KEY="$llm_api_key"
+  echo "Using EDAMAME Portal as LLM provider"
+elif [ -n "$claude_api_key" ]; then
   agentic_provider="claude"
   export EDAMAME_LLM_API_KEY="$claude_api_key"
   echo "Using Claude as LLM provider"
