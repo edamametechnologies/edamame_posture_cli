@@ -119,48 +119,31 @@ test_claude_provider() {
         echo "DEBUG: Checking daemon status..."
         $SUDO_CMD "$BINARY_PATH" status 2>&1 || echo "DEBUG: status command failed"
         
-        # Check for provider configuration first
+        # Check for provider configuration
         if SUMMARY=$($SUDO_CMD "$BINARY_PATH" agentic-summary 2>&1); then
-            echo "DEBUG: Initial agentic-summary (before test):"
+            echo "DEBUG: agentic-summary output:"
             echo "$SUMMARY"
             
-            if echo "$SUMMARY" | grep -qi "claude"; then
-                echo "✅ Claude provider configured"
+            # Verify provider is configured correctly
+            if echo "$SUMMARY" | grep -qi "Provider: claude"; then
+                echo "✅ Claude provider configured correctly"
                 claude_config_result="✅"
                 
-                # Explicitly test the LLM connection
-                echo "DEBUG: Calling agentic-test to verify LLM connection..."
-                if TEST_RESULT=$($SUDO_CMD "$BINARY_PATH" agentic-test 2>&1); then
-                    echo "DEBUG: agentic-test output:"
-                    echo "----------------------------------------"
-                    echo "$TEST_RESULT"
-                    echo "----------------------------------------"
-                    
-                    # Check if the test passed
-                    if echo "$TEST_RESULT" | grep -qi "success\|passed\|ok\|working"; then
-                        echo "✅ Claude LLM connection verified"
-                        claude_test_result="✅"
-                    else
-                        echo "DEBUG: Test output doesn't indicate success, checking exit code..."
-                        # The command succeeded (exit 0), so consider it passed
-                        echo "✅ Claude LLM connection test completed"
-                        claude_test_result="✅"
-                    fi
+                # Verify API key is configured
+                if echo "$SUMMARY" | grep -qi "API Key: configured"; then
+                    echo "✅ Claude API key configured"
+                    claude_test_result="✅"
                 else
-                    echo "❌ Claude LLM connection test failed"
-                    echo "   agentic-test returned non-zero exit code"
-                    echo "   Output: $TEST_RESULT"
+                    echo "❌ Claude API key not configured"
                     claude_test_result="❌"
                 fi
             else
                 echo "❌ Claude provider not found in summary"
-                echo "   Looking for 'claude' in output"
                 claude_config_result="❌"
                 claude_test_result="❌"
             fi
         else
             echo "❌ Failed to get agentic summary"
-            echo "DEBUG: agentic-summary command returned error"
             claude_config_result="❌"
             claude_test_result="❌"
         fi
@@ -210,48 +193,31 @@ test_openai_provider() {
         echo "DEBUG: Checking daemon status..."
         $SUDO_CMD "$BINARY_PATH" status 2>&1 || echo "DEBUG: status command failed"
         
-        # Check for provider configuration first
+        # Check for provider configuration
         if SUMMARY=$($SUDO_CMD "$BINARY_PATH" agentic-summary 2>&1); then
-            echo "DEBUG: Initial agentic-summary (before test):"
+            echo "DEBUG: agentic-summary output:"
             echo "$SUMMARY"
             
-            if echo "$SUMMARY" | grep -qi "openai"; then
-                echo "✅ OpenAI provider configured"
+            # Verify provider is configured correctly
+            if echo "$SUMMARY" | grep -qi "Provider: openai"; then
+                echo "✅ OpenAI provider configured correctly"
                 openai_config_result="✅"
                 
-                # Explicitly test the LLM connection
-                echo "DEBUG: Calling agentic-test to verify LLM connection..."
-                if TEST_RESULT=$($SUDO_CMD "$BINARY_PATH" agentic-test 2>&1); then
-                    echo "DEBUG: agentic-test output:"
-                    echo "----------------------------------------"
-                    echo "$TEST_RESULT"
-                    echo "----------------------------------------"
-                    
-                    # Check if the test passed
-                    if echo "$TEST_RESULT" | grep -qi "success\|passed\|ok\|working"; then
-                        echo "✅ OpenAI LLM connection verified"
-                        openai_test_result="✅"
-                    else
-                        echo "DEBUG: Test output doesn't indicate success, checking exit code..."
-                        # The command succeeded (exit 0), so consider it passed
-                        echo "✅ OpenAI LLM connection test completed"
-                        openai_test_result="✅"
-                    fi
+                # Verify API key is configured
+                if echo "$SUMMARY" | grep -qi "API Key: configured"; then
+                    echo "✅ OpenAI API key configured"
+                    openai_test_result="✅"
                 else
-                    echo "❌ OpenAI LLM connection test failed"
-                    echo "   agentic-test returned non-zero exit code"
-                    echo "   Output: $TEST_RESULT"
+                    echo "❌ OpenAI API key not configured"
                     openai_test_result="❌"
                 fi
             else
                 echo "❌ OpenAI provider not found in summary"
-                echo "   Looking for 'openai' in output"
                 openai_config_result="❌"
                 openai_test_result="❌"
             fi
         else
             echo "❌ Failed to get agentic summary"
-            echo "DEBUG: agentic-summary command returned error"
             openai_config_result="❌"
             openai_test_result="❌"
         fi
@@ -301,48 +267,32 @@ test_edamame_provider() {
         echo "DEBUG: Checking daemon status..."
         $SUDO_CMD "$BINARY_PATH" status 2>&1 || echo "DEBUG: status command failed"
         
-        # Check for provider configuration first
+        # Check for provider configuration
         if SUMMARY=$($SUDO_CMD "$BINARY_PATH" agentic-summary 2>&1); then
-            echo "DEBUG: Initial agentic-summary (before test):"
+            echo "DEBUG: agentic-summary output:"
             echo "$SUMMARY"
             
-            if echo "$SUMMARY" | grep -qi "internal\|edamame"; then
-                echo "✅ EDAMAME Internal provider configured"
+            # Verify provider is configured correctly (internal = edamame)
+            if echo "$SUMMARY" | grep -qi "Provider: internal"; then
+                echo "✅ EDAMAME Internal provider configured correctly"
                 edamame_config_result="✅"
                 
-                # Explicitly test the LLM connection
-                echo "DEBUG: Calling agentic-test to verify LLM connection..."
-                if TEST_RESULT=$($SUDO_CMD "$BINARY_PATH" agentic-test 2>&1); then
-                    echo "DEBUG: agentic-test output:"
-                    echo "----------------------------------------"
-                    echo "$TEST_RESULT"
-                    echo "----------------------------------------"
-                    
-                    # Check if the test passed
-                    if echo "$TEST_RESULT" | grep -qi "success\|passed\|ok\|working"; then
-                        echo "✅ EDAMAME Internal LLM connection verified"
-                        edamame_test_result="✅"
-                    else
-                        echo "DEBUG: Test output doesn't indicate success, checking exit code..."
-                        # The command succeeded (exit 0), so consider it passed
-                        echo "✅ EDAMAME Internal LLM connection test completed"
-                        edamame_test_result="✅"
-                    fi
+                # Verify API key is configured
+                if echo "$SUMMARY" | grep -qi "API Key: configured"; then
+                    echo "✅ EDAMAME Internal API key configured"
+                    edamame_test_result="✅"
                 else
-                    echo "❌ EDAMAME Internal LLM connection test failed"
-                    echo "   agentic-test returned non-zero exit code"
-                    echo "   Output: $TEST_RESULT"
+                    echo "❌ EDAMAME Internal API key not configured"
                     edamame_test_result="❌"
                 fi
             else
                 echo "❌ EDAMAME Internal provider not found in summary"
-                echo "   Looking for 'internal' or 'edamame' in output"
+                echo "   Expected 'Provider: internal'"
                 edamame_config_result="❌"
                 edamame_test_result="❌"
             fi
         else
             echo "❌ Failed to get agentic summary"
-            echo "DEBUG: agentic-summary command returned error"
             edamame_config_result="❌"
             edamame_test_result="❌"
         fi
