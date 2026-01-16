@@ -1091,6 +1091,12 @@ fn run_base() {
             exit_code = background_agentic_summary();
             is_background = true;
         }
+        Some(("background-agentic-test-llm", _)) => {
+            // Initialize core
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_agentic_test_llm();
+            is_background = true;
+        }
         _ => {
             // Initialize the core with all options disabled
             initialize_core("".to_string(), false, false, false, false, false, verbose);
