@@ -194,6 +194,19 @@ pub fn background_get_threats_info() -> i32 {
 }
 
 pub fn background_get_status() -> i32 {
+    use std::io::{self, Write};
+
+    // Helper to write to stdout, ignoring broken pipe errors (when output is piped)
+    fn write_stdout(s: &str) -> io::Result<()> {
+        let stdout = io::stdout();
+        let mut handle = stdout.lock();
+        match writeln!(handle, "{}", s) {
+            Ok(_) => Ok(()),
+            Err(e) if e.kind() == io::ErrorKind::BrokenPipe => Ok(()),
+            Err(e) => Err(e),
+        }
+    }
+
     match rpc_get_connection(
         &EDAMAME_CA_PEM,
         &EDAMAME_CLIENT_PEM,
@@ -201,8 +214,8 @@ pub fn background_get_status() -> i32 {
         &EDAMAME_TARGET,
     ) {
         Ok(status) => {
-            println!("Connection status:");
-            println!("{}", status);
+            let _ = write_stdout("Connection status:");
+            let _ = write_stdout(&status.to_string());
 
             // Also display agentic status if available
             match rpc_agentic_get_auto_processing_status(
@@ -212,24 +225,24 @@ pub fn background_get_status() -> i32 {
                 &EDAMAME_TARGET,
             ) {
                 Ok(agentic_status) => {
-                    println!("AI Assistant:");
+                    let _ = write_stdout("AI Assistant:");
                     let mode_str = match agentic_status.mode {
                         0 => "disabled",
                         1 => "analyze",
                         2 => "auto",
                         _ => "unknown",
                     };
-                    println!("  - Mode: {}", mode_str);
-                    println!("  - Interval: {}s", agentic_status.interval_secs);
-                    println!(
+                    let _ = write_stdout(&format!("  - Mode: {}", mode_str));
+                    let _ = write_stdout(&format!("  - Interval: {}s", agentic_status.interval_secs));
+                    let _ = write_stdout(&format!(
                         "  - Enabled: {}",
                         if agentic_status.enabled { "yes" } else { "no" }
-                    );
+                    ));
                     if let Some(ref last_run) = agentic_status.last_run {
-                        println!("  - Last run: {}", last_run);
+                        let _ = write_stdout(&format!("  - Last run: {}", last_run));
                     }
                     if let Some(ref next_run) = agentic_status.next_run {
-                        println!("  - Next run: {}", next_run);
+                        let _ = write_stdout(&format!("  - Next run: {}", next_run));
                     }
                 }
                 Err(_) => {
