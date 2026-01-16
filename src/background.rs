@@ -203,6 +203,40 @@ pub fn background_get_status() -> i32 {
         Ok(status) => {
             println!("Connection status:");
             println!("{}", status);
+
+            // Also display agentic status if available
+            match rpc_agentic_get_auto_processing_status(
+                &EDAMAME_CA_PEM,
+                &EDAMAME_CLIENT_PEM,
+                &EDAMAME_CLIENT_KEY,
+                &EDAMAME_TARGET,
+            ) {
+                Ok(agentic_status) => {
+                    println!("AI Assistant:");
+                    let mode_str = match agentic_status.mode {
+                        0 => "disabled",
+                        1 => "analyze",
+                        2 => "auto",
+                        _ => "unknown",
+                    };
+                    println!("  - Mode: {}", mode_str);
+                    println!("  - Interval: {}s", agentic_status.interval_secs);
+                    println!(
+                        "  - Enabled: {}",
+                        if agentic_status.enabled { "yes" } else { "no" }
+                    );
+                    if let Some(ref last_run) = agentic_status.last_run {
+                        println!("  - Last run: {}", last_run);
+                    }
+                    if let Some(ref next_run) = agentic_status.next_run {
+                        println!("  - Next run: {}", next_run);
+                    }
+                }
+                Err(_) => {
+                    // Agentic status not available (might not be running in background mode)
+                }
+            }
+
             0
         }
         Err(e) => {
