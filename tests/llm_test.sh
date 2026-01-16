@@ -129,12 +129,22 @@ test_claude_provider() {
                 echo "✅ Claude provider configured correctly"
                 claude_config_result="✅"
                 
-                # Verify API key is configured
-                if echo "$SUMMARY" | grep -qi "API Key: configured"; then
-                    echo "✅ Claude API key configured"
-                    claude_test_result="✅"
+                # Test actual LLM connection
+                echo "DEBUG: Testing LLM connection..."
+                if TEST_RESULT=$($SUDO_CMD "$BINARY_PATH" agentic-test-llm 2>&1); then
+                    echo "DEBUG: agentic-test-llm output:"
+                    echo "$TEST_RESULT"
+                    
+                    if echo "$TEST_RESULT" | grep -qi "Success: yes"; then
+                        echo "✅ Claude LLM connection test PASSED"
+                        claude_test_result="✅"
+                    else
+                        echo "❌ Claude LLM connection test FAILED"
+                        claude_test_result="❌"
+                    fi
                 else
-                    echo "❌ Claude API key not configured"
+                    echo "❌ Claude LLM connection test failed (command error)"
+                    echo "   Output: $TEST_RESULT"
                     claude_test_result="❌"
                 fi
             else
@@ -203,12 +213,22 @@ test_openai_provider() {
                 echo "✅ OpenAI provider configured correctly"
                 openai_config_result="✅"
                 
-                # Verify API key is configured
-                if echo "$SUMMARY" | grep -qi "API Key: configured"; then
-                    echo "✅ OpenAI API key configured"
-                    openai_test_result="✅"
+                # Test actual LLM connection
+                echo "DEBUG: Testing LLM connection..."
+                if TEST_RESULT=$($SUDO_CMD "$BINARY_PATH" agentic-test-llm 2>&1); then
+                    echo "DEBUG: agentic-test-llm output:"
+                    echo "$TEST_RESULT"
+                    
+                    if echo "$TEST_RESULT" | grep -qi "Success: yes"; then
+                        echo "✅ OpenAI LLM connection test PASSED"
+                        openai_test_result="✅"
+                    else
+                        echo "❌ OpenAI LLM connection test FAILED"
+                        openai_test_result="❌"
+                    fi
                 else
-                    echo "❌ OpenAI API key not configured"
+                    echo "❌ OpenAI LLM connection test failed (command error)"
+                    echo "   Output: $TEST_RESULT"
                     openai_test_result="❌"
                 fi
             else
@@ -277,12 +297,22 @@ test_edamame_provider() {
                 echo "✅ EDAMAME Internal provider configured correctly"
                 edamame_config_result="✅"
                 
-                # Verify API key is configured
-                if echo "$SUMMARY" | grep -qi "API Key: configured"; then
-                    echo "✅ EDAMAME Internal API key configured"
-                    edamame_test_result="✅"
+                # Test actual LLM connection
+                echo "DEBUG: Testing LLM connection..."
+                if TEST_RESULT=$($SUDO_CMD "$BINARY_PATH" agentic-test-llm 2>&1); then
+                    echo "DEBUG: agentic-test-llm output:"
+                    echo "$TEST_RESULT"
+                    
+                    if echo "$TEST_RESULT" | grep -qi "Success: yes"; then
+                        echo "✅ EDAMAME Internal LLM connection test PASSED"
+                        edamame_test_result="✅"
+                    else
+                        echo "❌ EDAMAME Internal LLM connection test FAILED"
+                        edamame_test_result="❌"
+                    fi
                 else
-                    echo "❌ EDAMAME Internal API key not configured"
+                    echo "❌ EDAMAME Internal LLM connection test failed (command error)"
+                    echo "   Output: $TEST_RESULT"
                     edamame_test_result="❌"
                 fi
             else
