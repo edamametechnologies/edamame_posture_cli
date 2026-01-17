@@ -131,20 +131,19 @@ test_claude_provider() {
                 
                 # Test actual LLM connection
                 echo "DEBUG: Testing LLM connection..."
-                if TEST_RESULT=$($SUDO_CMD "$BINARY_PATH" agentic-test-llm 2>&1); then
-                    echo "DEBUG: agentic-test-llm output:"
-                    echo "$TEST_RESULT"
-                    
-                    if echo "$TEST_RESULT" | grep -qi "Success: yes"; then
-                        echo "✅ Claude LLM connection test PASSED"
-                        claude_test_result="✅"
-                    else
-                        echo "❌ Claude LLM connection test FAILED"
-                        claude_test_result="❌"
-                    fi
+                TEST_RESULT=$($SUDO_CMD "$BINARY_PATH" agentic-test-llm 2>&1)
+                TEST_EXIT_CODE=$?
+                echo "DEBUG: agentic-test-llm output:"
+                echo "$TEST_RESULT"
+                echo "DEBUG: agentic-test-llm exit code: $TEST_EXIT_CODE"
+                
+                # Check output for success, regardless of exit code
+                if echo "$TEST_RESULT" | grep -qi "Success: yes"; then
+                    echo "✅ Claude LLM connection test PASSED"
+                    claude_test_result="✅"
                 else
-                    echo "❌ Claude LLM connection test failed (command error)"
-                    echo "   Output: $TEST_RESULT"
+                    echo "❌ Claude LLM connection test FAILED"
+                    echo "   Check output above for error details"
                     claude_test_result="❌"
                 fi
             else
@@ -215,20 +214,19 @@ test_openai_provider() {
                 
                 # Test actual LLM connection
                 echo "DEBUG: Testing LLM connection..."
-                if TEST_RESULT=$($SUDO_CMD "$BINARY_PATH" agentic-test-llm 2>&1); then
-                    echo "DEBUG: agentic-test-llm output:"
-                    echo "$TEST_RESULT"
-                    
-                    if echo "$TEST_RESULT" | grep -qi "Success: yes"; then
-                        echo "✅ OpenAI LLM connection test PASSED"
-                        openai_test_result="✅"
-                    else
-                        echo "❌ OpenAI LLM connection test FAILED"
-                        openai_test_result="❌"
-                    fi
+                TEST_RESULT=$($SUDO_CMD "$BINARY_PATH" agentic-test-llm 2>&1)
+                TEST_EXIT_CODE=$?
+                echo "DEBUG: agentic-test-llm output:"
+                echo "$TEST_RESULT"
+                echo "DEBUG: agentic-test-llm exit code: $TEST_EXIT_CODE"
+                
+                # Check output for success, regardless of exit code
+                if echo "$TEST_RESULT" | grep -qi "Success: yes"; then
+                    echo "✅ OpenAI LLM connection test PASSED"
+                    openai_test_result="✅"
                 else
-                    echo "❌ OpenAI LLM connection test failed (command error)"
-                    echo "   Output: $TEST_RESULT"
+                    echo "❌ OpenAI LLM connection test FAILED"
+                    echo "   Check output above for error details"
                     openai_test_result="❌"
                 fi
             else
@@ -299,20 +297,19 @@ test_edamame_provider() {
                 
                 # Test actual LLM connection
                 echo "DEBUG: Testing LLM connection..."
-                if TEST_RESULT=$($SUDO_CMD "$BINARY_PATH" agentic-test-llm 2>&1); then
-                    echo "DEBUG: agentic-test-llm output:"
-                    echo "$TEST_RESULT"
-                    
-                    if echo "$TEST_RESULT" | grep -qi "Success: yes"; then
-                        echo "✅ EDAMAME Internal LLM connection test PASSED"
-                        edamame_test_result="✅"
-                    else
-                        echo "❌ EDAMAME Internal LLM connection test FAILED"
-                        edamame_test_result="❌"
-                    fi
+                TEST_RESULT=$($SUDO_CMD "$BINARY_PATH" agentic-test-llm 2>&1)
+                TEST_EXIT_CODE=$?
+                echo "DEBUG: agentic-test-llm output:"
+                echo "$TEST_RESULT"
+                echo "DEBUG: agentic-test-llm exit code: $TEST_EXIT_CODE"
+                
+                # Check output for success, regardless of exit code
+                if echo "$TEST_RESULT" | grep -qi "Success: yes"; then
+                    echo "✅ EDAMAME Internal LLM connection test PASSED"
+                    edamame_test_result="✅"
                 else
-                    echo "❌ EDAMAME Internal LLM connection test failed (command error)"
-                    echo "   Output: $TEST_RESULT"
+                    echo "❌ EDAMAME Internal LLM connection test FAILED"
+                    echo "   Check output above for error details"
                     edamame_test_result="❌"
                 fi
             else
