@@ -826,7 +826,7 @@ pub fn background_configure_agentic(provider: String) {
     // Handle BYOLLM providers (claude, openai, ollama)
     let model = std::env::var("EDAMAME_LLM_MODEL").unwrap_or_else(|_| {
         match provider.as_str() {
-            "claude" => "claude-4-5-haiku".to_string(), // Use Haiku for background (faster/cheaper)
+            "claude" => "claude-haiku-4-5-20251001".to_string(), // Use Haiku for background (faster/cheaper)
             "openai" => "gpt-5-mini-2025-08-07".to_string(),
             "ollama" => "llama4".to_string(),
             _ => String::new(),
