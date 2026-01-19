@@ -1927,7 +1927,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "0.9.84"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#60152b132d29ff6a2853a2372cecf46d7fa15a95"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#849780d1397e98a979ecccddc129f3b84429bca1"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -2013,7 +2013,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "0.9.84"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#8fc2d7240ab29a7b9d6b1e20ebda290e748972bc"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#6dcf42709f02c415b5f67b274b5c2ea20c8cb685"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -2047,6 +2047,7 @@ dependencies = [
  "regex",
  "reqwest 0.13.1",
  "run_script",
+ "rustls",
  "sentry",
  "sentry-tracing",
  "serde",
@@ -2078,11 +2079,12 @@ dependencies = [
 [[package]]
 name = "edamame_models"
 version = "0.1.1"
-source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#8973afc5ed129e8f9d74f74520fbf7070de69141"
+source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#b61a849c7993ec71adebbfdd9843942a019a943e"
 dependencies = [
  "anyhow",
  "chrono",
  "reqwest 0.13.1",
+ "rustls",
  "serial_test",
  "tokio",
  "tracing",
@@ -2429,7 +2431,7 @@ dependencies = [
 [[package]]
 name = "flodbadd"
 version = "0.9.84"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#3b189f56007c4913f25ad0a1002fbf2975c78155"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#c679b892626fac4552efda756d2efb103d1267f2"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -2467,6 +2469,7 @@ dependencies = [
  "rayon",
  "regex",
  "reqwest 0.13.1",
+ "rustls",
  "serde",
  "serde_json",
  "serial_test",
@@ -3605,7 +3608,7 @@ dependencies = [
 [[package]]
 name = "l7_ebpf_program"
 version = "0.1.0"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#3b189f56007c4913f25ad0a1002fbf2975c78155"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#c679b892626fac4552efda756d2efb103d1267f2"
 
 [[package]]
 name = "lazy_static"
