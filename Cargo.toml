@@ -6,8 +6,8 @@ description = "EDAMAME Security posture analysis and remediation"
 
 [dependencies]
 # Local copy in order to allow rapid development/debug
-#edamame_core = { path = "../edamame_core", features = [ "standalone", "swiftrs", "agentic" ] }
-edamame_core = { git = "https://github.com/edamametechnologies/edamame_core", branch = "main", features = [ "standalone", "swiftrs", "agentic" ] }
+edamame_core = { path = "../edamame_core", features = [ "standalone", "swiftrs", "agentic" ] }
+#edamame_core = { git = "https://github.com/edamametechnologies/edamame_core", branch = "main", features = [ "standalone", "swiftrs", "agentic" ] }
 
 # Error handling
 anyhow = "1.0.82"
@@ -62,8 +62,8 @@ flodbadd = { git = "https://github.com/edamametechnologies/flodbadd", branch = "
 # Linux and macOS 
 [target.'cfg(any(target_os = "macos", target_os = "linux"))'.dependencies]
 # Local copy in order to allow rapid development/debug
-#edamame_foundation = { path = "../edamame_foundation", features = [ "packetcapture" ] }
-edamame_foundation = { git = "https://github.com/edamametechnologies/edamame_foundation", branch = "main", features = [ "packetcapture" ] }
+edamame_foundation = { path = "../edamame_foundation", features = [ "packetcapture" ] }
+#edamame_foundation = { git = "https://github.com/edamametechnologies/edamame_foundation", branch = "main", features = [ "packetcapture" ] }
 # Process
 daemonize = "0.5.0"
 
@@ -106,5 +106,5 @@ vergen-gitcl = { version = "1.0.5", features = [ "build", "cargo", "rustc", "si"
 [target.'cfg(target_os = "windows")'.build-dependencies]
 # For the winpcap installation support in Windows
 # Local copy in order to allow rapid development/debug
-#flodbadd = { path = "../flodbadd", features = [ "packetcapture", "asyncpacketcapture" ] }
-flodbadd = { git = "https://github.com/edamametechnologies/flodbadd", branch = "main", features = [ "packetcapture", "asyncpacketcapture" ] }
+flodbadd = { path = "../flodbadd", features = [ "packetcapture", "asyncpacketcapture" ] }
+#flodbadd = { git = "https://github.com/edamametechnologies/flodbadd", branch = "main", features = [ "packetcapture", "asyncpacketcapture" ] }
