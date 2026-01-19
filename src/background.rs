@@ -233,7 +233,8 @@ pub fn background_get_status() -> i32 {
                         _ => "unknown",
                     };
                     let _ = write_stdout(&format!("  - Mode: {}", mode_str));
-                    let _ = write_stdout(&format!("  - Interval: {}s", agentic_status.interval_secs));
+                    let _ =
+                        write_stdout(&format!("  - Interval: {}s", agentic_status.interval_secs));
                     let _ = write_stdout(&format!(
                         "  - Enabled: {}",
                         if agentic_status.enabled { "yes" } else { "no" }
