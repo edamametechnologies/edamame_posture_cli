@@ -1,5 +1,7 @@
 use std::env;
-use vergen_gitcl::{BuildBuilder, CargoBuilder, Emitter, GitclBuilder, RustcBuilder, SysinfoBuilder};
+use vergen_gitcl::{
+    BuildBuilder, CargoBuilder, Emitter, GitclBuilder, RustcBuilder, SysinfoBuilder,
+};
 
 // To debug cfg, in particular vergen
 fn dump_cfg() {
