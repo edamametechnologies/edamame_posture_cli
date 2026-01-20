@@ -116,8 +116,8 @@ test_provider() {
         echo "Waiting for daemon to initialize..."
         sleep 10  # Wait for initialization
         
-        # Check daemon status
-        if ! $SUDO_CMD "$BINARY_PATH" status 2>&1 | grep -qi "running"; then
+        # Check daemon status - look for "Is connected: true" or "Is success: true" in output
+        if ! $SUDO_CMD "$BINARY_PATH" status 2>&1 | grep -qE "(Is connected: true|Is success: true)"; then
             echo "Daemon not running after start"
             # Try to get more info
             $SUDO_CMD "$BINARY_PATH" status 2>&1 || true
