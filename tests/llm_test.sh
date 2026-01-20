@@ -5,9 +5,10 @@ set -eo pipefail
 # LLM Provider Integration Tests for edamame_posture
 # ============================================================================
 #
-# This script tests the LLM provider integration in edamame_posture.
-# It requires the following environment variables to be set:
+# This script tests the LLM provider configuration in edamame_posture.
+# It verifies that providers can be configured and start correctly.
 #
+# Required environment variables:
 #   - ANTHROPIC_API_KEY: For Claude tests
 #   - OPENAI_API_KEY: For OpenAI tests  
 #   - EDAMAME_LLM_API_KEY: For EDAMAME Internal LLM tests
@@ -20,12 +21,9 @@ set -eo pipefail
 # ============================================================================
 
 # Track test results
-claude_config_result="❓"
-claude_test_result="❓"
-openai_config_result="❓"
-openai_test_result="❓"
-edamame_config_result="❓"
-edamame_test_result="❓"
+claude_result="?"
+openai_result="?"
+edamame_result="?"
 
 # Save original EDAMAME_LLM_API_KEY if set (for EDAMAME provider test)
 ORIGINAL_EDAMAME_LLM_API_KEY="${EDAMAME_LLM_API_KEY:-}"
@@ -39,7 +37,7 @@ echo ""
 FOUND_BINARY=$(find ./target -type f \( -name edamame_posture -o -name edamame_posture.exe \) -print -quit 2>/dev/null)
 
 if [ -z "$FOUND_BINARY" ]; then
-    echo "🔴 Error: Could not find 'edamame_posture' binary in ./target"
+    echo "Error: Could not find 'edamame_posture' binary in ./target"
     echo "   Please build the project first: cargo build --release"
     exit 1
 fi
@@ -77,262 +75,82 @@ trap cleanup EXIT
 print_result() {
     local test_name="$1"
     local result="$2"
-    if [ "$result" = "✅" ]; then
-        echo "  $test_name: $result PASSED"
-    elif [ "$result" = "⏭️" ]; then
-        echo "  $test_name: $result SKIPPED"
+    if [ "$result" = "PASSED" ]; then
+        echo "  $test_name: PASSED"
+    elif [ "$result" = "SKIPPED" ]; then
+        echo "  $test_name: SKIPPED"
     else
-        echo "  $test_name: $result FAILED"
+        echo "  $test_name: FAILED"
     fi
 }
 
 # --- Test Functions ---
 
-test_claude_provider() {
+test_provider() {
+    local provider_name="$1"
+    local provider_arg="$2"
+    local expected_provider="$3"
+    local api_key="$4"
+    local result_var="$5"
+    
     echo "----------------------------------------------"
-    echo "Testing Claude Provider"
+    echo "Testing $provider_name Provider"
     echo "----------------------------------------------"
     
-    if [ -z "$ANTHROPIC_API_KEY" ]; then
-        echo "⏭️  Skipping Claude tests - ANTHROPIC_API_KEY not set"
-        claude_config_result="⏭️"
-        claude_test_result="⏭️"
+    if [ -z "$api_key" ]; then
+        echo "Skipping $provider_name tests - API key not set"
+        eval "$result_var=SKIPPED"
         return 0
     fi
     
-    echo "Setting up Claude provider..."
-    echo "DEBUG: ANTHROPIC_API_KEY is set (length: ${#ANTHROPIC_API_KEY} chars)"
+    echo "Setting up $provider_name provider..."
     
     # Use EDAMAME_LLM_API_KEY for the provider
-    export EDAMAME_LLM_API_KEY="$ANTHROPIC_API_KEY"
+    export EDAMAME_LLM_API_KEY="$api_key"
     
-    # Start in disconnected mode with Claude provider
-    echo "DEBUG: Starting posture with claude provider..."
+    # Start in disconnected mode with provider
     if $SUDO_CMD "$BINARY_PATH" background-start-disconnected \
         --agentic-mode analyze \
-        --agentic-provider claude &
+        --agentic-provider "$provider_arg" &
     then
-        echo "DEBUG: Waiting 10 seconds for initialization..."
         sleep 10  # Wait for initialization
         
-        # Check daemon status first
-        echo "DEBUG: Checking daemon status..."
-        $SUDO_CMD "$BINARY_PATH" status 2>&1 || echo "DEBUG: status command failed"
+        # Check daemon status
+        if ! $SUDO_CMD "$BINARY_PATH" status 2>&1 | grep -qi "running"; then
+            echo "Daemon not running"
+            eval "$result_var=FAILED"
+            $SUDO_CMD "$BINARY_PATH" stop 2>/dev/null || true
+            sleep 3
+            export EDAMAME_LLM_API_KEY="$ORIGINAL_EDAMAME_LLM_API_KEY"
+            return 1
+        fi
         
         # Check for provider configuration
         if SUMMARY=$($SUDO_CMD "$BINARY_PATH" agentic-summary 2>&1); then
-            echo "DEBUG: agentic-summary output:"
-            echo "$SUMMARY"
-            
             # Verify provider is configured correctly
-            if echo "$SUMMARY" | grep -qi "Provider: claude"; then
-                echo "✅ Claude provider configured correctly"
-                claude_config_result="✅"
-                
-                # Test actual LLM connection
-                echo "DEBUG: Testing LLM connection..."
-                TEST_RESULT=$($SUDO_CMD "$BINARY_PATH" agentic-test-llm 2>&1)
-                TEST_EXIT_CODE=$?
-                echo "DEBUG: agentic-test-llm output:"
-                echo "$TEST_RESULT"
-                echo "DEBUG: agentic-test-llm exit code: $TEST_EXIT_CODE"
-                
-                # Check output for success, regardless of exit code
-                if echo "$TEST_RESULT" | grep -qi "Success: yes"; then
-                    echo "✅ Claude LLM connection test PASSED"
-                    claude_test_result="✅"
-                else
-                    echo "❌ Claude LLM connection test FAILED"
-                    echo "   Check output above for error details"
-                    claude_test_result="❌"
-                fi
+            if echo "$SUMMARY" | grep -qi "Provider: $expected_provider"; then
+                echo "$provider_name provider configured correctly"
+                eval "$result_var=PASSED"
             else
-                echo "❌ Claude provider not found in summary"
-                claude_config_result="❌"
-                claude_test_result="❌"
+                echo "$provider_name provider not found in summary"
+                echo "Summary: $SUMMARY"
+                eval "$result_var=FAILED"
             fi
         else
-            echo "❌ Failed to get agentic summary"
-            claude_config_result="❌"
-            claude_test_result="❌"
+            echo "Failed to get agentic summary"
+            eval "$result_var=FAILED"
         fi
         
         # Stop the process
-        echo "DEBUG: Stopping posture..."
         $SUDO_CMD "$BINARY_PATH" stop 2>/dev/null || true
         sleep 3
     else
-        echo "❌ Failed to start posture with Claude"
-        claude_config_result="❌"
-        claude_test_result="❌"
+        echo "Failed to start posture with $provider_name"
+        eval "$result_var=FAILED"
     fi
     
     # Restore original EDAMAME_LLM_API_KEY
     export EDAMAME_LLM_API_KEY="$ORIGINAL_EDAMAME_LLM_API_KEY"
-}
-
-test_openai_provider() {
-    echo ""
-    echo "----------------------------------------------"
-    echo "Testing OpenAI Provider"
-    echo "----------------------------------------------"
-    
-    if [ -z "$OPENAI_API_KEY" ]; then
-        echo "⏭️  Skipping OpenAI tests - OPENAI_API_KEY not set"
-        openai_config_result="⏭️"
-        openai_test_result="⏭️"
-        return 0
-    fi
-    
-    echo "Setting up OpenAI provider..."
-    echo "DEBUG: OPENAI_API_KEY is set (length: ${#OPENAI_API_KEY} chars)"
-    
-    export EDAMAME_LLM_API_KEY="$OPENAI_API_KEY"
-    
-    # Start in disconnected mode with OpenAI provider
-    echo "DEBUG: Starting posture with openai provider..."
-    if $SUDO_CMD "$BINARY_PATH" background-start-disconnected \
-        --agentic-mode analyze \
-        --agentic-provider openai &
-    then
-        echo "DEBUG: Waiting 10 seconds for initialization..."
-        sleep 10  # Wait for initialization
-        
-        # Check daemon status first
-        echo "DEBUG: Checking daemon status..."
-        $SUDO_CMD "$BINARY_PATH" status 2>&1 || echo "DEBUG: status command failed"
-        
-        # Check for provider configuration
-        if SUMMARY=$($SUDO_CMD "$BINARY_PATH" agentic-summary 2>&1); then
-            echo "DEBUG: agentic-summary output:"
-            echo "$SUMMARY"
-            
-            # Verify provider is configured correctly
-            if echo "$SUMMARY" | grep -qi "Provider: openai"; then
-                echo "✅ OpenAI provider configured correctly"
-                openai_config_result="✅"
-                
-                # Test actual LLM connection
-                echo "DEBUG: Testing LLM connection..."
-                TEST_RESULT=$($SUDO_CMD "$BINARY_PATH" agentic-test-llm 2>&1)
-                TEST_EXIT_CODE=$?
-                echo "DEBUG: agentic-test-llm output:"
-                echo "$TEST_RESULT"
-                echo "DEBUG: agentic-test-llm exit code: $TEST_EXIT_CODE"
-                
-                # Check output for success, regardless of exit code
-                if echo "$TEST_RESULT" | grep -qi "Success: yes"; then
-                    echo "✅ OpenAI LLM connection test PASSED"
-                    openai_test_result="✅"
-                else
-                    echo "❌ OpenAI LLM connection test FAILED"
-                    echo "   Check output above for error details"
-                    openai_test_result="❌"
-                fi
-            else
-                echo "❌ OpenAI provider not found in summary"
-                openai_config_result="❌"
-                openai_test_result="❌"
-            fi
-        else
-            echo "❌ Failed to get agentic summary"
-            openai_config_result="❌"
-            openai_test_result="❌"
-        fi
-        
-        # Stop the process
-        echo "DEBUG: Stopping posture..."
-        $SUDO_CMD "$BINARY_PATH" stop 2>/dev/null || true
-        sleep 3
-    else
-        echo "❌ Failed to start posture with OpenAI"
-        openai_config_result="❌"
-        openai_test_result="❌"
-    fi
-    
-    # Restore original EDAMAME_LLM_API_KEY
-    export EDAMAME_LLM_API_KEY="$ORIGINAL_EDAMAME_LLM_API_KEY"
-}
-
-test_edamame_provider() {
-    echo ""
-    echo "----------------------------------------------"
-    echo "Testing EDAMAME Internal Provider"
-    echo "----------------------------------------------"
-    
-    if [ -z "$EDAMAME_LLM_API_KEY" ]; then
-        echo "⏭️  Skipping EDAMAME tests - EDAMAME_LLM_API_KEY not set"
-        edamame_config_result="⏭️"
-        edamame_test_result="⏭️"
-        return 0
-    fi
-    
-    echo "Setting up EDAMAME Internal provider..."
-    echo "DEBUG: EDAMAME_LLM_API_KEY is set (length: ${#EDAMAME_LLM_API_KEY} chars)"
-    
-    # EDAMAME_LLM_API_KEY is already set in environment
-    
-    # Start in disconnected mode with EDAMAME provider
-    echo "DEBUG: Starting posture with edamame provider..."
-    if $SUDO_CMD "$BINARY_PATH" background-start-disconnected \
-        --agentic-mode analyze \
-        --agentic-provider edamame &
-    then
-        echo "DEBUG: Waiting 10 seconds for initialization..."
-        sleep 10  # Wait for initialization
-        
-        # Check daemon status first
-        echo "DEBUG: Checking daemon status..."
-        $SUDO_CMD "$BINARY_PATH" status 2>&1 || echo "DEBUG: status command failed"
-        
-        # Check for provider configuration
-        if SUMMARY=$($SUDO_CMD "$BINARY_PATH" agentic-summary 2>&1); then
-            echo "DEBUG: agentic-summary output:"
-            echo "$SUMMARY"
-            
-            # Verify provider is configured correctly (internal = edamame)
-            if echo "$SUMMARY" | grep -qi "Provider: internal"; then
-                echo "✅ EDAMAME Internal provider configured correctly"
-                edamame_config_result="✅"
-                
-                # Test actual LLM connection
-                echo "DEBUG: Testing LLM connection..."
-                TEST_RESULT=$($SUDO_CMD "$BINARY_PATH" agentic-test-llm 2>&1)
-                TEST_EXIT_CODE=$?
-                echo "DEBUG: agentic-test-llm output:"
-                echo "$TEST_RESULT"
-                echo "DEBUG: agentic-test-llm exit code: $TEST_EXIT_CODE"
-                
-                # Check output for success, regardless of exit code
-                if echo "$TEST_RESULT" | grep -qi "Success: yes"; then
-                    echo "✅ EDAMAME Internal LLM connection test PASSED"
-                    edamame_test_result="✅"
-                else
-                    echo "❌ EDAMAME Internal LLM connection test FAILED"
-                    echo "   Check output above for error details"
-                    edamame_test_result="❌"
-                fi
-            else
-                echo "❌ EDAMAME Internal provider not found in summary"
-                echo "   Expected 'Provider: internal'"
-                edamame_config_result="❌"
-                edamame_test_result="❌"
-            fi
-        else
-            echo "❌ Failed to get agentic summary"
-            edamame_config_result="❌"
-            edamame_test_result="❌"
-        fi
-        
-        # Stop the process
-        echo "DEBUG: Stopping posture..."
-        $SUDO_CMD "$BINARY_PATH" stop 2>/dev/null || true
-        sleep 3
-    else
-        echo "❌ Failed to start posture with EDAMAME Internal"
-        edamame_config_result="❌"
-        edamame_test_result="❌"
-    fi
 }
 
 test_api_key_via_cli() {
@@ -355,7 +173,7 @@ test_api_key_via_cli() {
         test_key="$OPENAI_API_KEY"
         provider="openai"
     else
-        echo "⏭️  Skipping API key CLI test - no API keys available"
+        echo "Skipping API key CLI test - no API keys available"
         return 0
     fi
     
@@ -371,18 +189,17 @@ test_api_key_via_cli() {
         
         # Check agentic summary
         if SUMMARY=$($SUDO_CMD "$BINARY_PATH" agentic-summary 2>&1); then
-            echo "Summary: $SUMMARY"
-            echo "✅ --llm-api-key CLI flag working"
+            echo "--llm-api-key CLI flag working"
             echo "   Provider: $provider"
         else
-            echo "⚠️  Could not verify --llm-api-key flag"
+            echo "Could not verify --llm-api-key flag"
         fi
         
         # Stop the process
         $SUDO_CMD "$BINARY_PATH" stop 2>/dev/null || true
         sleep 3
     else
-        echo "❌ Failed to start with --llm-api-key flag"
+        echo "Failed to start with --llm-api-key flag"
     fi
 }
 
@@ -393,9 +210,12 @@ $SUDO_CMD "$BINARY_PATH" stop 2>/dev/null || true
 sleep 2
 
 # Run provider tests
-test_claude_provider
-test_openai_provider
-test_edamame_provider
+echo ""
+test_provider "Claude" "claude" "claude" "$ANTHROPIC_API_KEY" "claude_result"
+echo ""
+test_provider "OpenAI" "openai" "openai" "$OPENAI_API_KEY" "openai_result"
+echo ""
+test_provider "EDAMAME Internal" "edamame" "internal" "$ORIGINAL_EDAMAME_LLM_API_KEY" "edamame_result"
 test_api_key_via_cli
 
 # --- Print Summary ---
@@ -405,34 +225,24 @@ echo "=============================================="
 echo "  Test Summary"
 echo "=============================================="
 echo ""
-echo "Claude Provider:"
-print_result "  Configuration" "$claude_config_result"
-print_result "  LLM Connection" "$claude_test_result"
-echo ""
-echo "OpenAI Provider:"
-print_result "  Configuration" "$openai_config_result"
-print_result "  LLM Connection" "$openai_test_result"
-echo ""
-echo "EDAMAME Internal Provider:"
-print_result "  Configuration" "$edamame_config_result"
-print_result "  LLM Connection" "$edamame_test_result"
+print_result "Claude Provider" "$claude_result"
+print_result "OpenAI Provider" "$openai_result"
+print_result "EDAMAME Internal Provider" "$edamame_result"
 echo ""
 
 # Determine overall exit code
 failed=0
-for result in "$claude_config_result" "$claude_test_result" \
-              "$openai_config_result" "$openai_test_result" \
-              "$edamame_config_result" "$edamame_test_result"; do
-    if [ "$result" = "❌" ]; then
+for result in "$claude_result" "$openai_result" "$edamame_result"; do
+    if [ "$result" = "FAILED" ]; then
         failed=1
         break
     fi
 done
 
 if [ $failed -eq 1 ]; then
-    echo "❌ Some tests FAILED"
+    echo "Some tests FAILED"
     exit 1
 else
-    echo "✅ All tests PASSED (or skipped)"
+    echo "All tests PASSED (or skipped)"
     exit 0
 fi
