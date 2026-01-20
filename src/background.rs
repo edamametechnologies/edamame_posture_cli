@@ -1190,36 +1190,6 @@ pub fn background_agentic_summary() -> i32 {
     0
 }
 
-/// Test LLM connection by making an actual API call
-pub fn background_agentic_test_llm() -> i32 {
-    // Call the RPC to test LLM connection
-    match rpc_agentic_test_llm(
-        &EDAMAME_CA_PEM,
-        &EDAMAME_CLIENT_PEM,
-        &EDAMAME_CLIENT_KEY,
-        &EDAMAME_TARGET,
-    ) {
-        Ok(result) => {
-            println!("LLM Connection Test:");
-            println!("  Provider: {}", result.provider);
-            println!("  Model: {}", result.model);
-            println!("  Success: {}", if result.success { "yes" } else { "no" });
-            println!("  Message: {}", result.message);
-            println!("  Error Code: {}", result.error_code);
-
-            if result.success {
-                0
-            } else {
-                ERROR_CODE_MISMATCH
-            }
-        }
-        Err(e) => {
-            eprintln!("Error testing LLM connection: {}", e);
-            ERROR_CODE_SERVER_ERROR
-        }
-    }
-}
-
 /// Process security todos with AI in background mode
 pub fn background_process_agentic(mode: &str) {
     info!(
