@@ -108,16 +108,19 @@ test_provider() {
     # Use EDAMAME_LLM_API_KEY for the provider
     export EDAMAME_LLM_API_KEY="$api_key"
     
-    # Start in disconnected mode with provider
+    # Start in disconnected mode with provider (no & - command daemonizes itself)
     if $SUDO_CMD "$BINARY_PATH" background-start-disconnected \
         --agentic-mode analyze \
-        --agentic-provider "$provider_arg" &
+        --agentic-provider "$provider_arg"
     then
+        echo "Waiting for daemon to initialize..."
         sleep 10  # Wait for initialization
         
         # Check daemon status
         if ! $SUDO_CMD "$BINARY_PATH" status 2>&1 | grep -qi "running"; then
-            echo "Daemon not running"
+            echo "Daemon not running after start"
+            # Try to get more info
+            $SUDO_CMD "$BINARY_PATH" status 2>&1 || true
             eval "$result_var=FAILED"
             $SUDO_CMD "$BINARY_PATH" stop 2>/dev/null || true
             sleep 3
@@ -125,8 +128,11 @@ test_provider() {
             return 1
         fi
         
+        echo "Daemon is running, checking agentic configuration..."
+        
         # Check for provider configuration
         if SUMMARY=$($SUDO_CMD "$BINARY_PATH" agentic-summary 2>&1); then
+            echo "Agentic summary retrieved"
             # Verify provider is configured correctly
             if echo "$SUMMARY" | grep -qi "Provider: $expected_provider"; then
                 echo "$provider_name provider configured correctly"
@@ -138,6 +144,7 @@ test_provider() {
             fi
         else
             echo "Failed to get agentic summary"
+            echo "Output: $SUMMARY"
             eval "$result_var=FAILED"
         fi
         
@@ -145,7 +152,7 @@ test_provider() {
         $SUDO_CMD "$BINARY_PATH" stop 2>/dev/null || true
         sleep 3
     else
-        echo "Failed to start posture with $provider_name"
+        echo "Failed to start posture with $provider_name (exit code: $?)"
         eval "$result_var=FAILED"
     fi
     
@@ -179,12 +186,13 @@ test_api_key_via_cli() {
     
     echo "Testing --llm-api-key flag with $provider provider..."
     
-    # Start with --llm-api-key flag (short form -k)
+    # Start with --llm-api-key flag (short form -k) - no & as command daemonizes itself
     if $SUDO_CMD "$BINARY_PATH" background-start-disconnected \
         --agentic-mode analyze \
         --agentic-provider "$provider" \
-        -k "$test_key" &
+        -k "$test_key"
     then
+        echo "Waiting for daemon to initialize..."
         sleep 10
         
         # Check agentic summary
@@ -199,7 +207,7 @@ test_api_key_via_cli() {
         $SUDO_CMD "$BINARY_PATH" stop 2>/dev/null || true
         sleep 3
     else
-        echo "Failed to start with --llm-api-key flag"
+        echo "Failed to start with --llm-api-key flag (exit code: $?)"
     fi
 }
 
