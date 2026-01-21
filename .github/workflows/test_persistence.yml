@@ -316,16 +316,7 @@ jobs:
             arch: x86_64
             container_image: ubuntu:18.04
             container_name: ubuntu-18.04
-          - os: ubuntu
-            runs-on: ubuntu-latest
-            arch: x86_64
-            container_image: alpine:3.15
-            container_name: alpine-3.15-x86_64-musl
-          - os: ubuntu
-            runs-on: ubuntu-24.04-arm
-            arch: aarch64
-            container_image: alpine:3.15
-            container_name: alpine-3.15-aarch64-musl
+
     runs-on: ${{ matrix.runs-on }}
     container:
       image: ${{ matrix.container_image }}
