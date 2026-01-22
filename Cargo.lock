@@ -1796,8 +1796,8 @@ dependencies = [
 
 [[package]]
 name = "edamame_core"
-version = "0.9.86"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#58061a0f32aa9b56f8974cbd9215618d3b96ec8c"
+version = "0.9.87"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#ebbe57a1b199d13033dd7e7c9e35cdd4c5a8e1ec"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1881,8 +1881,8 @@ dependencies = [
 
 [[package]]
 name = "edamame_foundation"
-version = "0.9.86"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#0bad49b84df7f9b42d032895dc856b3e49671ea4"
+version = "0.9.87"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#2f939e1d43825eca9b0b0a366f66a6890ef47bb2"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -2298,8 +2298,8 @@ dependencies = [
 
 [[package]]
 name = "flodbadd"
-version = "0.9.86"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#31b7b0be4cfcf774c3f78d40c8e3d489cd745b0a"
+version = "0.9.87"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#693a6a9cc2370d4fff0b0f40e0aba24bbc8c46c4"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -3478,7 +3478,7 @@ dependencies = [
 [[package]]
 name = "l7_ebpf_program"
 version = "0.1.0"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#31b7b0be4cfcf774c3f78d40c8e3d489cd745b0a"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#693a6a9cc2370d4fff0b0f40e0aba24bbc8c46c4"
 
 [[package]]
 name = "lazy_static"
@@ -7069,9 +7069,9 @@ checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
 
 [[package]]
 name = "typed-path"
-version = "0.12.0"
+version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7922f2cdc51280d47b491af9eafc41eb0cdab85eabcb390c854412fcbf26dbe8"
+checksum = "e43ffa54726cdc9ea78392023ffe9fe9cf9ac779e1c6fcb0d23f9862e3879d20"
 
 [[package]]
 name = "typenum"
