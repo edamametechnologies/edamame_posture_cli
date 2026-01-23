@@ -1338,20 +1338,20 @@ For Alpine Linux users, install via the APK repository:
 If you prefer not to add a repository, you can install the Debian package manually:
 
 1. **Download** the Debian package for your platform:
-   - **x86_64 (64-bit):** [edamame-posture_0.9.87-1_amd64.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.87/edamame-posture_0.9.87-1_amd64.deb)
-   - **i686 (32-bit):** [edamame-posture_0.9.87-1_i386.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.87/edamame-posture_0.9.87-1_i386.deb)
-   - **aarch64 (ARM 64-bit):** [edamame-posture_0.9.87-1_arm64.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.87/edamame-posture_0.9.87-1_arm64.deb)
+   - **x86_64 (64-bit):** [edamame-posture_0.9.88-1_amd64.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.88/edamame-posture_0.9.88-1_amd64.deb)
+   - **i686 (32-bit):** [edamame-posture_0.9.88-1_i386.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.88/edamame-posture_0.9.88-1_i386.deb)
+   - **aarch64 (ARM 64-bit):** [edamame-posture_0.9.88-1_arm64.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.88/edamame-posture_0.9.88-1_arm64.deb)
      - For Raspberry Pi 3/4/5 running 64-bit OS
-   - **armv7 (ARM 32-bit):** [edamame-posture_0.9.87-1_armhf.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.87/edamame-posture_0.9.87-1_armhf.deb)
+   - **armv7 (ARM 32-bit):** [edamame-posture_0.9.88-1_armhf.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.88/edamame-posture_0.9.88-1_armhf.deb)
      - For Raspberry Pi 2/3/4/Zero 2 running 32-bit OS (Raspberry Pi OS)
 
    > **Note**: These Debian packages have been tested on Linux Mint 20 and newer, Ubuntu 20.04 and newer, and Raspberry Pi OS (Raspbian).
 
 2. **Install** the package using either method:
    ```bash
-   sudo apt install ./edamame-posture_0.9.87-1_amd64.deb
+   sudo apt install ./edamame-posture_0.9.88-1_amd64.deb
    # or
-   sudo dpkg -i edamame-posture_0.9.87-1_amd64.deb
+   sudo dpkg -i edamame-posture_0.9.88-1_amd64.deb
    ```
 
 3. **Configure** the service by editing the configuration file:
@@ -1409,17 +1409,17 @@ If you prefer not to add a repository, you can install the Debian package manual
 For other Linux distributions or portable installation:
 
 1. **Download Binary**: From the Releases page, download the binary for your architecture:
-   - **x86_64 (64-bit)**: [edamame_posture-0.9.87-x86_64-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.87/edamame_posture-0.9.87-x86_64-unknown-linux-gnu)  
-   - **i686 (32-bit)**: [edamame_posture-0.9.87-i686-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.87/edamame_posture-0.9.87-i686-unknown-linux-gnu)  
-   - **aarch64 (ARM 64-bit)**: [edamame_posture-0.9.87-aarch64-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.87/edamame_posture-0.9.87-aarch64-unknown-linux-gnu)  
-   - **armv7 (ARM 32-bit)**: [edamame_posture-0.9.87-armv7-unknown-linux-gnueabihf](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.87/edamame_posture-0.9.87-armv7-unknown-linux-gnueabihf)
-   - **x86_64 (64-bit) for Alpine Linux (musl)**: [edamame_posture-0.9.87-x86_64-unknown-linux-musl](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.87/edamame_posture-0.9.87-x86_64-unknown-linux-musl) 
-   - **aarch64 (ARM 64-bit) for Alpine Linux (musl)**: [edamame_posture-0.9.87-aarch64-unknown-linux-musl](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.87/edamame_posture-0.9.87-aarch64-unknown-linux-musl)
+   - **x86_64 (64-bit)**: [edamame_posture-0.9.88-x86_64-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.88/edamame_posture-0.9.88-x86_64-unknown-linux-gnu)  
+   - **i686 (32-bit)**: [edamame_posture-0.9.88-i686-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.88/edamame_posture-0.9.88-i686-unknown-linux-gnu)  
+   - **aarch64 (ARM 64-bit)**: [edamame_posture-0.9.88-aarch64-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.88/edamame_posture-0.9.88-aarch64-unknown-linux-gnu)  
+   - **armv7 (ARM 32-bit)**: [edamame_posture-0.9.88-armv7-unknown-linux-gnueabihf](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.88/edamame_posture-0.9.88-armv7-unknown-linux-gnueabihf)
+   - **x86_64 (64-bit) for Alpine Linux (musl)**: [edamame_posture-0.9.88-x86_64-unknown-linux-musl](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.88/edamame_posture-0.9.88-x86_64-unknown-linux-musl) 
+   - **aarch64 (ARM 64-bit) for Alpine Linux (musl)**: [edamame_posture-0.9.88-aarch64-unknown-linux-musl](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.88/edamame_posture-0.9.88-aarch64-unknown-linux-musl)
 
 2. **Install Binary**: Extract if needed and place the edamame_posture binary into a directory in your PATH (such as `/usr/local/bin`). For example:
 ```bash
-chmod +x edamame_posture-0.9.87-x86_64-unknown-linux-gnu  
-sudo mv edamame_posture-0.9.87-x86_64-unknown-linux-gnu /usr/local/bin/edamame_posture
+chmod +x edamame_posture-0.9.88-x86_64-unknown-linux-gnu  
+sudo mv edamame_posture-0.9.88-x86_64-unknown-linux-gnu /usr/local/bin/edamame_posture
 ```
 
 ### macOS
@@ -1448,7 +1448,7 @@ brew upgrade edamame-posture
 For a manual installation on macOS:
 
 1. **Download** the macOS universal binary:
-   - [edamame_posture-0.9.87-universal-apple-darwin](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.87/edamame_posture-0.9.87-universal-apple-darwin)  
+   - [edamame_posture-0.9.88-universal-apple-darwin](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.88/edamame_posture-0.9.88-universal-apple-darwin)  
 
 2. **Install** by placing the binary in your `PATH` and making it executable:
    ```bash
@@ -1482,7 +1482,7 @@ choco upgrade edamame-posture
 For a manual installation on Windows:
 
 1. **Download** the Windows binary:
-   - [edamame_posture-0.9.87-x86_64-pc-windows-msvc.exe](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.87/edamame_posture-0.9.87-x86_64-pc-windows-msvc.exe)
+   - [edamame_posture-0.9.88-x86_64-pc-windows-msvc.exe](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.88/edamame_posture-0.9.88-x86_64-pc-windows-msvc.exe)
 
 2. **Install Npcap** (Required for traffic capture feature):
    - Install [Npcap](https://npcap.com/#download), the packet capture library from the Nmap team
@@ -2900,9 +2900,9 @@ jobs:
 
       - name: Install EDAMAME Posture
         run: |
-          curl -LO https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.87/edamame_posture-0.9.87-x86_64-unknown-linux-gnu
-          chmod +x edamame_posture-0.9.87-x86_64-unknown-linux-gnu
-          sudo mv edamame_posture-0.9.87-x86_64-unknown-linux-gnu /usr/local/bin/edamame_posture
+          curl -LO https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v0.9.88/edamame_posture-0.9.88-x86_64-unknown-linux-gnu
+          chmod +x edamame_posture-0.9.88-x86_64-unknown-linux-gnu
+          sudo mv edamame_posture-0.9.88-x86_64-unknown-linux-gnu /usr/local/bin/edamame_posture
 
       - name: Extract and verify signature from last commit
         run: |
