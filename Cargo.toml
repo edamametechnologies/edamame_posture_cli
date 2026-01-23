@@ -108,3 +108,25 @@ vergen-gitcl = { version = "10.0.0-beta.5", features = [ "build", "cargo", "rust
 # Local copy in order to allow rapid development/debug
 #flodbadd = { path = "../flodbadd", features = [ "packetcapture", "asyncpacketcapture" ] }
 flodbadd = { git = "https://github.com/edamametechnologies/flodbadd", branch = "main", features = [ "packetcapture", "asyncpacketcapture" ] }
+
+# Temporary patches for local testing
+[patch."https://github.com/edamametechnologies/edamame_core"]
+edamame_core = { path = "../edamame_core" }
+
+[patch."https://github.com/edamametechnologies/edamame_foundation"]
+edamame_foundation = { path = "../edamame_foundation" }
+
+[patch."https://github.com/edamametechnologies/flodbadd"]
+flodbadd = { path = "../flodbadd" }
+
+[patch."https://github.com/edamametechnologies/edamame_backend"]
+edamame_backend = { path = "../edamame_backend" }
+
+[patch."https://github.com/edamametechnologies/threatmodels-rs"]
+edamame_models = { path = "../edamame_models" }
+
+[patch."https://github.com/edamametechnologies/extended-isolation-forest"]
+extended-isolation-forest = { path = "../extended-isolation-forest" }
+
+[patch."https://github.com/edamametechnologies/undeadlock"]
+undeadlock = { path = "../undeadlock" }
