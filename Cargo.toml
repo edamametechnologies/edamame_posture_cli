@@ -109,6 +109,4 @@ vergen-gitcl = { version = "10.0.0-beta.5", features = [ "build", "cargo", "rust
 #flodbadd = { path = "../flodbadd", features = [ "packetcapture", "asyncpacketcapture" ] }
 flodbadd = { git = "https://github.com/edamametechnologies/flodbadd", branch = "main", features = [ "packetcapture", "asyncpacketcapture" ] }
 
-# Temporary patch for testing vergen fix
-[patch."https://github.com/edamametechnologies/edamame_core"]
-edamame_core = { path = "../edamame_core" }
+
