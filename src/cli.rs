@@ -736,17 +736,17 @@ mod tests {
                 "example.com",
                 "--pin",
                 "123456",
-                "--api-key",
+                "--llm-api-key",
                 "edm_live_test123abc",
             ])
-            .expect("foreground-start should accept --api-key");
+            .expect("foreground-start should accept --llm-api-key");
 
         let (_, sub_matches) = matches
             .subcommand()
             .expect("expected foreground-start subcommand");
 
         assert_eq!(
-            sub_matches.get_one::<String>("api_key").map(String::as_str),
+            sub_matches.get_one::<String>("llm_api_key").map(String::as_str),
             Some("edm_live_test123abc")
         );
     }
@@ -773,7 +773,7 @@ mod tests {
             .expect("expected foreground-start subcommand");
 
         assert_eq!(
-            sub_matches.get_one::<String>("api_key").map(String::as_str),
+            sub_matches.get_one::<String>("llm_api_key").map(String::as_str),
             Some("edm_test_shortflag")
         );
     }
@@ -791,13 +791,13 @@ mod tests {
                 "--pin",
                 "123456",
             ])
-            .expect("foreground-start should work without --api-key");
+            .expect("foreground-start should work without --llm-api-key");
 
         let (_, sub_matches) = matches
             .subcommand()
             .expect("expected foreground-start subcommand");
 
-        assert!(sub_matches.get_one::<String>("api_key").is_none());
+        assert!(sub_matches.get_one::<String>("llm_api_key").is_none());
     }
 
     #[test]
@@ -806,17 +806,17 @@ mod tests {
             .try_get_matches_from([
                 "edamame_posture",
                 "background-start-disconnected",
-                "--api-key",
+                "--llm-api-key",
                 "edm_live_disconnected123",
             ])
-            .expect("background-start-disconnected should accept --api-key");
+            .expect("background-start-disconnected should accept --llm-api-key");
 
         let (_, sub_matches) = matches
             .subcommand()
             .expect("expected background-start-disconnected subcommand");
 
         assert_eq!(
-            sub_matches.get_one::<String>("api_key").map(String::as_str),
+            sub_matches.get_one::<String>("llm_api_key").map(String::as_str),
             Some("edm_live_disconnected123")
         );
     }
@@ -833,17 +833,17 @@ mod tests {
                 "test.example.com",
                 "--pin",
                 "000000",
-                "--api-key",
+                "--llm-api-key",
                 "edm_live_background456",
             ])
-            .expect("background-start should accept --api-key");
+            .expect("background-start should accept --llm-api-key");
 
         let (_, sub_matches) = matches
             .subcommand()
             .expect("expected background-start subcommand");
 
         assert_eq!(
-            sub_matches.get_one::<String>("api_key").map(String::as_str),
+            sub_matches.get_one::<String>("llm_api_key").map(String::as_str),
             Some("edm_live_background456")
         );
     }
