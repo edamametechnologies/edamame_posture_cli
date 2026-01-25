@@ -309,6 +309,63 @@ jobs:
         run: ./tests/basic_cargo_test.sh
         continue-on-error: true
 
+      - name: Restart daemon with freshly built binary
+        shell: bash
+        run: |
+          echo "=== Restarting daemon with freshly built binary ==="
+          echo "This ensures the standalone tests use the same version as the built CLI"
+          
+          # Stop the existing daemon (installed by the action)
+          if [[ "$RUNNER_OS" == "Windows" || "$OS" == "Windows_NT" ]]; then
+            echo "Stopping daemon on Windows..."
+            taskkill //F //IM edamame_posture.exe 2>/dev/null || true
+          else
+            echo "Stopping daemon on Unix..."
+            sudo pkill -9 edamame_posture 2>/dev/null || true
+            
+            # On Linux, also stop the systemd service
+            if [[ "$RUNNER_OS" == "Linux" ]] && command -v systemctl >/dev/null 2>&1; then
+              sudo systemctl stop edamame_posture.service 2>/dev/null || true
+            fi
+          fi
+          
+          # Wait for the daemon to fully stop
+          sleep 2
+          
+          # Verify daemon is stopped
+          if pgrep -x edamame_posture >/dev/null 2>&1; then
+            echo "Warning: daemon still running, forcing kill..."
+            sudo pkill -9 edamame_posture 2>/dev/null || true
+            sleep 1
+          fi
+          
+          echo "Starting daemon with freshly built binary: $BINARY_PATH"
+          
+          # Start the daemon with the freshly built binary
+          # Using the same parameters the action would use but without network features
+          # since the standalone tests don't need them
+          if [[ "$RUNNER_OS" == "Windows" || "$OS" == "Windows_NT" ]]; then
+            "$BINARY_PATH" background-start-disconnected &
+          else
+            sudo -E "$BINARY_PATH" background-start-disconnected &
+          fi
+          
+          # Wait for daemon to start
+          sleep 3
+          
+          # Verify daemon is running
+          if pgrep -x edamame_posture >/dev/null 2>&1; then
+            echo "Daemon started successfully with freshly built binary"
+            # Show the version
+            if [[ "$RUNNER_OS" == "Windows" || "$OS" == "Windows_NT" ]]; then
+              "$BINARY_PATH" get-core-version 2>/dev/null || true
+            else
+              sudo -E "$BINARY_PATH" get-core-version 2>/dev/null || true
+            fi
+          else
+            echo "Warning: daemon may not have started correctly"
+          fi
+
       - name: Run Standalone Commands Test
         id: standalone_tests
         shell: bash
@@ -544,6 +601,44 @@ jobs:
         continue-on-error: true
         env:
           SUDO_CMD: "" # No sudo needed in container
+
+      - name: Restart daemon with freshly built binary
+        shell: bash
+        run: |
+          echo "=== Restarting daemon with freshly built binary ==="
+          echo "This ensures the standalone tests use the same version as the built CLI"
+          
+          # Stop the existing daemon (installed by the action)
+          echo "Stopping daemon..."
+          pkill -9 edamame_posture 2>/dev/null || true
+          
+          # Wait for the daemon to fully stop
+          sleep 2
+          
+          # Verify daemon is stopped
+          if pgrep -x edamame_posture >/dev/null 2>&1; then
+            echo "Warning: daemon still running, forcing kill..."
+            pkill -9 edamame_posture 2>/dev/null || true
+            sleep 1
+          fi
+          
+          BINARY_PATH="./target/release/edamame_posture"
+          echo "Starting daemon with freshly built binary: $BINARY_PATH"
+          
+          # Start the daemon with the freshly built binary (no sudo in container)
+          "$BINARY_PATH" background-start-disconnected &
+          
+          # Wait for daemon to start
+          sleep 3
+          
+          # Verify daemon is running
+          if pgrep -x edamame_posture >/dev/null 2>&1; then
+            echo "Daemon started successfully with freshly built binary"
+            # Show the version
+            "$BINARY_PATH" get-core-version 2>/dev/null || true
+          else
+            echo "Warning: daemon may not have started correctly"
+          fi
 
       - name: Run Standalone Commands Test
         id: standalone_tests
