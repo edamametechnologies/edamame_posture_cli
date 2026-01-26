@@ -746,7 +746,9 @@ mod tests {
             .expect("expected foreground-start subcommand");
 
         assert_eq!(
-            sub_matches.get_one::<String>("llm_api_key").map(String::as_str),
+            sub_matches
+                .get_one::<String>("llm_api_key")
+                .map(String::as_str),
             Some("edm_live_test123abc")
         );
     }
@@ -773,7 +775,9 @@ mod tests {
             .expect("expected foreground-start subcommand");
 
         assert_eq!(
-            sub_matches.get_one::<String>("llm_api_key").map(String::as_str),
+            sub_matches
+                .get_one::<String>("llm_api_key")
+                .map(String::as_str),
             Some("edm_test_shortflag")
         );
     }
@@ -816,7 +820,9 @@ mod tests {
             .expect("expected background-start-disconnected subcommand");
 
         assert_eq!(
-            sub_matches.get_one::<String>("llm_api_key").map(String::as_str),
+            sub_matches
+                .get_one::<String>("llm_api_key")
+                .map(String::as_str),
             Some("edm_live_disconnected123")
         );
     }
@@ -843,7 +849,9 @@ mod tests {
             .expect("expected background-start subcommand");
 
         assert_eq!(
-            sub_matches.get_one::<String>("llm_api_key").map(String::as_str),
+            sub_matches
+                .get_one::<String>("llm_api_key")
+                .map(String::as_str),
             Some("edm_live_background456")
         );
     }
