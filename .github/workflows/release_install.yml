@@ -100,9 +100,7 @@ jobs:
         if: always()
         uses: edamametechnologies/edamame_posture_action@v1
         with:
-          dump_sessions_log: true
-
-      - name: Slack alert on failure
+          dump_sessions_log: true      - name: Slack alert on failure
         if: failure()
         uses: slackapi/slack-github-action@v1.26.0
         with:
