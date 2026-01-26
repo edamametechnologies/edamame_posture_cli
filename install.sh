@@ -102,7 +102,7 @@ show_daemon_status() {
     fi
 }
 
-# Wait for daemon to be ready (connected) after service start
+# Wait for daemon to be ready (responsive) after service start
 # Returns 0 if daemon is ready, 1 if timeout
 wait_for_daemon_ready() {
     local binary="$1"
@@ -114,19 +114,13 @@ wait_for_daemon_ready() {
     
     while [ $elapsed -lt $max_wait ]; do
         set +e
-        STATUS=$($binary status 2>&1)
+        $binary status >/dev/null 2>&1
         STATUS_EXIT=$?
         set -e
         
         if [ $STATUS_EXIT -eq 0 ]; then
-            # Check if connected
-            IS_CONNECTED=$(echo "$STATUS" | grep "Is connected:" | sed 's/.*Is connected: //' | tr -d ' ')
-            IS_SUCCESS=$(echo "$STATUS" | grep "Is success:" | sed 's/.*Is success: //' | tr -d ' ')
-            
-            if [ "$IS_CONNECTED" = "true" ] && [ "$IS_SUCCESS" = "true" ]; then
-                info "✓ Daemon is ready (connected and successful)"
-                return 0
-            fi
+            info "Daemon is ready (responsive to status command)"
+            return 0
         fi
         
         sleep $wait_interval
