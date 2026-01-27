@@ -1694,62 +1694,64 @@ check_existing_installation() {
             warn "Status command produced no output"
         fi
         
-        # Try to verify credentials via config file as fallback (Linux only)
-        CONFIG_MATCH="false"
-        if [ "$PLATFORM" = "linux" ] && [ -f "/etc/edamame_posture.conf" ]; then
-            info "Checking credentials in existing config file..."
-            CONFIG_USER_RUNNING=$(grep "^edamame_user:" /etc/edamame_posture.conf 2>/dev/null | sed 's/.*: *"\([^"]*\)".*/\1/' || true)
-            CONFIG_DOMAIN_RUNNING=$(grep "^edamame_domain:" /etc/edamame_posture.conf 2>/dev/null | sed 's/.*: *"\([^"]*\)".*/\1/' || true)
+        # Status failed - daemon may be in bad state (version mismatch, corrupted, etc.)
+        # We need to kill any existing daemon and restart fresh
+        warn "Daemon status check failed - will kill existing daemon and restart fresh"
+        
+        # First try graceful stop
+        info "Attempting graceful daemon stop..."
+        set +e
+        if [ -n "$SUDO" ]; then
+            $SUDO "$EXISTING_BINARY" stop >/dev/null 2>&1
+        else
+            "$EXISTING_BINARY" stop >/dev/null 2>&1
+        fi
+        STOP_EXIT=$?
+        set -e
+        
+        if [ $STOP_EXIT -eq 0 ]; then
+            info "Graceful stop succeeded"
+        else
+            warn "Graceful stop failed (exit code: $STOP_EXIT) - will force kill"
+        fi
+        
+        # Give it a moment to stop
+        sleep 2
+        
+        # Check if daemon is still running and force kill if necessary
+        if pgrep -f "edamame_posture" >/dev/null 2>&1; then
+            warn "Daemon still running after graceful stop attempt - sending SIGKILL"
+            if [ -n "$SUDO" ]; then
+                $SUDO pkill -9 -f "edamame_posture" 2>/dev/null || true
+            else
+                pkill -9 -f "edamame_posture" 2>/dev/null || true
+            fi
+            sleep 2
             
-            if [ -n "$CONFIG_USER_RUNNING" ] && [ -n "$CONFIG_DOMAIN_RUNNING" ]; then
-                if [ "$CONFIG_USER_RUNNING" = "$CONFIG_USER" ] && [ "$CONFIG_DOMAIN_RUNNING" = "$CONFIG_DOMAIN" ]; then
-                    info "Config file credentials match provided credentials (user: $CONFIG_USER, domain: $CONFIG_DOMAIN)"
-                    info "Service appears to be stopped or not responding, but credentials are correct"
-                    CONFIG_MATCH="true"
-                else
-                    info "Config file credentials differ (user: $CONFIG_USER_RUNNING, domain: $CONFIG_DOMAIN_RUNNING)"
-                fi
+            # Verify it's dead
+            if pgrep -f "edamame_posture" >/dev/null 2>&1; then
+                warn "Failed to kill daemon - processes may still be running"
             else
-                warn "Cannot parse credentials from config file"
+                info "Daemon killed successfully"
             fi
-        elif [ "$PLATFORM" = "linux" ]; then
-            warn "No config file found at /etc/edamame_posture.conf (may be binary installation)"
         else
-            info "Config file check not applicable on $PLATFORM (no system service)"
+            info "No daemon process found after stop attempt"
         fi
         
-        if [ "$CONFIG_MATCH" = "true" ]; then
-            # Credentials in config match, just need to ensure service is running
-            info "Will use existing binary and restart service with existing configuration"
-        else
-            # Credentials don't match or can't verify - need to reconfigure
-            if [ "$PLATFORM" = "linux" ]; then
-                info "Will use existing binary and reconfigure with new credentials"
-            else
-                info "Will use existing binary (no service configuration on $PLATFORM)"
-            fi
-        fi
-        
+        # Set up for fresh start
         BINARY_PATH="$EXISTING_BINARY"
         FINAL_BINARY_PATH="$EXISTING_BINARY"
         INSTALL_METHOD="existing"
         SKIP_INSTALLATION="true"
-        # On non-Linux platforms, skip configuration since there's no service
-        if [ "$PLATFORM" = "linux" ] && [ "$CONFIG_MATCH" != "true" ]; then
-            SKIP_CONFIGURATION="false"
-        else
-            SKIP_CONFIGURATION="true"
-        fi
         
-        # Daemon is not responding - if credentials are provided, we need to start it
-        # On non-Linux platforms (Windows/macOS), there's no service to restart,
-        # so we must start the daemon manually
-        if credentials_provided && [ "$PLATFORM" != "linux" ]; then
-            info "Daemon not responding on $PLATFORM with credentials provided - will start daemon"
-            SHOULD_START_DAEMON="true"
-        fi
+        # Since we killed the daemon, we need to start it fresh
+        # Don't skip configuration - we need the daemon to be started
+        SKIP_CONFIGURATION="false"
+        SHOULD_START_DAEMON="true"
         
-        return 1  # Skip installation, conditionally reconfigure
+        info "Will use existing binary and start daemon fresh"
+        
+        return 1  # Skip installation, but ensure daemon restart
     fi
     
     # Parse credentials from status
