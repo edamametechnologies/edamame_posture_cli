@@ -55,15 +55,17 @@ src/
 edamame-posture get-score           # Security score (0-5 stars)
 edamame-posture list-threats        # List all threats with status
 edamame-posture get-device-info     # Device information
-edamame-posture check-posture       # Quick pass/fail check
+edamame-posture get-system-info     # System information
+edamame-posture get-core-info       # Core version and build info
+edamame-posture get-threat-info <ID> # Details about a specific threat
 ```
 
 ### Remediation Commands
 ```bash
-edamame-posture remediate-all-threats       # Fix all threats
+edamame-posture remediate-all-threats       # Fix all threats (excludes remote login/firewall by default)
+edamame-posture remediate-all-threats-force # Fix all threats including lockout risks
 edamame-posture remediate-threat <ID>       # Fix specific threat
-edamame-posture rollback-threat <ID>        # Undo fix
-edamame-posture rollback-all-threats        # Undo all fixes
+edamame-posture rollback-threat <ID>        # Undo specific fix
 ```
 
 ### Policy Commands (CI/CD)
@@ -89,17 +91,42 @@ edamame-posture get-exceptions   # Whitelist exceptions
 edamame-posture capture          # Real-time packet capture
 ```
 
+### Dismiss Commands
+```bash
+edamame-posture dismiss-device <IP>            # Dismiss all ports on a device
+edamame-posture dismiss-device-port <IP> <PORT> # Dismiss specific device port
+edamame-posture dismiss-session <UID>          # Dismiss session by UID
+edamame-posture dismiss-session-process <UID>  # Dismiss future sessions for a process
+```
+
+### Whitelist Commands
+```bash
+edamame-posture set-custom-whitelists <JSON>              # Set custom whitelists from JSON
+edamame-posture set-custom-whitelists-from-file <FILE>    # Set from file
+edamame-posture create-custom-whitelists                  # Create from current sessions
+edamame-posture augment-custom-whitelists                 # Augment with current exceptions
+edamame-posture merge-custom-whitelists <JSON1> <JSON2>   # Merge two whitelists
+edamame-posture compare-custom-whitelists <JSON1> <JSON2> # Compare two whitelists
+```
+
 ### MCP Server Commands
 ```bash
 edamame-posture mcp-start        # Start MCP server
 edamame-posture mcp-stop         # Stop MCP server
+edamame-posture mcp-status       # Get MCP server status
 edamame-posture mcp-generate-psk # Generate PSK
 ```
 
-### AI Commands
+### AI Commands (via start flags)
 ```bash
-edamame-posture agentic-config   # Configure LLM provider
-edamame-posture agentic-process  # Process todos with AI
+# AI is configured via start command flags, not separate commands:
+edamame-posture start --agentic-mode auto|analyze|disabled \
+                      --agentic-provider edamame|claude|openai|ollama \
+                      --agentic-interval 3600 \
+                      --llm-api-key "your-api-key"
+
+# Get agentic status summary:
+edamame-posture agentic-summary  # Provider, mode, todos, actions, Slack config
 ```
 
 ## Exit Codes
