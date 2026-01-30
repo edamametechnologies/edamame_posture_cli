@@ -1797,7 +1797,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "1.0.1"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#9ef4216711f660a879deca0c67b6eef131ec47d6"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#f38f9b16e486b86c3fa1ae2ffffbf08bba9466f5"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1948,7 +1948,7 @@ dependencies = [
 [[package]]
 name = "edamame_models"
 version = "0.1.1"
-source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#1b3efc8f2da1eb2b1c36a17de2d5d83b55b6e238"
+source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#dc8df401f527907c0cdecc8250006097bc8b0e9a"
 dependencies = [
  "anyhow",
  "chrono",
