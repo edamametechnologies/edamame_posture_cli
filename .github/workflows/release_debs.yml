@@ -407,9 +407,7 @@ jobs:
         uses: edamametechnologies/edamame_posture_action@v1
         with:
           dump_sessions_log: true
-          promote_exceptions: ${{ vars.EDAMAME_AUTO_WHITELIST_PROMOTE_EXCEPTIONS }}
-
-      - name: Slack alert on failure
+          promote_exceptions: ${{ vars.EDAMAME_AUTO_WHITELIST_PROMOTE_EXCEPTIONS }}      - name: Slack alert on failure
         if: failure()
         uses: slackapi/slack-github-action@v1.26.0
         with:
