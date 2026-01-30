@@ -1797,7 +1797,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "1.0.1"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#c69499059f8f8af7b91487f3fe6095fd5e06d502"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#9ef4216711f660a879deca0c67b6eef131ec47d6"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1881,8 +1881,8 @@ dependencies = [
 
 [[package]]
 name = "edamame_foundation"
-version = "1.0.0"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#934cb5c7c8557ca3e0acd4aa98c2d5022eb0d506"
+version = "1.0.1"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#5f7855d60551655b234d5b85e652a569a6a1a34d"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1948,7 +1948,7 @@ dependencies = [
 [[package]]
 name = "edamame_models"
 version = "0.1.1"
-source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#de9ed04a0e1ec34e420cacae0f05eb9bd4787329"
+source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#1b3efc8f2da1eb2b1c36a17de2d5d83b55b6e238"
 dependencies = [
  "anyhow",
  "chrono",
@@ -2299,7 +2299,7 @@ dependencies = [
 [[package]]
 name = "flodbadd"
 version = "1.0.1"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#38c6f56e41ac8b78e21d8aaa6f6c0d6fa1a113d2"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#23a0505e40c6fc8f9c1f3896942ba090105f90b6"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -3478,7 +3478,7 @@ dependencies = [
 [[package]]
 name = "l7_ebpf_program"
 version = "0.1.0"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#38c6f56e41ac8b78e21d8aaa6f6c0d6fa1a113d2"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#23a0505e40c6fc8f9c1f3896942ba090105f90b6"
 
 [[package]]
 name = "lazy_static"
@@ -7082,7 +7082,7 @@ checksum = "562d481066bde0658276a35467c4af00bdc6ee726305698a55b86e61d7ad82bb"
 [[package]]
 name = "undeadlock"
 version = "1.0.0"
-source = "git+https://github.com/edamametechnologies/undeadlock?branch=main#f862dffbbcf40a4e8500b8bc1f8ff13145f2f4fc"
+source = "git+https://github.com/edamametechnologies/undeadlock?branch=main#3f49d2704a8b05c142243a40312c760fcd5764af"
 dependencies = [
  "dashmap 6.1.0",
  "futures",
@@ -8337,18 +8337,18 @@ dependencies = [
 
 [[package]]
 name = "zerocopy"
-version = "0.8.36"
+version = "0.8.37"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dafd85c832c1b68bbb4ec0c72c7f6f4fc5179627d2bc7c26b30e4c0cc11e76cc"
+checksum = "7456cf00f0685ad319c5b1693f291a650eaf345e941d082fc4e03df8a03996ac"
 dependencies = [
  "zerocopy-derive",
 ]
 
 [[package]]
 name = "zerocopy-derive"
-version = "0.8.36"
+version = "0.8.37"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7cb7e4e8436d9db52fbd6625dbf2f45243ab84994a72882ec8227b99e72b439a"
+checksum = "1328722bbf2115db7e19d69ebcc15e795719e2d66b60827c6a69a117365e37a0"
 dependencies = [
  "proc-macro2",
  "quote",
