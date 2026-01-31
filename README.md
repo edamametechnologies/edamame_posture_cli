@@ -1,5 +1,7 @@
 # EDAMAME Posture: Free CI/CD CLI
 
+> Part of the **[EDAMAME Agents](https://github.com/edamametechnologies#edamame-agents)** family - AI-powered security assistants for the modern SDLC with shared LLM subscription via [EDAMAME Portal](https://portal.edamame.tech).
+
 ## What is it?
 EDAMAME Posture is a lightweight, developer-friendly security posture assessment and remediation tool—perfect for those who want a straightforward way to secure their development environment and CI/CD pipelines without slowing down development.
 
