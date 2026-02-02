@@ -1961,7 +1961,7 @@ dependencies = [
 
 [[package]]
 name = "edamame_posture"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
