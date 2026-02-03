@@ -195,9 +195,9 @@ dependencies = [
 
 [[package]]
 name = "arc-swap"
-version = "1.8.0"
+version = "1.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "51d03449bb8ca2cc2ef70869af31463d1ae5ccc8fa3e334b307203fbf815207e"
+checksum = "9ded5f9a03ac8f24d1b8a25101ee812cd32cdc8c50a4c50237de2c4915850e73"
 dependencies = [
  "rustversion",
 ]
@@ -1796,8 +1796,8 @@ dependencies = [
 
 [[package]]
 name = "edamame_core"
-version = "1.0.1"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#f7f09b4a6de21d50696a3811ef12e9a7e89a96f0"
+version = "1.0.2"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#232be765a0f812ab845248e8ed5e72a803fabfbc"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1948,7 +1948,7 @@ dependencies = [
 [[package]]
 name = "edamame_models"
 version = "0.1.1"
-source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#ce081528375790919de6fae0f098edace96f1990"
+source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#6fd5eba15604dea88390a12d3ec9fa1519b9a782"
 dependencies = [
  "anyhow",
  "chrono",
@@ -2299,7 +2299,7 @@ dependencies = [
 [[package]]
 name = "flodbadd"
 version = "1.0.1"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#f813569b702f16d9be754b3b970cde359c64db9d"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#e48ef4d9c5c758bcbfa8044f9eaf5fc3530120e9"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -3059,14 +3059,13 @@ dependencies = [
 
 [[package]]
 name = "hyper-util"
-version = "0.1.19"
+version = "0.1.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "727805d60e7938b76b826a6ef209eb70eaa1812794f9424d4a4e2d740662df5f"
+checksum = "96547c2556ec9d12fb1578c4eaf448b04993e7fb79cbaad930a656880a6bdfa0"
 dependencies = [
  "base64 0.22.1",
  "bytes",
  "futures-channel",
- "futures-core",
  "futures-util",
  "http 1.4.0",
  "http-body 1.0.1",
@@ -3478,7 +3477,7 @@ dependencies = [
 [[package]]
 name = "l7_ebpf_program"
 version = "0.1.0"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#f813569b702f16d9be754b3b970cde359c64db9d"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#e48ef4d9c5c758bcbfa8044f9eaf5fc3530120e9"
 
 [[package]]
 name = "lazy_static"
@@ -5039,9 +5038,9 @@ dependencies = [
 
 [[package]]
 name = "portable-atomic"
-version = "1.13.0"
+version = "1.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f89776e4d69bb58bc6993e99ffa1d11f228b839984854c7daeb5d37f87cbe950"
+checksum = "c33a9471896f1c69cecef8d20cbe2f7accd12527ce60845ff44c153bb2a21b49"
 
 [[package]]
 name = "potential_utf"
@@ -5676,7 +5675,7 @@ dependencies = [
  "pin-project-lite",
  "rand 0.9.2",
  "rmcp-macros",
- "schemars 1.2.0",
+ "schemars 1.2.1",
  "serde",
  "serde_json",
  "sse-stream",
@@ -5916,9 +5915,9 @@ dependencies = [
 
 [[package]]
 name = "schemars"
-version = "1.2.0"
+version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "54e910108742c57a770f492731f99be216a52fadd361b06c8fb59d74ccc267d2"
+checksum = "a2b42f36aa1cd011945615b92222f6bf73c599a102a300334cd7f8dbeec726cc"
 dependencies = [
  "chrono",
  "dyn-clone",
@@ -5930,9 +5929,9 @@ dependencies = [
 
 [[package]]
 name = "schemars_derive"
-version = "1.2.0"
+version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4908ad288c5035a8eb12cfdf0d49270def0a268ee162b75eeee0f85d155a7c45"
+checksum = "7d115b50f4aaeea07e79c1912f645c7513d81715d0420f8bc77a18c6260b307f"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -6126,7 +6125,7 @@ dependencies = [
  "indexmap 1.9.3",
  "indexmap 2.13.0",
  "schemars 0.9.0",
- "schemars 1.2.0",
+ "schemars 1.2.1",
  "serde_core",
  "serde_json",
  "serde_with_macros",
@@ -7082,7 +7081,7 @@ checksum = "562d481066bde0658276a35467c4af00bdc6ee726305698a55b86e61d7ad82bb"
 [[package]]
 name = "undeadlock"
 version = "1.0.0"
-source = "git+https://github.com/edamametechnologies/undeadlock?branch=main#9a20498e314219ac2ec98f68f5bc5424257584cb"
+source = "git+https://github.com/edamametechnologies/undeadlock?branch=main#d51e43870b9780f94bec0d35bb0696baf14b13d7"
 dependencies = [
  "dashmap 6.1.0",
  "futures",
@@ -8482,9 +8481,9 @@ checksum = "40990edd51aae2c2b6907af74ffb635029d5788228222c4bb811e9351c0caad3"
 
 [[package]]
 name = "zmij"
-version = "1.0.18"
+version = "1.0.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1966f8ac2c1f76987d69a74d0e0f929241c10e78136434e3be70ff7f58f64214"
+checksum = "3ff05f8caa9038894637571ae6b9e29466c1f4f829d26c9b28f869a29cbe3445"
 
 [[package]]
 name = "zopfli"
