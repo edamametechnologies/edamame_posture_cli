@@ -1797,7 +1797,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "1.0.3"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#afc17be7f972b1c64371b62c562614a1c8bf86e6"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#8f497a8074643bcc3731f1d38319710f68f5c719"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1948,7 +1948,7 @@ dependencies = [
 [[package]]
 name = "edamame_models"
 version = "0.1.1"
-source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#f52e1c2f4e089d22ea0c40d0000da6d16b9e171d"
+source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#c0aefd4f33fb44e33e2f69307a178efdfad68699"
 dependencies = [
  "anyhow",
  "chrono",
@@ -3092,7 +3092,7 @@ dependencies = [
  "js-sys",
  "log",
  "wasm-bindgen",
- "windows-core 0.58.0",
+ "windows-core 0.62.2",
 ]
 
 [[package]]
@@ -7082,7 +7082,7 @@ checksum = "562d481066bde0658276a35467c4af00bdc6ee726305698a55b86e61d7ad82bb"
 [[package]]
 name = "undeadlock"
 version = "1.0.2"
-source = "git+https://github.com/edamametechnologies/undeadlock?branch=main#6a11c49c2855a520ac8994fbe1dd131425d8ebed"
+source = "git+https://github.com/edamametechnologies/undeadlock?branch=main#f591ba2a35db191c049a24903d37d4be13af9d01"
 dependencies = [
  "dashmap 6.1.0",
  "futures",
@@ -8337,18 +8337,18 @@ dependencies = [
 
 [[package]]
 name = "zerocopy"
-version = "0.8.38"
+version = "0.8.39"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "57cf3aa6855b23711ee9852dfc97dfaa51c45feaba5b645d0c777414d494a961"
+checksum = "db6d35d663eadb6c932438e763b262fe1a70987f9ae936e60158176d710cae4a"
 dependencies = [
  "zerocopy-derive",
 ]
 
 [[package]]
 name = "zerocopy-derive"
-version = "0.8.38"
+version = "0.8.39"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8a616990af1a287837c4fe6596ad77ef57948f787e46ce28e166facc0cc1cb75"
+checksum = "4122cd3169e94605190e77839c9a40d40ed048d305bfdc146e7df40ab0f3e517"
 dependencies = [
  "proc-macro2",
  "quote",
