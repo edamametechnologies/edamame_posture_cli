@@ -296,9 +296,9 @@ dependencies = [
 
 [[package]]
 name = "async-compression"
-version = "0.4.37"
+version = "0.4.38"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d10e4f991a553474232bc0a31799f6d24b034a84c0971d80d2e2f78b2e576e40"
+checksum = "82da0ea54ea533ec09d949717c6386a1c34f2d9b51c1fcc7eef8b9ce0b690a3e"
 dependencies = [
  "compression-codecs",
  "compression-core",
@@ -1777,7 +1777,7 @@ dependencies = [
 [[package]]
 name = "edamame_backend"
 version = "0.3.5"
-source = "git+https://github.com/edamametechnologies/edamame_backend?branch=main#5ee4d19202d3779e7831108222708115618d4e52"
+source = "git+https://github.com/edamametechnologies/edamame_backend?branch=main#6a24e9600fee4135b0b9dd5c994db7010ce3562a"
 dependencies = [
  "anyhow",
  "blake3",
@@ -1791,7 +1791,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "1.0.3"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#9fbe893228117b5a99030e13cc65b99c334cfb2a"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#7e3412f32bd17cdf96940c3442dd5dd07ee42ecf"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1942,7 +1942,7 @@ dependencies = [
 [[package]]
 name = "edamame_models"
 version = "0.1.1"
-source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#27dd4d966437358f2b9577ab2cf5ff3d51202e45"
+source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#bfeefe476dae5372636c4af06bb1d4478b48f2c4"
 dependencies = [
  "anyhow",
  "chrono",
