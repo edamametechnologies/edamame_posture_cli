@@ -197,7 +197,7 @@ See [INSTALL.md](INSTALL.md) for complete installation instructions:
 
 ## Dependencies
 
-- `edamame_core` - Core security assessment
+- `edamame_core` - Core security assessment. See **[EDAMAME Core API](https://github.com/edamametechnologies/edamame_core_api)** for public API documentation
 - `clap` - CLI framework
 - `tokio` - Async runtime
 - `daemonize` - Process daemonization

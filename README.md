@@ -3040,7 +3040,8 @@ Always refer to `edamame_posture.log` (if such a log is generated in your workin
 ## EDAMAME Ecosystem
 EDAMAME Posture is part of a broader ecosystem of tools and services provided by EDAMAME Technologies:
 
-- **EDAMAME Core**: The core implementation used by all EDAMAME components (closed source)
+- **EDAMAME Core**: The core implementation used by all EDAMAME components (closed source). See **[EDAMAME Core API](https://github.com/edamametechnologies/edamame_core_api)** for public API documentation
+- **[EDAMAME Core API](https://github.com/edamametechnologies/edamame_core_api)**: Public API documentation for EDAMAME Core -- architecture, 150+ RPC methods, event system, gRPC and MCP interfaces
 - **[EDAMAME Security](https://github.com/edamametechnologies/edamame_security)**: Desktop/mobile security application with full UI and enhanced capabilities (closed source)
 - **[EDAMAME Foundation](https://github.com/edamametechnologies/edamame_foundation)**: Foundation library providing security assessment functionality
 - **[EDAMAME Posture](https://github.com/edamametechnologies/edamame_posture_cli)**: CLI tool for security posture assessment and remediation
