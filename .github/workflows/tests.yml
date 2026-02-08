@@ -196,7 +196,7 @@ jobs:
           wait_for_apt_locks
           
           run_apt update -y
-          run_apt install -y protobuf-compiler libpcap-dev
+          run_apt install -y protobuf-compiler libpcap-dev pkg-config libglib2.0-dev
 
           # Install clang/llvm first (required)
           run_apt install -y clang llvm libbpf-dev
@@ -545,7 +545,7 @@ jobs:
         if: ${{ contains(matrix.container_image, 'alpine') }}
         shell: sh
         run: |
-          apk add --no-cache protobuf-dev libpcap-dev eudev-dev
+          apk add --no-cache protobuf-dev libpcap-dev eudev-dev glib-dev
           # eBPF development tools for L7 process resolution (REQUIRED for eBPF compilation)
           apk add --no-cache clang llvm
           # libbpf-dev and linux-headers (optional, may not be available in older Alpine)
@@ -556,7 +556,7 @@ jobs:
         run: |
           apt-get update -y
           # psmisc is needed for killall
-          apt-get install -y protobuf-compiler libpcap-dev psmisc
+          apt-get install -y protobuf-compiler libpcap-dev psmisc pkg-config libglib2.0-dev
           # eBPF development tools for L7 process resolution (REQUIRED for eBPF compilation)
           apt-get install -y clang llvm
           # libbpf-dev (optional, may not be available in older Ubuntu like 18.04)
