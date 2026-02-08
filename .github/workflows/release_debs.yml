@@ -212,7 +212,7 @@ jobs:
           wait_for_apt_locks
           
           run_apt update -y
-          run_apt install -y protobuf-compiler libpcap-dev
+          run_apt install -y protobuf-compiler libpcap-dev pkg-config libglib2.0-dev
 
           # Install clang/llvm first (required for eBPF compilation)
           run_apt install -y clang llvm libbpf-dev
