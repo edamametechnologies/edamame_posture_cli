@@ -936,7 +936,7 @@ dependencies = [
  "serde_json",
  "tar",
  "tempfile",
- "toml 0.9.11+spec-1.1.0",
+ "toml 0.9.12+spec-1.1.0",
  "xz2",
  "zopfli",
 ]
@@ -948,7 +948,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "374b7c592d9c00c1f4972ea58390ac6b18cbb6ab79011f3bdc90a0b82ca06b77"
 dependencies = [
  "serde",
- "toml 0.9.11+spec-1.1.0",
+ "toml 0.9.12+spec-1.1.0",
 ]
 
 [[package]]
@@ -1870,7 +1870,7 @@ dependencies = [
 [[package]]
 name = "edamame_backend"
 version = "0.3.5"
-source = "git+https://github.com/edamametechnologies/edamame_backend?branch=main#70ad61550f4dc2bc27bb4c411977b26c64990652"
+source = "git+https://github.com/edamametechnologies/edamame_backend?branch=main#91b12a9f60341355f6a24f8b98c47a903024c4db"
 dependencies = [
  "anyhow",
  "blake3",
@@ -1884,7 +1884,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "1.0.3"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#e167447dde4d56596e1f8d46e990ade85e92c366"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#28034ab4fbe721fcb3ee8d8085e828dd3e9635c8"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1971,7 +1971,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "1.0.3"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#214eb2210297753641e9aab5294a022252850586"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#833149a09542a37be2d12e4bc78f9cfa01ae8782"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -2037,7 +2037,7 @@ dependencies = [
 [[package]]
 name = "edamame_models"
 version = "0.1.1"
-source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#c7db1e3c90ae3ceafdf7ce0ee54a4395432ccb28"
+source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#a916ae1eeff508907b59bf6d0b0bbcac3287dae0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -2424,7 +2424,7 @@ dependencies = [
 [[package]]
 name = "flodbadd"
 version = "1.0.3"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#ba89a35b9763702c27b928c04c36729c450866f1"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#ec5edc54b04f7b68a290d73d1aeed9dbc6624d7f"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -3921,7 +3921,7 @@ dependencies = [
 [[package]]
 name = "l7_ebpf_program"
 version = "0.1.0"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#ba89a35b9763702c27b928c04c36729c450866f1"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#ec5edc54b04f7b68a290d73d1aeed9dbc6624d7f"
 
 [[package]]
 name = "lazy_static"
@@ -4850,9 +4850,9 @@ checksum = "38bf9645c8b145698bb0b18a4637dcacbc421ea49bef2317e4fd8065a387cf21"
 
 [[package]]
 name = "ntapi"
-version = "0.4.2"
+version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c70f219e21142367c70c0b30c6a9e3a14d55b4d12a204d897fbec83a0363f081"
+checksum = "c3b335231dfd352ffb0f8017f3b6027a4917f7df785ea2143d8af2adc66980ae"
 dependencies = [
  "winapi",
 ]
@@ -5149,6 +5149,15 @@ dependencies = [
  "bitflags 2.10.0",
  "objc2",
  "objc2-foundation",
+]
+
+[[package]]
+name = "objc2-system-configuration"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7216bd11cbda54ccabcab84d523dc93b858ec75ecfb3a7d89513fa22464da396"
+dependencies = [
+ "objc2-core-foundation",
 ]
 
 [[package]]
@@ -7245,7 +7254,7 @@ dependencies = [
  "cfg-expr 0.20.6",
  "heck 0.5.0",
  "pkg-config",
- "toml 0.9.11+spec-1.1.0",
+ "toml 0.9.12+spec-1.1.0",
  "version-compare",
 ]
 
@@ -7484,9 +7493,9 @@ dependencies = [
 
 [[package]]
 name = "toml"
-version = "0.9.11+spec-1.1.0"
+version = "0.9.12+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f3afc9a848309fe1aaffaed6e1546a7a14de1f935dc9d89d32afd9a44bab7c46"
+checksum = "cf92845e79fc2e2def6a5d828f0801e29a2f8acc037becc5ab08595c7d5e9863"
 dependencies = [
  "indexmap 2.13.0",
  "serde_core",
@@ -7553,9 +7562,9 @@ dependencies = [
 
 [[package]]
 name = "toml_parser"
-version = "1.0.6+spec-1.1.0"
+version = "1.0.7+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a3198b4b0a8e11f09dd03e133c0280504d0801269e9afa46362ffde1cbeebf44"
+checksum = "247eaa3197818b831697600aadf81514e577e0cba5eab10f7e064e78ae154df1"
 dependencies = [
  "winnow 0.7.14",
 ]
@@ -7852,7 +7861,7 @@ checksum = "562d481066bde0658276a35467c4af00bdc6ee726305698a55b86e61d7ad82bb"
 [[package]]
 name = "undeadlock"
 version = "1.0.2"
-source = "git+https://github.com/edamametechnologies/undeadlock?branch=main#d51c78fb3f8b838aac4287adc6239c04e062981f"
+source = "git+https://github.com/edamametechnologies/undeadlock?branch=main#550485eeba388f3d1b2e28a4b47d281720158a45"
 dependencies = [
  "dashmap 6.1.0",
  "futures",
@@ -8321,11 +8330,13 @@ dependencies = [
 
 [[package]]
 name = "whoami"
-version = "2.1.0"
+version = "2.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8fae98cf96deed1b7572272dfc777713c249ae40aa1cf8862e091e8b745f5361"
+checksum = "d6a5b12f9df4f978d2cfdb1bd3bac52433f44393342d7ee9c25f5a1c14c0f45d"
 dependencies = [
+ "libc",
  "libredox",
+ "objc2-system-configuration",
  "wasite",
  "web-sys",
 ]
