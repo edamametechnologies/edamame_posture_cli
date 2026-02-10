@@ -100,7 +100,7 @@ jobs:
             wget https://www.tcpdump.org/release/libpcap-1.10.5.tar.gz
             tar xzf libpcap-1.10.5.tar.gz
             cd libpcap-1.10.5
-            CFLAGS="-fPIC" ./configure --prefix=/usr --disable-shared --enable-static
+            CFLAGS="-fPIC" ./configure --prefix=/usr --disable-shared --enable-static --disable-dbus
             make -j$(nproc)
             make install
           else
