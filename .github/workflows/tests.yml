@@ -499,7 +499,8 @@ jobs:
         shell: sh
         run: |
           apk update
-          apk add --no-cache build-base git curl bash sudo pkgconf
+          # gtk+3.0 runtime is needed before the posture action tries to start the daemon
+          apk add --no-cache build-base git curl bash sudo pkgconf gtk+3.0
           git config --global --add safe.directory '*'
 
       - name: Setup permissions for git and install missing packages (apt)
@@ -508,7 +509,8 @@ jobs:
         run: |
           export DEBIAN_FRONTEND=noninteractive
           apt-get update -y
-          apt-get install -y git curl
+          # libgtk-3-0 runtime is needed before the posture action tries to start the daemon
+          apt-get install -y git curl libgtk-3-0
           git config --global --add safe.directory '*'
 
       - name: Setup EDAMAME Posture
