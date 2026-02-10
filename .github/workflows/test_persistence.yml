@@ -328,7 +328,8 @@ jobs:
         shell: sh
         run: |
           apk update
-          apk add --no-cache curl bash
+          # gtk+3.0 runtime is needed for the posture binary (dynamically links GTK3)
+          apk add --no-cache curl bash gtk+3.0
 
       - name: Install curl (apt)
         if: ${{ !contains(matrix.container_image, 'alpine') }}
@@ -386,7 +387,8 @@ jobs:
           export DEBIAN_FRONTEND=noninteractive
           wait_for_apt_locks
           run_apt update -y
-          run_apt install -y curl
+          # libgtk-3-0 runtime is needed for the posture binary (dynamically links GTK3)
+          run_apt install -y curl libgtk-3-0
 
       - name: Use the local universal install script - step 1
         id: install-1
@@ -528,13 +530,15 @@ jobs:
         shell: sh
         run: |
           apk update
+          # gtk+3.0 runtime is needed for the posture binary (dynamically links GTK3)
           apk add --no-cache \
             git \
             curl \
             bash \
             pkgconf \
             eudev-dev \
-            openrc
+            openrc \
+            gtk+3.0
           
           # Initialize openrc
           mkdir -p /run/openrc
