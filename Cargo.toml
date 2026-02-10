@@ -81,7 +81,7 @@ maintainer = "EDAMAME Technologies"
 copyright = "EDAMAME Technologies"
 license-file = ["LICENSE", "0"]
 maintainer-scripts = "debian/"
-depends = ["systemd, libpcap-dev"]
+depends = "$auto, systemd, libgtk-3-0"
 assets = [
     { source = "target/release/edamame_posture", dest = "usr/bin/edamame_posture", mode = "0755" },
     { source = "linux/edamame_posture_daemon.sh", dest = "usr/bin/edamame_posture_daemon.sh", mode = "0755" },
