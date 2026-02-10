@@ -3,3 +3,5 @@
 npcap-*
 .DS_Store
 /tests_temp/
+
+.cursor
