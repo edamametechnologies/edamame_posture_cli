@@ -109,7 +109,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dbb4e440d04be07da1f1bf44fb4495ebd58669372fe0cffa6e48595ac5bd88a3"
 dependencies = [
  "android_log-sys 0.3.2",
- "env_filter",
+ "env_filter 0.1.4",
  "log",
 ]
 
@@ -1072,18 +1072,18 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.5.57"
+version = "4.5.58"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6899ea499e3fb9305a65d5ebf6e3d2248c5fab291f300ad0a704fbe142eae31a"
+checksum = "63be97961acde393029492ce0be7a1af7e323e6bae9511ebfac33751be5e6806"
 dependencies = [
  "clap_builder",
 ]
 
 [[package]]
 name = "clap_builder"
-version = "4.5.57"
+version = "4.5.58"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7b12c8b680195a62a8364d16b8447b01b6c2c8f9aaf68bee653be34d4245e238"
+checksum = "7f13174bda5dfd69d7e947827e5af4b0f2f94a4a3ee92912fba07a66150f21e2"
 dependencies = [
  "anstream",
  "anstyle",
@@ -1093,18 +1093,18 @@ dependencies = [
 
 [[package]]
 name = "clap_complete"
-version = "4.5.65"
+version = "4.5.66"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "430b4dc2b5e3861848de79627b2bedc9f3342c7da5173a14eaa5d0f8dc18ae5d"
+checksum = "c757a3b7e39161a4e56f9365141ada2a6c915a8622c408ab6bb4b5d047371031"
 dependencies = [
  "clap",
 ]
 
 [[package]]
 name = "clap_lex"
-version = "0.7.7"
+version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c3e64b0cc0439b12df2fa678eae89a1c56a529fd067a9115f7827f1fffd22b32"
+checksum = "3a822ea5bc7590f9d40f1ba12c0dc3c2760f3482c6984db1573ad11031420831"
 
 [[package]]
 name = "colorchoice"
@@ -1671,9 +1671,9 @@ dependencies = [
 
 [[package]]
 name = "deranged"
-version = "0.5.5"
+version = "0.5.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ececcb659e7ba858fb4f10388c250a7252eb0a27373f1a72b8748afdd248e587"
+checksum = "cc3dc5ad92c2e2d1c193bbbbdf2ea477cb81331de4f3103f267ca18368b988c4"
 dependencies = [
  "powerfmt",
  "serde_core",
@@ -1870,7 +1870,7 @@ dependencies = [
 [[package]]
 name = "edamame_backend"
 version = "0.3.5"
-source = "git+https://github.com/edamametechnologies/edamame_backend?branch=main#91b12a9f60341355f6a24f8b98c47a903024c4db"
+source = "git+https://github.com/edamametechnologies/edamame_backend?branch=main#8f2e9f40e7926a0ffb883aa2065f1bf08e6fa62f"
 dependencies = [
  "anyhow",
  "blake3",
@@ -1884,7 +1884,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "1.0.3"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#28034ab4fbe721fcb3ee8d8085e828dd3e9635c8"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#dbf2640cf6a6ce5de5cfe37b6e529b60ea251d46"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1971,7 +1971,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "1.0.3"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#833149a09542a37be2d12e4bc78f9cfa01ae8782"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#941d8ad45719ee3db6c8cffb29a24979c1e082ed"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -2037,7 +2037,7 @@ dependencies = [
 [[package]]
 name = "edamame_models"
 version = "0.1.1"
-source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#a916ae1eeff508907b59bf6d0b0bbcac3287dae0"
+source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#2786f8b001e9d85b48faa5fdd0e4034a54129ed8"
 dependencies = [
  "anyhow",
  "chrono",
@@ -2169,14 +2169,24 @@ dependencies = [
 ]
 
 [[package]]
-name = "env_logger"
-version = "0.11.8"
+name = "env_filter"
+version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "13c863f0904021b108aa8b2f55046443e6b1ebde8fd4a15c399893aae4fa069f"
+checksum = "7a1c3cc8e57274ec99de65301228b537f1e4eedc1b8e0f9411c6caac8ae7308f"
+dependencies = [
+ "log",
+ "regex",
+]
+
+[[package]]
+name = "env_logger"
+version = "0.11.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b2daee4ea451f429a58296525ddf28b45a3b64f1acf6587e2067437bb11e218d"
 dependencies = [
  "anstream",
  "anstyle",
- "env_filter",
+ "env_filter 1.0.0",
  "log",
 ]
 
@@ -2424,7 +2434,7 @@ dependencies = [
 [[package]]
 name = "flodbadd"
 version = "1.0.3"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#ec5edc54b04f7b68a290d73d1aeed9dbc6624d7f"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#fd2147faf26dbcb388c60813a6bf8fda663d8c4e"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -3921,7 +3931,7 @@ dependencies = [
 [[package]]
 name = "l7_ebpf_program"
 version = "0.1.0"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#ec5edc54b04f7b68a290d73d1aeed9dbc6624d7f"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#fd2147faf26dbcb388c60813a6bf8fda663d8c4e"
 
 [[package]]
 name = "lazy_static"
@@ -7848,9 +7858,9 @@ checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
 
 [[package]]
 name = "typed-path"
-version = "0.12.2"
+version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3015e6ce46d5ad8751e4a772543a30c7511468070e98e64e20165f8f81155b64"
+checksum = "8e28f89b80c87b8fb0cf04ab448d5dd0dd0ade2f8891bae878de66a75a28600e"
 
 [[package]]
 name = "typenum"
@@ -7861,7 +7871,7 @@ checksum = "562d481066bde0658276a35467c4af00bdc6ee726305698a55b86e61d7ad82bb"
 [[package]]
 name = "undeadlock"
 version = "1.0.2"
-source = "git+https://github.com/edamametechnologies/undeadlock?branch=main#550485eeba388f3d1b2e28a4b47d281720158a45"
+source = "git+https://github.com/edamametechnologies/undeadlock?branch=main#bd87ec6b60ec01f7dbcd7d67d81869957308685b"
 dependencies = [
  "dashmap 6.1.0",
  "futures",
