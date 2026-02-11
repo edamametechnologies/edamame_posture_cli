@@ -1,6 +1,6 @@
 [package]
 name = "edamame_posture"
-version = "1.0.3"
+version = "1.0.4"
 edition = "2021"
 description = "EDAMAME Security posture analysis and remediation"
 
@@ -81,7 +81,7 @@ maintainer = "EDAMAME Technologies"
 copyright = "EDAMAME Technologies"
 license-file = ["LICENSE", "0"]
 maintainer-scripts = "debian/"
-depends = "$auto, systemd, libgtk-3-0"
+depends = "$auto, systemd, libglib2.0-0 | libglib2.0-0t64, libgtk-3-0 | libgtk-3-0t64"
 assets = [
     { source = "target/release/edamame_posture", dest = "usr/bin/edamame_posture", mode = "0755" },
     { source = "linux/edamame_posture_daemon.sh", dest = "usr/bin/edamame_posture_daemon.sh", mode = "0755" },
