@@ -547,13 +547,11 @@ jobs:
         if: ${{ contains(matrix.container_image, 'alpine') }}
         shell: sh
         run: |
-          apk add --no-cache protobuf-dev libpcap-dev eudev-dev gtk+3.0-dev
+          apk add --no-cache protobuf-dev libpcap-dev eudev-dev
           # eBPF development tools for L7 process resolution (REQUIRED for eBPF compilation)
           apk add --no-cache clang llvm
           # libbpf-dev and linux-headers (optional, may not be available in older Alpine)
           apk add --no-cache libbpf-dev linux-headers
-          # GTK3 only provides shared libraries - disable static CRT linking for musl
-          echo "RUSTFLAGS=-C target-feature=-crt-static" >> $GITHUB_ENV
 
       - name: Install additional packages w/ apt for Linux
         if: ${{ !contains(matrix.container_image, 'alpine') }}
