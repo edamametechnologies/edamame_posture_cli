@@ -1000,8 +1000,32 @@ ensure_libpcap_soname() {
     fi
 }
 
-# Wrapper to ensure packet capture dependencies exist when using binary installs
-ensure_linux_packet_capture_support() {
+# Install GTK3/GLib runtime packages on Debian-based systems
+# Required by file_icon_provider (linked via edamame_core)
+ensure_gtk_runtime() {
+    if ! command -v apt-get >/dev/null 2>&1; then
+        return 0
+    fi
+
+    # Check if libgobject-2.0 is already available
+    if command -v ldconfig >/dev/null 2>&1 && ldconfig -p 2>/dev/null | grep -q 'libgobject-2.0\.so\.0'; then
+        return 0
+    fi
+
+    if apt-cache show libgtk-3-0t64 >/dev/null 2>&1; then
+        info "Installing GTK3 runtime libraries (libgtk-3-0t64)..."
+        if ! $SUDO apt-get install -y libgtk-3-0t64 2>/dev/null; then
+            warn "Failed to install libgtk-3-0t64, falling back to libgtk-3-0"
+            $SUDO apt-get install -y libgtk-3-0 2>/dev/null || true
+        fi
+    else
+        info "Installing GTK3 runtime libraries (libgtk-3-0)..."
+        $SUDO apt-get install -y libgtk-3-0 2>/dev/null || true
+    fi
+}
+
+# Wrapper to ensure runtime dependencies exist when using binary installs
+ensure_linux_runtime_deps() {
     if [ "$PLATFORM" != "linux" ]; then
         return 0
     fi
@@ -1009,8 +1033,14 @@ ensure_linux_packet_capture_support() {
         "ubuntu"|"debian"|"raspbian"|"pop"|"linuxmint"|"elementary"|"zorin")
             ensure_libpcap_runtime
             ensure_libpcap_soname || true
+            ensure_gtk_runtime
             ;;
     esac
+}
+
+# Legacy alias
+ensure_linux_packet_capture_support() {
+    ensure_linux_runtime_deps
 }
 
 # Fix broken edamame-posture package state - remove immediately if broken
