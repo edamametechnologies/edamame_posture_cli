@@ -346,10 +346,65 @@ jobs:
           REPO_BASE_PATH="repo/alpine/v3.15"
           REPO_MAIN_PATH="${REPO_BASE_PATH}/main/${{ matrix.arch }}"
           
+          # Upload our APK to S3 (safe to do concurrently, no index conflict)
           aws s3 cp target/${{ matrix.target }}/apk/edamame-posture-${VERSION}-r1.apk \
             s3://edamame/${REPO_MAIN_PATH}/edamame-posture-${VERSION}-r1.apk \
             --acl public-read
           
+          # === Acquire S3 lock for APKINDEX update ===
+          # Multiple repos (edamame_cli, edamame_posture) share the same APKINDEX per arch.
+          # Without locking, concurrent workflows can overwrite each other's index updates.
+          LOCK_KEY="${REPO_MAIN_PATH}/.apkindex.lock"
+          LOCK_S3="s3://edamame/${LOCK_KEY}"
+          LOCK_ID="edamame_posture-${GITHUB_RUN_ID}"
+          MAX_WAIT=300
+          waited=0
+          
+          while [ $waited -lt $MAX_WAIT ]; do
+            # Check for existing lock
+            if LOCK_CONTENT=$(aws s3 cp "$LOCK_S3" - 2>/dev/null); then
+              LOCK_TIME=$(echo "$LOCK_CONTENT" | cut -d'|' -f1)
+              LOCK_OWNER=$(echo "$LOCK_CONTENT" | cut -d'|' -f2-)
+              NOW=$(date +%s)
+              AGE=$((NOW - LOCK_TIME))
+              
+              if [ "$AGE" -gt 300 ]; then
+                echo "Breaking stale APKINDEX lock (${AGE}s old, owner: ${LOCK_OWNER})"
+                aws s3 rm "$LOCK_S3" 2>/dev/null || true
+              else
+                SLEEP_TIME=$((5 + waited / 30))
+                [ $SLEEP_TIME -gt 30 ] && SLEEP_TIME=30
+                echo "APKINDEX locked by ${LOCK_OWNER} (${AGE}s ago), waiting ${SLEEP_TIME}s..."
+                sleep $SLEEP_TIME
+                waited=$((waited + SLEEP_TIME))
+                continue
+              fi
+            fi
+            
+            # Try to acquire lock
+            echo "$(date +%s)|${LOCK_ID}" | aws s3 cp - "$LOCK_S3"
+            sleep 2
+            
+            # Verify we hold the lock (handles near-simultaneous writes)
+            VERIFY=$(aws s3 cp "$LOCK_S3" - 2>/dev/null || echo "")
+            if echo "$VERIFY" | grep -q "${LOCK_ID}"; then
+              echo "APKINDEX lock acquired"
+              break
+            fi
+            
+            echo "Lock race lost, retrying..."
+            sleep $((3 + waited / 60))
+            waited=$((waited + 5))
+          done
+          
+          if [ $waited -ge $MAX_WAIT ]; then
+            echo "WARNING: Could not acquire APKINDEX lock after ${MAX_WAIT}s, proceeding anyway"
+          fi
+          
+          # Ensure lock is always released (even on failure)
+          trap "aws s3 rm '${LOCK_S3}' 2>/dev/null || true; echo 'APKINDEX lock released'" EXIT
+          
+          # === Rebuild APKINDEX under lock ===
           WORK_DIR="/tmp/apk-index"
           mkdir -p "$WORK_DIR"
           cd "$WORK_DIR"
