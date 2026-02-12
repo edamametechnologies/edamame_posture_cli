@@ -926,15 +926,15 @@ ensure_libpcap_runtime() {
         return 0
     fi
 
-    if apt-cache show libpcap0.8t64 >/dev/null 2>&1; then
+    if apt-cache show libpcap0.8t64 >/dev/null 2>&1 < /dev/null; then
         info "Installing libpcap runtime library (libpcap0.8t64)..."
-        if ! $SUDO apt-get install -y libpcap0.8t64 2>/dev/null; then
+        if ! $SUDO apt-get install -y libpcap0.8t64 2>/dev/null < /dev/null; then
             warn "Failed to install libpcap0.8t64, falling back to libpcap0.8"
-            $SUDO apt-get install -y libpcap0.8 2>/dev/null || true
+            $SUDO apt-get install -y libpcap0.8 2>/dev/null < /dev/null || true
         fi
     else
         info "Installing libpcap runtime library (libpcap0.8)..."
-        $SUDO apt-get install -y libpcap0.8 2>/dev/null || true
+        $SUDO apt-get install -y libpcap0.8 2>/dev/null < /dev/null || true
     fi
 }
 
@@ -1012,15 +1012,15 @@ ensure_gtk_runtime() {
         return 0
     fi
 
-    if apt-cache show libgtk-3-0t64 >/dev/null 2>&1; then
+    if apt-cache show libgtk-3-0t64 >/dev/null 2>&1 < /dev/null; then
         info "Installing GTK3 runtime libraries (libgtk-3-0t64)..."
-        if ! $SUDO apt-get install -y libgtk-3-0t64 2>/dev/null; then
+        if ! $SUDO apt-get install -y libgtk-3-0t64 2>/dev/null < /dev/null; then
             warn "Failed to install libgtk-3-0t64, falling back to libgtk-3-0"
-            $SUDO apt-get install -y libgtk-3-0 2>/dev/null || true
+            $SUDO apt-get install -y libgtk-3-0 2>/dev/null < /dev/null || true
         fi
     else
         info "Installing GTK3 runtime libraries (libgtk-3-0)..."
-        $SUDO apt-get install -y libgtk-3-0 2>/dev/null || true
+        $SUDO apt-get install -y libgtk-3-0 2>/dev/null < /dev/null || true
     fi
 }
 
