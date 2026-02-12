@@ -599,7 +599,7 @@ EDAMAME Posture's security assessment capabilities are powered by comprehensive 
 ### Compliance Frameworks
 Security assessments incorporate industry-standard compliance frameworks, including:
 - **CIS Benchmarks**: Center for Internet Security configuration guidelines
-- **SOC-2**: Service Organization Control criteria for security, availability, and privacy
+- **SOC 2**: Service Organization Control criteria for security, availability, and privacy
 - **ISO 27001**: Information security management system requirements
 
 Each threat detected by EDAMAME Posture is mapped to these compliance frameworks, allowing you to demonstrate alignment with specific security standards.
