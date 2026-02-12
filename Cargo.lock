@@ -1883,8 +1883,8 @@ dependencies = [
 
 [[package]]
 name = "edamame_core"
-version = "1.0.3"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#a32dd517de74497770ea3bbf88912f73e816d174"
+version = "1.0.4"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#65d5e1af61feb7f573cc136458d03b95a8f5d137"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1970,8 +1970,8 @@ dependencies = [
 
 [[package]]
 name = "edamame_foundation"
-version = "1.0.3"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#c8909b59054971d0304ad2e3b549fe022944797f"
+version = "1.0.4"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#6d404950c0c6cd4445c6118c269645612a60e6d9"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -2433,8 +2433,8 @@ dependencies = [
 
 [[package]]
 name = "flodbadd"
-version = "1.0.3"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#f6aeb15feca324294d02517f7d20697c5e015b8d"
+version = "1.0.4"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#d3a5317c80f5255003b1945495bd6b38213aa7f8"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -3931,7 +3931,7 @@ dependencies = [
 [[package]]
 name = "l7_ebpf_program"
 version = "0.1.0"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#f6aeb15feca324294d02517f7d20697c5e015b8d"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#d3a5317c80f5255003b1945495bd6b38213aa7f8"
 
 [[package]]
 name = "lazy_static"
@@ -4327,7 +4327,7 @@ checksum = "3d0b95e02c851351f877147b7deea7b1afb1df71b63aa5f8270716e0c5720616"
 dependencies = [
  "bitflags 2.10.0",
  "libc",
- "redox_syscall 0.7.0",
+ "redox_syscall 0.7.1",
 ]
 
 [[package]]
@@ -6205,9 +6205,9 @@ dependencies = [
 
 [[package]]
 name = "redox_syscall"
-version = "0.7.0"
+version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "49f3fe0889e69e2ae9e41f4d6c4c0181701d00e4697b356fb1f74173a5e0ee27"
+checksum = "35985aa610addc02e24fc232012c86fd11f14111180f902b67e2d5331f8ebf2b"
 dependencies = [
  "bitflags 2.10.0",
 ]
