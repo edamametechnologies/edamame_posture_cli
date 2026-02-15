@@ -1,9 +1,9 @@
-# EDAMAME Posture: Free CI/CD CLI
+# EDAMAME Posture: Free CI/CD & Coding Agents CLI
 
 > Part of the **[EDAMAME Agents](https://github.com/edamametechnologies#edamame-agents)** family - AI-powered security assistants for the modern SDLC with shared LLM subscription via [EDAMAME Portal](https://portal.edamame.tech).
 
 ## What is it?
-EDAMAME Posture is a lightweight, developer-friendly security posture assessment and remediation tool—perfect for those who want a straightforward way to secure their development environment and CI/CD pipelines without slowing down development.
+EDAMAME Posture is a lightweight, developer-friendly security posture assessment and remediation tool—perfect for those who want a straightforward way to secure their development environment, CI/CD pipelines, and coding agent infrastructure without slowing down development.
 
 ## Table of Contents
 - [What is it?](#what-is-it)
@@ -489,7 +489,7 @@ This gives you the best of both worlds:
 
 ## Overview
 EDAMAME Posture is a cross-platform CLI that safeguards your software development lifecycle, making it easy to:
-- Assess the security posture of your device or CI/CD environment
+- Assess the security posture of your device, CI/CD environment, or coding agent infrastructure
 - Harden against common misconfigurations at the click of a button
 - Monitor network traffic to detect and prevent supply chain attacks
 - Generate compliance or audit reports, providing proof of a hardened setup
@@ -522,11 +522,12 @@ These capabilities allow you not only to enforce security at build time but also
 - **Pipeline Security Gates** – Fail builds when security posture doesn't meet requirements, preventing insecure code deployment.
 - **Compliance Reporting** – Generate tamper-proof reports for audits or personal assurance.
 - **Optional Hub Integration** – Connect to EDAMAME Hub when you're ready for shared visibility and policy enforcement.
-- **Versatile for CI/CD and Dev Machines** – Seamlessly integrates into CI/CD pipelines and developer workstations, via CLI and GitHub/GitLab Actions.
+- **Versatile for CI/CD, Coding Agents and Dev Machines** – Seamlessly integrates into CI/CD pipelines, coding agent infrastructure, and developer workstations, via CLI, MCP, and GitHub/GitLab Actions.
 
 ## Targeted Use Cases
 - **Personal Device Hardening**: Quickly validate and remediate workstation security—ensuring it's safe for development work.
 - **CI/CD Pipeline Security**: Insert edamame_posture checks to ensure ephemeral CI runners are properly secured before building or deploying code.
+- **Coding Agent Security**: Harden the server running your coding agent with the CLI, or let the agent monitor its own posture via [MCP integration](https://www.edamame.tech/agents).
 - **On-Demand Compliance Demonstrations**: Produce signed posture reports when working with clients or partners who require evidence of strong security practices.
 - **Local Network Insights**: Run flodbadd to see what's on your subnet—no need for bulky network security tools.
 
@@ -3052,7 +3053,7 @@ EDAMAME Posture is part of a broader ecosystem of tools and services provided by
 - **[Threat Models](https://github.com/edamametechnologies/threatmodels)**: Threat model definitions used throughout the system
 - **[EDAMAME Hub](https://hub.edamame.tech)**: Web portal for centralized management when using these components in team environments
 
-By using EDAMAME Posture CLI in combination with other ecosystem components, you can scale from individual developer security up to organization-wide endpoint posture management, all while maintaining developer autonomy and privacy.
+By using EDAMAME Posture CLI in combination with other ecosystem components, you can scale from individual developer security up to organization-wide endpoint posture management -- including CI/CD pipelines and coding agent infrastructure -- all while maintaining developer autonomy and privacy. See [Coding Agents Security](https://www.edamame.tech/agents) for the full picture on securing coding agents.
 
 ## Author
 EDAMAME Technologies
