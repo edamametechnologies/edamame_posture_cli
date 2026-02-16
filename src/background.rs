@@ -317,6 +317,7 @@ pub fn background_wait_for_connection(timeout: u64) -> i32 {
         last_report_signature: "".to_string(),
         backend_error_code: "".to_string(),
         backend_error_reason: "".to_string(),
+        is_online: false,
     };
 
     // Wait until the daemon reports that it is connected, or until we time out
