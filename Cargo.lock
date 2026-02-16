@@ -1890,7 +1890,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "1.0.5"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#f2ca45a49bce413d8391381d4f2e7a548afc5fb9"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#554960ce4e37767590c5dc0ac789e90096894406"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1977,7 +1977,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "1.0.5"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#e53a36d004c76cc66f946954e7c1590ba777ca9f"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#decc90db75e6a6ce3224ba44498d0e63831e84c1"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -2043,7 +2043,7 @@ dependencies = [
 [[package]]
 name = "edamame_models"
 version = "0.1.1"
-source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#274b2a0f7742cf3f59e6a6b3031f341cb2803a2d"
+source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#67d90e602102e8eee942d14753abda06d6a5f707"
 dependencies = [
  "anyhow",
  "chrono",
@@ -2440,7 +2440,7 @@ dependencies = [
 [[package]]
 name = "flodbadd"
 version = "1.0.5"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#18d945aafd4c7a5e2f1b7d640cce9e354b7fee82"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#c62ec2efcc92b2036e53d6ed68bf24b7a6d4a323"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -3933,7 +3933,7 @@ dependencies = [
 [[package]]
 name = "l7_ebpf_program"
 version = "0.1.0"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#18d945aafd4c7a5e2f1b7d640cce9e354b7fee82"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#c62ec2efcc92b2036e53d6ed68bf24b7a6d4a323"
 
 [[package]]
 name = "lazy_static"
@@ -7873,7 +7873,7 @@ checksum = "562d481066bde0658276a35467c4af00bdc6ee726305698a55b86e61d7ad82bb"
 [[package]]
 name = "undeadlock"
 version = "1.0.2"
-source = "git+https://github.com/edamametechnologies/undeadlock?branch=main#b1111e6251e6c5cd76124db4bd5c52d2f8a9de29"
+source = "git+https://github.com/edamametechnologies/undeadlock?branch=main#f614db1b8ab03d7aca0305aa5eb77e4069b57910"
 dependencies = [
  "dashmap 6.1.0",
  "futures",
@@ -7896,9 +7896,9 @@ checksum = "5c1cb5db39152898a79168971543b1cb5020dff7fe43c8dc468b0885f5e29df5"
 
 [[package]]
 name = "unicode-ident"
-version = "1.0.23"
+version = "1.0.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "537dd038a89878be9b64dd4bd1b260315c1bb94f4d784956b81e27a088d9a09e"
+checksum = "e6e4313cd5fcd3dad5cafa179702e2b244f760991f45397d14d4ebf38247da75"
 
 [[package]]
 name = "unicode-normalization"
