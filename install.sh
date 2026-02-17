@@ -383,10 +383,49 @@ credentials_provided() {
     [ -n "$CONFIG_USER" ] && [ -n "$CONFIG_DOMAIN" ] && [ -n "$CONFIG_PIN" ]
 }
 
+is_posture_process_running() {
+    if [ "$PLATFORM" = "windows" ]; then
+        tasklist //FI "IMAGENAME eq edamame_posture.exe" 2>/dev/null | grep -qi "edamame_posture" 2>/dev/null
+    else
+        pgrep -f "edamame_posture" >/dev/null 2>&1
+    fi
+}
+
+wait_for_process_exit() {
+    local max_wait="${1:-10}"
+    local wait_interval=2
+    local elapsed=0
+
+    while [ $elapsed -lt $max_wait ]; do
+        if ! is_posture_process_running; then
+            return 0
+        fi
+        sleep $wait_interval
+        elapsed=$((elapsed + wait_interval))
+    done
+
+    return 1
+}
+
 stop_existing_posture() {
     info "Stopping existing edamame_posture instances..."
     if [ "$PLATFORM" = "windows" ]; then
+        # Try graceful stop first to let the daemon release its TCP port
+        if command -v edamame_posture >/dev/null 2>&1; then
+            edamame_posture stop >/dev/null 2>&1 || true
+        elif command -v edamame_posture.exe >/dev/null 2>&1; then
+            edamame_posture.exe stop >/dev/null 2>&1 || true
+        fi
+        # Wait for graceful shutdown
+        if wait_for_process_exit 10; then
+            info "Daemon stopped gracefully"
+            return 0
+        fi
+        # Fall back to force kill if graceful stop didn't work
+        warn "Graceful stop timed out, force killing..."
         taskkill //F //IM edamame_posture.exe >/dev/null 2>&1 || true
+        # Wait for the force-killed process to fully exit and release resources
+        wait_for_process_exit 5 || warn "Process may still be exiting"
     else
         if command -v edamame_posture >/dev/null 2>&1; then
             if [ -n "$SUDO" ]; then
@@ -1745,27 +1784,27 @@ check_existing_installation() {
             warn "Graceful stop failed (exit code: $STOP_EXIT) - will force kill"
         fi
         
-        # Give it a moment to stop
-        sleep 2
-        
-        # Check if daemon is still running and force kill if necessary
-        if pgrep -f "edamame_posture" >/dev/null 2>&1; then
-            warn "Daemon still running after graceful stop attempt - sending SIGKILL"
-            if [ -n "$SUDO" ]; then
-                $SUDO pkill -9 -f "edamame_posture" 2>/dev/null || true
-            else
-                pkill -9 -f "edamame_posture" 2>/dev/null || true
-            fi
-            sleep 2
-            
-            # Verify it's dead
-            if pgrep -f "edamame_posture" >/dev/null 2>&1; then
-                warn "Failed to kill daemon - processes may still be running"
-            else
-                info "Daemon killed successfully"
-            fi
+        # Wait for process to exit
+        if wait_for_process_exit 10; then
+            info "Daemon stopped successfully"
         else
-            info "No daemon process found after stop attempt"
+            warn "Daemon still running after graceful stop attempt - force killing"
+            if [ "$PLATFORM" = "windows" ]; then
+                taskkill //F //IM edamame_posture.exe >/dev/null 2>&1 || true
+            else
+                if [ -n "$SUDO" ]; then
+                    $SUDO pkill -9 -f "edamame_posture" 2>/dev/null || true
+                else
+                    pkill -9 -f "edamame_posture" 2>/dev/null || true
+                fi
+            fi
+            
+            # Wait again after force kill
+            if wait_for_process_exit 5; then
+                info "Daemon killed successfully"
+            else
+                warn "Failed to kill daemon - processes may still be running"
+            fi
         fi
         
         # Set up for fresh start
@@ -2342,7 +2381,13 @@ if [ "$SHOULD_START_DAEMON" = "true" ]; then
     # This is important on Windows/macOS where the daemon might be running with different credentials
     info "Stopping any existing daemon..."
     stop_existing_posture || true
-    sleep 2
+    # On Windows, TCP ports may linger in TIME_WAIT after process exit;
+    # allow extra time for the OS to release the listening port
+    if [ "$PLATFORM" = "windows" ]; then
+        sleep 5
+    else
+        sleep 2
+    fi
     
     # AI configuration is handled via environment variables
     # The daemon reads: EDAMAME_LLM_API_KEY (for all LLM providers: edamame, claude, openai), 
@@ -2419,11 +2464,13 @@ if [ "$SHOULD_START_DAEMON" = "true" ]; then
     
     info "✓ Background daemon started"
     
-    # Give it time to initialize
-    sleep 5
-    
-    # Verify it started
-    show_daemon_status "$RESOLVED_BINARY_PATH"
+    # Wait for daemon to be ready with retry logic
+    if wait_for_daemon_ready "$RESOLVED_BINARY_PATH" 30; then
+        show_daemon_status "$RESOLVED_BINARY_PATH"
+    else
+        warn "Daemon may not have started correctly - check logs for details"
+        show_daemon_status "$RESOLVED_BINARY_PATH"
+    fi
 fi
 
 info ""
