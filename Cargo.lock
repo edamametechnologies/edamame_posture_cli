@@ -1072,18 +1072,18 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.5.58"
+version = "4.5.59"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "63be97961acde393029492ce0be7a1af7e323e6bae9511ebfac33751be5e6806"
+checksum = "c5caf74d17c3aec5495110c34cc3f78644bfa89af6c8993ed4de2790e49b6499"
 dependencies = [
  "clap_builder",
 ]
 
 [[package]]
 name = "clap_builder"
-version = "4.5.58"
+version = "4.5.59"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7f13174bda5dfd69d7e947827e5af4b0f2f94a4a3ee92912fba07a66150f21e2"
+checksum = "370daa45065b80218950227371916a1633217ae42b2715b2287b606dcd618e24"
 dependencies = [
  "anstream",
  "anstyle",
@@ -1890,7 +1890,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "1.0.5"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#554960ce4e37767590c5dc0ac789e90096894406"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#36258f636d76df5ec78f6bbbd7776e9349887d69"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1977,7 +1977,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "1.0.5"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#decc90db75e6a6ce3224ba44498d0e63831e84c1"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#fef54500b809664275ee3cb6e232d8a970cdd13b"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -2043,7 +2043,7 @@ dependencies = [
 [[package]]
 name = "edamame_models"
 version = "0.1.1"
-source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#67d90e602102e8eee942d14753abda06d6a5f707"
+source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#ad18d4a6203294b1bbe7b54a26bb2a2f6c527e98"
 dependencies = [
  "anyhow",
  "chrono",
@@ -2440,7 +2440,7 @@ dependencies = [
 [[package]]
 name = "flodbadd"
 version = "1.0.5"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#c62ec2efcc92b2036e53d6ed68bf24b7a6d4a323"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#0495b2c239d4fe24ebd5a9bebd27864c7b065e08"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -3933,7 +3933,7 @@ dependencies = [
 [[package]]
 name = "l7_ebpf_program"
 version = "0.1.0"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#c62ec2efcc92b2036e53d6ed68bf24b7a6d4a323"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#0495b2c239d4fe24ebd5a9bebd27864c7b065e08"
 
 [[package]]
 name = "lazy_static"
@@ -7574,9 +7574,9 @@ dependencies = [
 
 [[package]]
 name = "toml_parser"
-version = "1.0.8+spec-1.1.0"
+version = "1.0.9+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0742ff5ff03ea7e67c8ae6c93cac239e0d9784833362da3f9a9c1da8dfefcbdc"
+checksum = "702d4415e08923e7e1ef96cd5727c0dfed80b4d2fa25db9647fe5eb6f7c5a4c4"
 dependencies = [
  "winnow 0.7.14",
 ]
@@ -7873,7 +7873,7 @@ checksum = "562d481066bde0658276a35467c4af00bdc6ee726305698a55b86e61d7ad82bb"
 [[package]]
 name = "undeadlock"
 version = "1.0.2"
-source = "git+https://github.com/edamametechnologies/undeadlock?branch=main#f614db1b8ab03d7aca0305aa5eb77e4069b57910"
+source = "git+https://github.com/edamametechnologies/undeadlock?branch=main#ea07d8e0de735f8a61cd187d3aa2d19bb90a36b7"
 dependencies = [
  "dashmap 6.1.0",
  "futures",
