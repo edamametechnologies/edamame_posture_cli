@@ -296,9 +296,9 @@ dependencies = [
 
 [[package]]
 name = "async-compression"
-version = "0.4.39"
+version = "0.4.40"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "68650b7df54f0293fd061972a0fb05aaf4fc0879d3b3d21a638a182c5c543b9f"
+checksum = "7d67d43201f4d20c78bcda740c142ca52482d81da80681533d33bf3f0596c8e2"
 dependencies = [
  "compression-codecs",
  "compression-core",
@@ -837,9 +837,9 @@ checksum = "832133bbabbbaa9fbdba793456a2827627a7d2b8fb96032fa1e7666d7895832b"
 
 [[package]]
 name = "bumpalo"
-version = "3.19.1"
+version = "3.20.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5dd9dc738b7a8311c7ade152424974d8115f2cdad61e8dab8dac9f2362298510"
+checksum = "5c6f81257d10a0f602a294ae4182251151ff97dbb504ef9afcdda4a64b24d9b4"
 
 [[package]]
 name = "bytemuck"
@@ -1124,9 +1124,9 @@ dependencies = [
 
 [[package]]
 name = "compression-codecs"
-version = "0.4.36"
+version = "0.4.37"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "00828ba6fd27b45a448e57dbfe84f1029d4c9f26b368157e9a448a5f49a2ec2a"
+checksum = "eb7b51a7d9c967fc26773061ba86150f19c50c0d65c887cb1fbe295fd16619b7"
 dependencies = [
  "compression-core",
  "flate2",
@@ -1889,8 +1889,8 @@ dependencies = [
 
 [[package]]
 name = "edamame_core"
-version = "1.0.5"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#36258f636d76df5ec78f6bbbd7776e9349887d69"
+version = "1.0.6"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#c30760e3733bc75ab8af6d508e3f37b3e7596a52"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1976,8 +1976,8 @@ dependencies = [
 
 [[package]]
 name = "edamame_foundation"
-version = "1.0.5"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#fef54500b809664275ee3cb6e232d8a970cdd13b"
+version = "1.0.6"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#188bbb9ef98ff22ab079e7476f318502ee6c39ff"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -2043,7 +2043,7 @@ dependencies = [
 [[package]]
 name = "edamame_models"
 version = "0.1.1"
-source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#ad18d4a6203294b1bbe7b54a26bb2a2f6c527e98"
+source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#74aa6afdf7618b860780ad94fe343f9fb2319dab"
 dependencies = [
  "anyhow",
  "chrono",
@@ -2439,8 +2439,8 @@ dependencies = [
 
 [[package]]
 name = "flodbadd"
-version = "1.0.5"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#0495b2c239d4fe24ebd5a9bebd27864c7b065e08"
+version = "1.0.6"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#439265ff19e937a21a6c4a9163581ecdd024cad2"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -3933,7 +3933,7 @@ dependencies = [
 [[package]]
 name = "l7_ebpf_program"
 version = "0.1.0"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#0495b2c239d4fe24ebd5a9bebd27864c7b065e08"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#439265ff19e937a21a6c4a9163581ecdd024cad2"
 
 [[package]]
 name = "lazy_static"
@@ -9412,9 +9412,9 @@ dependencies = [
 
 [[package]]
 name = "zlib-rs"
-version = "0.6.0"
+version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a7948af682ccbc3342b6e9420e8c51c1fe5d7bf7756002b4a3c6cabfe96a7e3c"
+checksum = "c745c48e1007337ed136dc99df34128b9faa6ed542d80a1c673cf55a6d7236c8"
 
 [[package]]
 name = "zmij"
