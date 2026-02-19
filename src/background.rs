@@ -14,6 +14,7 @@ use edamame_core::api::api_score::*;
 use edamame_core::api::api_score_history::*;
 use edamame_core::api::api_score_threats::*;
 use edamame_core::api::api_trust::*;
+use flodbadd::blacklists::BlacklistsJSON;
 use std::thread::sleep;
 use std::time::Duration;
 use tracing::{error, info, warn};
@@ -648,7 +649,25 @@ pub fn background_get_blacklisted_sessions(zeek_format: bool) -> i32 {
     return 0; // Always return 0 on success, even if sessions are found
 }
 
+fn validate_custom_blacklists_json(blacklist_json: &str) -> Result<(), String> {
+    // Empty JSON is a supported "reset to default" signal.
+    if blacklist_json.trim().is_empty() {
+        return Ok(());
+    }
+
+    // Parse the exact schema used by flodbadd, so we fail fast with a useful
+    // error message instead of sending malformed payloads over RPC.
+    serde_json::from_str::<BlacklistsJSON>(blacklist_json)
+        .map(|_| ())
+        .map_err(|e| format!("Invalid custom blacklist JSON (schema mismatch): {e}"))
+}
+
 pub fn background_set_custom_blacklists(blacklist_json: String) -> i32 {
+    if let Err(msg) = validate_custom_blacklists_json(&blacklist_json) {
+        eprintln!("Error setting custom blacklists: {msg}");
+        return ERROR_CODE_PARAM;
+    }
+
     match rpc_set_custom_blacklists(
         blacklist_json,
         &EDAMAME_CA_PEM,

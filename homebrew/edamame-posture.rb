@@ -1,9 +1,9 @@
 class EdamamePosture < Formula
   desc "EDAMAME Security posture analysis and remediation"
   homepage "https://edamame.tech"
-  url "https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.0.5/edamame_posture-1.0.5-universal-apple-darwin"
+  url "https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.0.6/edamame_posture-1.0.6-universal-apple-darwin"
   sha256 "0000000000000000000000000000000000000000000000000000000000000000"
-  version "1.0.5"
+  version "1.0.6"
   license "Apache-2.0"
 
   def install
