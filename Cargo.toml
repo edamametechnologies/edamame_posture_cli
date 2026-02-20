@@ -1,12 +1,12 @@
 [package]
 name = "edamame_posture"
-version = "1.0.6"
+version = "1.0.7"
 edition = "2021"
 description = "EDAMAME Security posture analysis and remediation"
 
 [dependencies]
 # Local copy in order to allow rapid development/debug
-#edamame_core = { path = "../edamame_core", features = [ "userdefaults", "pwned", "flodbadd", "trust", "agentic", "mcp", "swiftrs", "standalone" }
+#edamame_core = { path = "../edamame_core", features = [ "userdefaults", "pwned", "flodbadd", "trust", "agentic", "mcp", "swiftrs", "standalone" ] }
 edamame_core = { git = "https://github.com/edamametechnologies/edamame_core", branch = "main", features = [ "userdefaults", "pwned", "flodbadd", "trust", "agentic", "mcp", "swiftrs", "standalone" ] }
 
 # Error handling
