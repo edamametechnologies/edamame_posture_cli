@@ -837,9 +837,9 @@ checksum = "832133bbabbbaa9fbdba793456a2827627a7d2b8fb96032fa1e7666d7895832b"
 
 [[package]]
 name = "bumpalo"
-version = "3.20.1"
+version = "3.20.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5c6f81257d10a0f602a294ae4182251151ff97dbb504ef9afcdda4a64b24d9b4"
+checksum = "5d20789868f4b01b2f2caec9f5c4e0213b41e3e5702a50157d699ae31ced2fcb"
 
 [[package]]
 name = "bytemuck"
@@ -1072,18 +1072,18 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.5.59"
+version = "4.5.60"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c5caf74d17c3aec5495110c34cc3f78644bfa89af6c8993ed4de2790e49b6499"
+checksum = "2797f34da339ce31042b27d23607e051786132987f595b02ba4f6a6dffb7030a"
 dependencies = [
  "clap_builder",
 ]
 
 [[package]]
 name = "clap_builder"
-version = "4.5.59"
+version = "4.5.60"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "370daa45065b80218950227371916a1633217ae42b2715b2287b606dcd618e24"
+checksum = "24a241312cea5059b13574bb9b3861cabf758b879c15190b37b6d6fd63ab6876"
 dependencies = [
  "anstream",
  "anstyle",
@@ -1890,7 +1890,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "1.0.6"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#c30760e3733bc75ab8af6d508e3f37b3e7596a52"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#d8ce03a9a452a45c77fa10ab35bdb56d19272d8c"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -2043,7 +2043,7 @@ dependencies = [
 [[package]]
 name = "edamame_models"
 version = "0.1.1"
-source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#74aa6afdf7618b860780ad94fe343f9fb2319dab"
+source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#0562a967bfa7b308c5292689a64b21fd51734e9b"
 dependencies = [
  "anyhow",
  "chrono",
@@ -2440,7 +2440,7 @@ dependencies = [
 [[package]]
 name = "flodbadd"
 version = "1.0.6"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#439265ff19e937a21a6c4a9163581ecdd024cad2"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#b8fe1b45f9d12c0a935b1aa968bfd74649845664"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -3933,7 +3933,7 @@ dependencies = [
 [[package]]
 name = "l7_ebpf_program"
 version = "0.1.0"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#439265ff19e937a21a6c4a9163581ecdd024cad2"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#b8fe1b45f9d12c0a935b1aa968bfd74649845664"
 
 [[package]]
 name = "lazy_static"
@@ -7589,9 +7589,9 @@ checksum = "ab16f14aed21ee8bfd8ec22513f7287cd4a91aa92e44edfe2c17ddd004e92607"
 
 [[package]]
 name = "tonic"
-version = "0.14.4"
+version = "0.14.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7f32a6f80051a4111560201420c7885d0082ba9efe2ab61875c587bb6b18b9a0"
+checksum = "fec7c61a0695dc1887c1b53952990f3ad2e3a31453e1f49f10e75424943a93ec"
 dependencies = [
  "async-trait",
  "axum",
@@ -7619,9 +7619,9 @@ dependencies = [
 
 [[package]]
 name = "tonic-build"
-version = "0.14.4"
+version = "0.14.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ce6d8958ed3be404120ca43ffa0fb1e1fc7be214e96c8d33bd43a131b6eebc9e"
+checksum = "1882ac3bf5ef12877d7ed57aad87e75154c11931c2ba7e6cde5e22d63522c734"
 dependencies = [
  "prettyplease",
  "proc-macro2",
@@ -7631,9 +7631,9 @@ dependencies = [
 
 [[package]]
 name = "tonic-prost"
-version = "0.14.4"
+version = "0.14.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9f86539c0089bfd09b1f8c0ab0239d80392af74c21bc9e0f15e1b4aca4c1647f"
+checksum = "a55376a0bbaa4975a3f10d009ad763d8f4108f067c7c2e74f3001fb49778d309"
 dependencies = [
  "bytes",
  "prost",
@@ -7642,9 +7642,9 @@ dependencies = [
 
 [[package]]
 name = "tonic-prost-build"
-version = "0.14.4"
+version = "0.14.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "65873ace111e90344b8973e94a1fc817c924473affff24629281f90daed1cd2e"
+checksum = "f3144df636917574672e93d0f56d7edec49f90305749c668df5101751bb8f95a"
 dependencies = [
  "prettyplease",
  "proc-macro2",
