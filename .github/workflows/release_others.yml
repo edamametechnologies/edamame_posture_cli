@@ -196,6 +196,27 @@ jobs:
           AzureSignTool sign -kvt ${{ secrets.AZURE_SIGN_TENANT_ID }} -kvu ${{ secrets.AZURE_SIGN_KEY_VAULT_URI }} -kvi ${{ secrets.AZURE_SIGN_CLIENT_ID }} -kvs ${{ secrets.AZURE_SIGN_CLIENT_SECRET }} -kvc ${{ secrets.AZURE_SIGN_CERT_NAME }} -tr http://timestamp.digicert.com -v ./target/x86_64-pc-windows-msvc/debug/edamame_posture.exe
 
       ############################################################################################
+      # Pre-release: check if Chocolatey version is already published
+      ############################################################################################
+
+      - name: Check if Chocolatey version already published
+        if: github.ref == 'refs/heads/main' && matrix.os == 'windows'
+        id: check_choco
+        shell: pwsh
+        run: |
+          $VERSION = (Get-Content ./Cargo.toml | Select-String '^version =' | ForEach-Object { $_.Line.Split('=')[1].Trim().Trim('"') })
+          try {
+            $null = Invoke-WebRequest -Uri "https://community.chocolatey.org/api/v2/package/edamame-posture/$VERSION" -Method Head -UseBasicParsing -ErrorAction Stop
+            Write-Host "WARNING: Chocolatey package edamame-posture version $VERSION already exists."
+            Write-Host "Skipping Windows binary upload and Chocolatey publish to prevent checksum desync."
+            Write-Host "To release a new build, bump the version in Cargo.toml first."
+            echo "exists=true" >> $env:GITHUB_OUTPUT
+          } catch {
+            Write-Host "Chocolatey package edamame-posture version $VERSION not found - will publish"
+            echo "exists=false" >> $env:GITHUB_OUTPUT
+          }
+
+      ############################################################################################
       # Release
       ############################################################################################
 
@@ -240,14 +261,12 @@ jobs:
           draft: false
           prerelease: false
 
-      # Main only
+      # Main only - skip Windows upload if Chocolatey version already exists to prevent checksum desync
       - name: Upload asset to release
-        if: github.ref == 'refs/heads/main'
-        # Supports overwrite
+        if: github.ref == 'refs/heads/main' && !(matrix.os == 'windows' && steps.check_choco.outputs.exists == 'true')
         uses: shogo82148/actions-upload-release-asset@v1
         with:
           upload_url: ${{ steps.get_release.outputs.exists == 'true' && steps.get_release.outputs.upload_url || steps.create_release.outputs.upload_url }}
-          # Path to the release for each target triplet
           asset_path: target/${{ matrix.target }}/release/edamame_posture${{ matrix.os == 'windows' && '.exe' || '' }}
           asset_name: edamame_posture-${{ steps.get_release.outputs.version }}-${{ matrix.target }}${{ matrix.os == 'windows' && '.exe' || '' }}
           asset_content_type: application/octet-stream
@@ -255,14 +274,12 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # Main only - Upload debug binary
+      # Main only - skip Windows debug upload if Chocolatey version already exists
       - name: Upload debug asset to release
-        if: github.ref == 'refs/heads/main'
-        # Supports overwrite
+        if: github.ref == 'refs/heads/main' && !(matrix.os == 'windows' && steps.check_choco.outputs.exists == 'true')
         uses: shogo82148/actions-upload-release-asset@v1
         with:
           upload_url: ${{ steps.get_release.outputs.exists == 'true' && steps.get_release.outputs.upload_url || steps.create_release.outputs.upload_url }}
-          # Path to the debug binary for each target triplet
           asset_path: target/${{ matrix.target }}/debug/edamame_posture${{ matrix.os == 'windows' && '.exe' || '' }}
           asset_name: edamame_posture-${{ steps.get_release.outputs.version }}-${{ matrix.target }}-debug${{ matrix.os == 'windows' && '.exe' || '' }}
           asset_content_type: application/octet-stream
@@ -316,9 +333,9 @@ jobs:
             echo "Skipping Homebrew publish: DEV_GITHUB_TOKEN not set"
           fi
 
-      # Windows - Publish to Chocolatey
+      # Windows - Publish to Chocolatey (skip if version already exists to prevent checksum desync)
       - name: Publish to Chocolatey
-        if: github.ref == 'refs/heads/main' && matrix.os == 'windows'
+        if: github.ref == 'refs/heads/main' && matrix.os == 'windows' && steps.check_choco.outputs.exists != 'true'
         env:
           CHOCOLATEY_API_KEY: ${{ secrets.CHOCOLATEY_API_KEY }}
         run: |
