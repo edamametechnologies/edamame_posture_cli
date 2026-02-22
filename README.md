@@ -345,11 +345,16 @@ Instead of (or in addition to) automatic background processing, you can use EDAM
 
 ### What is MCP?
 
-MCP (Model Context Protocol) is an open standard for connecting AI assistants to external tools and data sources. EDAMAME Posture implements an MCP server that exposes security tools like:
-- `advisor.get_todos` - List security issues that need attention
-- `agentic.process_todos` - Run AI analysis on security issues
-- `advisor.get_action_history` - View past security actions
-- `advisor.undo_action` - Roll back automated fixes
+MCP (Model Context Protocol) is an open standard for connecting AI assistants to external tools and data sources. EDAMAME Posture implements an MCP server that exposes 19 security tools across five categories. See the [EDAMAME Core API MCP Reference](https://github.com/edamametechnologies/edamame_core_api/blob/main/MCP.md) for complete tool documentation with parameters, return types, and L7 session field details.
+
+Key tools include:
+- `advisor_get_todos` - List security issues that need attention
+- `get_sessions` - All network sessions with deep L7 process attribution
+- `get_anomalous_sessions` - ML-flagged anomalous sessions
+- `get_score` - Full security posture score with sub-scores
+- `add_pwned_email` / `remove_pwned_email` - Manage breach-monitored emails
+- `agentic_process_todos` - AI-powered "Do It For Me" workflow
+- `advisor_undo_action` - Roll back automated fixes
 
 ### Step 1: Start the MCP Server
 
@@ -454,6 +459,30 @@ Once connected, you can ask Claude to help with security:
 | `mcp-stop` | Stop the MCP server |
 | `mcp-status` | Check if MCP server is running |
 | `mcp-generate-psk` | Generate a secure pre-shared key |
+
+### L7 Session Enrichment
+
+Sessions returned through MCP tools (`get_sessions`, `get_anomalous_sessions`, `get_blacklisted_sessions`, `get_exceptions`) include deep Layer 7 process attribution:
+
+- **Process identity**: `pid`, `process_name`, `process_path`, `cmd`, `cwd`, `username`
+- **Parent process lineage**: `parent_pid`, `parent_process_name`, `parent_process_path`, `parent_cmd`
+- **Script detection**: `parent_script_path` (extracted when parent is bash, python, etc.)
+- **Temp-origin detection**: `spawned_from_tmp` (true for processes from `/tmp/`, `/var/tmp/`, `/dev/shm/`)
+- **Sensitive file tracking**: `open_files` (SSH keys, credentials, keychains preserved across refresh cycles)
+- **Resource usage**: `memory`, `cpu_usage`, `disk_usage` (read/write bytes)
+
+Refresh cycles: full L7 update every 5 min; sensitive files every 30s (Linux), 60s (macOS), 120s (Windows).
+
+For the complete field reference, see the [EDAMAME Core API MCP Reference](https://github.com/edamametechnologies/edamame_core_api/blob/main/MCP.md#l7-session-enrichment-fields).
+
+### Identity Management via MCP
+
+EDAMAME supports dynamic email breach monitoring through MCP:
+- `add_pwned_email` - Register an email for HIBP breach monitoring
+- `remove_pwned_email` - Remove an email from monitoring
+- `get_pwned_emails` - List all monitored emails with breach counts
+
+These tools enable AI agents to dynamically manage identity monitoring at runtime.
 
 ### Security Considerations
 
