@@ -529,10 +529,7 @@ pub fn background_start(
                 if !output.status.success() {
                     let stderr = String::from_utf8_lossy(&output.stderr);
                     let stdout = String::from_utf8_lossy(&output.stdout);
-                    eprintln!(
-                        "Background process exited with status: {}",
-                        output.status
-                    );
+                    eprintln!("Background process exited with status: {}", output.status);
                     if !stderr.is_empty() {
                         eprintln!("stderr: {}", stderr);
                     }
