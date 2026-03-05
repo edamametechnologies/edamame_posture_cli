@@ -7,7 +7,7 @@ EDAMAME Posture is a lightweight, developer-friendly security posture assessment
 
 ## Table of Contents
 - [What is it?](#what-is-it)
-- [Quick Start: Background Mode with AI Security Assistant & Slack Alerts](#quick-start-background-mode-with-ai-security-assistant--slack-alerts)
+- [Quick Start: Background Mode with AI Security Assistant & Unified Notifications](#quick-start-background-mode-with-ai-security-assistant--unified-notifications)
 - [Overview](#overview)
   - [Security Without Undermining Productivity](#security-without-undermining-productivity)
   - [Security Beyond Compliance](#security-beyond-compliance)
@@ -98,22 +98,22 @@ EDAMAME Posture is a lightweight, developer-friendly security posture assessment
 - [EDAMAME Ecosystem](#edamame-ecosystem)
 - [Author](#author)
 
-## Quick Start: Background Mode with AI Security Assistant & Slack Alerts
+## Quick Start: Background Mode with AI Security Assistant & Unified Notifications
 
-This guide walks you through the most common use case: running EDAMAME Posture in background mode with **EDAMAME Portal LLM** for AI-powered security remediation and **Slack alerts** for real-time notifications.
+This guide walks you through the most common use case: running EDAMAME Posture in background mode with **EDAMAME Portal LLM** for AI-powered security remediation and **unified Slack/Telegram alerts** for real-time notifications.
 
 ### What You'll Get
 
 - **Continuous security monitoring** with automatic threat detection
 - **AI-powered remediation** that analyzes and fixes security issues automatically
 - **Network visibility** with LAN scanning and traffic capture
-- **Slack notifications** for security actions and escalations
+- **Unified notifications** for agentic actions and divergence/vulnerability alerts
 
 ### Prerequisites
 
 - EDAMAME Posture installed (see [Installation](#installation))
 - Root/administrator privileges (required for network capture)
-- A Slack workspace (for notifications)
+- A Slack workspace and/or Telegram bot (for notifications)
 
 ### Step 1: Create an EDAMAME Portal Account
 
@@ -148,9 +148,9 @@ For CI/CD environments, store the API key as a secret:
 - **GitLab CI**: Add as a CI/CD variable (masked)
 - **Jenkins**: Add as a credential
 
-### Step 4: Configure Slack Integration
+### Step 4: Configure Notification Integration (Slack and/or Telegram)
 
-To receive Slack notifications, you need to create a Slack Bot and set up channels:
+To receive Slack notifications, create a Slack Bot and set up channels:
 
 #### 4.1 Create a Slack App
 
@@ -183,6 +183,17 @@ export EDAMAME_AGENTIC_SLACK_ACTIONS_CHANNEL="C01234567890"        # #security-a
 export EDAMAME_AGENTIC_SLACK_ESCALATIONS_CHANNEL="C09876543210"   # #security-escalations channel ID
 ```
 
+#### 4.4 Optional Telegram Environment Variables
+
+```bash
+# Add to your shell profile (can be used with or without Slack)
+export EDAMAME_TELEGRAM_BOT_TOKEN="123456:ABCDEF..."
+export EDAMAME_TELEGRAM_CHAT_ID="-1001234567890"
+```
+
+When configured, Telegram receives the same EDAMAME notifications used by the
+agentic and divergence/vulnerability loops.
+
 ### Step 5: Start EDAMAME Posture with Network Monitoring
 
 Now start EDAMAME Posture in background mode with all features enabled.
@@ -191,7 +202,7 @@ Now start EDAMAME Posture in background mode with all features enabled.
 
 | Mode | Description | Best For |
 |------|-------------|----------|
-| `auto` | AI automatically remediates low-risk issues, escalates high-risk to Slack | Hands-off security automation |
+| `auto` | AI automatically remediates low-risk issues, escalates high-risk to notification channels | Hands-off security automation |
 | `analyze` | AI analyzes and recommends fixes, but waits for human confirmation | Review-first approach, learning the system |
 
 **Option A: Auto mode (recommended for production)**
@@ -207,8 +218,8 @@ sudo -E edamame_posture background-start-disconnected \
 
 In `auto` mode, the AI assistant will:
 - Automatically fix low-risk security issues (e.g., enable firewall, update settings)
-- Send notifications to Slack for actions taken
-- Escalate high-risk items to Slack for human review before acting
+- Send notifications for actions taken
+- Escalate high-risk items to notification channels for human review before acting
 
 **Option B: Analyze mode (recommended for initial setup)**
 
@@ -223,7 +234,7 @@ sudo -E edamame_posture background-start-disconnected \
 
 In `analyze` mode, the AI assistant will:
 - Analyze all security issues and provide recommendations
-- Send all recommendations to Slack for review
+- Send all recommendations to notification channels for review
 - Wait for human confirmation before taking any action
 - Good for understanding what the AI would do before enabling auto mode
 
@@ -275,6 +286,24 @@ The `agentic-summary` command shows:
 - Recent actions with timestamps
 - Token usage statistics
 - Slack integration status
+
+### Loop Lifecycle Controls (CLI-only)
+
+Loop lifecycle controls are intentionally managed through `edamame_posture` CLI
+commands and are **not** exposed on the MCP tool surface.
+
+```bash
+# Divergence engine lifecycle
+edamame_posture divergence-start 120
+edamame_posture divergence-stop
+edamame_posture divergence-status
+
+# Agentic todo loop lifecycle
+edamame_posture agentic-start analyze 300
+edamame_posture agentic-start auto 300
+edamame_posture agentic-stop
+edamame_posture agentic-status
+```
 
 
 ### Step 8: Stop the Daemon (When Needed)
@@ -345,7 +374,7 @@ Instead of (or in addition to) automatic background processing, you can use EDAM
 
 ### What is MCP?
 
-MCP (Model Context Protocol) is an open standard for connecting AI assistants to external tools and data sources. EDAMAME Posture implements an MCP server that exposes 19 security tools across five categories. See the [EDAMAME Core API MCP Reference](https://github.com/edamametechnologies/edamame_core_api/blob/main/MCP.md) for complete tool documentation with parameters, return types, and L7 session field details.
+MCP (Model Context Protocol) is an open standard for connecting AI assistants to external tools and data sources. EDAMAME Posture implements an MCP server that exposes security tools across posture, telemetry, divergence observability, and remediation workflows. See the [EDAMAME Core API MCP Reference](https://github.com/edamametechnologies/edamame_core_api/blob/main/MCP.md) for complete tool documentation with parameters, return types, and L7 session field details.
 
 Key tools include:
 - `advisor_get_todos` - List security issues that need attention
@@ -355,6 +384,9 @@ Key tools include:
 - `add_pwned_email` / `remove_pwned_email` - Manage breach-monitored emails
 - `agentic_process_todos` - AI-powered "Do It For Me" workflow
 - `advisor_undo_action` - Roll back automated fixes
+
+Security boundary: divergence/agentic loop start-stop and interval controls are
+CLI-only (`divergence-*`, `agentic-*`) and intentionally not exposed through MCP.
 
 ### Step 1: Start the MCP Server
 
@@ -511,7 +543,7 @@ sudo -E edamame_posture mcp-start --port 3000
 ```
 
 This gives you the best of both worlds:
-- **Background mode**: Automatic continuous monitoring with Slack notifications
+- **Background mode**: Automatic continuous monitoring with unified Slack/Telegram notifications
 - **MCP mode**: On-demand AI-assisted security queries via Claude Desktop or n8n
 
 ---
@@ -1370,20 +1402,20 @@ For Alpine Linux users, install via the APK repository:
 If you prefer not to add a repository, you can install the Debian package manually:
 
 1. **Download** the Debian package for your platform:
-   - **x86_64 (64-bit):** [edamame-posture_1.0.8-1_amd64.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.0.8/edamame-posture_1.0.8-1_amd64.deb)
-   - **i686 (32-bit):** [edamame-posture_1.0.8-1_i386.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.0.8/edamame-posture_1.0.8-1_i386.deb)
-   - **aarch64 (ARM 64-bit):** [edamame-posture_1.0.8-1_arm64.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.0.8/edamame-posture_1.0.8-1_arm64.deb)
+   - **x86_64 (64-bit):** [edamame-posture_1.0.9-1_amd64.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.0.9/edamame-posture_1.0.9-1_amd64.deb)
+   - **i686 (32-bit):** [edamame-posture_1.0.9-1_i386.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.0.9/edamame-posture_1.0.9-1_i386.deb)
+   - **aarch64 (ARM 64-bit):** [edamame-posture_1.0.9-1_arm64.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.0.9/edamame-posture_1.0.9-1_arm64.deb)
      - For Raspberry Pi 3/4/5 running 64-bit OS
-   - **armv7 (ARM 32-bit):** [edamame-posture_1.0.8-1_armhf.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.0.8/edamame-posture_1.0.8-1_armhf.deb)
+   - **armv7 (ARM 32-bit):** [edamame-posture_1.0.9-1_armhf.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.0.9/edamame-posture_1.0.9-1_armhf.deb)
      - For Raspberry Pi 2/3/4/Zero 2 running 32-bit OS (Raspberry Pi OS)
 
    > **Note**: These Debian packages have been tested on Linux Mint 20 and newer, Ubuntu 20.04 and newer, and Raspberry Pi OS (Raspbian).
 
 2. **Install** the package using either method:
    ```bash
-   sudo apt install ./edamame-posture_1.0.8-1_amd64.deb
+   sudo apt install ./edamame-posture_1.0.9-1_amd64.deb
    # or
-   sudo dpkg -i edamame-posture_1.0.8-1_amd64.deb
+   sudo dpkg -i edamame-posture_1.0.9-1_amd64.deb
    ```
 
 3. **Configure** the service by editing the configuration file:
@@ -1441,17 +1473,17 @@ If you prefer not to add a repository, you can install the Debian package manual
 For other Linux distributions or portable installation:
 
 1. **Download Binary**: From the Releases page, download the binary for your architecture:
-   - **x86_64 (64-bit)**: [edamame_posture-1.0.8-x86_64-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.0.8/edamame_posture-1.0.8-x86_64-unknown-linux-gnu)  
-   - **i686 (32-bit)**: [edamame_posture-1.0.8-i686-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.0.8/edamame_posture-1.0.8-i686-unknown-linux-gnu)  
-   - **aarch64 (ARM 64-bit)**: [edamame_posture-1.0.8-aarch64-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.0.8/edamame_posture-1.0.8-aarch64-unknown-linux-gnu)  
-   - **armv7 (ARM 32-bit)**: [edamame_posture-1.0.8-armv7-unknown-linux-gnueabihf](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.0.8/edamame_posture-1.0.8-armv7-unknown-linux-gnueabihf)
-   - **x86_64 (64-bit) for Alpine Linux (musl)**: [edamame_posture-1.0.8-x86_64-unknown-linux-musl](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.0.8/edamame_posture-1.0.8-x86_64-unknown-linux-musl) 
-   - **aarch64 (ARM 64-bit) for Alpine Linux (musl)**: [edamame_posture-1.0.8-aarch64-unknown-linux-musl](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.0.8/edamame_posture-1.0.8-aarch64-unknown-linux-musl)
+   - **x86_64 (64-bit)**: [edamame_posture-1.0.9-x86_64-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.0.9/edamame_posture-1.0.9-x86_64-unknown-linux-gnu)  
+   - **i686 (32-bit)**: [edamame_posture-1.0.9-i686-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.0.9/edamame_posture-1.0.9-i686-unknown-linux-gnu)  
+   - **aarch64 (ARM 64-bit)**: [edamame_posture-1.0.9-aarch64-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.0.9/edamame_posture-1.0.9-aarch64-unknown-linux-gnu)  
+   - **armv7 (ARM 32-bit)**: [edamame_posture-1.0.9-armv7-unknown-linux-gnueabihf](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.0.9/edamame_posture-1.0.9-armv7-unknown-linux-gnueabihf)
+   - **x86_64 (64-bit) for Alpine Linux (musl)**: [edamame_posture-1.0.9-x86_64-unknown-linux-musl](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.0.9/edamame_posture-1.0.9-x86_64-unknown-linux-musl) 
+   - **aarch64 (ARM 64-bit) for Alpine Linux (musl)**: [edamame_posture-1.0.9-aarch64-unknown-linux-musl](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.0.9/edamame_posture-1.0.9-aarch64-unknown-linux-musl)
 
 2. **Install Binary**: Extract if needed and place the edamame_posture binary into a directory in your PATH (such as `/usr/local/bin`). For example:
 ```bash
-chmod +x edamame_posture-1.0.8-x86_64-unknown-linux-gnu  
-sudo mv edamame_posture-1.0.8-x86_64-unknown-linux-gnu /usr/local/bin/edamame_posture
+chmod +x edamame_posture-1.0.9-x86_64-unknown-linux-gnu  
+sudo mv edamame_posture-1.0.9-x86_64-unknown-linux-gnu /usr/local/bin/edamame_posture
 ```
 
 ### macOS
@@ -1480,7 +1512,7 @@ brew upgrade edamame-posture
 For a manual installation on macOS:
 
 1. **Download** the macOS universal binary:
-   - [edamame_posture-1.0.8-universal-apple-darwin](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.0.8/edamame_posture-1.0.8-universal-apple-darwin)  
+   - [edamame_posture-1.0.9-universal-apple-darwin](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.0.9/edamame_posture-1.0.9-universal-apple-darwin)  
 
 2. **Install** by placing the binary in your `PATH` and making it executable:
    ```bash
@@ -1514,7 +1546,7 @@ choco upgrade edamame-posture
 For a manual installation on Windows:
 
 1. **Download** the Windows binary:
-   - [edamame_posture-1.0.8-x86_64-pc-windows-msvc.exe](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.0.8/edamame_posture-1.0.8-x86_64-pc-windows-msvc.exe)
+   - [edamame_posture-1.0.9-x86_64-pc-windows-msvc.exe](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.0.9/edamame_posture-1.0.9-x86_64-pc-windows-msvc.exe)
 
 2. **Install Npcap** (Required for traffic capture feature):
    - Install [Npcap](https://npcap.com/#download), the packet capture library from the Nmap team
@@ -1815,12 +1847,19 @@ The AI Assistant configuration is passed to the background daemon through enviro
 - `EDAMAME_AGENTIC_SLACK_BOT_TOKEN` - Slack bot token used for direct notifications (required for Slack integration)
 - `EDAMAME_AGENTIC_SLACK_ACTIONS_CHANNEL` - Slack channel ID for routine summaries (optional)
 - `EDAMAME_AGENTIC_SLACK_ESCALATIONS_CHANNEL` - Slack channel ID for escalations/alerts (optional)
+- `EDAMAME_TELEGRAM_BOT_TOKEN` - Telegram bot token for direct EDAMAME notifications (agentic + divergence) (optional)
+- `EDAMAME_TELEGRAM_CHAT_ID` - Telegram chat ID for direct EDAMAME notifications (agentic + divergence) (optional)
 
 **How it works:**
 1. Set environment variables in the shell before starting the daemon
 2. The daemon process inherits these environment variables
 3. The daemon reads the env vars and configures the LLM provider via `agentic_set_llm_config`
 4. Config is stored in CoreManager state (in-memory, not persisted to disk)
+
+If you deploy through `openclaw_security/setup/provision.sh`, these `EDAMAME_*`
+notification variables are written to `/etc/edamame_llm.env` and injected into
+the `edamame_posture` systemd service. OpenClaw's `ALERT_TO` and
+`ALERT_CHANNEL` are separate defaults for the OpenClaw `send_alert` path.
 
 **Security Notes:**
 - API keys are stored in the daemon's environment and memory during runtime
@@ -2932,9 +2971,9 @@ jobs:
 
       - name: Install EDAMAME Posture
         run: |
-          curl -LO https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.0.8/edamame_posture-1.0.8-x86_64-unknown-linux-gnu
-          chmod +x edamame_posture-1.0.8-x86_64-unknown-linux-gnu
-          sudo mv edamame_posture-1.0.8-x86_64-unknown-linux-gnu /usr/local/bin/edamame_posture
+          curl -LO https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.0.9/edamame_posture-1.0.9-x86_64-unknown-linux-gnu
+          chmod +x edamame_posture-1.0.9-x86_64-unknown-linux-gnu
+          sudo mv edamame_posture-1.0.9-x86_64-unknown-linux-gnu /usr/local/bin/edamame_posture
 
       - name: Extract and verify signature from last commit
         run: |

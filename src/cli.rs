@@ -314,6 +314,124 @@ pub fn build_cli() -> Command {
     .subcommand(Command::new("background-mcp-status").alias("mcp-status").about("Get MCP server status"))
     .subcommand(Command::new("background-mcp-generate-psk").alias("mcp-generate-psk").about("Generate a secure PSK for MCP server"))
     .subcommand(Command::new("background-agentic-summary").alias("agentic-summary").about("Get comprehensive agentic status summary (provider, mode, todos, actions, Slack)"))
+    .subcommand(
+        Command::new("background-agentic-start")
+            .alias("agentic-start")
+            .about("Start AI assistant todo-processing loop in background process")
+            .arg(
+                arg!([MODE] "Loop mode: auto (execute) or analyze (review)")
+                    .required(false)
+                    .default_value("analyze")
+                    .value_parser(["auto", "analyze"]),
+            )
+            .arg(
+                arg!([INTERVAL_SECS] "Tick interval in seconds")
+                    .required(false)
+                    .default_value("3600")
+                    .value_parser(clap::value_parser!(u64)),
+            ),
+    )
+    .subcommand(
+        Command::new("background-agentic-stop")
+            .alias("agentic-stop")
+            .about("Stop AI assistant todo-processing loop in background process"),
+    )
+    .subcommand(
+        Command::new("background-agentic-status")
+            .alias("agentic-status")
+            .about("Get AI assistant loop status"),
+    )
+    .subcommand(
+        Command::new("background-divergence-upsert-model")
+            .alias("divergence-upsert-model")
+            .about("Upsert a behavioral model JSON payload for divergence detection")
+            .arg(
+                arg!(<MODEL_JSON> "Behavioral model JSON")
+                    .required(true)
+                    .value_parser(clap::value_parser!(String)),
+            ),
+    )
+    .subcommand(
+        Command::new("background-divergence-upsert-model-from-file")
+            .alias("divergence-upsert-model-from-file")
+            .about("Upsert a behavioral model JSON payload from file")
+            .arg(
+                arg!(<MODEL_FILE> "Path to behavioral model JSON file")
+                    .required(true)
+                    .value_parser(clap::value_parser!(String)),
+            ),
+    )
+    .subcommand(
+        Command::new("background-divergence-get-model")
+            .alias("divergence-get-model")
+            .about("Get current behavioral model used by divergence engine"),
+    )
+    .subcommand(
+        Command::new("background-divergence-clear-model")
+            .alias("divergence-clear-model")
+            .about("Clear current behavioral model"),
+    )
+    .subcommand(
+        Command::new("background-divergence-start")
+            .alias("divergence-start")
+            .about("Start divergence engine in background process")
+            .arg(
+                arg!([INTERVAL_SECS] "Tick interval in seconds")
+                    .required(false)
+                    .default_value("120")
+                    .value_parser(clap::value_parser!(u64)),
+            ),
+    )
+    .subcommand(
+        Command::new("background-divergence-stop")
+            .alias("divergence-stop")
+            .about("Stop divergence engine in background process"),
+    )
+    .subcommand(
+        Command::new("background-divergence-status")
+            .alias("divergence-status")
+            .about("Get divergence engine status"),
+    )
+    .subcommand(
+        Command::new("background-divergence-get-verdict")
+            .alias("divergence-get-verdict")
+            .about("Get latest divergence verdict"),
+    )
+    .subcommand(
+        Command::new("background-divergence-get-history")
+            .alias("divergence-get-history")
+            .about("Get divergence verdict history")
+            .arg(
+                arg!([LIMIT] "Maximum number of history entries")
+                    .required(false)
+                    .default_value("20")
+                    .value_parser(clap::value_parser!(usize)),
+            ),
+    )
+    ////////////////
+    // Vulnerability Detector commands (model-independent)
+    ////////////////
+    .subcommand(
+        Command::new("background-vulnerability-start")
+            .alias("vulnerability-start")
+            .about("Start vulnerability detector in background process")
+            .arg(
+                arg!([INTERVAL_SECS] "Tick interval in seconds")
+                    .required(false)
+                    .default_value("60")
+                    .value_parser(clap::value_parser!(u64)),
+            ),
+    )
+    .subcommand(
+        Command::new("background-vulnerability-stop")
+            .alias("vulnerability-stop")
+            .about("Stop vulnerability detector in background process"),
+    )
+    .subcommand(
+        Command::new("background-vulnerability-status")
+            .alias("vulnerability-status")
+            .about("Get vulnerability detector status"),
+    )
     .subcommand(Command::new("background-status").alias("status").about("Get status of reporting background process"))
     .subcommand(Command::new("background-last-report-signature").alias("get-last-report-signature").about("Get last report signature of background process"))
     .subcommand(Command::new("background-get-history").alias("get-history").about("Get history of score modifications"))
@@ -480,7 +598,7 @@ fn start_common_args() -> Vec<Arg> {
             .alias("lan-scan")
             .alias("lan-scanning")
             .short('n')
-            .help("Enable LAN scanning")
+            .help("Enable LAN scanning and force LAN auto-scan on start")
             .action(ArgAction::SetTrue),
         Arg::new("packet_capture")
             .long("packet-capture")
@@ -548,7 +666,7 @@ fn disconnected_start_args() -> Vec<Arg> {
             .alias("lan-scan")
             .alias("lan-scanning")
             .short('n')
-            .help("Enable LAN scanning")
+            .help("Enable LAN scanning and force LAN auto-scan on start")
             .action(ArgAction::SetTrue),
         Arg::new("packet_capture")
             .long("packet-capture")
@@ -801,7 +919,13 @@ mod tests {
             .subcommand()
             .expect("expected foreground-start subcommand");
 
-        assert!(sub_matches.get_one::<String>("llm_api_key").is_none());
+        let env_api_key = std::env::var("EDAMAME_LLM_API_KEY").ok();
+        assert_eq!(
+            sub_matches
+                .get_one::<String>("llm_api_key")
+                .map(String::as_str),
+            env_api_key.as_deref()
+        );
     }
 
     #[test]

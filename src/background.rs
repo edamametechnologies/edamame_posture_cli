@@ -838,6 +838,15 @@ pub fn background_configure_agentic(provider: String) {
         // Set the EDAMAME API key for headless authentication
         if agentic_set_edamame_api_key(api_key) {
             info!("AI Assistant configured with EDAMAME Portal LLM");
+            // Trigger device registration with the Portal by querying the subscription/plan
+            // endpoint. This mirrors the app's init sequence (agenticGetSubscriptionStatus
+            // after OAuth sign-in) and ensures the device_id is known to the Portal before
+            // any agentic_analysis calls are made.
+            let status = agentic_get_subscription_status();
+            info!(
+                "Portal subscription: plan={}, usage={}",
+                status.plan_name, status.usage
+            );
         } else {
             error!("Failed to set EDAMAME API key");
         }
@@ -861,6 +870,9 @@ pub fn background_configure_agentic(provider: String) {
         std::env::var("EDAMAME_AGENTIC_SLACK_ACTIONS_CHANNEL").unwrap_or_default();
     let slack_escalations_channel =
         std::env::var("EDAMAME_AGENTIC_SLACK_ESCALATIONS_CHANNEL").unwrap_or_default();
+
+    let telegram_bot_token = std::env::var("EDAMAME_TELEGRAM_BOT_TOKEN").unwrap_or_default();
+    let telegram_chat_id = std::env::var("EDAMAME_TELEGRAM_CHAT_ID").unwrap_or_default();
 
     // Legacy webhook environment variables are deprecated but we still surface a warning
     let legacy_actions_url =
@@ -897,6 +909,13 @@ pub fn background_configure_agentic(provider: String) {
         );
     }
 
+    if !telegram_bot_token.is_empty() && !telegram_chat_id.is_empty() {
+        info!(
+            "Telegram notifications configured (chat_id: {})",
+            telegram_chat_id
+        );
+    }
+
     if agentic_set_llm_config(
         provider.clone(),
         api_key.clone(),
@@ -906,6 +925,8 @@ pub fn background_configure_agentic(provider: String) {
         slack_bot_token,
         slack_actions_channel,
         slack_escalations_channel,
+        telegram_bot_token,
+        telegram_chat_id,
     ) {
         info!("AI Assistant configured: {} / {}", provider, model);
     } else {
@@ -925,7 +946,7 @@ pub fn background_mcp_generate_psk() -> i32 {
 }
 
 pub fn background_mcp_start(port: u16, psk: Option<String>, all_interfaces: bool) -> i32 {
-    use edamame_core::api::api_agentic::mcp_start_server;
+    use edamame_core::api::api_agentic::rpc_mcp_start_server;
 
     // Use provided PSK or generate new one
     let actual_psk = psk.unwrap_or_else(|| {
@@ -941,8 +962,17 @@ pub fn background_mcp_start(port: u16, psk: Option<String>, all_interfaces: bool
         return ERROR_CODE_PARAM;
     }
 
-    match mcp_start_server(port, actual_psk.clone(), false, all_interfaces) {
-        result => {
+    match rpc_mcp_start_server(
+        port,
+        actual_psk.clone(),
+        false,
+        all_interfaces,
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => {
             let json: serde_json::Value = match serde_json::from_str(&result) {
                 Ok(v) => v,
                 Err(e) => {
@@ -993,14 +1023,23 @@ pub fn background_mcp_start(port: u16, psk: Option<String>, all_interfaces: bool
                 ERROR_CODE_SERVER_ERROR
             }
         }
+        Err(e) => {
+            eprintln!("Error starting MCP server: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
     }
 }
 
 pub fn background_mcp_stop() -> i32 {
-    use edamame_core::api::api_agentic::mcp_stop_server;
+    use edamame_core::api::api_agentic::rpc_mcp_stop_server;
 
-    match mcp_stop_server() {
-        result => {
+    match rpc_mcp_stop_server(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => {
             let json: serde_json::Value = match serde_json::from_str(&result) {
                 Ok(v) => v,
                 Err(e) => {
@@ -1020,14 +1059,23 @@ pub fn background_mcp_stop() -> i32 {
                 ERROR_CODE_SERVER_ERROR
             }
         }
+        Err(e) => {
+            eprintln!("Error stopping MCP server: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
     }
 }
 
 pub fn background_mcp_status() -> i32 {
-    use edamame_core::api::api_agentic::mcp_get_server_status;
+    use edamame_core::api::api_agentic::rpc_mcp_get_server_status;
 
-    match mcp_get_server_status() {
-        result => {
+    match rpc_mcp_get_server_status(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => {
             let json: serde_json::Value = match serde_json::from_str(&result) {
                 Ok(v) => v,
                 Err(e) => {
@@ -1041,9 +1089,13 @@ pub fn background_mcp_status() -> i32 {
                 println!("   Port: {}", json["port"]);
                 println!("   URL: {}", json["url"].as_str().unwrap_or(""));
             } else {
-                println!("○ MCP server is not running");
+                println!("MCP server is not running");
             }
             0
+        }
+        Err(e) => {
+            eprintln!("Error querying MCP server status: {}", e);
+            ERROR_CODE_SERVER_ERROR
         }
     }
 }
@@ -1208,6 +1260,432 @@ pub fn background_agentic_summary() -> i32 {
 
     println!();
     0
+}
+
+fn format_agentic_mode(mode: i32) -> &'static str {
+    match mode {
+        0 => "disabled",
+        1 => "analyze",
+        2 => "auto",
+        _ => "unknown",
+    }
+}
+
+pub fn background_agentic_start(mode: &str, interval_secs: u64) -> i32 {
+    if interval_secs == 0 {
+        eprintln!("Invalid interval: must be >= 1 second");
+        return ERROR_CODE_PARAM;
+    }
+
+    let confirmation_level = match mode {
+        "auto" => 0,
+        "analyze" => 1,
+        _ => {
+            eprintln!("Invalid mode '{}': expected 'auto' or 'analyze'", mode);
+            return ERROR_CODE_PARAM;
+        }
+    };
+
+    match rpc_agentic_set_auto_processing(
+        true,
+        interval_secs,
+        confirmation_level,
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(true) => {
+            println!(
+                "AI assistant loop started (mode={}, interval={}s).",
+                mode, interval_secs
+            );
+            0
+        }
+        Ok(false) => {
+            eprintln!("Failed to start AI assistant loop");
+            ERROR_CODE_SERVER_ERROR
+        }
+        Err(e) => {
+            eprintln!("Error starting AI assistant loop: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn background_agentic_stop() -> i32 {
+    let (interval_secs, confirmation_level) = match rpc_agentic_get_auto_processing_status(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(status) => {
+            let interval = if status.interval_secs == 0 {
+                3600
+            } else {
+                status.interval_secs
+            };
+            let level = if status.mode == 2 { 0 } else { 1 };
+            (interval, level)
+        }
+        Err(_) => (3600, 1),
+    };
+
+    match rpc_agentic_set_auto_processing(
+        false,
+        interval_secs,
+        confirmation_level,
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(true) => {
+            println!("AI assistant loop stopped.");
+            0
+        }
+        Ok(false) => {
+            eprintln!("Failed to stop AI assistant loop");
+            ERROR_CODE_SERVER_ERROR
+        }
+        Err(e) => {
+            eprintln!("Error stopping AI assistant loop: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn background_agentic_status() -> i32 {
+    match rpc_agentic_get_auto_processing_status(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(status) => {
+            println!("AI assistant loop:");
+            println!("  - Enabled: {}", if status.enabled { "yes" } else { "no" });
+            println!("  - Mode: {}", format_agentic_mode(status.mode));
+            println!("  - Interval: {}s", status.interval_secs);
+            println!(
+                "  - Timer registered: {}",
+                if status.timer_registered { "yes" } else { "no" }
+            );
+            if let Some(last_run) = status.last_run {
+                println!("  - Last run: {}", last_run);
+            }
+            if let Some(next_run) = status.next_run {
+                println!("  - Next run: {}", next_run);
+            }
+            0
+        }
+        Err(e) => {
+            eprintln!("Error getting AI assistant loop status: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+fn print_json_pretty(raw_json: &str, context: &str) -> i32 {
+    let json_value: serde_json::Value = match serde_json::from_str(raw_json) {
+        Ok(value) => value,
+        Err(e) => {
+            eprintln!("Error parsing {} JSON: {}", context, e);
+            return ERROR_CODE_SERVER_ERROR;
+        }
+    };
+
+    match serde_json::to_string_pretty(&json_value) {
+        Ok(pretty_json) => {
+            println!("{}", pretty_json);
+            0
+        }
+        Err(e) => {
+            eprintln!("Error formatting {} JSON: {}", context, e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn background_divergence_upsert_model(window_json: String) -> i32 {
+    match rpc_upsert_behavioral_model(
+        window_json,
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => {
+            let json: serde_json::Value = match serde_json::from_str(&result) {
+                Ok(v) => v,
+                Err(e) => {
+                    eprintln!("Error parsing upsert result: {}", e);
+                    return ERROR_CODE_SERVER_ERROR;
+                }
+            };
+
+            if json["success"].as_bool().unwrap_or(false) {
+                println!("Behavioral model upserted.");
+                0
+            } else {
+                eprintln!(
+                    "Failed to upsert behavioral model: {}",
+                    json["error"].as_str().unwrap_or("Unknown")
+                );
+                ERROR_CODE_SERVER_ERROR
+            }
+        }
+        Err(e) => {
+            eprintln!("Error upserting behavioral model: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn background_divergence_get_model() -> i32 {
+    match rpc_get_behavioral_model(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => print_json_pretty(&result, "behavioral model"),
+        Err(e) => {
+            eprintln!("Error getting behavioral model: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn background_divergence_clear_model() -> i32 {
+    match rpc_clear_behavioral_model(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(_) => {
+            println!("Behavioral model cleared.");
+            0
+        }
+        Err(e) => {
+            eprintln!("Error clearing behavioral model: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn background_divergence_start(interval_secs: u64) -> i32 {
+    match rpc_start_divergence_engine(
+        true,
+        interval_secs,
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => {
+            let json: serde_json::Value = match serde_json::from_str(&result) {
+                Ok(v) => v,
+                Err(e) => {
+                    eprintln!("Error parsing start result: {}", e);
+                    return ERROR_CODE_SERVER_ERROR;
+                }
+            };
+
+            if json["success"].as_bool().unwrap_or(false) {
+                println!("Divergence engine started (interval={}s).", interval_secs);
+                0
+            } else {
+                eprintln!(
+                    "Failed to start divergence engine: {}",
+                    json["error"].as_str().unwrap_or("Unknown")
+                );
+                ERROR_CODE_SERVER_ERROR
+            }
+        }
+        Err(e) => {
+            eprintln!("Error starting divergence engine: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn background_divergence_stop() -> i32 {
+    match rpc_start_divergence_engine(
+        false,
+        0,
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => {
+            let json: serde_json::Value = match serde_json::from_str(&result) {
+                Ok(v) => v,
+                Err(e) => {
+                    eprintln!("Error parsing stop result: {}", e);
+                    return ERROR_CODE_SERVER_ERROR;
+                }
+            };
+
+            if json["success"].as_bool().unwrap_or(false) {
+                println!("Divergence engine stopped.");
+                0
+            } else {
+                eprintln!(
+                    "Failed to stop divergence engine: {}",
+                    json["error"].as_str().unwrap_or("Unknown")
+                );
+                ERROR_CODE_SERVER_ERROR
+            }
+        }
+        Err(e) => {
+            eprintln!("Error stopping divergence engine: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn background_divergence_status() -> i32 {
+    match rpc_get_divergence_engine_status(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => print_json_pretty(&result, "divergence status"),
+        Err(e) => {
+            eprintln!("Error getting divergence status: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn background_divergence_get_verdict() -> i32 {
+    match rpc_get_divergence_verdict(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => print_json_pretty(&result, "divergence verdict"),
+        Err(e) => {
+            eprintln!("Error getting divergence verdict: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn background_divergence_get_history(limit: usize) -> i32 {
+    match rpc_get_divergence_history(
+        limit,
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => print_json_pretty(&result, "divergence history"),
+        Err(e) => {
+            eprintln!("Error getting divergence history: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+// ============================================================================
+// Vulnerability Detector (model-independent heuristic checks)
+// ============================================================================
+
+pub fn background_vulnerability_start(interval_secs: u64) -> i32 {
+    match rpc_start_vulnerability_detector(
+        true,
+        interval_secs,
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => {
+            let json: serde_json::Value = match serde_json::from_str(&result) {
+                Ok(v) => v,
+                Err(e) => {
+                    eprintln!("Error parsing start result: {}", e);
+                    return ERROR_CODE_SERVER_ERROR;
+                }
+            };
+
+            if json["success"].as_bool().unwrap_or(false) {
+                println!(
+                    "Vulnerability detector started (interval={}s).",
+                    interval_secs
+                );
+                0
+            } else {
+                eprintln!(
+                    "Failed to start vulnerability detector: {}",
+                    json["error"].as_str().unwrap_or("Unknown")
+                );
+                ERROR_CODE_SERVER_ERROR
+            }
+        }
+        Err(e) => {
+            eprintln!("Error starting vulnerability detector: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn background_vulnerability_stop() -> i32 {
+    match rpc_start_vulnerability_detector(
+        false,
+        0,
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => {
+            let json: serde_json::Value = match serde_json::from_str(&result) {
+                Ok(v) => v,
+                Err(e) => {
+                    eprintln!("Error parsing stop result: {}", e);
+                    return ERROR_CODE_SERVER_ERROR;
+                }
+            };
+
+            if json["success"].as_bool().unwrap_or(false) {
+                println!("Vulnerability detector stopped.");
+                0
+            } else {
+                eprintln!(
+                    "Failed to stop vulnerability detector: {}",
+                    json["error"].as_str().unwrap_or("Unknown")
+                );
+                ERROR_CODE_SERVER_ERROR
+            }
+        }
+        Err(e) => {
+            eprintln!("Error stopping vulnerability detector: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn background_vulnerability_status() -> i32 {
+    match rpc_get_vulnerability_detector_status(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => print_json_pretty(&result, "vulnerability detector status"),
+        Err(e) => {
+            eprintln!("Error getting vulnerability detector status: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
 }
 
 /// Process security todos with AI in background mode

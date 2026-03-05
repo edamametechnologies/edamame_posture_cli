@@ -66,13 +66,34 @@ llm_api_key="$(get_config_value "llm_api_key")"
 claude_api_key="$(get_config_value "claude_api_key")"
 openai_api_key="$(get_config_value "openai_api_key")"
 ollama_base_url="$(get_config_value "ollama_base_url")"
+
+# Unified notification configuration (preferred)
+notification_provider="$(get_config_value "notification_provider")"
+notification_slack_bot_token="$(get_config_value "notification_slack_bot_token")"
+notification_slack_channel="$(get_config_value "notification_slack_channel")"
+notification_telegram_bot_token="$(get_config_value "notification_telegram_bot_token")"
+notification_telegram_chat_id="$(get_config_value "notification_telegram_chat_id")"
+
+# Legacy notification configuration (kept for backward compatibility)
 slack_bot_token="$(get_config_value "slack_bot_token")"
 slack_actions_channel="$(get_config_value "slack_actions_channel")"
 slack_escalations_channel="$(get_config_value "slack_escalations_channel")"
+telegram_bot_token="$(get_config_value "telegram_bot_token")"
+telegram_chat_id="$(get_config_value "telegram_chat_id")"
+
+first_non_empty() {
+  for value in "$@"; do
+    if [ -n "$value" ]; then
+      printf "%s" "$value"
+      return
+    fi
+  done
+}
 
 # Set defaults
 agentic_mode="${agentic_mode:-disabled}"
 agentic_interval="${agentic_interval:-3600}"
+notification_provider="${notification_provider:-auto}"
 # Lowercase conversion using tr since ${var,,} is bash-specific
 start_lanscan=$(echo "$start_lanscan" | tr '[:upper:]' '[:lower:]')
 start_capture=$(echo "$start_capture" | tr '[:upper:]' '[:lower:]')
@@ -81,6 +102,31 @@ fail_on_blacklist=$(echo "$fail_on_blacklist" | tr '[:upper:]' '[:lower:]')
 fail_on_anomalous=$(echo "$fail_on_anomalous" | tr '[:upper:]' '[:lower:]')
 cancel_on_violation=$(echo "$cancel_on_violation" | tr '[:upper:]' '[:lower:]')
 include_local_traffic=$(echo "$include_local_traffic" | tr '[:upper:]' '[:lower:]')
+notification_provider=$(echo "$notification_provider" | tr '[:upper:]' '[:lower:]')
+
+# Resolve unified + legacy notification values (new keys win).
+effective_slack_bot_token="$(first_non_empty "$notification_slack_bot_token" "$slack_bot_token")"
+effective_slack_actions_channel="$(first_non_empty "$slack_actions_channel" "$notification_slack_channel")"
+effective_slack_escalations_channel="$(first_non_empty "$slack_escalations_channel" "$notification_slack_channel" "$effective_slack_actions_channel")"
+effective_telegram_bot_token="$(first_non_empty "$notification_telegram_bot_token" "$telegram_bot_token")"
+effective_telegram_chat_id="$(first_non_empty "$notification_telegram_chat_id" "$telegram_chat_id")"
+
+case "$notification_provider" in
+  ""|auto|both)
+    ;;
+  slack)
+    effective_telegram_bot_token=""
+    effective_telegram_chat_id=""
+    ;;
+  telegram)
+    effective_slack_bot_token=""
+    effective_slack_actions_channel=""
+    effective_slack_escalations_channel=""
+    ;;
+  *)
+    echo "Unknown notification_provider '$notification_provider', using auto"
+    ;;
+esac
 
 # Determine LLM provider based on which API key is configured (first non-empty wins)
 # Priority: edamame > claude > openai > ollama
@@ -103,20 +149,30 @@ elif [ -n "$ollama_base_url" ]; then
   echo "Using Ollama as LLM provider at: $ollama_base_url"
 fi
 
-# Set Slack environment variables if configured
-if [ -n "$slack_bot_token" ]; then
-  export EDAMAME_AGENTIC_SLACK_BOT_TOKEN="$slack_bot_token"
+# Set unified notification environment variables if configured
+if [ -n "$effective_slack_bot_token" ]; then
+  export EDAMAME_AGENTIC_SLACK_BOT_TOKEN="$effective_slack_bot_token"
+  # Legacy aliases kept for older builds/scripts.
+  export EDAMAME_AGENTIC_WEBHOOK_ACTIONS_TOKEN="$effective_slack_bot_token"
   echo "Slack bot token configured"
 fi
 
-if [ -n "$slack_actions_channel" ]; then
-  export EDAMAME_AGENTIC_SLACK_ACTIONS_CHANNEL="$slack_actions_channel"
-  echo "Slack actions channel: $slack_actions_channel"
+if [ -n "$effective_slack_actions_channel" ]; then
+  export EDAMAME_AGENTIC_SLACK_ACTIONS_CHANNEL="$effective_slack_actions_channel"
+  export EDAMAME_AGENTIC_WEBHOOK_ACTIONS_CHANNEL="$effective_slack_actions_channel"
+  echo "Slack actions channel: $effective_slack_actions_channel"
 fi
 
-if [ -n "$slack_escalations_channel" ]; then
-  export EDAMAME_AGENTIC_SLACK_ESCALATIONS_CHANNEL="$slack_escalations_channel"
-  echo "Slack escalations channel: $slack_escalations_channel"
+if [ -n "$effective_slack_escalations_channel" ]; then
+  export EDAMAME_AGENTIC_SLACK_ESCALATIONS_CHANNEL="$effective_slack_escalations_channel"
+  export EDAMAME_AGENTIC_WEBHOOK_ESCALATIONS_CHANNEL="$effective_slack_escalations_channel"
+  echo "Slack escalations channel: $effective_slack_escalations_channel"
+fi
+
+if [ -n "$effective_telegram_bot_token" ] && [ -n "$effective_telegram_chat_id" ]; then
+  export EDAMAME_TELEGRAM_BOT_TOKEN="$effective_telegram_bot_token"
+  export EDAMAME_TELEGRAM_CHAT_ID="$effective_telegram_chat_id"
+  echo "Telegram notifications configured (chat_id: $effective_telegram_chat_id)"
 fi
 
 # Build command arguments using set --

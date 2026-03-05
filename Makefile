@@ -1,4 +1,4 @@
-.PHONY: clean macos macos_release macos_debug macos_publish windows windows_debug windows_release windows_publish linux linux_debug linux_release linux_publish upgrade unused_dependencies format test completions
+.PHONY: clean macos macos_release macos_debug macos_publish windows windows_debug windows_release windows_publish linux linux_debug linux_release linux_publish upgrade unused_dependencies format test completions test_divergence_demo
 
 # Import and export env for edamame_core and edamame_foundation
 -include ../secrets/lambda-signature.env
@@ -114,6 +114,11 @@ test_integration_local: macos_release # Ensure binary is built
 	export RUNNER_OS=$(shell if [ "$(OS)" = "Windows_NT" ]; then echo "Windows_NT"; else echo "$(shell uname)"; fi); \
 	bash ./tests/integration_test.sh
 
+# Run divergence demo scenarios (non-MCP, script-driven injections)
+test_divergence_demo: macos_release
+	export RUNNER_OS=$(shell if [ "$(OS)" = "Windows_NT" ]; then echo "Windows_NT"; else echo "$(shell uname)"; fi); \
+	bash ./tests/divergence_demo_scenarios_test.sh
+
 # Run integration tests in connected mode (requires credentials).
 # Requires credentials (EDAMAME_USER, EDAMAME_DOMAIN, EDAMAME_PIN) to be set in the environment.
 # Warning: This will connect to the actual backend.
@@ -132,6 +137,62 @@ test_integration_connected: macos_release # Ensure binary is built
 all_test: test commands_test test_integration_local
 	@echo "--- All Local Tests Completed ---"
 	@echo "Note: 'make test_integration_connected' can be run separately if credentials are configured."
+
+# =============================================================================
+# Lima VM native build (Linux ARM64/x86_64 from macOS)
+# =============================================================================
+#
+# Cross-compilation from macOS to Linux fails due to pkg-config and native
+# library dependencies. Instead, build natively inside a Lima VM that mounts
+# the host workspace read-write.
+#
+# Usage:
+#   make lima_build                              # Build in default Lima VM
+#   make lima_build LIMA_BUILD_VM=openclaw-security  # Build in specific VM
+#   EDAMAME_POSTURE_BINARY=<path> ./setup/start.sh   # Deploy to test VM
+#
+# Prerequisites:
+#   - Lima VM must already exist and have Rust + build deps installed
+#   - ../secrets/foundation.env must exist (compile-time env vars)
+#   - VM must mount ~ read-write (default Lima config)
+
+LIMA_BUILD_VM ?= posture-ebpf-test
+LIMA_BUILD_DIR ?= /tmp/edamame_posture_build
+
+.PHONY: lima_build lima_build_check
+
+lima_build_check:
+	@which limactl > /dev/null || (echo "Lima not installed. Install with: brew install lima" && exit 1)
+	@test -f ../secrets/foundation.env || (echo "Missing ../secrets/foundation.env (compile-time secrets)" && exit 1)
+	@limactl list --json 2>/dev/null | jq -e "select(.name == \"$(LIMA_BUILD_VM)\" and .status == \"Running\")" > /dev/null 2>&1 \
+		|| (echo "Lima VM '$(LIMA_BUILD_VM)' is not running. Start with: limactl start $(LIMA_BUILD_VM)" && exit 1)
+
+lima_build: lima_build_check
+	@echo "=== Building edamame_posture natively in Lima VM '$(LIMA_BUILD_VM)' ==="
+	limactl shell $(LIMA_BUILD_VM) -- bash -c ' \
+		set -euo pipefail; \
+		set -a; source $(CURDIR)/../secrets/foundation.env; set +a; \
+		for f in $(CURDIR)/../secrets/sentry.env $(CURDIR)/../secrets/analytics.env \
+		         $(CURDIR)/../secrets/edamame.env $(CURDIR)/../secrets/lambda-signature.env; do \
+			[ -f "$$f" ] && { set -a; source "$$f"; set +a; } || true; \
+		done; \
+		if [ ! -f $$HOME/.cargo/env ]; then \
+			echo "Installing Rust..."; \
+			curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y; \
+		fi; \
+		source $$HOME/.cargo/env; \
+		export CARGO_TARGET_DIR=$(LIMA_BUILD_DIR); \
+		cd $(CURDIR); \
+		echo "Building (CARGO_TARGET_DIR=$(LIMA_BUILD_DIR))..."; \
+		cargo build --release 2>&1; \
+		echo ""; \
+		echo "Build complete: $(LIMA_BUILD_DIR)/release/edamame_posture"; \
+		ls -lh $(LIMA_BUILD_DIR)/release/edamame_posture; \
+		file $(LIMA_BUILD_DIR)/release/edamame_posture \
+	'
+	@echo ""
+	@echo "To deploy to a Lima VM:"
+	@echo "  EDAMAME_POSTURE_BINARY=$(LIMA_BUILD_DIR)/release/edamame_posture ./setup/start.sh"
 
 # =============================================================================
 # Lima VM targets for eBPF testing on macOS

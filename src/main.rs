@@ -1092,6 +1092,103 @@ fn run_base() {
             exit_code = background_agentic_summary();
             is_background = true;
         }
+        Some(("background-agentic-start", sub_matches)) => {
+            let mode = sub_matches
+                .get_one::<String>("MODE")
+                .map_or("analyze", |v| v.as_str());
+            let interval_secs = *sub_matches.get_one::<u64>("INTERVAL_SECS").unwrap_or(&3600);
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_agentic_start(mode, interval_secs);
+            is_background = true;
+        }
+        Some(("background-agentic-stop", _)) => {
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_agentic_stop();
+            is_background = true;
+        }
+        Some(("background-agentic-status", _)) => {
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_agentic_status();
+            is_background = true;
+        }
+        Some(("background-divergence-upsert-model", sub_matches)) => {
+            let model_json = sub_matches
+                .get_one::<String>("MODEL_JSON")
+                .expect("MODEL_JSON not provided")
+                .to_string();
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_divergence_upsert_model(model_json);
+            is_background = true;
+        }
+        Some(("background-divergence-upsert-model-from-file", sub_matches)) => {
+            let model_file = sub_matches
+                .get_one::<String>("MODEL_FILE")
+                .expect("MODEL_FILE not provided");
+            match std::fs::read_to_string(model_file) {
+                Ok(model_json) => {
+                    initialize_core("".to_string(), false, false, false, false, false, verbose);
+                    exit_code = background_divergence_upsert_model(model_json);
+                    is_background = true;
+                }
+                Err(e) => {
+                    eprintln!("Error reading model file '{}': {}", model_file, e);
+                    exit_code = ERROR_CODE_PARAM;
+                }
+            }
+        }
+        Some(("background-divergence-get-model", _)) => {
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_divergence_get_model();
+            is_background = true;
+        }
+        Some(("background-divergence-clear-model", _)) => {
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_divergence_clear_model();
+            is_background = true;
+        }
+        Some(("background-divergence-start", sub_matches)) => {
+            let interval_secs = *sub_matches.get_one::<u64>("INTERVAL_SECS").unwrap_or(&120);
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_divergence_start(interval_secs);
+            is_background = true;
+        }
+        Some(("background-divergence-stop", _)) => {
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_divergence_stop();
+            is_background = true;
+        }
+        Some(("background-divergence-status", _)) => {
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_divergence_status();
+            is_background = true;
+        }
+        Some(("background-divergence-get-verdict", _)) => {
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_divergence_get_verdict();
+            is_background = true;
+        }
+        Some(("background-divergence-get-history", sub_matches)) => {
+            let limit = *sub_matches.get_one::<usize>("LIMIT").unwrap_or(&20);
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_divergence_get_history(limit);
+            is_background = true;
+        }
+        Some(("background-vulnerability-start", sub_matches)) => {
+            let interval_secs = *sub_matches.get_one::<u64>("INTERVAL_SECS").unwrap_or(&60);
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_vulnerability_start(interval_secs);
+            is_background = true;
+        }
+        Some(("background-vulnerability-stop", _)) => {
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_vulnerability_stop();
+            is_background = true;
+        }
+        Some(("background-vulnerability-status", _)) => {
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_vulnerability_status();
+            is_background = true;
+        }
         _ => {
             // Initialize the core with all options disabled
             initialize_core("".to_string(), false, false, false, false, false, verbose);

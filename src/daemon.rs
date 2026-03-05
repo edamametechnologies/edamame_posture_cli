@@ -91,6 +91,10 @@ pub fn background_process(
         last_name: "".to_string(),
     });
 
+    // Force LAN auto-scan to follow the explicit start option, overriding any
+    // previously persisted value from earlier runs.
+    set_auto_scan(lan_scanning);
+
     if lan_scanning || packet_capture {
         // Grant consent when either capability is required
         grant_consent();
@@ -503,7 +507,7 @@ pub fn background_start(
                 // So we need to fork a new process but make sure it's tied to this one
                 // Otherwise it will go defunct when terminated
                 // So we don't use spawn() but output() here
-                let _ = Command::new(std::env::current_exe().unwrap())
+                let output = Command::new(std::env::current_exe().unwrap())
                     .arg("background-process")
                     .arg(&user)
                     .arg(&domain)
@@ -522,6 +526,20 @@ pub fn background_start(
                     .arg(&agentic_interval.to_string())
                     .output()
                     .expect("Failed to start background process");
+                if !output.status.success() {
+                    let stderr = String::from_utf8_lossy(&output.stderr);
+                    let stdout = String::from_utf8_lossy(&output.stdout);
+                    eprintln!(
+                        "Background process exited with status: {}",
+                        output.status
+                    );
+                    if !stderr.is_empty() {
+                        eprintln!("stderr: {}", stderr);
+                    }
+                    if !stdout.is_empty() {
+                        eprintln!("stdout: {}", stdout);
+                    }
+                }
                 std::process::exit(0);
             }
             Err(e) => {
