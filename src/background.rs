@@ -955,13 +955,11 @@ pub fn background_configure_agentic(provider: String) {
     }
 
     // Handle BYOLLM providers (claude, openai, ollama)
-    let model = std::env::var("EDAMAME_LLM_MODEL").unwrap_or_else(|_| {
-        match provider.as_str() {
-            "claude" => "claude-haiku-4-5-20251001".to_string(),
-            "openai" => "gpt-5-mini-2025-08-07".to_string(),
-            "ollama" => "llama4".to_string(),
-            _ => String::new(),
-        }
+    let model = std::env::var("EDAMAME_LLM_MODEL").unwrap_or_else(|_| match provider.as_str() {
+        "claude" => "claude-haiku-4-5-20251001".to_string(),
+        "openai" => "gpt-5-mini-2025-08-07".to_string(),
+        "ollama" => "llama4".to_string(),
+        _ => String::new(),
     });
     let base_url = std::env::var("EDAMAME_LLM_BASE_URL").unwrap_or_default();
     let slack_bot_token = std::env::var("EDAMAME_AGENTIC_SLACK_BOT_TOKEN")
