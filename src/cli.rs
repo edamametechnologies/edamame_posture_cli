@@ -408,6 +408,31 @@ pub fn build_cli() -> Command {
                     .value_parser(clap::value_parser!(usize)),
             ),
     )
+    .subcommand(
+        Command::new("background-divergence-dismiss")
+            .alias("divergence-dismiss")
+            .about("Dismiss divergence evidence by finding key")
+            .arg(
+                arg!(<FINDING_KEY> "Finding key to dismiss")
+                    .required(true)
+                    .value_parser(clap::value_parser!(String)),
+            ),
+    )
+    .subcommand(
+        Command::new("background-divergence-undismiss")
+            .alias("divergence-undismiss")
+            .about("Restore previously dismissed divergence evidence")
+            .arg(
+                arg!(<FINDING_KEY> "Finding key to restore")
+                    .required(true)
+                    .value_parser(clap::value_parser!(String)),
+            ),
+    )
+    .subcommand(
+        Command::new("background-divergence-reset-suppressions")
+            .alias("divergence-reset-suppressions")
+            .about("Reset all divergence suppressions"),
+    )
     ////////////////
     // Vulnerability Detector commands (model-independent)
     ////////////////
@@ -431,6 +456,31 @@ pub fn build_cli() -> Command {
         Command::new("background-vulnerability-status")
             .alias("vulnerability-status")
             .about("Get vulnerability detector status"),
+    )
+    .subcommand(
+        Command::new("background-vulnerability-dismiss")
+            .alias("vulnerability-dismiss")
+            .about("Dismiss vulnerability finding by finding key")
+            .arg(
+                arg!(<FINDING_KEY> "Finding key to dismiss")
+                    .required(true)
+                    .value_parser(clap::value_parser!(String)),
+            ),
+    )
+    .subcommand(
+        Command::new("background-vulnerability-undismiss")
+            .alias("vulnerability-undismiss")
+            .about("Restore previously dismissed vulnerability finding")
+            .arg(
+                arg!(<FINDING_KEY> "Finding key to restore")
+                    .required(true)
+                    .value_parser(clap::value_parser!(String)),
+            ),
+    )
+    .subcommand(
+        Command::new("background-vulnerability-reset-suppressions")
+            .alias("vulnerability-reset-suppressions")
+            .about("Reset all vulnerability suppressions"),
     )
     .subcommand(Command::new("background-status").alias("status").about("Get status of reporting background process"))
     .subcommand(Command::new("background-last-report-signature").alias("get-last-report-signature").about("Get last report signature of background process"))

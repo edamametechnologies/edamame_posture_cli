@@ -813,6 +813,104 @@ pub fn background_augment_custom_whitelists() -> i32 {
     }
 }
 
+/// Configure notification channels for the EDAMAME Portal provider path.
+/// The EDAMAME API key is already set; this merges Slack/Telegram one-way
+/// notification fields into the existing config by calling
+/// `agentic_set_llm_config` with `provider="internal"` (the merge logic in
+/// `api_agentic.rs` preserves OAuth/API-key state for the internal provider).
+fn configure_edamame_notifications() {
+    use edamame_core::api::api_agentic::*;
+
+    let slack_bot_token = std::env::var("EDAMAME_AGENTIC_SLACK_BOT_TOKEN")
+        .or_else(|_| std::env::var("EDAMAME_AGENTIC_WEBHOOK_ACTIONS_TOKEN"))
+        .unwrap_or_default();
+    let slack_actions_channel =
+        std::env::var("EDAMAME_AGENTIC_SLACK_ACTIONS_CHANNEL").unwrap_or_default();
+    let slack_escalations_channel =
+        std::env::var("EDAMAME_AGENTIC_SLACK_ESCALATIONS_CHANNEL").unwrap_or_default();
+
+    let telegram_bot_token = std::env::var("EDAMAME_TELEGRAM_BOT_TOKEN").unwrap_or_default();
+    let telegram_chat_id = std::env::var("EDAMAME_TELEGRAM_CHAT_ID").unwrap_or_default();
+
+    if slack_bot_token.is_empty()
+        && (!slack_actions_channel.is_empty() || !slack_escalations_channel.is_empty())
+    {
+        warn!("Slack notifications requested but EDAMAME_AGENTIC_SLACK_BOT_TOKEN is missing");
+    }
+
+    if !slack_actions_channel.is_empty() {
+        info!(
+            "AI Assistant Slack actions channel configured: {}",
+            slack_actions_channel
+        );
+    }
+    if !slack_escalations_channel.is_empty() {
+        info!(
+            "AI Assistant Slack escalations channel configured: {}",
+            slack_escalations_channel
+        );
+    }
+    if !telegram_bot_token.is_empty() && !telegram_chat_id.is_empty() {
+        info!(
+            "Telegram notifications configured (chat_id: {})",
+            telegram_chat_id
+        );
+    }
+
+    if !slack_bot_token.is_empty() || !telegram_bot_token.is_empty() {
+        if agentic_set_llm_config(
+            "internal".to_string(),
+            String::new(),
+            String::new(),
+            String::new(),
+            String::new(),
+            slack_bot_token,
+            slack_actions_channel,
+            slack_escalations_channel,
+            telegram_bot_token,
+            telegram_chat_id,
+        ) {
+            info!("Notification channels configured");
+        } else {
+            warn!("Failed to configure notification channels");
+        }
+    }
+}
+
+/// Configure Telegram interactive (bidirectional) mode: inline buttons for
+/// execute/undo/dismiss/restore actions directly from the Telegram chat.
+/// Called after both the LLM provider and one-way notification channels are set.
+fn configure_telegram_interactive() {
+    use edamame_core::api::api_agentic::*;
+
+    let enabled = std::env::var("EDAMAME_TELEGRAM_INTERACTIVE_ENABLED")
+        .map(|v| v == "true" || v == "1")
+        .unwrap_or(false);
+
+    if !enabled {
+        return;
+    }
+
+    let allowed_user_ids: Vec<i64> = std::env::var("EDAMAME_TELEGRAM_ALLOWED_USER_IDS")
+        .unwrap_or_default()
+        .split(',')
+        .filter_map(|s| s.trim().parse::<i64>().ok())
+        .collect();
+
+    if allowed_user_ids.is_empty() {
+        warn!("Telegram interactive mode enabled but EDAMAME_TELEGRAM_ALLOWED_USER_IDS is empty -- no users will be authorized");
+    }
+
+    if agentic_set_telegram_interactive_config(enabled, allowed_user_ids.clone()) {
+        info!(
+            "Telegram interactive mode enabled ({} authorized user(s))",
+            allowed_user_ids.len()
+        );
+    } else {
+        warn!("Failed to configure Telegram interactive mode");
+    }
+}
+
 /// Configure agentic LLM provider for background process
 #[allow(unused_variables)]
 pub fn background_configure_agentic(provider: String) {
@@ -850,13 +948,16 @@ pub fn background_configure_agentic(provider: String) {
         } else {
             error!("Failed to set EDAMAME API key");
         }
+
+        configure_edamame_notifications();
+        configure_telegram_interactive();
         return;
     }
 
     // Handle BYOLLM providers (claude, openai, ollama)
     let model = std::env::var("EDAMAME_LLM_MODEL").unwrap_or_else(|_| {
         match provider.as_str() {
-            "claude" => "claude-haiku-4-5-20251001".to_string(), // Use Haiku for background (faster/cheaper)
+            "claude" => "claude-haiku-4-5-20251001".to_string(),
             "openai" => "gpt-5-mini-2025-08-07".to_string(),
             "ollama" => "llama4".to_string(),
             _ => String::new(),
@@ -874,47 +975,8 @@ pub fn background_configure_agentic(provider: String) {
     let telegram_bot_token = std::env::var("EDAMAME_TELEGRAM_BOT_TOKEN").unwrap_or_default();
     let telegram_chat_id = std::env::var("EDAMAME_TELEGRAM_CHAT_ID").unwrap_or_default();
 
-    // Legacy webhook environment variables are deprecated but we still surface a warning
-    let legacy_actions_url =
-        std::env::var("EDAMAME_AGENTIC_WEBHOOK_ACTIONS_URL").unwrap_or_default();
-    let legacy_escalations_url =
-        std::env::var("EDAMAME_AGENTIC_WEBHOOK_ESCALATIONS_URL").unwrap_or_default();
-
-    if !legacy_actions_url.is_empty() || !legacy_escalations_url.is_empty() {
-        warn!(
-            "EDAMAME_AGENTIC_WEBHOOK_* environment variables are deprecated – use EDAMAME_AGENTIC_SLACK_* instead"
-        );
-    }
-
     // MCP PSK not needed for background mode (no external AI clients)
     let mcp_psk = String::new();
-
-    if slack_bot_token.is_empty()
-        && (!slack_actions_channel.is_empty() || !slack_escalations_channel.is_empty())
-    {
-        warn!("Slack notifications requested but EDAMAME_AGENTIC_SLACK_BOT_TOKEN is missing");
-    }
-
-    if !slack_actions_channel.is_empty() {
-        info!(
-            "AI Assistant Slack actions channel configured: {}",
-            slack_actions_channel
-        );
-    }
-
-    if !slack_escalations_channel.is_empty() {
-        info!(
-            "AI Assistant Slack escalations channel configured: {}",
-            slack_escalations_channel
-        );
-    }
-
-    if !telegram_bot_token.is_empty() && !telegram_chat_id.is_empty() {
-        info!(
-            "Telegram notifications configured (chat_id: {})",
-            telegram_chat_id
-        );
-    }
 
     if agentic_set_llm_config(
         provider.clone(),
@@ -932,6 +994,8 @@ pub fn background_configure_agentic(provider: String) {
     } else {
         error!("Failed to configure AI Assistant. Check EDAMAME_LLM_API_KEY environment variable.");
     }
+
+    configure_telegram_interactive();
 }
 
 // ============================================================================
@@ -1594,6 +1658,115 @@ pub fn background_divergence_get_history(limit: usize) -> i32 {
     }
 }
 
+pub fn background_divergence_dismiss(finding_key: String) -> i32 {
+    if finding_key.trim().is_empty() {
+        eprintln!("Finding key cannot be empty");
+        return ERROR_CODE_PARAM;
+    }
+    match rpc_dismiss_divergence_evidence(
+        finding_key.trim().to_string(),
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => {
+            let json: serde_json::Value = match serde_json::from_str(&result) {
+                Ok(v) => v,
+                Err(e) => {
+                    eprintln!("Error parsing dismiss result: {}", e);
+                    return ERROR_CODE_SERVER_ERROR;
+                }
+            };
+            if json["success"].as_bool().unwrap_or(false) {
+                println!("Divergence evidence dismissed.");
+                0
+            } else {
+                eprintln!(
+                    "Failed to dismiss divergence evidence: {}",
+                    json["error"].as_str().unwrap_or("Unknown")
+                );
+                ERROR_CODE_SERVER_ERROR
+            }
+        }
+        Err(e) => {
+            eprintln!("Error dismissing divergence evidence: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn background_divergence_undismiss(finding_key: String) -> i32 {
+    if finding_key.trim().is_empty() {
+        eprintln!("Finding key cannot be empty");
+        return ERROR_CODE_PARAM;
+    }
+    match rpc_undismiss_divergence_evidence(
+        finding_key.trim().to_string(),
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => {
+            let json: serde_json::Value = match serde_json::from_str(&result) {
+                Ok(v) => v,
+                Err(e) => {
+                    eprintln!("Error parsing undismiss result: {}", e);
+                    return ERROR_CODE_SERVER_ERROR;
+                }
+            };
+            if json["success"].as_bool().unwrap_or(false) {
+                println!("Divergence evidence restored.");
+                0
+            } else {
+                eprintln!(
+                    "Failed to restore divergence evidence: {}",
+                    json["error"].as_str().unwrap_or("Unknown")
+                );
+                ERROR_CODE_SERVER_ERROR
+            }
+        }
+        Err(e) => {
+            eprintln!("Error restoring divergence evidence: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn background_divergence_reset_suppressions() -> i32 {
+    match rpc_reset_divergence_suppressions(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => {
+            let json: serde_json::Value = match serde_json::from_str(&result) {
+                Ok(v) => v,
+                Err(e) => {
+                    eprintln!("Error parsing reset result: {}", e);
+                    return ERROR_CODE_SERVER_ERROR;
+                }
+            };
+            if json["success"].as_bool().unwrap_or(false) {
+                println!("Divergence suppressions reset.");
+                0
+            } else {
+                eprintln!(
+                    "Failed to reset divergence suppressions: {}",
+                    json["error"].as_str().unwrap_or("Unknown")
+                );
+                ERROR_CODE_SERVER_ERROR
+            }
+        }
+        Err(e) => {
+            eprintln!("Error resetting divergence suppressions: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
 // ============================================================================
 // Vulnerability Detector (model-independent heuristic checks)
 // ============================================================================
@@ -1683,6 +1856,115 @@ pub fn background_vulnerability_status() -> i32 {
         Ok(result) => print_json_pretty(&result, "vulnerability detector status"),
         Err(e) => {
             eprintln!("Error getting vulnerability detector status: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn background_vulnerability_dismiss(finding_key: String) -> i32 {
+    if finding_key.trim().is_empty() {
+        eprintln!("Finding key cannot be empty");
+        return ERROR_CODE_PARAM;
+    }
+    match rpc_dismiss_vulnerability_finding(
+        finding_key.trim().to_string(),
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => {
+            let json: serde_json::Value = match serde_json::from_str(&result) {
+                Ok(v) => v,
+                Err(e) => {
+                    eprintln!("Error parsing dismiss result: {}", e);
+                    return ERROR_CODE_SERVER_ERROR;
+                }
+            };
+            if json["success"].as_bool().unwrap_or(false) {
+                println!("Vulnerability finding dismissed.");
+                0
+            } else {
+                eprintln!(
+                    "Failed to dismiss vulnerability finding: {}",
+                    json["error"].as_str().unwrap_or("Unknown")
+                );
+                ERROR_CODE_SERVER_ERROR
+            }
+        }
+        Err(e) => {
+            eprintln!("Error dismissing vulnerability finding: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn background_vulnerability_undismiss(finding_key: String) -> i32 {
+    if finding_key.trim().is_empty() {
+        eprintln!("Finding key cannot be empty");
+        return ERROR_CODE_PARAM;
+    }
+    match rpc_undismiss_vulnerability_finding(
+        finding_key.trim().to_string(),
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => {
+            let json: serde_json::Value = match serde_json::from_str(&result) {
+                Ok(v) => v,
+                Err(e) => {
+                    eprintln!("Error parsing undismiss result: {}", e);
+                    return ERROR_CODE_SERVER_ERROR;
+                }
+            };
+            if json["success"].as_bool().unwrap_or(false) {
+                println!("Vulnerability finding restored.");
+                0
+            } else {
+                eprintln!(
+                    "Failed to restore vulnerability finding: {}",
+                    json["error"].as_str().unwrap_or("Unknown")
+                );
+                ERROR_CODE_SERVER_ERROR
+            }
+        }
+        Err(e) => {
+            eprintln!("Error restoring vulnerability finding: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn background_vulnerability_reset_suppressions() -> i32 {
+    match rpc_reset_vulnerability_suppressions(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => {
+            let json: serde_json::Value = match serde_json::from_str(&result) {
+                Ok(v) => v,
+                Err(e) => {
+                    eprintln!("Error parsing reset result: {}", e);
+                    return ERROR_CODE_SERVER_ERROR;
+                }
+            };
+            if json["success"].as_bool().unwrap_or(false) {
+                println!("Vulnerability suppressions reset.");
+                0
+            } else {
+                eprintln!(
+                    "Failed to reset vulnerability suppressions: {}",
+                    json["error"].as_str().unwrap_or("Unknown")
+                );
+                ERROR_CODE_SERVER_ERROR
+            }
+        }
+        Err(e) => {
+            eprintln!("Error resetting vulnerability suppressions: {}", e);
             ERROR_CODE_SERVER_ERROR
         }
     }

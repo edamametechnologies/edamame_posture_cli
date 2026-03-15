@@ -1173,6 +1173,29 @@ fn run_base() {
             exit_code = background_divergence_get_history(limit);
             is_background = true;
         }
+        Some(("background-divergence-dismiss", sub_matches)) => {
+            let finding_key = sub_matches
+                .get_one::<String>("FINDING_KEY")
+                .expect("FINDING_KEY not provided")
+                .to_string();
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_divergence_dismiss(finding_key);
+            is_background = true;
+        }
+        Some(("background-divergence-undismiss", sub_matches)) => {
+            let finding_key = sub_matches
+                .get_one::<String>("FINDING_KEY")
+                .expect("FINDING_KEY not provided")
+                .to_string();
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_divergence_undismiss(finding_key);
+            is_background = true;
+        }
+        Some(("background-divergence-reset-suppressions", _)) => {
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_divergence_reset_suppressions();
+            is_background = true;
+        }
         Some(("background-vulnerability-start", sub_matches)) => {
             let interval_secs = *sub_matches.get_one::<u64>("INTERVAL_SECS").unwrap_or(&60);
             initialize_core("".to_string(), false, false, false, false, false, verbose);
@@ -1187,6 +1210,29 @@ fn run_base() {
         Some(("background-vulnerability-status", _)) => {
             initialize_core("".to_string(), false, false, false, false, false, verbose);
             exit_code = background_vulnerability_status();
+            is_background = true;
+        }
+        Some(("background-vulnerability-dismiss", sub_matches)) => {
+            let finding_key = sub_matches
+                .get_one::<String>("FINDING_KEY")
+                .expect("FINDING_KEY not provided")
+                .to_string();
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_vulnerability_dismiss(finding_key);
+            is_background = true;
+        }
+        Some(("background-vulnerability-undismiss", sub_matches)) => {
+            let finding_key = sub_matches
+                .get_one::<String>("FINDING_KEY")
+                .expect("FINDING_KEY not provided")
+                .to_string();
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_vulnerability_undismiss(finding_key);
+            is_background = true;
+        }
+        Some(("background-vulnerability-reset-suppressions", _)) => {
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_vulnerability_reset_suppressions();
             is_background = true;
         }
         _ => {
@@ -1214,8 +1260,10 @@ fn run_base() {
         println!("{}", logs);
     }
 
-    // Properly terminate the core
-    terminate(false);
+    // Some lightweight commands never initialize the shared runtime.
+    if edamame_foundation::runtime::is_initialized() {
+        terminate(false);
+    }
 
     exit(exit_code);
 }
