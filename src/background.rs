@@ -858,6 +858,8 @@ fn configure_edamame_notifications() {
     }
 
     if !slack_bot_token.is_empty() || !telegram_bot_token.is_empty() {
+        let slack_enabled = !slack_bot_token.is_empty();
+        let telegram_enabled = !telegram_bot_token.is_empty();
         if agentic_set_llm_config(
             "internal".to_string(),
             String::new(),
@@ -869,6 +871,8 @@ fn configure_edamame_notifications() {
             slack_escalations_channel,
             telegram_bot_token,
             telegram_chat_id,
+            slack_enabled,
+            telegram_enabled,
         ) {
             info!("Notification channels configured");
         } else {
@@ -976,6 +980,8 @@ pub fn background_configure_agentic(provider: String) {
     // MCP PSK not needed for background mode (no external AI clients)
     let mcp_psk = String::new();
 
+    let slack_enabled = !slack_bot_token.is_empty();
+    let telegram_enabled = !telegram_bot_token.is_empty();
     if agentic_set_llm_config(
         provider.clone(),
         api_key.clone(),
@@ -987,6 +993,8 @@ pub fn background_configure_agentic(provider: String) {
         slack_escalations_channel,
         telegram_bot_token,
         telegram_chat_id,
+        slack_enabled,
+        telegram_enabled,
     ) {
         info!("AI Assistant configured: {} / {}", provider, model);
     } else {
