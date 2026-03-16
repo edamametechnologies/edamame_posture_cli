@@ -1038,7 +1038,7 @@ Example (GitHub Actions):
 - name: Setup EDAMAME Posture
   run: |
     # Quick install using our installer script
-    curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh | sh
+    curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture/main/install.sh | sh
 
     # Start background monitoring in disconnected mode (with LAN scanning + capture enabled)
     sudo edamame_posture background-start-disconnected --network-scan --packet-capture --whitelist github_ubuntu
@@ -1046,7 +1046,7 @@ Example (GitHub Actions):
 # Or install and auto-configure with EDAMAME Portal LLM (recommended)
 - name: Setup EDAMAME Posture with AI (Cloud LLM)
   run: |
-    curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh | sh -s -- \
+    curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture/main/install.sh | sh -s -- \
       --user ${{ vars.EDAMAME_USER }} \
       --domain ${{ vars.EDAMAME_DOMAIN }} \
       --pin ${{ secrets.EDAMAME_PIN }} \
@@ -1059,7 +1059,7 @@ Example (GitHub Actions):
 # Or with Bring Your Own LLM (e.g., Claude)
 - name: Setup EDAMAME Posture with AI (BYOLLM)
   run: |
-    curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh | sh -s -- \
+    curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture/main/install.sh | sh -s -- \
       --user ${{ vars.EDAMAME_USER }} \
       --domain ${{ vars.EDAMAME_DOMAIN }} \
       --pin ${{ secrets.EDAMAME_PIN }} \
@@ -1073,7 +1073,7 @@ Example (GitLab CI):
 setup_security:
   stage: setup
   script:
-    - curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh | sh
+    - curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture/main/install.sh | sh
     - sudo edamame_posture background-start-disconnected --network-scan --packet-capture --whitelist github_ubuntu
 ```
 
@@ -1181,7 +1181,7 @@ pipeline {
             steps {
                 sh '''
                 # Quick install EDAMAME Posture
-                curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh | sh
+                curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture/main/install.sh | sh
 
                 # Start background monitoring (disconnected mode with LAN scanning)
                 sudo edamame_posture background-start-disconnected --network-scan --packet-capture --whitelist github_ubuntu
@@ -1250,12 +1250,12 @@ For the fastest installation on Linux, use our universal installer script:
 
 #### Basic Installation
 ```bash
-curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh | sh
+curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture/main/install.sh | sh
 ```
 
 #### Install and Configure Service
 ```bash
-curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh | sh -s -- \
+curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture/main/install.sh | sh -s -- \
   --user myuser \
   --domain example.com \
   --pin 123456
@@ -1271,7 +1271,7 @@ curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamamete
 
 #### Install with AI Assistant (Claude)
 ```bash
-curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh | sh -s -- \
+curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture/main/install.sh | sh -s -- \
   --user myuser \
   --domain example.com \
   --pin 123456 \
@@ -1284,7 +1284,7 @@ curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamamete
 
 #### Install with AI Assistant (Ollama - Local/Privacy)
 ```bash
-curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh | sh -s -- \
+curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture/main/install.sh | sh -s -- \
   --user myuser \
   --domain example.com \
   --pin 123456 \
@@ -2237,7 +2237,7 @@ jobs:
 
       - name: Install EDAMAME Posture
         run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh | sh
+          curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture/main/install.sh | sh
 
       - name: Start background monitor in disconnected mode
         run: sudo edamame_posture background-start-disconnected --network-scan --packet-capture --whitelist github_ubuntu
@@ -3121,7 +3121,7 @@ EDAMAME Posture is part of a broader ecosystem of tools and services provided by
 - **[EDAMAME Core API](https://github.com/edamametechnologies/edamame_core_api)**: Public API documentation for EDAMAME Core -- architecture, 150+ RPC methods, event system, gRPC and MCP interfaces
 - **[EDAMAME Security](https://github.com/edamametechnologies/edamame_security)**: Desktop/mobile security application with full UI and enhanced capabilities (closed source)
 - **[EDAMAME Foundation](https://github.com/edamametechnologies/edamame_foundation)**: Foundation library providing security assessment functionality
-- **[EDAMAME Posture](https://github.com/edamametechnologies/edamame_posture_cli)**: CLI tool for security posture assessment and remediation
+- **[EDAMAME Posture](https://github.com/edamametechnologies/edamame_posture)**: CLI tool for security posture assessment and remediation
 - **[EDAMAME Helper](https://github.com/edamametechnologies/edamame_helper)**: Helper application for executing privileged security checks
 - **[EDAMAME CLI](https://github.com/edamametechnologies/edamame_cli)**: Interface to EDAMAME core services
 - **[GitHub Action](https://github.com/edamametechnologies/edamame_posture_action)**: CI/CD integration to enforce posture and network controls
