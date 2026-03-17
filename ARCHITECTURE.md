@@ -117,6 +117,8 @@ edamame-posture mcp-status       # Get MCP server status
 edamame-posture mcp-generate-psk # Generate PSK
 ```
 
+**MCP Authentication**: Dual-mode auth is supported. Shared PSK (Bearer token at server start) remains the primary and recommended method for CLI/headless environments. Per-client pairing (via `/mcp/pair`, app-mediated) is available for desktop clients (edamame_cursor, edamame_openclaw).
+
 ### AI Commands (via start flags)
 ```bash
 # AI is configured via start command flags, not separate commands:

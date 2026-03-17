@@ -404,6 +404,8 @@ sudo -E edamame_posture mcp-start --port 3000 --all-interfaces
 
 The server runs at `http://127.0.0.1:3000/mcp` by default, or `http://0.0.0.0:3000/mcp` with `--all-interfaces`.
 
+**MCP Authentication**: The server supports dual-mode authentication. The shared PSK (Bearer token) described above is the recommended approach for CLI/headless use (edamame_posture, provisioning scripts, automation). Per-client credentials (app-mediated pairing via `/mcp/pair`, yielding `edm_mcp_...` tokens) are also available for desktop clients such as edamame_cursor and edamame_openclaw on dev workstations. The auth middleware accepts both.
+
 ### MCP Server Options
 
 | Option | Description |
