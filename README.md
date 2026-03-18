@@ -95,6 +95,7 @@ EDAMAME Posture is a lightweight, developer-friendly security posture assessment
 - [Requirements](#requirements)
   - [eBPF Process Attribution (Linux)](#ebpf-process-attribution-linux)
 - [Error Handling](#error-handling)
+- [Threat Evidence Tests](#threat-evidence-tests)
 - [EDAMAME Ecosystem](#edamame-ecosystem)
 - [Author](#author)
 
@@ -1404,20 +1405,20 @@ For Alpine Linux users, install via the APK repository:
 If you prefer not to add a repository, you can install the Debian package manually:
 
 1. **Download** the Debian package for your platform:
-   - **x86_64 (64-bit):** [edamame-posture_1.1.0-1_amd64.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.1.0/edamame-posture_1.1.0-1_amd64.deb)
-   - **i686 (32-bit):** [edamame-posture_1.1.0-1_i386.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.1.0/edamame-posture_1.1.0-1_i386.deb)
-   - **aarch64 (ARM 64-bit):** [edamame-posture_1.1.0-1_arm64.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.1.0/edamame-posture_1.1.0-1_arm64.deb)
+   - **x86_64 (64-bit):** [edamame-posture_1.1.1-1_amd64.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.1.1/edamame-posture_1.1.1-1_amd64.deb)
+   - **i686 (32-bit):** [edamame-posture_1.1.1-1_i386.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.1.1/edamame-posture_1.1.1-1_i386.deb)
+   - **aarch64 (ARM 64-bit):** [edamame-posture_1.1.1-1_arm64.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.1.1/edamame-posture_1.1.1-1_arm64.deb)
      - For Raspberry Pi 3/4/5 running 64-bit OS
-   - **armv7 (ARM 32-bit):** [edamame-posture_1.1.0-1_armhf.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.1.0/edamame-posture_1.1.0-1_armhf.deb)
+   - **armv7 (ARM 32-bit):** [edamame-posture_1.1.1-1_armhf.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.1.1/edamame-posture_1.1.1-1_armhf.deb)
      - For Raspberry Pi 2/3/4/Zero 2 running 32-bit OS (Raspberry Pi OS)
 
    > **Note**: These Debian packages have been tested on Linux Mint 20 and newer, Ubuntu 20.04 and newer, and Raspberry Pi OS (Raspbian).
 
 2. **Install** the package using either method:
    ```bash
-   sudo apt install ./edamame-posture_1.1.0-1_amd64.deb
+   sudo apt install ./edamame-posture_1.1.1-1_amd64.deb
    # or
-   sudo dpkg -i edamame-posture_1.1.0-1_amd64.deb
+   sudo dpkg -i edamame-posture_1.1.1-1_amd64.deb
    ```
 
 3. **Configure** the service by editing the configuration file:
@@ -1475,17 +1476,17 @@ If you prefer not to add a repository, you can install the Debian package manual
 For other Linux distributions or portable installation:
 
 1. **Download Binary**: From the Releases page, download the binary for your architecture:
-   - **x86_64 (64-bit)**: [edamame_posture-1.1.0-x86_64-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.1.0/edamame_posture-1.1.0-x86_64-unknown-linux-gnu)  
-   - **i686 (32-bit)**: [edamame_posture-1.1.0-i686-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.1.0/edamame_posture-1.1.0-i686-unknown-linux-gnu)  
-   - **aarch64 (ARM 64-bit)**: [edamame_posture-1.1.0-aarch64-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.1.0/edamame_posture-1.1.0-aarch64-unknown-linux-gnu)  
-   - **armv7 (ARM 32-bit)**: [edamame_posture-1.1.0-armv7-unknown-linux-gnueabihf](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.1.0/edamame_posture-1.1.0-armv7-unknown-linux-gnueabihf)
-   - **x86_64 (64-bit) for Alpine Linux (musl)**: [edamame_posture-1.1.0-x86_64-unknown-linux-musl](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.1.0/edamame_posture-1.1.0-x86_64-unknown-linux-musl) 
-   - **aarch64 (ARM 64-bit) for Alpine Linux (musl)**: [edamame_posture-1.1.0-aarch64-unknown-linux-musl](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.1.0/edamame_posture-1.1.0-aarch64-unknown-linux-musl)
+   - **x86_64 (64-bit)**: [edamame_posture-1.1.1-x86_64-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.1.1/edamame_posture-1.1.1-x86_64-unknown-linux-gnu)  
+   - **i686 (32-bit)**: [edamame_posture-1.1.1-i686-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.1.1/edamame_posture-1.1.1-i686-unknown-linux-gnu)  
+   - **aarch64 (ARM 64-bit)**: [edamame_posture-1.1.1-aarch64-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.1.1/edamame_posture-1.1.1-aarch64-unknown-linux-gnu)  
+   - **armv7 (ARM 32-bit)**: [edamame_posture-1.1.1-armv7-unknown-linux-gnueabihf](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.1.1/edamame_posture-1.1.1-armv7-unknown-linux-gnueabihf)
+   - **x86_64 (64-bit) for Alpine Linux (musl)**: [edamame_posture-1.1.1-x86_64-unknown-linux-musl](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.1.1/edamame_posture-1.1.1-x86_64-unknown-linux-musl) 
+   - **aarch64 (ARM 64-bit) for Alpine Linux (musl)**: [edamame_posture-1.1.1-aarch64-unknown-linux-musl](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.1.1/edamame_posture-1.1.1-aarch64-unknown-linux-musl)
 
 2. **Install Binary**: Extract if needed and place the edamame_posture binary into a directory in your PATH (such as `/usr/local/bin`). For example:
 ```bash
-chmod +x edamame_posture-1.1.0-x86_64-unknown-linux-gnu  
-sudo mv edamame_posture-1.1.0-x86_64-unknown-linux-gnu /usr/local/bin/edamame_posture
+chmod +x edamame_posture-1.1.1-x86_64-unknown-linux-gnu  
+sudo mv edamame_posture-1.1.1-x86_64-unknown-linux-gnu /usr/local/bin/edamame_posture
 ```
 
 ### macOS
@@ -1514,7 +1515,7 @@ brew upgrade edamame-posture
 For a manual installation on macOS:
 
 1. **Download** the macOS universal binary:
-   - [edamame_posture-1.1.0-universal-apple-darwin](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.1.0/edamame_posture-1.1.0-universal-apple-darwin)  
+   - [edamame_posture-1.1.1-universal-apple-darwin](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.1.1/edamame_posture-1.1.1-universal-apple-darwin)  
 
 2. **Install** by placing the binary in your `PATH` and making it executable:
    ```bash
@@ -1548,7 +1549,7 @@ choco upgrade edamame-posture
 For a manual installation on Windows:
 
 1. **Download** the Windows binary:
-   - [edamame_posture-1.1.0-x86_64-pc-windows-msvc.exe](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.1.0/edamame_posture-1.1.0-x86_64-pc-windows-msvc.exe)
+   - [edamame_posture-1.1.1-x86_64-pc-windows-msvc.exe](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.1.1/edamame_posture-1.1.1-x86_64-pc-windows-msvc.exe)
 
 2. **Install Npcap** (Required for traffic capture feature):
    - Install [Npcap](https://npcap.com/#download), the packet capture library from the Nmap team
@@ -2981,9 +2982,9 @@ jobs:
 
       - name: Install EDAMAME Posture
         run: |
-          curl -LO https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.1.0/edamame_posture-1.1.0-x86_64-unknown-linux-gnu
-          chmod +x edamame_posture-1.1.0-x86_64-unknown-linux-gnu
-          sudo mv edamame_posture-1.1.0-x86_64-unknown-linux-gnu /usr/local/bin/edamame_posture
+          curl -LO https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.1.1/edamame_posture-1.1.1-x86_64-unknown-linux-gnu
+          chmod +x edamame_posture-1.1.1-x86_64-unknown-linux-gnu
+          sudo mv edamame_posture-1.1.1-x86_64-unknown-linux-gnu /usr/local/bin/edamame_posture
 
       - name: Extract and verify signature from last commit
         run: |
@@ -3115,6 +3116,16 @@ EDAMAME Posture CLI is designed to provide clear error messages and codes for co
 - Remediation actions that fail will indicate the failure (for example, "Failed to enable firewall: <system error>"). The CLI will continue with other actions where possible, and at the end may return an error code indicating partial failure.
 
 Always refer to `edamame_posture.log` (if such a log is generated in your working directory or system log location) for detailed debug information when troubleshooting an error. Many commands have a `-v` or verbose mode that can be enabled for more insights.
+
+## Threat Evidence Tests
+
+This repository includes an open, reproducible threat-evidence harness that validates runtime detections described in EDAMAME Security content. The harness uses EDAMAME Posture in disconnected mode, Ubuntu via Lima for local runs, and GitHub Actions for CI.
+
+- CI workflow: [`.github/workflows/test_threat_evidence.yml`](.github/workflows/test_threat_evidence.yml)
+- Scenario catalog: [`tests/threat_evidence/threat_evidence_scenarios.json`](tests/threat_evidence/threat_evidence_scenarios.json)
+- Local runner (Lima): [`tests/threat_evidence/run_threat_evidence_lima.sh`](tests/threat_evidence/run_threat_evidence_lima.sh)
+- Harness documentation: [`tests/threat_evidence/README.md`](tests/threat_evidence/README.md)
+- Threat-to-test mapping: [`docs/THREAT_EVIDENCE_MATRIX.md`](docs/THREAT_EVIDENCE_MATRIX.md)
 
 ## EDAMAME Ecosystem
 EDAMAME Posture is part of a broader ecosystem of tools and services provided by EDAMAME Technologies:

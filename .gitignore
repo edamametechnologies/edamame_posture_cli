@@ -3,5 +3,6 @@
 npcap-*
 .DS_Store
 /tests_temp/
+/tests/threat_evidence/artifacts/
 
 .cursor

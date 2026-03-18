@@ -1,0 +1,94 @@
+name: Test Threat Evidence Scenarios
+
+on:
+  workflow_dispatch:
+    inputs:
+      gating_mode:
+        description: "strict (fail if not detected) or observe (collect evidence without failing)"
+        required: false
+        default: "strict"
+        type: choice
+        options:
+          - strict
+          - observe
+  schedule:
+    - cron: "0 4 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  threat-evidence:
+    name: Threat evidence (${{ matrix.scenario }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - scenario: contagious_interview_beaconing
+          - scenario: contagious_interview_process_masquerade
+          - scenario: contagious_interview_remote_control_pattern
+          - scenario: nearest_neighbor_recon_burst
+          - scenario: nearest_neighbor_cve_surface
+          - scenario: identity_exposure_context_gate
+    env:
+      STRICT_MODE: ${{ github.event_name == 'schedule' || inputs.gating_mode == 'strict' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install EDAMAME Posture
+        uses: edamametechnologies/edamame_posture_action@v1
+
+      - name: Make test scripts executable
+        run: |
+          chmod +x ./tests/threat_evidence/run_threat_evidence_lima.sh
+          chmod +x ./tests/threat_evidence/run_threat_evidence_stability.sh
+
+      - name: Run threat scenario
+        id: run_scenario
+        continue-on-error: true
+        run: |
+          ./tests/threat_evidence/run_threat_evidence_lima.sh \
+            --scenario "${{ matrix.scenario }}" \
+            --mode enforcement \
+            --ci-only
+
+      - name: Upload evidence artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: threat-evidence-${{ matrix.scenario }}
+          path: tests/threat_evidence/artifacts/**
+          if-no-files-found: warn
+
+      - name: Gate scenario
+        if: always()
+        run: |
+          echo "STRICT_MODE=${STRICT_MODE}"
+          echo "run_scenario.outcome=${{ steps.run_scenario.outcome }}"
+          if [[ "${STRICT_MODE}" == "true" && "${{ steps.run_scenario.outcome }}" != "success" ]]; then
+            echo "Scenario failed under strict mode."
+            exit 1
+          fi
+          if [[ "${STRICT_MODE}" != "true" ]]; then
+            echo "Observe mode enabled; evidence collected without strict gating."
+          fi
+
+      - name: Notify Slack on failure
+        if: failure()
+        uses: slackapi/slack-github-action@v1.26.0
+        with:
+          channel-id: "C072J0U9TH7"
+          payload: |
+            {
+              "text": "Threat evidence scenario failed: ${{ matrix.scenario }} on ${{ github.repository }}@${{ github.ref_name }} - ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            }
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        continue-on-error: true

@@ -204,9 +204,20 @@ See [INSTALL.md](INSTALL.md) for complete installation instructions:
 - `tokio` - Async runtime
 - `daemonize` - Process daemonization
 
+## Threat Evidence Tests
+
+Reproducible test scenarios validating runtime detections against real-world attack narratives:
+
+- Scenario catalog: [`tests/threat_evidence/threat_evidence_scenarios.json`](tests/threat_evidence/threat_evidence_scenarios.json)
+- Local runner: [`tests/threat_evidence/run_threat_evidence_lima.sh`](tests/threat_evidence/run_threat_evidence_lima.sh)
+- Stability check: [`tests/threat_evidence/run_threat_evidence_stability.sh`](tests/threat_evidence/run_threat_evidence_stability.sh)
+- Threat-to-test mapping: [`docs/THREAT_EVIDENCE_MATRIX.md`](docs/THREAT_EVIDENCE_MATRIX.md)
+- CI workflow: [`.github/workflows/test_threat_evidence.yml`](.github/workflows/test_threat_evidence.yml)
+
 ## Related Documentation
 
 - [README.md](README.md) - Complete usage guide and examples
 - [INSTALL.md](INSTALL.md) - Installation instructions
 - [install.sh](install.sh) - Automated installation script
+- [docs/THREAT_EVIDENCE_MATRIX.md](docs/THREAT_EVIDENCE_MATRIX.md) - Threat-to-test mapping
 - [cve-2025-30066-explanation.md](cve-2025-30066-explanation.md) - CVE explanation
