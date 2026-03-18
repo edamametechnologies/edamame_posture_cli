@@ -227,14 +227,14 @@ jobs:
         shell: bash
         run: |
           VERSION=$(grep '^version =' ./Cargo.toml | awk '{print $3}' | tr -d '"')
-          echo "::set-output name=version::$VERSION"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           VERSION_TAG=v${VERSION}
-          echo "::set-output name=tag::$VERSION_TAG"
+          echo "tag=$VERSION_TAG" >> "$GITHUB_OUTPUT"
           if [[ -n "$(gh release view $VERSION_TAG --repo ${{ github.repository }} --json id -q .id)" ]]; then
-            echo "::set-output name=exists::true"
-              echo "::set-output name=upload_url::$(gh release view $VERSION_TAG --json uploadUrl -q .uploadUrl )"
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "upload_url=$(gh release view $VERSION_TAG --json uploadUrl -q .uploadUrl)" >> "$GITHUB_OUTPUT"
           else
-            echo "::set-output name=exists::false"
+            echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -261,31 +261,77 @@ jobs:
           draft: false
           prerelease: false
 
-      # Main only - skip Windows upload if Chocolatey version already exists to prevent checksum desync
-      - name: Upload asset to release
-        if: github.ref == 'refs/heads/main' && !(matrix.os == 'windows' && steps.check_choco.outputs.exists == 'true')
+      # Main only - macOS upload (action works on hosted runners)
+      - name: Upload asset to release (macOS)
+        if: github.ref == 'refs/heads/main' && matrix.os == 'macos'
         uses: shogo82148/actions-upload-release-asset@v1
         with:
           upload_url: ${{ steps.get_release.outputs.exists == 'true' && steps.get_release.outputs.upload_url || steps.create_release.outputs.upload_url }}
-          asset_path: target/${{ matrix.target }}/release/edamame_posture${{ matrix.os == 'windows' && '.exe' || '' }}
-          asset_name: edamame_posture-${{ steps.get_release.outputs.version }}-${{ matrix.target }}${{ matrix.os == 'windows' && '.exe' || '' }}
+          asset_path: target/${{ matrix.target }}/release/edamame_posture
+          asset_name: edamame_posture-${{ steps.get_release.outputs.version }}-${{ matrix.target }}
           asset_content_type: application/octet-stream
           overwrite: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # Main only - skip Windows debug upload if Chocolatey version already exists
-      - name: Upload debug asset to release
-        if: github.ref == 'refs/heads/main' && !(matrix.os == 'windows' && steps.check_choco.outputs.exists == 'true')
+      # Main only - macOS debug upload
+      - name: Upload debug asset to release (macOS)
+        if: github.ref == 'refs/heads/main' && matrix.os == 'macos'
         uses: shogo82148/actions-upload-release-asset@v1
         with:
           upload_url: ${{ steps.get_release.outputs.exists == 'true' && steps.get_release.outputs.upload_url || steps.create_release.outputs.upload_url }}
-          asset_path: target/${{ matrix.target }}/debug/edamame_posture${{ matrix.os == 'windows' && '.exe' || '' }}
-          asset_name: edamame_posture-${{ steps.get_release.outputs.version }}-${{ matrix.target }}-debug${{ matrix.os == 'windows' && '.exe' || '' }}
+          asset_path: target/${{ matrix.target }}/debug/edamame_posture
+          asset_name: edamame_posture-${{ steps.get_release.outputs.version }}-${{ matrix.target }}-debug
           asset_content_type: application/octet-stream
           overwrite: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Main only - Windows upload uses explicit gh release upload (action silently fails on self-hosted runner)
+      - name: Upload assets to release (Windows)
+        if: github.ref == 'refs/heads/main' && matrix.os == 'windows' && steps.check_choco.outputs.exists != 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.get_release.outputs.version }}"
+          TAG="${{ steps.get_release.outputs.tag }}"
+
+          RELEASE_PATH="${GITHUB_WORKSPACE}/target/${{ matrix.target }}/release/edamame_posture.exe"
+          RELEASE_NAME="edamame_posture-${VERSION}-${{ matrix.target }}.exe"
+          DEBUG_PATH="${GITHUB_WORKSPACE}/target/${{ matrix.target }}/debug/edamame_posture.exe"
+          DEBUG_NAME="edamame_posture-${VERSION}-${{ matrix.target }}-debug.exe"
+
+          for ASSET_PATH in "$RELEASE_PATH" "$DEBUG_PATH"; do
+            if [[ ! -f "$ASSET_PATH" ]]; then
+              echo "ERROR: expected Windows binary missing: $ASSET_PATH"
+              exit 1
+            fi
+          done
+
+          gh release upload "$TAG" \
+            "${RELEASE_PATH}#${RELEASE_NAME}" \
+            "${DEBUG_PATH}#${DEBUG_NAME}" \
+            --repo "${{ github.repository }}" \
+            --clobber
+
+          ASSET_NAMES="$(gh release view "$TAG" --repo "${{ github.repository }}" --json assets --jq '.assets[].name')"
+          echo "$ASSET_NAMES"
+
+          for EXPECTED in "$RELEASE_NAME" "$DEBUG_NAME"; do
+            FOUND=false
+            while IFS= read -r name; do
+              if [[ "$name" == "$EXPECTED" ]]; then
+                FOUND=true
+                break
+              fi
+            done <<< "$ASSET_NAMES"
+            if [[ "$FOUND" != true ]]; then
+              echo "ERROR: release asset verification failed: $EXPECTED"
+              exit 1
+            fi
+          done
 
       ############################################################################################
       # Package Managers
@@ -339,14 +385,25 @@ jobs:
         env:
           CHOCOLATEY_API_KEY: ${{ secrets.CHOCOLATEY_API_KEY }}
         run: |
-          $ErrorActionPreference = 'Stop'  # Exit on any error
+          $ErrorActionPreference = 'Stop'
           $VERSION="${{ steps.get_release.outputs.version }}"
           
-          # Download the release asset to calculate SHA256 (using PowerShell)
+          # Download the release asset to calculate SHA256 (retry for CDN propagation delay)
           $DownloadUrl = "https://github.com/${{ github.repository }}/releases/download/v${VERSION}/edamame_posture-${VERSION}-x86_64-pc-windows-msvc.exe"
           $DownloadPath = "edamame_posture-${VERSION}-x86_64-pc-windows-msvc.exe"
           Write-Host "Downloading: $DownloadUrl"
-          Invoke-WebRequest -Uri $DownloadUrl -OutFile $DownloadPath
+          $maxRetries = 5
+          $retryDelaySec = 10
+          for ($i = 1; $i -le $maxRetries; $i++) {
+            try {
+              Invoke-WebRequest -Uri $DownloadUrl -OutFile $DownloadPath -UseBasicParsing
+              break
+            } catch {
+              if ($i -eq $maxRetries) { throw }
+              Write-Host "Attempt $i failed, retrying in ${retryDelaySec}s..."
+              Start-Sleep -Seconds $retryDelaySec
+            }
+          }
           $SHA_WIN = (Get-FileHash -Algorithm SHA256 $DownloadPath).Hash.ToLower()
           Write-Host "SHA256: $SHA_WIN"
           
@@ -357,13 +414,21 @@ jobs:
           (Get-Content chocolatey/tools/chocolateyInstall.ps1) -replace '\$checksum64 = ''.*''', "`$checksum64 = '${SHA_WIN}'" | Set-Content chocolatey/tools/chocolateyInstall.ps1
           
           # Pack Chocolatey package
+          Write-Host "Packing Chocolatey package..."
           choco pack chocolatey/edamame-posture.nuspec
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "ERROR: choco pack failed with exit code $LASTEXITCODE"
+            exit $LASTEXITCODE
+          }
           
           # Publish to Chocolatey if API key is present
           if ("${{ secrets.CHOCOLATEY_API_KEY }}" -ne "") {
-            choco push edamame-posture.${VERSION}.nupkg -s https://push.chocolatey.org/ -k ${{ secrets.CHOCOLATEY_API_KEY }}
-            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            Write-Host "Pushing to Chocolatey..."
+            choco push edamame-posture.${VERSION}.nupkg -s https://push.chocolatey.org/ -k ${{ secrets.CHOCOLATEY_API_KEY }} --verbose
+            if ($LASTEXITCODE -ne 0) {
+              Write-Host "ERROR: choco push failed with exit code $LASTEXITCODE"
+              exit $LASTEXITCODE
+            }
           } else {
             Write-Host "Skipping Chocolatey publish: CHOCOLATEY_API_KEY not set"
           }
