@@ -394,7 +394,20 @@ jobs:
         id: install
         shell: pwsh
         run: |
-          choco install edamame-posture -y
+          $maxRetries = 3
+          $retryDelay = 30
+          for ($i = 1; $i -le $maxRetries; $i++) {
+            Write-Host "Chocolatey install attempt $i/$maxRetries"
+            choco install edamame-posture -y --no-progress
+            if ($LASTEXITCODE -eq 0) { break }
+            if ($i -lt $maxRetries) {
+              Write-Host "Install failed, retrying in ${retryDelay}s..."
+              Start-Sleep -Seconds $retryDelay
+            } else {
+              Write-Host "All install attempts failed"
+              exit 1
+            }
+          }
 
       - name: Verify binary is available
         id: verify
@@ -402,8 +415,15 @@ jobs:
         run: |
           $exe = Get-Command edamame_posture.exe -ErrorAction Stop
           Write-Host "Binary path: $($exe.Source)"
-          & $exe.Source get-core-version
+          $versionOutput = & $exe.Source get-core-version 2>&1
+          Write-Host "Version: $versionOutput"
           & $exe.Source --help | Select-Object -First 20
+          $fileInfo = Get-Item $exe.Source
+          Write-Host "Binary size: $($fileInfo.Length) bytes"
+          if ($fileInfo.Length -lt 100000) {
+            Write-Host "ERROR: Binary suspiciously small ($($fileInfo.Length) bytes)"
+            exit 1
+          }
 
       - name: Slack alerts
         if: ${{ always() && (steps.install.outcome != 'success' || steps.verify.outcome != 'success') }}
@@ -422,5 +442,5 @@ jobs:
       - name: Fail job if tests failed
         if: ${{ always() && (steps.install.outcome != 'success' || steps.verify.outcome != 'success') }}
         run: |
-          echo "❌ Tests for Windows (Chocolatey) did not succeed"
+          echo "Tests for Windows (Chocolatey) did not succeed"
           exit 1
