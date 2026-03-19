@@ -298,21 +298,24 @@ jobs:
           VERSION="${{ steps.get_release.outputs.version }}"
           TAG="${{ steps.get_release.outputs.tag }}"
 
-          RELEASE_PATH="${GITHUB_WORKSPACE}/target/${{ matrix.target }}/release/edamame_posture.exe"
+          RELEASE_SRC="${GITHUB_WORKSPACE}/target/${{ matrix.target }}/release/edamame_posture.exe"
           RELEASE_NAME="edamame_posture-${VERSION}-${{ matrix.target }}.exe"
-          DEBUG_PATH="${GITHUB_WORKSPACE}/target/${{ matrix.target }}/debug/edamame_posture.exe"
+          DEBUG_SRC="${GITHUB_WORKSPACE}/target/${{ matrix.target }}/debug/edamame_posture.exe"
           DEBUG_NAME="edamame_posture-${VERSION}-${{ matrix.target }}-debug.exe"
 
-          for ASSET_PATH in "$RELEASE_PATH" "$DEBUG_PATH"; do
-            if [[ ! -f "$ASSET_PATH" ]]; then
-              echo "ERROR: expected Windows binary missing: $ASSET_PATH"
+          for ASSET_SRC in "$RELEASE_SRC" "$DEBUG_SRC"; do
+            if [[ ! -f "$ASSET_SRC" ]]; then
+              echo "ERROR: expected Windows binary missing: $ASSET_SRC"
               exit 1
             fi
           done
 
+          cp "$RELEASE_SRC" "$RELEASE_NAME"
+          cp "$DEBUG_SRC" "$DEBUG_NAME"
+
           gh release upload "$TAG" \
-            "${RELEASE_PATH}#${RELEASE_NAME}" \
-            "${DEBUG_PATH}#${DEBUG_NAME}" \
+            "$RELEASE_NAME" \
+            "$DEBUG_NAME" \
             --repo "${{ github.repository }}" \
             --clobber
 
