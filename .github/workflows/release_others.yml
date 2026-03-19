@@ -196,27 +196,6 @@ jobs:
           AzureSignTool sign -kvt ${{ secrets.AZURE_SIGN_TENANT_ID }} -kvu ${{ secrets.AZURE_SIGN_KEY_VAULT_URI }} -kvi ${{ secrets.AZURE_SIGN_CLIENT_ID }} -kvs ${{ secrets.AZURE_SIGN_CLIENT_SECRET }} -kvc ${{ secrets.AZURE_SIGN_CERT_NAME }} -tr http://timestamp.digicert.com -v ./target/x86_64-pc-windows-msvc/debug/edamame_posture.exe
 
       ############################################################################################
-      # Pre-release: check if Chocolatey version is already published
-      ############################################################################################
-
-      - name: Check if Chocolatey version already published
-        if: github.ref == 'refs/heads/main' && matrix.os == 'windows'
-        id: check_choco
-        shell: pwsh
-        run: |
-          $VERSION = (Get-Content ./Cargo.toml | Select-String '^version =' | ForEach-Object { $_.Line.Split('=')[1].Trim().Trim('"') })
-          try {
-            $null = Invoke-WebRequest -Uri "https://community.chocolatey.org/api/v2/package/edamame-posture/$VERSION" -Method Head -UseBasicParsing -ErrorAction Stop
-            Write-Host "WARNING: Chocolatey package edamame-posture version $VERSION already exists."
-            Write-Host "Skipping Windows binary upload and Chocolatey publish to prevent checksum desync."
-            Write-Host "To release a new build, bump the version in Cargo.toml first."
-            echo "exists=true" >> $env:GITHUB_OUTPUT
-          } catch {
-            Write-Host "Chocolatey package edamame-posture version $VERSION not found - will publish"
-            echo "exists=false" >> $env:GITHUB_OUTPUT
-          }
-
-      ############################################################################################
       # Release
       ############################################################################################
 
@@ -261,6 +240,48 @@ jobs:
           draft: false
           prerelease: false
 
+      # Find next available Chocolatey version (appends .1, .2, ... suffix if base exists)
+      - name: Resolve Chocolatey package version
+        if: github.ref == 'refs/heads/main' && matrix.os == 'windows'
+        id: check_choco
+        shell: pwsh
+        run: |
+          $BASE_VERSION = "${{ steps.get_release.outputs.version }}"
+          $CHOCO_VERSION = $BASE_VERSION
+
+          function Test-ChocoVersionExists($ver) {
+            try {
+              $null = Invoke-WebRequest -Uri "https://community.chocolatey.org/api/v2/package/edamame-posture/$ver" -Method Head -UseBasicParsing -ErrorAction Stop
+              return $true
+            } catch {
+              return $false
+            }
+          }
+
+          if (Test-ChocoVersionExists $BASE_VERSION) {
+            Write-Host "Chocolatey package edamame-posture version $BASE_VERSION already exists - probing suffixes..."
+            $found = $false
+            for ($i = 1; $i -le 20; $i++) {
+              $candidate = "${BASE_VERSION}.${i}"
+              if (-not (Test-ChocoVersionExists $candidate)) {
+                Write-Host "Using next available Chocolatey version: $candidate"
+                $CHOCO_VERSION = $candidate
+                $found = $true
+                break
+              }
+              Write-Host "  $candidate also exists, trying next..."
+            }
+            if (-not $found) {
+              Write-Host "ERROR: All suffix versions up to ${BASE_VERSION}.20 are taken. Bump Cargo.toml."
+              exit 1
+            }
+          } else {
+            Write-Host "Chocolatey package edamame-posture version $BASE_VERSION not found - will publish"
+          }
+
+          Write-Host "Resolved Chocolatey version: $CHOCO_VERSION"
+          echo "choco_version=$CHOCO_VERSION" >> $env:GITHUB_OUTPUT
+
       # Main only - macOS upload (action works on hosted runners)
       - name: Upload asset to release (macOS)
         if: github.ref == 'refs/heads/main' && matrix.os == 'macos'
@@ -289,7 +310,7 @@ jobs:
 
       # Main only - Windows upload uses explicit gh release upload (action silently fails on self-hosted runner)
       - name: Upload assets to release (Windows)
-        if: github.ref == 'refs/heads/main' && matrix.os == 'windows' && steps.check_choco.outputs.exists != 'true'
+        if: github.ref == 'refs/heads/main' && matrix.os == 'windows'
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -382,14 +403,16 @@ jobs:
             echo "Skipping Homebrew publish: DEV_GITHUB_TOKEN not set"
           fi
 
-      # Windows - Publish to Chocolatey (skip if version already exists to prevent checksum desync)
+      # Windows - Publish to Chocolatey with resolved version (may include .N suffix)
       - name: Publish to Chocolatey
-        if: github.ref == 'refs/heads/main' && matrix.os == 'windows' && steps.check_choco.outputs.exists != 'true'
+        if: github.ref == 'refs/heads/main' && matrix.os == 'windows'
         env:
           CHOCOLATEY_API_KEY: ${{ secrets.CHOCOLATEY_API_KEY }}
         run: |
           $ErrorActionPreference = 'Stop'
           $VERSION="${{ steps.get_release.outputs.version }}"
+          $CHOCO_VERSION="${{ steps.check_choco.outputs.choco_version }}"
+          Write-Host "Cargo version: $VERSION / Chocolatey version: $CHOCO_VERSION"
           
           # Download the release asset to calculate SHA256 (retry for CDN propagation delay)
           $DownloadUrl = "https://github.com/${{ github.repository }}/releases/download/v${VERSION}/edamame_posture-${VERSION}-x86_64-pc-windows-msvc.exe"
@@ -410,9 +433,9 @@ jobs:
           $SHA_WIN = (Get-FileHash -Algorithm SHA256 $DownloadPath).Hash.ToLower()
           Write-Host "SHA256: $SHA_WIN"
           
-          # Update Chocolatey Package
-          (Get-Content chocolatey/edamame-posture.nuspec) -replace '<version>.*</version>', "<version>${VERSION}</version>" | Set-Content chocolatey/edamame-posture.nuspec
-          (Get-Content chocolatey/tools/chocolateyInstall.ps1) -replace '\$packageVersion = ''.*''', "`$packageVersion = '${VERSION}'" | Set-Content chocolatey/tools/chocolateyInstall.ps1
+          # Update Chocolatey Package with resolved version
+          (Get-Content chocolatey/edamame-posture.nuspec) -replace '<version>.*</version>', "<version>${CHOCO_VERSION}</version>" | Set-Content chocolatey/edamame-posture.nuspec
+          (Get-Content chocolatey/tools/chocolateyInstall.ps1) -replace '\$packageVersion = ''.*''', "`$packageVersion = '${CHOCO_VERSION}'" | Set-Content chocolatey/tools/chocolateyInstall.ps1
           (Get-Content chocolatey/tools/chocolateyInstall.ps1) -replace '\$url64 = ''.*''', "`$url64 = 'https://github.com/${{ github.repository }}/releases/download/v${VERSION}/edamame_posture-${VERSION}-x86_64-pc-windows-msvc.exe'" | Set-Content chocolatey/tools/chocolateyInstall.ps1
           (Get-Content chocolatey/tools/chocolateyInstall.ps1) -replace '\$checksum64 = ''.*''', "`$checksum64 = '${SHA_WIN}'" | Set-Content chocolatey/tools/chocolateyInstall.ps1
           
@@ -427,7 +450,7 @@ jobs:
           # Publish to Chocolatey if API key is present
           if ("${{ secrets.CHOCOLATEY_API_KEY }}" -ne "") {
             Write-Host "Pushing to Chocolatey..."
-            choco push edamame-posture.${VERSION}.nupkg -s https://push.chocolatey.org/ -k ${{ secrets.CHOCOLATEY_API_KEY }} --verbose
+            choco push edamame-posture.${CHOCO_VERSION}.nupkg -s https://push.chocolatey.org/ -k ${{ secrets.CHOCOLATEY_API_KEY }} --verbose
             if ($LASTEXITCODE -ne 0) {
               Write-Host "ERROR: choco push failed with exit code $LASTEXITCODE"
               exit $LASTEXITCODE
