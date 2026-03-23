@@ -1919,6 +1919,7 @@ dependencies = [
 [[package]]
 name = "edamame_backend"
 version = "0.3.5"
+source = "git+https://github.com/edamametechnologies/edamame_backend?branch=main#cb5878382091ea654c205d3da58b9b3442b159b8"
 dependencies = [
  "anyhow",
  "blake3",
@@ -2006,7 +2007,7 @@ dependencies = [
  "tonic-prost-build",
  "tracing",
  "tracing-subscriber",
- "undeadlock",
+ "undeadlock 1.0.2",
  "urlencoding",
  "uuid",
  "vergen-gitcl",
@@ -2077,7 +2078,7 @@ dependencies = [
  "tracing-android",
  "tracing-appender",
  "tracing-subscriber",
- "undeadlock",
+ "undeadlock 1.0.2",
  "users",
  "uuid",
  "wez-mdns",
@@ -2518,7 +2519,7 @@ dependencies = [
  "threatmodels_rs",
  "tokio",
  "tracing",
- "undeadlock",
+ "undeadlock 1.0.2",
  "users",
  "uuid",
  "wez-mdns",
@@ -7486,7 +7487,7 @@ dependencies = [
  "serial_test",
  "tokio",
  "tracing",
- "undeadlock",
+ "undeadlock 1.0.2 (git+https://github.com/edamametechnologies/undeadlock?branch=main)",
 ]
 
 [[package]]
@@ -8002,6 +8003,18 @@ checksum = "562d481066bde0658276a35467c4af00bdc6ee726305698a55b86e61d7ad82bb"
 [[package]]
 name = "undeadlock"
 version = "1.0.2"
+dependencies = [
+ "dashmap 6.1.0",
+ "futures",
+ "once_cell",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "undeadlock"
+version = "1.0.2"
+source = "git+https://github.com/edamametechnologies/undeadlock?branch=main#e7fcd6d543b88baa36e11874e0cf7ce8cc6b1b8b"
 dependencies = [
  "dashmap 6.1.0",
  "futures",
