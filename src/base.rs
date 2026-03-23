@@ -593,3 +593,122 @@ pub fn base_compare_custom_whitelists(whitelist1_json: String, whitelist2_json: 
     println!("{:.2}%", diff_percentage);
     0
 }
+
+pub fn base_install_agent_plugin(agent_type: String, workspace_root: String) -> i32 {
+    use edamame_core::api::api_agentic::provision_agent_plugin;
+
+    let result_json = provision_agent_plugin(agent_type, workspace_root);
+    match serde_json::from_str::<serde_json::Value>(&result_json) {
+        Ok(json) => {
+            if json["success"].as_bool().unwrap_or(false) {
+                println!(
+                    "[OK] {} v{} installed at {}",
+                    json["agent_type"].as_str().unwrap_or(""),
+                    json["version"].as_str().unwrap_or(""),
+                    json["install_path"].as_str().unwrap_or("")
+                );
+                0
+            } else {
+                eprintln!(
+                    "Failed to install plugin: {}",
+                    json["message"].as_str().unwrap_or("Unknown error")
+                );
+                ERROR_CODE_SERVER_ERROR
+            }
+        }
+        Err(e) => {
+            eprintln!("Error parsing result: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn base_agent_plugin_status(agent_type: String) -> i32 {
+    use edamame_core::api::api_agentic::get_agent_plugin_status;
+
+    let result_json = get_agent_plugin_status(agent_type);
+    match serde_json::from_str::<serde_json::Value>(&result_json) {
+        Ok(json) => {
+            let installed = json["installed"].as_bool().unwrap_or(false);
+            if installed {
+                println!(
+                    "[OK] {} v{} installed at {}",
+                    json["agent_type"].as_str().unwrap_or(""),
+                    json["version"].as_str().unwrap_or(""),
+                    json["install_path"].as_str().unwrap_or("")
+                );
+            } else {
+                println!(
+                    "{} not installed (repo: {})",
+                    json["agent_type"].as_str().unwrap_or(""),
+                    json["repo_url"].as_str().unwrap_or("")
+                );
+            }
+            0
+        }
+        Err(e) => {
+            eprintln!("Error parsing result: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn base_list_agent_plugins() -> i32 {
+    use edamame_core::api::api_agentic::list_agent_plugins;
+
+    let result_json = list_agent_plugins();
+    match serde_json::from_str::<Vec<serde_json::Value>>(&result_json) {
+        Ok(plugins) => {
+            for plugin in &plugins {
+                let agent_type = plugin["agent_type"].as_str().unwrap_or("");
+                let installed = plugin["installed"].as_bool().unwrap_or(false);
+                if installed {
+                    println!(
+                        "  {} v{} [installed] {}",
+                        agent_type,
+                        plugin["version"].as_str().unwrap_or(""),
+                        plugin["install_path"].as_str().unwrap_or("")
+                    );
+                } else {
+                    println!(
+                        "  {} [not installed] {}",
+                        agent_type,
+                        plugin["repo_url"].as_str().unwrap_or("")
+                    );
+                }
+            }
+            0
+        }
+        Err(e) => {
+            eprintln!("Error parsing result: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn base_uninstall_agent_plugin(agent_type: String) -> i32 {
+    use edamame_core::api::api_agentic::uninstall_agent_plugin;
+
+    let result_json = uninstall_agent_plugin(agent_type);
+    match serde_json::from_str::<serde_json::Value>(&result_json) {
+        Ok(json) => {
+            if json["success"].as_bool().unwrap_or(false) {
+                println!(
+                    "[OK] {} uninstalled",
+                    json["agent_type"].as_str().unwrap_or("")
+                );
+                0
+            } else {
+                eprintln!(
+                    "Failed to uninstall plugin: {}",
+                    json["message"].as_str().unwrap_or("Unknown error")
+                );
+                ERROR_CODE_SERVER_ERROR
+            }
+        }
+        Err(e) => {
+            eprintln!("Error parsing result: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
