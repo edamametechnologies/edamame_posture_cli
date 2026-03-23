@@ -1933,6 +1933,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "1.1.3"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#c9284782001517534eb65dcad3eeab33c2d2aa3e"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -2007,7 +2008,7 @@ dependencies = [
  "tonic-prost-build",
  "tracing",
  "tracing-subscriber",
- "undeadlock 1.0.2",
+ "undeadlock",
  "urlencoding",
  "uuid",
  "vergen-gitcl",
@@ -2022,6 +2023,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "1.1.3"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#554b61877ee2ef1952c9d658a3fff542f67d572a"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -2078,7 +2080,7 @@ dependencies = [
  "tracing-android",
  "tracing-appender",
  "tracing-subscriber",
- "undeadlock 1.0.2",
+ "undeadlock",
  "users",
  "uuid",
  "wez-mdns",
@@ -2339,6 +2341,7 @@ dependencies = [
 [[package]]
 name = "extended-isolation-forest"
 version = "0.2.3"
+source = "git+https://github.com/edamametechnologies/extended-isolation-forest?branch=main#b373e9dd5681447d5fff50c106a73ec2ee0f4377"
 dependencies = [
  "num-traits",
  "rand 0.8.5",
@@ -2471,6 +2474,7 @@ dependencies = [
 [[package]]
 name = "flodbadd"
 version = "1.1.3"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#4b25a1d8ab2ad389ee41a03dc38d73b6c788ca9e"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -2519,7 +2523,7 @@ dependencies = [
  "threatmodels_rs",
  "tokio",
  "tracing",
- "undeadlock 1.0.2",
+ "undeadlock",
  "users",
  "uuid",
  "wez-mdns",
@@ -4026,6 +4030,7 @@ dependencies = [
 [[package]]
 name = "l7_ebpf_program"
 version = "0.1.0"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#4b25a1d8ab2ad389ee41a03dc38d73b6c788ca9e"
 
 [[package]]
 name = "lazy_static"
@@ -6883,9 +6888,9 @@ dependencies = [
 
 [[package]]
 name = "serde_spanned"
-version = "1.0.4"
+version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f8bbf91e5a4d6315eee45e704372590b30e260ee83af6639d64557f51b067776"
+checksum = "876ac351060d4f882bb1032b6369eb0aef79ad9df1ea8bc404874d8cc3d0cd98"
 dependencies = [
  "serde_core",
 ]
@@ -7480,6 +7485,7 @@ dependencies = [
 [[package]]
 name = "threatmodels_rs"
 version = "0.1.1"
+source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#2da85075ce7dd751a19b0e4022e6db75ca86d0fa"
 dependencies = [
  "anyhow",
  "chrono",
@@ -7487,7 +7493,7 @@ dependencies = [
  "serial_test",
  "tokio",
  "tracing",
- "undeadlock 1.0.2 (git+https://github.com/edamametechnologies/undeadlock?branch=main)",
+ "undeadlock",
 ]
 
 [[package]]
@@ -7632,7 +7638,7 @@ checksum = "cf92845e79fc2e2def6a5d828f0801e29a2f8acc037becc5ab08595c7d5e9863"
 dependencies = [
  "indexmap 2.13.0",
  "serde_core",
- "serde_spanned 1.0.4",
+ "serde_spanned 1.1.0",
  "toml_datetime 0.7.5+spec-1.1.0",
  "toml_parser",
  "toml_writer",
@@ -7659,9 +7665,9 @@ dependencies = [
 
 [[package]]
 name = "toml_datetime"
-version = "1.0.1+spec-1.1.0"
+version = "1.1.0+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9b320e741db58cac564e26c607d3cc1fdc4a88fd36c879568c07856ed83ff3e9"
+checksum = "97251a7c317e03ad83774a8752a7e81fb6067740609f75ea2b585b569a59198f"
 dependencies = [
  "serde_core",
 ]
@@ -7697,25 +7703,25 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8ca1a40644a28bce036923f6a431df0b34236949d111cc07cb6dca830c9ef2e1"
 dependencies = [
  "indexmap 2.13.0",
- "toml_datetime 1.0.1+spec-1.1.0",
+ "toml_datetime 1.1.0+spec-1.1.0",
  "toml_parser",
  "winnow 1.0.0",
 ]
 
 [[package]]
 name = "toml_parser"
-version = "1.0.10+spec-1.1.0"
+version = "1.1.0+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7df25b4befd31c4816df190124375d5a20c6b6921e2cad937316de3fccd63420"
+checksum = "2334f11ee363607eb04df9b8fc8a13ca1715a72ba8662a26ac285c98aabb4011"
 dependencies = [
  "winnow 1.0.0",
 ]
 
 [[package]]
 name = "toml_writer"
-version = "1.0.7+spec-1.1.0"
+version = "1.1.0+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f17aaa1c6e3dc22b1da4b6bba97d066e354c7945cac2f7852d4e4e7ca7a6b56d"
+checksum = "d282ade6016312faf3e41e57ebbba0c073e4056dab1232ab1cb624199648f8ed"
 
 [[package]]
 name = "tonic"
@@ -7999,17 +8005,6 @@ name = "typenum"
 version = "1.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "562d481066bde0658276a35467c4af00bdc6ee726305698a55b86e61d7ad82bb"
-
-[[package]]
-name = "undeadlock"
-version = "1.0.2"
-dependencies = [
- "dashmap 6.1.0",
- "futures",
- "once_cell",
- "tokio",
- "tracing",
-]
 
 [[package]]
 name = "undeadlock"

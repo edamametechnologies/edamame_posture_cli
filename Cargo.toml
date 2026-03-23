@@ -6,8 +6,8 @@ description = "EDAMAME Security posture analysis and remediation"
 
 [dependencies]
 # Local copy in order to allow rapid development/debug
-edamame_core = { path = "../edamame_core", features = [ "userdefaults", "pwned", "flodbadd", "trust", "agentic", "mcp", "swiftrs", "standalone" ] }
-#edamame_core = { git = "https://github.com/edamametechnologies/edamame_core", branch = "main", features = [ "userdefaults", "pwned", "flodbadd", "trust", "agentic", "mcp", "swiftrs", "standalone" ] }
+#edamame_core = { path = "../edamame_core", features = [ "userdefaults", "pwned", "flodbadd", "trust", "agentic", "mcp", "swiftrs", "standalone" ] }
+edamame_core = { git = "https://github.com/edamametechnologies/edamame_core", branch = "main", features = [ "userdefaults", "pwned", "flodbadd", "trust", "agentic", "mcp", "swiftrs", "standalone" ] }
 
 # Error handling
 anyhow = "1.0.82"
@@ -48,28 +48,28 @@ zip = { version = "2.2.0", default-features = false, features = ["deflate"] }
 # eBPF for 64-bit Linux targets only (aya doesn't support 32-bit)
 [target.'cfg(all(target_os = "linux", any(target_arch = "x86_64", target_arch = "aarch64")))'.dependencies]
 # Local copy in order to allow rapid development/debug
-flodbadd = { path = "../flodbadd", features = [ "packetcapture", "asyncpacketcapture", "ebpf" ] }
-#flodbadd = { git = "https://github.com/edamametechnologies/flodbadd", branch = "main", features = [ "packetcapture", "asyncpacketcapture", "ebpf" ] }
+#flodbadd = { path = "../flodbadd", features = [ "packetcapture", "asyncpacketcapture", "ebpf" ] }
+flodbadd = { git = "https://github.com/edamametechnologies/flodbadd", branch = "main", features = [ "packetcapture", "asyncpacketcapture", "ebpf" ] }
 
 # No eBPF for 32-bit Linux (i686, armv7) - aya doesn't support these architectures
 [target.'cfg(not(all(target_os = "linux", any(target_arch = "x86_64", target_arch = "aarch64"))))'.dependencies]
 # Local copy in order to allow rapid development/debug
-flodbadd = { path = "../flodbadd", features = [ "packetcapture", "asyncpacketcapture" ] }
-#flodbadd = { git = "https://github.com/edamametechnologies/flodbadd", branch = "main", features = [ "packetcapture", "asyncpacketcapture" ] }
+#flodbadd = { path = "../flodbadd", features = [ "packetcapture", "asyncpacketcapture" ] }
+flodbadd = { git = "https://github.com/edamametechnologies/flodbadd", branch = "main", features = [ "packetcapture", "asyncpacketcapture" ] }
 
 # Linux and macOS 
 [target.'cfg(any(target_os = "macos", target_os = "linux"))'.dependencies]
 # Local copy in order to allow rapid development/debug
-edamame_foundation = { path = "../edamame_foundation", features = [ "packetcapture" ] }
-#edamame_foundation = { git = "https://github.com/edamametechnologies/edamame_foundation", branch = "main", features = [ "packetcapture" ] }
+#edamame_foundation = { path = "../edamame_foundation", features = [ "packetcapture" ] }
+edamame_foundation = { git = "https://github.com/edamametechnologies/edamame_foundation", branch = "main", features = [ "packetcapture" ] }
 # Process
 daemonize = "0.5.0"
 
 # Windows
 [target.'cfg(target_os = "windows")'.dependencies]
 # Local copy in order to allow rapid development/debug
-edamame_foundation = { path = "../edamame_foundation" }
-#edamame_foundation = { git = "https://github.com/edamametechnologies/edamame_foundation", branch = "main" }
+#edamame_foundation = { path = "../edamame_foundation" }
+edamame_foundation = { git = "https://github.com/edamametechnologies/edamame_foundation", branch = "main" }
 windows = { version = "0.58.0", features = [ "Win32_System_Environment",  "Win32_System_Threading", "Win32_Foundation",  "Win32_Security", "Win32_System_LibraryLoader" ] }
 widestring = "1.1.0"
 
@@ -107,7 +107,7 @@ vergen-gitcl = { version = "10.0.0-beta.5", features = [ "build", "cargo", "rust
 [target.'cfg(target_os = "windows")'.build-dependencies]
 # For the winpcap installation support in Windows
 # Local copy in order to allow rapid development/debug
-flodbadd = { path = "../flodbadd", features = [ "packetcapture", "asyncpacketcapture" ] }
-#flodbadd = { git = "https://github.com/edamametechnologies/flodbadd", branch = "main", features = [ "packetcapture", "asyncpacketcapture" ] }
+#flodbadd = { path = "../flodbadd", features = [ "packetcapture", "asyncpacketcapture" ] }
+flodbadd = { git = "https://github.com/edamametechnologies/flodbadd", branch = "main", features = [ "packetcapture", "asyncpacketcapture" ] }
 
 
