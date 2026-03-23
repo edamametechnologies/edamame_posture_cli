@@ -606,6 +606,42 @@ pub fn build_cli() -> Command {
         .arg(arg!(<WHITELIST_FILE_2> "Second whitelist JSON file path")
             .required(true)
             .value_parser(clap::value_parser!(String))))
+    ////////////////////
+    // Agent plugin provisioning commands
+    ////////////////////
+    .subcommand(
+        Command::new("install-agent-plugin")
+            .about("Install or update an EDAMAME agent plugin from GitHub (cursor, claude_code, openclaw)")
+            .arg(
+                arg!(<TYPE> "Agent plugin type: cursor, claude_code, or openclaw")
+                    .required(true)
+                    .value_parser(["cursor", "claude_code", "openclaw"]),
+            )
+            .arg(
+                arg!([WORKSPACE] "Workspace root path (optional, used for Cursor/Claude Code)")
+                    .required(false)
+                    .value_parser(clap::value_parser!(String)),
+            ),
+    )
+    .subcommand(
+        Command::new("agent-plugin-status")
+            .about("Get installation status of an EDAMAME agent plugin")
+            .arg(
+                arg!(<TYPE> "Agent plugin type: cursor, claude_code, or openclaw")
+                    .required(true)
+                    .value_parser(["cursor", "claude_code", "openclaw"]),
+            ),
+    )
+    .subcommand(Command::new("list-agent-plugins").about("List all EDAMAME agent plugins and their installation status"))
+    .subcommand(
+        Command::new("uninstall-agent-plugin")
+            .about("Uninstall an EDAMAME agent plugin (removes all files, config, state, and pairing data)")
+            .arg(
+                arg!(<TYPE> "Agent plugin type: cursor, claude_code, or openclaw")
+                    .required(true)
+                    .value_parser(["cursor", "claude_code", "openclaw"]),
+            ),
+    )
 }
 
 fn start_common_args() -> Vec<Arg> {

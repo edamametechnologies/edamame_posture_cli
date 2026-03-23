@@ -1235,6 +1235,38 @@ fn run_base() {
             exit_code = background_vulnerability_reset_suppressions();
             is_background = true;
         }
+        Some(("install-agent-plugin", sub_matches)) => {
+            let agent_type = sub_matches
+                .get_one::<String>("TYPE")
+                .expect("TYPE not provided")
+                .to_string();
+            let workspace_root = sub_matches
+                .get_one::<String>("WORKSPACE")
+                .cloned()
+                .unwrap_or_default();
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = base_install_agent_plugin(agent_type, workspace_root);
+        }
+        Some(("agent-plugin-status", sub_matches)) => {
+            let agent_type = sub_matches
+                .get_one::<String>("TYPE")
+                .expect("TYPE not provided")
+                .to_string();
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = base_agent_plugin_status(agent_type);
+        }
+        Some(("list-agent-plugins", _)) => {
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = base_list_agent_plugins();
+        }
+        Some(("uninstall-agent-plugin", sub_matches)) => {
+            let agent_type = sub_matches
+                .get_one::<String>("TYPE")
+                .expect("TYPE not provided")
+                .to_string();
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = base_uninstall_agent_plugin(agent_type);
+        }
         _ => {
             // Initialize the core with all options disabled
             initialize_core("".to_string(), false, false, false, false, false, verbose);
