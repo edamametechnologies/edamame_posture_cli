@@ -360,7 +360,7 @@ log_core_info_for_binary() {
 }
 
 REPO_BASE_URL="https://github.com/edamametechnologies/edamame_posture_cli"
-FALLBACK_VERSION="0.9.75"
+FALLBACK_VERSION="1.1.2"
 LATEST_RELEASE_TAG_PRIMARY=""
 LATEST_RELEASE_TAG_SECONDARY=""
 ARTIFACT_SECONDARY_URL=""
@@ -487,9 +487,17 @@ fetch_release_feed() {
     local api="https://api.github.com/repos/edamametechnologies/edamame_posture_cli/releases?per_page=2"
     local response=""
     if command -v curl >/dev/null 2>&1; then
-        response=$(curl --connect-timeout 10 --max-time 30 -fsSL "$api" 2>/dev/null) || response=""
+        if [ -n "$GITHUB_TOKEN" ]; then
+            response=$(curl --connect-timeout 10 --max-time 30 -fsSL -H "Authorization: token $GITHUB_TOKEN" "$api" 2>/dev/null) || response=""
+        else
+            response=$(curl --connect-timeout 10 --max-time 30 -fsSL "$api" 2>/dev/null) || response=""
+        fi
     elif command -v wget >/dev/null 2>&1; then
-        response=$(wget --timeout=30 -q -O - "$api" 2>/dev/null) || response=""
+        if [ -n "$GITHUB_TOKEN" ]; then
+            response=$(wget --timeout=30 -q -O - --header="Authorization: token $GITHUB_TOKEN" "$api" 2>/dev/null) || response=""
+        else
+            response=$(wget --timeout=30 -q -O - "$api" 2>/dev/null) || response=""
+        fi
     fi
     if [ -n "$response" ]; then
         GITHUB_RELEASES_RESPONSE="$response"
@@ -569,9 +577,17 @@ fetch_release_by_tag() {
     local api="https://api.github.com/repos/edamametechnologies/edamame_posture_cli/releases/tags/v${version}"
     local response=""
     if command -v curl >/dev/null 2>&1; then
-        response=$(curl --connect-timeout 10 --max-time 30 -fsSL "$api" 2>/dev/null) || response=""
+        if [ -n "$GITHUB_TOKEN" ]; then
+            response=$(curl --connect-timeout 10 --max-time 30 -fsSL -H "Authorization: token $GITHUB_TOKEN" "$api" 2>/dev/null) || response=""
+        else
+            response=$(curl --connect-timeout 10 --max-time 30 -fsSL "$api" 2>/dev/null) || response=""
+        fi
     elif command -v wget >/dev/null 2>&1; then
-        response=$(wget --timeout=30 -q -O - "$api" 2>/dev/null) || response=""
+        if [ -n "$GITHUB_TOKEN" ]; then
+            response=$(wget --timeout=30 -q -O - --header="Authorization: token $GITHUB_TOKEN" "$api" 2>/dev/null) || response=""
+        else
+            response=$(wget --timeout=30 -q -O - "$api" 2>/dev/null) || response=""
+        fi
     fi
     printf '%s\n' "$response"
     if [ -n "$response" ]; then
