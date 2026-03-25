@@ -84,6 +84,19 @@ print_result() {
     fi
 }
 
+check_daemon_running() {
+    local status_output
+
+    if ! status_output=$($SUDO_CMD "$BINARY_PATH" status 2>&1); then
+        echo "Daemon not running after start"
+        echo "$status_output"
+        return 1
+    fi
+
+    echo "$status_output"
+    return 0
+}
+
 # --- Test Functions ---
 
 test_provider() {
@@ -116,11 +129,9 @@ test_provider() {
         echo "Waiting for daemon to initialize..."
         sleep 10  # Wait for initialization
         
-        # Check daemon status - look for "Is connected: true" or "Is success: true" in output
-        if ! $SUDO_CMD "$BINARY_PATH" status 2>&1 | grep -qE "(Is connected: true|Is success: true)"; then
-            echo "Daemon not running after start"
-            # Try to get more info
-            $SUDO_CMD "$BINARY_PATH" status 2>&1 || true
+        # In disconnected mode, backend connection is expected to remain false.
+        # A successful status RPC confirms that the daemon is alive and reachable.
+        if ! check_daemon_running; then
             eval "$result_var=FAILED"
             $SUDO_CMD "$BINARY_PATH" stop 2>/dev/null || true
             sleep 3
