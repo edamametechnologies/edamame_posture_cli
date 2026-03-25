@@ -109,6 +109,7 @@ This guide walks you through the most common use case: running EDAMAME Posture i
 - **AI-powered remediation** that analyzes and fixes security issues automatically
 - **Network visibility** with LAN scanning and traffic capture
 - **Unified notifications** for agentic actions and divergence/vulnerability alerts
+- **CVE and divergence detection** -- see the [EDAMAME Agentic User Guide](https://github.com/edamametechnologies/edamame_security/blob/main/AGENTIC.md) for detection architecture and [E2E tests](https://github.com/edamametechnologies/agent_security/blob/main/tests/e2e/E2E_TESTS.md) for coverage details
 
 ### Prerequisites
 
