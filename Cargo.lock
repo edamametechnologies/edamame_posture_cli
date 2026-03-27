@@ -976,9 +976,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.2.57"
+version = "1.2.58"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7a0dd1ca384932ff3641c8718a02769f1698e7563dc6974ffd03346116310423"
+checksum = "e1e928d4b69e3077709075a938a05ffbedfa53a84c8f766efbf8220bb1ff60e1"
 dependencies = [
  "find-msvc-tools",
  "jobserver",
@@ -1932,7 +1932,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "1.1.3"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#837a2961d17d20aa21776194b4b8c2d2d9944c93"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#dabf55cc0f7a8e8572e0f971cb94a6764540d8f6"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -2473,7 +2473,7 @@ dependencies = [
 [[package]]
 name = "flodbadd"
 version = "1.1.3"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#e06772e52e57ef4c1066aca4c53dc6e3c0a5690b"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#28675047028f47878f7bad454c1c7a5af8226086"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -4030,7 +4030,7 @@ dependencies = [
 [[package]]
 name = "l7_ebpf_program"
 version = "0.1.0"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#e06772e52e57ef4c1066aca4c53dc6e3c0a5690b"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#28675047028f47878f7bad454c1c7a5af8226086"
 
 [[package]]
 name = "lazy_static"
@@ -7485,7 +7485,7 @@ dependencies = [
 [[package]]
 name = "threatmodels_rs"
 version = "0.1.1"
-source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#a915fc6953c70fc3ccf7fd3736e425e30ff8e1ef"
+source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#dfd211d0750e3f5016a232bffd50dc51262cf43a"
 dependencies = [
  "anyhow",
  "chrono",
