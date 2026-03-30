@@ -611,11 +611,11 @@ pub fn build_cli() -> Command {
     ////////////////////
     .subcommand(
         Command::new("install-agent-plugin")
-            .about("Install or update an EDAMAME agent plugin from GitHub (cursor, claude_code, openclaw)")
+            .about("Install or update a supported EDAMAME agent plugin from GitHub")
             .arg(
-                arg!(<TYPE> "Agent plugin type: cursor, claude_code, or openclaw")
+                arg!(<TYPE> "Agent plugin type (validated against the runtime supported-agent registry)")
                     .required(true)
-                    .value_parser(["cursor", "claude_code", "openclaw"]),
+                    .value_parser(clap::value_parser!(String)),
             )
             .arg(
                 arg!([WORKSPACE] "Workspace root path (optional, used for Cursor/Claude Code)")
@@ -627,9 +627,9 @@ pub fn build_cli() -> Command {
         Command::new("agent-plugin-status")
             .about("Get installation status of an EDAMAME agent plugin")
             .arg(
-                arg!(<TYPE> "Agent plugin type: cursor, claude_code, or openclaw")
+                arg!(<TYPE> "Agent plugin type (validated against the runtime supported-agent registry)")
                     .required(true)
-                    .value_parser(["cursor", "claude_code", "openclaw"]),
+                    .value_parser(clap::value_parser!(String)),
             ),
     )
     .subcommand(Command::new("list-agent-plugins").about("List all EDAMAME agent plugins and their installation status"))
@@ -637,9 +637,9 @@ pub fn build_cli() -> Command {
         Command::new("uninstall-agent-plugin")
             .about("Uninstall an EDAMAME agent plugin (removes all files, config, state, and pairing data)")
             .arg(
-                arg!(<TYPE> "Agent plugin type: cursor, claude_code, or openclaw")
+                arg!(<TYPE> "Agent plugin type (validated against the runtime supported-agent registry)")
                     .required(true)
-                    .value_parser(["cursor", "claude_code", "openclaw"]),
+                    .value_parser(clap::value_parser!(String)),
             ),
     )
 }

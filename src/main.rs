@@ -176,6 +176,18 @@ pub fn initialize_core(
     }
 }
 
+fn validate_agent_plugin_type(agent_type: &str) -> std::result::Result<(), String> {
+    if edamame_foundation::supported_agents::find_supported_agent(agent_type).is_some() {
+        return Ok(());
+    }
+
+    Err(format!(
+        "Unknown agent type '{}'. Valid types: {}",
+        agent_type,
+        edamame_foundation::supported_agents::supported_agent_types_display()
+    ))
+}
+
 fn print_completions<G: Generator>(gen: G, cmd: &mut Command) {
     generate(gen, cmd, cmd.get_name().to_string(), &mut io::stdout());
 }
@@ -1244,16 +1256,32 @@ fn run_base() {
                 .get_one::<String>("WORKSPACE")
                 .cloned()
                 .unwrap_or_default();
-            initialize_core("".to_string(), false, false, false, false, false, verbose);
-            exit_code = base_install_agent_plugin(agent_type, workspace_root);
+            match validate_agent_plugin_type(&agent_type) {
+                Ok(()) => {
+                    initialize_core("".to_string(), false, false, false, false, false, verbose);
+                    exit_code = base_install_agent_plugin(agent_type, workspace_root);
+                }
+                Err(message) => {
+                    eprintln!("{}", message);
+                    exit_code = ERROR_CODE_PARAM;
+                }
+            }
         }
         Some(("agent-plugin-status", sub_matches)) => {
             let agent_type = sub_matches
                 .get_one::<String>("TYPE")
                 .expect("TYPE not provided")
                 .to_string();
-            initialize_core("".to_string(), false, false, false, false, false, verbose);
-            exit_code = base_agent_plugin_status(agent_type);
+            match validate_agent_plugin_type(&agent_type) {
+                Ok(()) => {
+                    initialize_core("".to_string(), false, false, false, false, false, verbose);
+                    exit_code = base_agent_plugin_status(agent_type);
+                }
+                Err(message) => {
+                    eprintln!("{}", message);
+                    exit_code = ERROR_CODE_PARAM;
+                }
+            }
         }
         Some(("list-agent-plugins", _)) => {
             initialize_core("".to_string(), false, false, false, false, false, verbose);
@@ -1264,8 +1292,16 @@ fn run_base() {
                 .get_one::<String>("TYPE")
                 .expect("TYPE not provided")
                 .to_string();
-            initialize_core("".to_string(), false, false, false, false, false, verbose);
-            exit_code = base_uninstall_agent_plugin(agent_type);
+            match validate_agent_plugin_type(&agent_type) {
+                Ok(()) => {
+                    initialize_core("".to_string(), false, false, false, false, false, verbose);
+                    exit_code = base_uninstall_agent_plugin(agent_type);
+                }
+                Err(message) => {
+                    eprintln!("{}", message);
+                    exit_code = ERROR_CODE_PARAM;
+                }
+            }
         }
         _ => {
             // Initialize the core with all options disabled

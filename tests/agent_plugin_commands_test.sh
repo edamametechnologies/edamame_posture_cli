@@ -4,6 +4,7 @@ set -eo pipefail
 list_result="?"
 status_cursor_result="?"
 status_claude_code_result="?"
+status_claude_desktop_result="?"
 status_openclaw_result="?"
 status_invalid_result="?"
 install_result="?"
@@ -15,6 +16,7 @@ finish() {
     echo "  $list_result list-agent-plugins"
     echo "  $status_cursor_result agent-plugin-status cursor"
     echo "  $status_claude_code_result agent-plugin-status claude_code"
+    echo "  $status_claude_desktop_result agent-plugin-status claude_desktop"
     echo "  $status_openclaw_result agent-plugin-status openclaw"
     echo "  $status_invalid_result agent-plugin-status invalid (expect error)"
     echo "  $install_result install-agent-plugin (network, optional)"
@@ -50,19 +52,20 @@ echo "$LIST_OUTPUT"
 
 FOUND_CURSOR=$(echo "$LIST_OUTPUT" | grep -c "cursor" || true)
 FOUND_CLAUDE=$(echo "$LIST_OUTPUT" | grep -c "claude_code" || true)
+FOUND_CLAUDE_DESKTOP=$(echo "$LIST_OUTPUT" | grep -c "claude_desktop" || true)
 FOUND_OPENCLAW=$(echo "$LIST_OUTPUT" | grep -c "openclaw" || true)
 
-if [ "$FOUND_CURSOR" -ge 1 ] && [ "$FOUND_CLAUDE" -ge 1 ] && [ "$FOUND_OPENCLAW" -ge 1 ]; then
-    echo "PASS: list-agent-plugins output contains all three agent types"
+if [ "$FOUND_CURSOR" -ge 1 ] && [ "$FOUND_CLAUDE" -ge 1 ] && [ "$FOUND_CLAUDE_DESKTOP" -ge 1 ] && [ "$FOUND_OPENCLAW" -ge 1 ]; then
+    echo "PASS: list-agent-plugins output contains all four agent types"
     list_result="PASS"
 else
-    echo "FAIL: list-agent-plugins output missing agent types (cursor=$FOUND_CURSOR, claude_code=$FOUND_CLAUDE, openclaw=$FOUND_OPENCLAW)"
+    echo "FAIL: list-agent-plugins output missing agent types (cursor=$FOUND_CURSOR, claude_code=$FOUND_CLAUDE, claude_desktop=$FOUND_CLAUDE_DESKTOP, openclaw=$FOUND_OPENCLAW)"
     exit 1
 fi
 echo ""
 
 # --- Test: agent-plugin-status for each valid type ---
-for agent_type in cursor claude_code openclaw; do
+for agent_type in cursor claude_code claude_desktop openclaw; do
     echo "=== Testing agent-plugin-status $agent_type ==="
     STATUS_OUTPUT=$("$BINARY_PATH" $VERBOSE_FLAG agent-plugin-status "$agent_type" 2>&1) || {
         echo "FAIL: agent-plugin-status $agent_type returned non-zero exit code"
