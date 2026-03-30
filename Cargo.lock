@@ -1932,7 +1932,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "1.1.4"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#6596d0a6a28bd7585044a12325fde6ce509bc649"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#90f5500a65befa6713c00114ef691b6d59b16575"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -2021,8 +2021,8 @@ dependencies = [
 
 [[package]]
 name = "edamame_foundation"
-version = "1.1.3"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#62324d484445f4f29219d19e8bb84d17a19b62fa"
+version = "1.1.4"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#74a3ab4eac84e029fd29a586abdd24b2a358e7d0"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -2472,8 +2472,8 @@ dependencies = [
 
 [[package]]
 name = "flodbadd"
-version = "1.1.3"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#6cdefac7ec0e033645fe1dc371f431924dcc7fa2"
+version = "1.1.4"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#836e56093579e0e79b156f9d7c2af71d6c8efe13"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -4032,7 +4032,7 @@ dependencies = [
 [[package]]
 name = "l7_ebpf_program"
 version = "0.1.0"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#6cdefac7ec0e033645fe1dc371f431924dcc7fa2"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#836e56093579e0e79b156f9d7c2af71d6c8efe13"
 
 [[package]]
 name = "lazy_static"
@@ -7501,7 +7501,7 @@ dependencies = [
 [[package]]
 name = "threatmodels_rs"
 version = "0.1.1"
-source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#dfd211d0750e3f5016a232bffd50dc51262cf43a"
+source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#9e2c4ddccecb56d235796f6ab10ffc00d5aeffbc"
 dependencies = [
  "anyhow",
  "chrono",
@@ -8025,7 +8025,7 @@ checksum = "562d481066bde0658276a35467c4af00bdc6ee726305698a55b86e61d7ad82bb"
 [[package]]
 name = "undeadlock"
 version = "1.0.2"
-source = "git+https://github.com/edamametechnologies/undeadlock?branch=main#e7fcd6d543b88baa36e11874e0cf7ce8cc6b1b8b"
+source = "git+https://github.com/edamametechnologies/undeadlock?branch=main#14a0b7d1f9c170690a629f63d816b5f58c2557c4"
 dependencies = [
  "dashmap 6.1.0",
  "futures",
