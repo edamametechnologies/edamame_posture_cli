@@ -1,6 +1,6 @@
 [package]
 name = "edamame_posture"
-version = "1.1.4"
+version = "1.1.5"
 edition = "2021"
 description = "EDAMAME Security posture analysis and remediation"
 
@@ -51,8 +51,20 @@ zip = { version = "2.2.0", default-features = false, features = ["deflate"] }
 #flodbadd = { path = "../flodbadd", features = [ "packetcapture", "asyncpacketcapture", "ebpf" ] }
 flodbadd = { git = "https://github.com/edamametechnologies/flodbadd", branch = "main", features = [ "packetcapture", "asyncpacketcapture", "ebpf" ] }
 
-# No eBPF for 32-bit Linux (i686, armv7) - aya doesn't support these architectures
-[target.'cfg(not(all(target_os = "linux", any(target_arch = "x86_64", target_arch = "aarch64"))))'.dependencies]
+# Endpoint Security for macOS
+[target.'cfg(target_os = "macos")'.dependencies]
+# Local copy in order to allow rapid development/debug
+#flodbadd = { path = "../flodbadd", features = [ "packetcapture", "asyncpacketcapture", "endpointsecurity" ] }
+flodbadd = { git = "https://github.com/edamametechnologies/flodbadd", branch = "main", features = [ "packetcapture", "asyncpacketcapture", "endpointsecurity" ] }
+
+# ETW for Windows
+[target.'cfg(target_os = "windows")'.dependencies]
+# Local copy in order to allow rapid development/debug
+#flodbadd = { path = "../flodbadd", features = [ "packetcapture", "asyncpacketcapture", "etw" ] }
+flodbadd = { git = "https://github.com/edamametechnologies/flodbadd", branch = "main", features = [ "packetcapture", "asyncpacketcapture", "etw" ] }
+
+# Other platforms (32-bit Linux, etc.) without kernel-level process attribution
+[target.'cfg(not(any(target_os = "macos", target_os = "windows", all(target_os = "linux", any(target_arch = "x86_64", target_arch = "aarch64")))))'.dependencies]
 # Local copy in order to allow rapid development/debug
 #flodbadd = { path = "../flodbadd", features = [ "packetcapture", "asyncpacketcapture" ] }
 flodbadd = { git = "https://github.com/edamametechnologies/flodbadd", branch = "main", features = [ "packetcapture", "asyncpacketcapture" ] }
