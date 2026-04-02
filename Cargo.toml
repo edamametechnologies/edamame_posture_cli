@@ -57,11 +57,11 @@ flodbadd = { git = "https://github.com/edamametechnologies/flodbadd", branch = "
 #flodbadd = { path = "../flodbadd", features = [ "packetcapture", "asyncpacketcapture", "endpointsecurity" ] }
 flodbadd = { git = "https://github.com/edamametechnologies/flodbadd", branch = "main", features = [ "packetcapture", "asyncpacketcapture", "endpointsecurity" ] }
 
-# ETW for Windows
+# Windows (no kernel-level L7 -- netstat2/GetExtendedTcpTable is already fast enough)
 [target.'cfg(target_os = "windows")'.dependencies]
 # Local copy in order to allow rapid development/debug
-#flodbadd = { path = "../flodbadd", features = [ "packetcapture", "asyncpacketcapture", "etw" ] }
-flodbadd = { git = "https://github.com/edamametechnologies/flodbadd", branch = "main", features = [ "packetcapture", "asyncpacketcapture", "etw" ] }
+#flodbadd = { path = "../flodbadd", features = [ "packetcapture", "asyncpacketcapture" ] }
+flodbadd = { git = "https://github.com/edamametechnologies/flodbadd", branch = "main", features = [ "packetcapture", "asyncpacketcapture" ] }
 
 # Other platforms (32-bit Linux, etc.) without kernel-level process attribution
 [target.'cfg(not(any(target_os = "macos", target_os = "windows", all(target_os = "linux", any(target_arch = "x86_64", target_arch = "aarch64")))))'.dependencies]
