@@ -642,6 +642,44 @@ pub fn build_cli() -> Command {
                     .value_parser(clap::value_parser!(String)),
             ),
     )
+    ////////////////////
+    // File Integrity Monitoring commands
+    ////////////////////
+    .subcommand(
+        Command::new("background-start-file-monitor")
+            .alias("start-file-monitor")
+            .about("Start file integrity monitoring in the background process")
+            .arg(
+                arg!(--"paths" <PATHS> "Comma-separated paths to monitor (default: auto-detected)")
+                    .required(false)
+                    .value_parser(clap::value_parser!(String)),
+            ),
+    )
+    .subcommand(
+        Command::new("background-stop-file-monitor")
+            .alias("stop-file-monitor")
+            .about("Stop file integrity monitoring"),
+    )
+    .subcommand(
+        Command::new("background-file-monitor-status")
+            .alias("file-monitor-status")
+            .about("Get file integrity monitoring status"),
+    )
+    .subcommand(
+        Command::new("background-get-file-events")
+            .alias("get-file-events")
+            .about("Get file events from the background process")
+            .arg(
+                arg!(--"fail-on-suspicious" "Exit with code 1 if suspicious file events are detected")
+                    .required(false)
+                    .action(ArgAction::SetTrue),
+            ),
+    )
+    .subcommand(
+        Command::new("background-clear-file-events")
+            .alias("clear-file-events")
+            .about("Clear file event history"),
+    )
 }
 
 fn start_common_args() -> Vec<Arg> {

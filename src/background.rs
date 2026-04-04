@@ -9,6 +9,7 @@ use crate::ERROR_CODE_SERVER_ERROR;
 use crate::ERROR_CODE_TIMEOUT;
 use edamame_core::api::api_agentic::*;
 use edamame_core::api::api_core::*;
+use edamame_core::api::api_fim::*;
 use edamame_core::api::api_flodbadd::*;
 use edamame_core::api::api_score::*;
 use edamame_core::api::api_score_history::*;
@@ -2106,4 +2107,134 @@ pub fn background_set_agentic_loop(enabled: bool, interval_secs: u64, mode: &str
         );
     }
     success
+}
+
+pub fn background_start_file_monitor(paths: &[String]) -> i32 {
+    match rpc_start_file_monitor(
+        paths.to_vec(),
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(_) => {
+            info!("File monitor started");
+            0
+        }
+        Err(e) => {
+            eprintln!("Error starting file monitor: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn background_stop_file_monitor() -> i32 {
+    match rpc_stop_file_monitor(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(_) => {
+            info!("File monitor stopped");
+            0
+        }
+        Err(e) => {
+            eprintln!("Error stopping file monitor: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn background_file_monitor_status() -> i32 {
+    match rpc_get_file_monitor_status(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(status) => {
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&status).unwrap_or_default()
+            );
+            0
+        }
+        Err(e) => {
+            eprintln!("Error getting file monitor status: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn background_get_file_events(fail_on_suspicious: bool) -> i32 {
+    let snapshot = match rpc_get_file_events(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(snapshot) => snapshot,
+        Err(e) => {
+            eprintln!("Error getting file events: {}", e);
+            return ERROR_CODE_SERVER_ERROR;
+        }
+    };
+
+    for event in &snapshot.events {
+        let sensitivity = if event.is_sensitive {
+            "sensitive"
+        } else {
+            ""
+        };
+        let labels = if event.labels.is_empty() {
+            String::new()
+        } else {
+            format!(" ({})", event.labels.join(", "))
+        };
+        let process = event
+            .process_name
+            .as_ref()
+            .map(|p| format!(" - correlated: {}", p))
+            .unwrap_or_default();
+
+        println!(
+            "[{}] {} {}{}{}{}",
+            event.timestamp, event.event_type, event.path, labels, 
+            if !sensitivity.is_empty() { format!(" [{}]", sensitivity) } else { String::new() },
+            process
+        );
+    }
+
+    println!(
+        "\nTotal events: {}, Sensitive: {}, Monitoring: {}",
+        snapshot.event_count,
+        snapshot.sensitive_events.len(),
+        snapshot.is_monitoring
+    );
+
+    if fail_on_suspicious && snapshot.has_suspicious_events {
+        eprintln!("Suspicious file events detected");
+        return ERROR_CODE_MISMATCH;
+    }
+
+    0
+}
+
+pub fn background_clear_file_events() -> i32 {
+    match rpc_clear_file_events(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(_) => {
+            info!("File events cleared");
+            0
+        }
+        Err(e) => {
+            eprintln!("Error clearing file events: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
 }

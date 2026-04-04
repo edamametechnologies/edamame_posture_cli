@@ -1303,6 +1303,36 @@ fn run_base() {
                 }
             }
         }
+        Some(("background-start-file-monitor", sub_matches)) => {
+            let paths: Vec<String> = sub_matches
+                .get_one::<String>("paths")
+                .map(|p| p.split(',').map(|s| s.trim().to_string()).collect())
+                .unwrap_or_default();
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_start_file_monitor(&paths);
+            is_background = true;
+        }
+        Some(("background-stop-file-monitor", _)) => {
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_stop_file_monitor();
+            is_background = true;
+        }
+        Some(("background-file-monitor-status", _)) => {
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_file_monitor_status();
+            is_background = true;
+        }
+        Some(("background-get-file-events", sub_matches)) => {
+            let fail_on_suspicious = sub_matches.get_flag("fail-on-suspicious");
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_get_file_events(fail_on_suspicious);
+            is_background = true;
+        }
+        Some(("background-clear-file-events", _)) => {
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_clear_file_events();
+            is_background = true;
+        }
         _ => {
             // Initialize the core with all options disabled
             initialize_core("".to_string(), false, false, false, false, false, verbose);
