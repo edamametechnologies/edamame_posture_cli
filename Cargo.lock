@@ -337,7 +337,7 @@ checksum = "c96bf972d85afc50bf5ab8fe2d54d1586b4e0b46c97c50a0c9e71e2f7bcd812a"
 dependencies = [
  "async-task",
  "concurrent-queue",
- "fastrand 2.3.0",
+ "fastrand 2.4.0",
  "futures-lite 2.6.1",
  "pin-project-lite",
  "slab",
@@ -1918,6 +1918,7 @@ dependencies = [
 [[package]]
 name = "edamame_backend"
 version = "0.3.5"
+source = "git+https://github.com/edamametechnologies/edamame_backend?branch=main#cb5878382091ea654c205d3da58b9b3442b159b8"
 dependencies = [
  "anyhow",
  "blake3",
@@ -1931,6 +1932,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "1.1.5"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#9356200ea6052c1ed9825aae66137ad59f612995"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -2020,6 +2022,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "1.1.5"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#cbba4cad44e5bd3d39864e7db78c342c49c27103"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -2361,6 +2364,7 @@ dependencies = [
 [[package]]
 name = "extended-isolation-forest"
 version = "0.2.3"
+source = "git+https://github.com/edamametechnologies/extended-isolation-forest?branch=main#b373e9dd5681447d5fff50c106a73ec2ee0f4377"
 dependencies = [
  "num-traits",
  "rand 0.8.5",
@@ -2400,9 +2404,9 @@ dependencies = [
 
 [[package]]
 name = "fastrand"
-version = "2.3.0"
+version = "2.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "37909eebbb50d72f9059c3b6d82c0463f2ff062c9e95845c43a6c9c0355411be"
+checksum = "a043dc74da1e37d6afe657061213aa6f425f855399a11d3463c6ecccc4dfda1f"
 
 [[package]]
 name = "fdeflate"
@@ -2493,6 +2497,7 @@ dependencies = [
 [[package]]
 name = "flodbadd"
 version = "1.1.5"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#a0cca541558546eca0d18764ce059badacd602bb"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -2719,7 +2724,7 @@ version = "2.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f78e10609fe0e0b3f4157ffab1876319b5b0db102a2c60dc4626306dc46b44ad"
 dependencies = [
- "fastrand 2.3.0",
+ "fastrand 2.4.0",
  "futures-core",
  "futures-io",
  "parking",
@@ -4103,6 +4108,7 @@ dependencies = [
 [[package]]
 name = "l7_ebpf_program"
 version = "0.1.0"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#a0cca541558546eca0d18764ce059badacd602bb"
 
 [[package]]
 name = "lazy_static"
@@ -5628,7 +5634,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c835479a4443ded371d6c535cbfd8d31ad92c5d23ae9770a61bc155e4992a3c1"
 dependencies = [
  "atomic-waker",
- "fastrand 2.3.0",
+ "fastrand 2.4.0",
  "futures-io",
 ]
 
@@ -7534,7 +7540,7 @@ version = "3.27.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
- "fastrand 2.3.0",
+ "fastrand 2.4.0",
  "getrandom 0.4.2",
  "once_cell",
  "rustix 1.1.4",
@@ -7602,6 +7608,7 @@ dependencies = [
 [[package]]
 name = "threatmodels_rs"
 version = "0.1.1"
+source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#ab597860f7557349f39a7f9f8acd7f8789722db7"
 dependencies = [
  "anyhow",
  "chrono",
@@ -8140,6 +8147,7 @@ checksum = "562d481066bde0658276a35467c4af00bdc6ee726305698a55b86e61d7ad82bb"
 [[package]]
 name = "undeadlock"
 version = "1.0.2"
+source = "git+https://github.com/edamametechnologies/undeadlock?branch=main#06d6d61425462eb02dbcf067def893675164f3b5"
 dependencies = [
  "dashmap 6.1.0",
  "futures",
