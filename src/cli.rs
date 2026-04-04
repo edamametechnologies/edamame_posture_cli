@@ -1115,14 +1115,10 @@ mod tests {
             ])
             .expect("background-start-file-monitor should accept --paths");
 
-        let (sub, sub_matches) = matches
-            .subcommand()
-            .expect("expected subcommand");
+        let (sub, sub_matches) = matches.subcommand().expect("expected subcommand");
         assert_eq!(sub, "background-start-file-monitor");
         assert_eq!(
-            sub_matches
-                .get_one::<String>("paths")
-                .map(String::as_str),
+            sub_matches.get_one::<String>("paths").map(String::as_str),
             Some("/home/user/.ssh,/etc/shadow")
         );
     }
@@ -1130,10 +1126,7 @@ mod tests {
     #[test]
     fn start_file_monitor_parses_without_paths() {
         let matches = build_cli()
-            .try_get_matches_from([
-                "edamame_posture",
-                "background-start-file-monitor",
-            ])
+            .try_get_matches_from(["edamame_posture", "background-start-file-monitor"])
             .expect("background-start-file-monitor should work without --paths");
 
         let (sub, _) = matches.subcommand().expect("expected subcommand");
@@ -1143,10 +1136,7 @@ mod tests {
     #[test]
     fn stop_file_monitor_parses() {
         let matches = build_cli()
-            .try_get_matches_from([
-                "edamame_posture",
-                "background-stop-file-monitor",
-            ])
+            .try_get_matches_from(["edamame_posture", "background-stop-file-monitor"])
             .expect("background-stop-file-monitor should parse");
 
         let (sub, _) = matches.subcommand().expect("expected subcommand");
@@ -1156,10 +1146,7 @@ mod tests {
     #[test]
     fn file_monitor_status_parses() {
         let matches = build_cli()
-            .try_get_matches_from([
-                "edamame_posture",
-                "background-file-monitor-status",
-            ])
+            .try_get_matches_from(["edamame_posture", "background-file-monitor-status"])
             .expect("background-file-monitor-status should parse");
 
         let (sub, _) = matches.subcommand().expect("expected subcommand");
@@ -1176,9 +1163,7 @@ mod tests {
             ])
             .expect("background-get-file-events should accept --fail-on-suspicious");
 
-        let (sub, sub_matches) = matches
-            .subcommand()
-            .expect("expected subcommand");
+        let (sub, sub_matches) = matches.subcommand().expect("expected subcommand");
         assert_eq!(sub, "background-get-file-events");
         assert!(sub_matches.get_flag("fail-on-suspicious"));
     }
@@ -1186,15 +1171,10 @@ mod tests {
     #[test]
     fn get_file_events_parses_without_fail_flag() {
         let matches = build_cli()
-            .try_get_matches_from([
-                "edamame_posture",
-                "background-get-file-events",
-            ])
+            .try_get_matches_from(["edamame_posture", "background-get-file-events"])
             .expect("background-get-file-events should work without --fail-on-suspicious");
 
-        let (sub, sub_matches) = matches
-            .subcommand()
-            .expect("expected subcommand");
+        let (sub, sub_matches) = matches.subcommand().expect("expected subcommand");
         assert_eq!(sub, "background-get-file-events");
         assert!(!sub_matches.get_flag("fail-on-suspicious"));
     }
@@ -1202,10 +1182,7 @@ mod tests {
     #[test]
     fn clear_file_events_parses() {
         let matches = build_cli()
-            .try_get_matches_from([
-                "edamame_posture",
-                "background-clear-file-events",
-            ])
+            .try_get_matches_from(["edamame_posture", "background-clear-file-events"])
             .expect("background-clear-file-events should parse");
 
         let (sub, _) = matches.subcommand().expect("expected subcommand");
@@ -1215,10 +1192,7 @@ mod tests {
     #[test]
     fn start_file_monitor_aliases_parse() {
         let matches = build_cli()
-            .try_get_matches_from([
-                "edamame_posture",
-                "start-file-monitor",
-            ])
+            .try_get_matches_from(["edamame_posture", "start-file-monitor"])
             .expect("start-file-monitor alias should parse");
 
         let (sub, _) = matches.subcommand().expect("expected subcommand");

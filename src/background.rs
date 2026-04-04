@@ -2182,11 +2182,7 @@ pub fn background_get_file_events(fail_on_suspicious: bool) -> i32 {
     };
 
     for event in &snapshot.events {
-        let sensitivity = if event.is_sensitive {
-            "sensitive"
-        } else {
-            ""
-        };
+        let sensitivity = if event.is_sensitive { "sensitive" } else { "" };
         let labels = if event.labels.is_empty() {
             String::new()
         } else {
@@ -2200,8 +2196,15 @@ pub fn background_get_file_events(fail_on_suspicious: bool) -> i32 {
 
         println!(
             "[{}] {} {}{}{}{}",
-            event.timestamp, event.event_type, event.path, labels, 
-            if !sensitivity.is_empty() { format!(" [{}]", sensitivity) } else { String::new() },
+            event.timestamp,
+            event.event_type,
+            event.path,
+            labels,
+            if !sensitivity.is_empty() {
+                format!(" [{}]", sensitivity)
+            } else {
+                String::new()
+            },
             process
         );
     }
