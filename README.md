@@ -295,16 +295,34 @@ Loop lifecycle controls are intentionally managed through `edamame_posture` CLI
 commands and are **not** exposed on the MCP tool surface.
 
 ```bash
-# Divergence engine lifecycle
-edamame_posture divergence-start 120
-edamame_posture divergence-stop
-edamame_posture divergence-status
-
 # Agentic todo loop lifecycle
 edamame_posture agentic-start analyze 300
 edamame_posture agentic-start auto 300
 edamame_posture agentic-stop
 edamame_posture agentic-status
+
+# Vulnerability detector lifecycle
+edamame_posture vulnerability-start 60
+edamame_posture vulnerability-stop
+edamame_posture vulnerability-status
+edamame_posture vulnerability-dismiss <FINDING_KEY>
+edamame_posture vulnerability-undismiss <FINDING_KEY>
+edamame_posture vulnerability-reset-suppressions
+
+# Divergence engine lifecycle
+edamame_posture divergence-start 120
+edamame_posture divergence-stop
+edamame_posture divergence-status
+edamame_posture divergence-dismiss <FINDING_KEY>
+edamame_posture divergence-undismiss <FINDING_KEY>
+edamame_posture divergence-reset-suppressions
+
+# File Integrity Monitoring lifecycle
+edamame_posture start-file-monitor [--paths /etc,/home/user/.ssh]
+edamame_posture stop-file-monitor
+edamame_posture file-monitor-status
+edamame_posture get-file-events [--fail-on-suspicious]
+edamame_posture clear-file-events
 ```
 
 
@@ -387,8 +405,9 @@ Key tools include:
 - `agentic_process_todos` - AI-powered "Do It For Me" workflow
 - `advisor_undo_action` - Roll back automated fixes
 
-Security boundary: divergence/agentic loop start-stop and interval controls are
-CLI-only (`divergence-*`, `agentic-*`) and intentionally not exposed through MCP.
+Security boundary: loop lifecycle controls (`agentic-*`, `vulnerability-*`,
+`divergence-*`, `start-file-monitor`, `stop-file-monitor`) are CLI-only and
+intentionally not exposed through MCP.
 
 ### Step 1: Start the MCP Server
 

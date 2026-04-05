@@ -131,6 +131,56 @@ edamame-posture start --agentic-mode auto|analyze|disabled \
 edamame-posture agentic-summary  # Provider, mode, todos, actions, Slack config
 ```
 
+### Loop Lifecycle Commands (CLI-only)
+
+Loop lifecycle controls are intentionally **not** exposed on the MCP tool surface.
+
+```bash
+# Agentic todo loop
+edamame-posture agentic-start [auto|analyze] [INTERVAL_SECS]
+edamame-posture agentic-stop
+edamame-posture agentic-status
+
+# Vulnerability detector
+edamame-posture vulnerability-start [INTERVAL_SECS]
+edamame-posture vulnerability-stop
+edamame-posture vulnerability-status
+edamame-posture vulnerability-dismiss <FINDING_KEY>
+edamame-posture vulnerability-undismiss <FINDING_KEY>
+edamame-posture vulnerability-reset-suppressions
+
+# Divergence engine
+edamame-posture divergence-start [INTERVAL_SECS]
+edamame-posture divergence-stop
+edamame-posture divergence-status
+edamame-posture divergence-get-verdict
+edamame-posture divergence-get-history [LIMIT]
+edamame-posture divergence-upsert-model <MODEL_JSON>
+edamame-posture divergence-upsert-model-from-file <FILE>
+edamame-posture divergence-get-model
+edamame-posture divergence-clear-model
+edamame-posture divergence-dismiss <FINDING_KEY>
+edamame-posture divergence-undismiss <FINDING_KEY>
+edamame-posture divergence-reset-suppressions
+```
+
+### File Integrity Monitoring Commands
+```bash
+edamame-posture start-file-monitor [--paths <PATHS>]
+edamame-posture stop-file-monitor
+edamame-posture file-monitor-status
+edamame-posture get-file-events [--fail-on-suspicious]
+edamame-posture clear-file-events
+```
+
+### Agent Plugin Commands
+```bash
+edamame-posture install-agent-plugin <TYPE> [WORKSPACE]
+edamame-posture agent-plugin-status <TYPE>
+edamame-posture list-agent-plugins
+edamame-posture uninstall-agent-plugin <TYPE>
+```
+
 ## Exit Codes
 
 | Code | Meaning |
