@@ -1932,7 +1932,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "1.1.5"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#f58367716da5ba1967d7a6caa48cfa8b67b7f152"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#e836547a6de6c87d4d61b666108b880ac8829949"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -2022,7 +2022,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "1.1.5"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#0f71a97f74f00e91a309a3d8820b1c515e86cc9a"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#5e59b822350db05dde107ee41cb8a032e5bd0c83"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -2498,7 +2498,7 @@ dependencies = [
 [[package]]
 name = "flodbadd"
 version = "1.1.5"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#9ed2f14545f0c398a83423f89ab15c7ad4440b80"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#ecdc6c53e2f5a38bd5724d57b1c5e7ea34b180ad"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -4109,7 +4109,7 @@ dependencies = [
 [[package]]
 name = "l7_ebpf_program"
 version = "0.1.0"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#9ed2f14545f0c398a83423f89ab15c7ad4440b80"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#ecdc6c53e2f5a38bd5724d57b1c5e7ea34b180ad"
 
 [[package]]
 name = "lazy_static"
@@ -5958,7 +5958,7 @@ version = "3.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e67ba7e9b2b56446f1d419b1d807906278ffa1a658a8a5d8a39dcb1f5a78614f"
 dependencies = [
- "toml_edit 0.25.10+spec-1.1.0",
+ "toml_edit 0.25.11+spec-1.1.0",
 ]
 
 [[package]]
@@ -7837,9 +7837,9 @@ dependencies = [
 
 [[package]]
 name = "toml_edit"
-version = "0.25.10+spec-1.1.0"
+version = "0.25.11+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a82418ca169e235e6c399a84e395ab6debeb3bc90edc959bf0f48647c6a32d1b"
+checksum = "0b59c4d22ed448339746c59b905d24568fcbb3ab65a500494f7b8c3e97739f2b"
 dependencies = [
  "indexmap 2.13.1",
  "toml_datetime 1.1.1+spec-1.1.0",
