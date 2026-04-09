@@ -152,6 +152,13 @@ jobs:
       ############################################################################################
 
       # macOS
+      - name: Install ES provisioning profile for macOS
+        if: matrix.os == 'macos'
+        shell: bash
+        run: |
+          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
+          echo "${{ secrets.APPLE_ES_POSTURE_PROVISIONING_PROFILE }}" | base64 --decode > "$HOME/Library/MobileDevice/Provisioning Profiles/EDAMAME_Posture.provisionprofile"
+
       - name: Setup signing for macOS
         if: matrix.os == 'macos'
         shell: bash

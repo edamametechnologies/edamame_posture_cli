@@ -262,6 +262,13 @@ jobs:
             grep -iE "eBPF|l7_ebpf" /tmp/build.log | head -30 || echo "(no eBPF messages)"
           fi
 
+      - name: Install ES provisioning profile for macOS
+        if: matrix.os == 'macos'
+        shell: bash
+        run: |
+          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
+          echo "${{ secrets.APPLE_ES_POSTURE_PROVISIONING_PROFILE }}" | base64 --decode > "$HOME/Library/MobileDevice/Provisioning Profiles/EDAMAME_Posture.provisionprofile"
+
       - name: Signing for macOS
         if: matrix.os == 'macos'
         shell: bash
