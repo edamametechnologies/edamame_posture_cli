@@ -262,6 +262,19 @@ jobs:
             grep -iE "eBPF|l7_ebpf" /tmp/build.log | head -30 || echo "(no eBPF messages)"
           fi
 
+      - name: Run eBPF Diagnostic Test
+        id: ebpf_test
+        if: matrix.os == 'ubuntu'
+        shell: bash
+        run: ./tests/ebpf_test.sh
+        continue-on-error: true
+
+      - name: Run Basic Cargo Tests
+        id: cargo_tests
+        shell: bash
+        run: ./tests/basic_cargo_test.sh
+        continue-on-error: true
+
       - name: Install ES provisioning profile for macOS
         if: matrix.os == 'macos'
         shell: bash
@@ -302,23 +315,18 @@ jobs:
           # Sign + hardened runtime
           ./macos/sign.sh $BINARY_PATH
 
+      - name: Verify macOS code signature
+        if: matrix.os == 'macos'
+        shell: bash
+        run: |
+          echo "Verifying code signature on $BINARY_PATH..."
+          codesign --verify --deep --strict --verbose=2 "$BINARY_PATH"
+          echo "Code signature is valid"
+
       - name: Signing for Windows
         if: matrix.os == 'windows'
         # We can't use bash here, as the AzureSignTool is a .NET tool
         run: AzureSignTool sign -kvt ${{ secrets.AZURE_SIGN_TENANT_ID }} -kvu ${{ secrets.AZURE_SIGN_KEY_VAULT_URI }} -kvi ${{ secrets.AZURE_SIGN_CLIENT_ID }} -kvs ${{ secrets.AZURE_SIGN_CLIENT_SECRET }} -kvc ${{ secrets.AZURE_SIGN_CERT_NAME }} -tr http://timestamp.digicert.com -v ./target/release/edamame_posture.exe
-
-      - name: Run eBPF Diagnostic Test
-        id: ebpf_test
-        if: matrix.os == 'ubuntu'
-        shell: bash
-        run: ./tests/ebpf_test.sh
-        continue-on-error: true
-
-      - name: Run Basic Cargo Tests
-        id: cargo_tests
-        shell: bash
-        run: ./tests/basic_cargo_test.sh
-        continue-on-error: true
 
       - name: Restart daemon with freshly built binary
         shell: bash
@@ -352,9 +360,15 @@ jobs:
           
           echo "Starting daemon with freshly built binary: $BINARY_PATH"
           
-          # Start the daemon with the freshly built binary
-          # Using the same parameters the action would use but without network features
-          # since the standalone tests don't need them
+          # Verify macOS code signature is still valid before launching
+          if [[ "$RUNNER_OS" == "macOS" ]]; then
+            if ! codesign --verify --deep --strict "$BINARY_PATH" 2>/dev/null; then
+              echo "ERROR: Code signature invalid on $BINARY_PATH -- re-signing"
+              ./macos/sign.sh "$BINARY_PATH"
+              codesign --verify --deep --strict --verbose=2 "$BINARY_PATH"
+            fi
+          fi
+          
           if [[ "$RUNNER_OS" == "Windows" || "$OS" == "Windows_NT" ]]; then
             "$BINARY_PATH" background-start-disconnected &
           else
