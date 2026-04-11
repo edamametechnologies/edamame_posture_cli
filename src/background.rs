@@ -1889,7 +1889,11 @@ pub fn background_vulnerability_dismiss(finding_key: String) -> i32 {
                 }
             };
             if json["success"].as_bool().unwrap_or(false) {
-                println!("Vulnerability finding dismissed.");
+                if json["changed"].as_bool().unwrap_or(true) {
+                    println!("Vulnerability finding dismissed.");
+                } else {
+                    println!("No matching finding found or already dismissed.");
+                }
                 0
             } else {
                 eprintln!(
@@ -1927,7 +1931,11 @@ pub fn background_vulnerability_undismiss(finding_key: String) -> i32 {
                 }
             };
             if json["success"].as_bool().unwrap_or(false) {
-                println!("Vulnerability finding restored.");
+                if json["changed"].as_bool().unwrap_or(true) {
+                    println!("Vulnerability finding restored.");
+                } else {
+                    println!("No matching dismissed finding found or already restored.");
+                }
                 0
             } else {
                 eprintln!(
@@ -1960,7 +1968,11 @@ pub fn background_vulnerability_reset_suppressions() -> i32 {
                 }
             };
             if json["success"].as_bool().unwrap_or(false) {
-                println!("Vulnerability suppressions reset.");
+                if json["changed"].as_bool().unwrap_or(true) {
+                    println!("Vulnerability suppressions reset.");
+                } else {
+                    println!("No dismissed findings to reset.");
+                }
                 0
             } else {
                 eprintln!(
