@@ -874,6 +874,7 @@ fn configure_edamame_notifications() {
             telegram_chat_id,
             slack_enabled,
             telegram_enabled,
+            false,
         ) {
             info!("Notification channels configured");
         } else {
@@ -996,6 +997,7 @@ pub fn background_configure_agentic(provider: String) {
         telegram_chat_id,
         slack_enabled,
         telegram_enabled,
+        false,
     ) {
         info!("AI Assistant configured: {} / {}", provider, model);
     } else {
