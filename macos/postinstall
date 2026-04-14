@@ -1,0 +1,12 @@
+#!/bin/bash
+set -e
+
+TARGET="/Library/Application Support/EDAMAME/EDAMAME-Posture/edamame_posture.app/Contents/MacOS/edamame_posture"
+LINK_DIR="/usr/local/bin"
+LINK_PATH="$LINK_DIR/edamame_posture"
+
+mkdir -p "$LINK_DIR"
+rm -f "$LINK_PATH"
+ln -s "$TARGET" "$LINK_PATH"
+
+exit 0
