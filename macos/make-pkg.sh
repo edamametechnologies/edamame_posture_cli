@@ -22,12 +22,10 @@ CONTENTS_DIR="$APP_DIR/Contents"
 MACOS_DIR="$CONTENTS_DIR/MacOS"
 EXECUTABLE_NAME="edamame_posture"
 EXECUTABLE_PATH="$MACOS_DIR/$EXECUTABLE_NAME"
-SYMLINK_DIR="$INSTALL_ROOT/usr/local/bin"
-SYMLINK_TARGET="/Library/Application Support/EDAMAME/EDAMAME-Posture/edamame_posture.app/Contents/MacOS/$EXECUTABLE_NAME"
 BUNDLE_IDENTIFIER="com.edamametechnologies.edamame-posture"
 
 rm -rf "$INSTALL_ROOT"
-mkdir -p "$MACOS_DIR" "$SYMLINK_DIR"
+mkdir -p "$MACOS_DIR"
 
 cp "$BINARY_SRC" "$EXECUTABLE_PATH"
 chmod 755 "$EXECUTABLE_PATH"
@@ -76,9 +74,12 @@ codesign --force --timestamp --options=runtime \
   -s "Developer ID Application: Edamame Technologies (WSL782B48J)" \
   -v "$APP_DIR"
 
-ln -sf "$SYMLINK_TARGET" "$SYMLINK_DIR/$EXECUTABLE_NAME"
+rm -rf "$TARGET/scripts"
+mkdir -p "$TARGET/scripts"
+cp ./macos/postinstall "$TARGET/scripts/"
+chmod 755 "$TARGET/scripts/postinstall"
 
 cd "$TARGET"
 mkdir -p pkg
-pkgbuild --identifier "$BUNDLE_IDENTIFIER" --root ./ROOT/ --version "$VERSION" pkg/edamame-posture-unsigned.pkg
+pkgbuild --identifier "$BUNDLE_IDENTIFIER" --root ./ROOT/ --scripts ./scripts --version "$VERSION" pkg/edamame-posture-unsigned.pkg
 productsign --sign WSL782B48J pkg/edamame-posture-unsigned.pkg edamame-posture.pkg
