@@ -566,9 +566,9 @@ checksum = "c08606f8c3cbf4ce6ec8e28fb0014a2c086708fe954eaa885384a6165172e7e8"
 
 [[package]]
 name = "axum"
-version = "0.8.8"
+version = "0.8.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8b52af3cb4058c895d37317bb27508dccc8e5f2d39454016b297bf4a400597b8"
+checksum = "31b698c5f9a010f6573133b09e0de5408834d0c82f8d7475a89fc1867a71cd90"
 dependencies = [
  "axum-core",
  "bytes",
@@ -1932,7 +1932,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "1.2.0"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#7ac183b161590e2aec36d7e4a7e28d6bd15f364e"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#d73c4315f326789b5a78d607ceca89a9a115f983"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -2021,7 +2021,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "1.2.0"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#5904fb24889febb4719419511860b12b77e8e8b0"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#37c26be7cd36cab776f53fbf67b6ea8e23b3707b"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -2496,7 +2496,7 @@ dependencies = [
 [[package]]
 name = "flodbadd"
 version = "1.2.0"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#4feaa7439559bfc74a22ad56931c32fec4fe9f5b"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#015dc1b7262ffc7278af7f2800ffa9dc3d7f63f7"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -4111,7 +4111,7 @@ dependencies = [
 [[package]]
 name = "l7_ebpf_program"
 version = "0.1.0"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#4feaa7439559bfc74a22ad56931c32fec4fe9f5b"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#015dc1b7262ffc7278af7f2800ffa9dc3d7f63f7"
 
 [[package]]
 name = "lazy_static"
@@ -6747,9 +6747,9 @@ dependencies = [
 
 [[package]]
 name = "rustls-webpki"
-version = "0.103.11"
+version = "0.103.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "20a6af516fea4b20eccceaf166e8aa666ac996208e8a644ce3ef5aa783bc7cd4"
+checksum = "8279bb85272c9f10811ae6a6c547ff594d6a7f3c6c6b02ee9726d1d0dcfcdd06"
 dependencies = [
  "ring",
  "rustls-pki-types",
@@ -7611,7 +7611,7 @@ dependencies = [
 [[package]]
 name = "threatmodels_rs"
 version = "0.1.1"
-source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#e3b9b40d4d694adfa5cf9bf16743cf3d0aeeeaff"
+source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#2f1aa262a31cf862165af25b5ca5bcd911765958"
 dependencies = [
  "anyhow",
  "chrono",
