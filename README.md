@@ -1310,7 +1310,7 @@ curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamamete
 
 > **How it installs:**  
 > - Linux: prefers APK on Alpine and APT on Debian/Ubuntu-family distros, falling back to the correct GNU/MUSL binary when unavailable.  
-> - macOS: installs the notarized `.pkg` (includes the ES provisioning profile for Endpoint Security); falls back to Homebrew cask, then bare binary.  
+> - macOS: installs the notarized `.pkg`, which lays down an app-like bundle with an embedded ES provisioning profile and exposes `/usr/local/bin/edamame_posture`; falls back to Homebrew cask, then bare binary.  
 > - Windows: tries Chocolatey first, otherwise downloads the standalone `.exe`.  
 > See [`INSTALL.md`](INSTALL.md) for the full decision tree, supported flags (e.g., `--state-file`, `--debug-build`), and service-management details.
 

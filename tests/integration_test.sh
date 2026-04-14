@@ -1257,10 +1257,16 @@ trap 'ensure_posture_stopped_and_cleaned "post" $?' ERR EXIT
 # Initial Cleanup (pass dummy status 0 as script hasn't run yet)
 ensure_posture_stopped_and_cleaned "pre" 0
 
-# Copy the built binary to the test destination
-echo "Copying binary from $BINARY_PATH to $BINARY_DEST..."
-cp -f "$BINARY_PATH" "$BINARY_DEST"
-chmod +x "$BINARY_DEST" # Ensure executable
+# On macOS the ES entitlement is authorized via the installed app-like bundle.
+# Copying the Mach-O out of that bundle turns it back into a naked binary that
+# AMFI kills on exec, so keep a symlink to the installed path instead.
+echo "Preparing test binary at $BINARY_DEST from $BINARY_PATH..."
+if [[ "$RUNNER_OS" == "macOS" ]]; then
+    ln -sf "$BINARY_PATH" "$BINARY_DEST"
+else
+    cp -f "$BINARY_PATH" "$BINARY_DEST"
+    chmod +x "$BINARY_DEST" # Ensure executable
+fi
 
 # --- CI Mode (Connected) --- #
 if [ "$CI" = "true" ]; then

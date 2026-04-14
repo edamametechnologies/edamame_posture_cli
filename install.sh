@@ -1265,7 +1265,7 @@ install_windows_via_choco() {
 }
 
 install_macos_via_pkg() {
-    info "Installing via macOS .pkg (includes ES provisioning profile)..."
+    info "Installing via macOS .pkg (bundle with embedded ES profile)..."
 
     local version=""
     if fetch_latest_release_tag && [ -n "$LATEST_RELEASE_TAG_PRIMARY" ]; then

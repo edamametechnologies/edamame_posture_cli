@@ -280,7 +280,7 @@ This early check ensures:
 
 #### macOS
 1. **Pre-check** (see above): If existing installation is up-to-date with matching credentials → skip everything
-2. Try downloading the notarized `.pkg` from the GitHub release and installing it via `sudo installer -pkg`. The `.pkg` includes the ES provisioning profile required for the Endpoint Security entitlement.
+2. Try downloading the notarized `.pkg` from the GitHub release and installing it via `sudo installer -pkg`. The `.pkg` installs `edamame_posture` as an app-like bundle with `Contents/embedded.provisionprofile`, then exposes `/usr/local/bin/edamame_posture` as a symlink into that bundle so the Endpoint Security entitlement remains authorized at runtime.
 3. If the `.pkg` is not available (older release), fall back to Homebrew cask (`edamametechnologies/tap`)
 4. If Homebrew is unavailable or fails (or `--force-binary`), download the universal macOS binary to `--install-dir` (no ES entitlement support)
 5. **Daemon management**: No system service; daemon started as background process when credentials provided
