@@ -1052,7 +1052,7 @@ checksum = "6f8d983286843e49675a4b7a2d174efe136dc93a18d69130dd18198a6c167601"
 dependencies = [
  "cfg-if",
  "cpufeatures 0.3.0",
- "rand_core 0.10.0",
+ "rand_core 0.10.1",
 ]
 
 [[package]]
@@ -1127,9 +1127,9 @@ dependencies = [
 
 [[package]]
 name = "clap_complete"
-version = "4.6.1"
+version = "4.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "406e68b4de5c59cfb8f750a7cbd4d31ae153788b8352167c1e5f4fc26e8c91e9"
+checksum = "3ff7a1dccbdd8b078c2bdebff47e404615151534d5043da397ec50286816f9cb"
 dependencies = [
  "clap",
 ]
@@ -1932,7 +1932,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "1.2.0"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#3489649ee7dc019cc8b57f2d59b05ab5cee112b9"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#7ac183b161590e2aec36d7e4a7e28d6bd15f364e"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -1982,7 +1982,7 @@ dependencies = [
  "powershell_script",
  "prost",
  "public-ip",
- "rand 0.9.3",
+ "rand 0.9.4",
  "regex",
  "reqwest",
  "rmcp",
@@ -2021,7 +2021,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "1.2.0"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#f752e22d48e7ea8a9cc23662ca91bf3d316ae95d"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#5904fb24889febb4719419511860b12b77e8e8b0"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -2053,7 +2053,7 @@ dependencies = [
  "parking_lot",
  "powershell_script",
  "prost",
- "rand 0.9.3",
+ "rand 0.9.4",
  "regex",
  "reqwest",
  "run_script",
@@ -2496,7 +2496,7 @@ dependencies = [
 [[package]]
 name = "flodbadd"
 version = "1.2.0"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#63e0a7d7ff76d510a17cbff412dcc43674f40ddb"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#4feaa7439559bfc74a22ad56931c32fec4fe9f5b"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -2532,7 +2532,7 @@ dependencies = [
  "pcap",
  "pnet_packet 0.35.0",
  "powershell_script",
- "rand 0.9.3",
+ "rand 0.9.4",
  "rayon",
  "regex",
  "reqwest",
@@ -2640,7 +2640,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f4944f16eb6a05b4b2b79986b4786867bb275f52882adea798f17cc2588f25b2"
 dependencies = [
  "dunce",
- "rand 0.9.3",
+ "rand 0.9.4",
 ]
 
 [[package]]
@@ -2891,7 +2891,7 @@ dependencies = [
  "cfg-if",
  "libc",
  "r-efi 6.0.0",
- "rand_core 0.10.0",
+ "rand_core 0.10.1",
  "wasip2",
  "wasip3",
 ]
@@ -3122,7 +3122,7 @@ dependencies = [
  "parking_lot",
  "portable-atomic",
  "quanta",
- "rand 0.9.3",
+ "rand 0.9.4",
  "smallvec",
  "spinning_top",
  "web-time",
@@ -3336,7 +3336,7 @@ dependencies = [
  "idna 1.1.0",
  "ipnet",
  "once_cell",
- "rand 0.9.3",
+ "rand 0.9.4",
  "ring",
  "socket2 0.5.10",
  "thiserror 2.0.18",
@@ -3359,7 +3359,7 @@ dependencies = [
  "moka",
  "once_cell",
  "parking_lot",
- "rand 0.9.3",
+ "rand 0.9.4",
  "resolv-conf",
  "smallvec",
  "thiserror 2.0.18",
@@ -3797,7 +3797,7 @@ dependencies = [
  "hyper 1.9.0",
  "hyper-util",
  "log",
- "rand 0.9.3",
+ "rand 0.9.4",
  "tokio",
  "url",
  "xmltree",
@@ -4111,7 +4111,7 @@ dependencies = [
 [[package]]
 name = "l7_ebpf_program"
 version = "0.1.0"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#63e0a7d7ff76d510a17cbff412dcc43674f40ddb"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#4feaa7439559bfc74a22ad56931c32fec4fe9f5b"
 
 [[package]]
 name = "lazy_static"
@@ -6220,7 +6220,7 @@ dependencies = [
  "bytes",
  "getrandom 0.3.4",
  "lru-slab",
- "rand 0.9.3",
+ "rand 0.9.4",
  "ring",
  "rustc-hash",
  "rustls",
@@ -6290,9 +6290,9 @@ dependencies = [
 
 [[package]]
 name = "rand"
-version = "0.9.3"
+version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7ec095654a25171c2124e9e3393a930bddbffdc939556c914957a4c3e0a87166"
+checksum = "44c5af06bb1b7d3216d91932aed5265164bf384dc89cd6ba05cf59a35f5f76ea"
 dependencies = [
  "rand_chacha 0.9.0",
  "rand_core 0.9.5",
@@ -6306,7 +6306,7 @@ checksum = "d2e8e8bcc7961af1fdac401278c6a831614941f6164ee3bf4ce61b7edb162207"
 dependencies = [
  "chacha20 0.10.0",
  "getrandom 0.4.2",
- "rand_core 0.10.0",
+ "rand_core 0.10.1",
 ]
 
 [[package]]
@@ -6349,9 +6349,9 @@ dependencies = [
 
 [[package]]
 name = "rand_core"
-version = "0.10.0"
+version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0c8d0fd677905edcbeedbf2edb6494d676f0e98d54d5cf9bda0b061cb8fb8aba"
+checksum = "63b8176103e19a2643978565ca18b50549f6101881c443590420e4dc998a3c69"
 
 [[package]]
 name = "rand_distr"
@@ -6374,9 +6374,9 @@ dependencies = [
 
 [[package]]
 name = "rayon"
-version = "1.11.0"
+version = "1.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "368f01d005bf8fd9b1206fb6fa653e6c4a81ceb1466406b81792d87c5677a58f"
+checksum = "fb39b166781f92d482534ef4b4b1b2568f42613b53e5b6c160e24cfbfa30926d"
 dependencies = [
  "either",
  "rayon-core",
@@ -6569,7 +6569,7 @@ dependencies = [
  "http-body-util",
  "paste",
  "pin-project-lite",
- "rand 0.9.3",
+ "rand 0.9.4",
  "rmcp-macros",
  "schemars 1.2.1",
  "serde",
@@ -6888,7 +6888,7 @@ version = "0.46.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b0b1e7ca40f965db239da279bf278d87b7407469b98835f27f0c8e59ed189b06"
 dependencies = [
- "rand 0.9.3",
+ "rand 0.9.4",
  "sentry-types",
  "serde",
  "serde_json",
@@ -6915,7 +6915,7 @@ checksum = "567711f01f86a842057e1fc17779eba33a336004227e1a1e7e6cc2599e22e259"
 dependencies = [
  "debugid",
  "hex",
- "rand 0.9.3",
+ "rand 0.9.4",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -7363,7 +7363,7 @@ dependencies = [
  "hex",
  "parking_lot",
  "pnet_packet 0.34.0",
- "rand 0.9.3",
+ "rand 0.9.4",
  "socket2 0.6.3",
  "thiserror 1.0.69",
  "tokio",
@@ -7611,7 +7611,7 @@ dependencies = [
 [[package]]
 name = "threatmodels_rs"
 version = "0.1.1"
-source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#febbdfc1b00d02104fdd55f1c166c12c2f072d48"
+source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#e3b9b40d4d694adfa5cf9bf16743cf3d0aeeeaff"
 dependencies = [
  "anyhow",
  "chrono",
@@ -8150,7 +8150,7 @@ checksum = "562d481066bde0658276a35467c4af00bdc6ee726305698a55b86e61d7ad82bb"
 [[package]]
 name = "undeadlock"
 version = "1.2.0"
-source = "git+https://github.com/edamametechnologies/undeadlock?branch=main#50f0d7173576d429048ffdc0413999589ffb095d"
+source = "git+https://github.com/edamametechnologies/undeadlock?branch=main#7e545681cfa50aaf6997b41d326fbfc91f99e01b"
 dependencies = [
  "dashmap 6.1.0",
  "tokio",
@@ -9472,7 +9472,7 @@ dependencies = [
  "nohash-hasher",
  "parking_lot",
  "pin-project",
- "rand 0.9.3",
+ "rand 0.9.4",
  "static_assertions",
  "web-time",
 ]
