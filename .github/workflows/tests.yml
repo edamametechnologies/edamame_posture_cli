@@ -316,23 +316,14 @@ jobs:
           echo ${{ secrets.APPLE_APPSTORE_CONNECT_API_KEY }} | base64 --decode > appstore_connect_api_key.p8
           xcrun notarytool store-credentials -k appstore_connect_api_key.p8 -d ${{ secrets.APPLE_APPSTORE_CONNECT_API_KEY_ID }} -i ${{ secrets.APPLE_APPSTORE_CONNECT_API_ISSUER_ID }} Edamame
 
-          # Sign + hardened runtime
-          ./macos/sign.sh $BINARY_PATH
-
-      - name: Verify macOS code signature
+      - name: Package, sign, notarize and install macOS binary
         if: matrix.os == 'macos'
         shell: bash
         run: |
-          echo "Verifying code signature on $BINARY_PATH..."
-          codesign --verify --deep --strict --verbose=2 "$BINARY_PATH"
-          echo "Code signature is valid"
-
-      - name: Notarize macOS binary
-        if: matrix.os == 'macos'
-        shell: bash
-        run: |
-          ditto -c -k --keepParent "$BINARY_PATH" /tmp/edamame_posture.zip
-          ./macos/notarization.sh /tmp/edamame_posture.zip
+          ./macos/make-pkg.sh
+          ./macos/notarization.sh ./target/pkg/edamame-posture.pkg
+          sudo installer -verboseR -pkg ./target/pkg/edamame-posture.pkg -target /
+          echo "BINARY_PATH=/usr/local/bin/edamame_posture" >> $GITHUB_ENV
 
       - name: Signing for Windows
         if: matrix.os == 'windows'
@@ -373,13 +364,7 @@ jobs:
           
           # Verify macOS code signature is still valid before launching
           if [[ "$RUNNER_OS" == "macOS" ]]; then
-            if ! codesign --verify --deep --strict "$BINARY_PATH" 2>/dev/null; then
-              echo "ERROR: Code signature invalid on $BINARY_PATH -- re-signing and re-notarizing"
-              ./macos/sign.sh "$BINARY_PATH"
-              codesign --verify --deep --strict --verbose=2 "$BINARY_PATH"
-              ditto -c -k --keepParent "$BINARY_PATH" /tmp/edamame_posture_resign.zip
-              ./macos/notarization.sh /tmp/edamame_posture_resign.zip
-            fi
+            codesign --verify --deep --strict --verbose=2 "$BINARY_PATH"
           fi
           
           if [[ "$RUNNER_OS" == "Windows" || "$OS" == "Windows_NT" ]]; then

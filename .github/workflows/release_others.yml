@@ -194,18 +194,23 @@ jobs:
           echo ${{ secrets.APPLE_APPSTORE_CONNECT_API_KEY }} | base64 --decode > appstore_connect_api_key.p8
           xcrun notarytool store-credentials -k appstore_connect_api_key.p8 -d ${{ secrets.APPLE_APPSTORE_CONNECT_API_KEY_ID }} -i ${{ secrets.APPLE_APPSTORE_CONNECT_API_ISSUER_ID }} Edamame
 
-          # Sign + hardened runtime
+          # Sign + hardened runtime (for direct binary distribution)
           ./macos/sign.sh ./target/universal-apple-darwin/release/edamame_posture
           ./macos/sign.sh ./target/universal-apple-darwin/debug/edamame_posture
 
-      - name: Notarize macOS binaries
+      - name: Package, sign and notarize macOS binaries
         if: matrix.os == 'macos'
         shell: bash
         run: |
-          ditto -c -k --keepParent ./target/universal-apple-darwin/release/edamame_posture /tmp/edamame_posture_release.zip
-          ./macos/notarization.sh /tmp/edamame_posture_release.zip
-          ditto -c -k --keepParent ./target/universal-apple-darwin/debug/edamame_posture /tmp/edamame_posture_debug.zip
-          ./macos/notarization.sh /tmp/edamame_posture_debug.zip
+          # Release binary
+          ./macos/make-pkg.sh ./target/universal-apple-darwin/release/edamame_posture
+          ./macos/notarization.sh ./target/pkg/edamame-posture.pkg
+          VERSION=$(grep '^version =' ./Cargo.toml | awk '{print $3}' | tr -d '"')
+          cp ./target/pkg/edamame-posture.pkg ./target/pkg/edamame-posture-macos-${VERSION}.pkg
+          # Debug binary
+          rm -rf ./target/pkg/ROOT ./target/pkg/pkg
+          ./macos/make-pkg.sh ./target/universal-apple-darwin/debug/edamame_posture
+          ./macos/notarization.sh ./target/pkg/edamame-posture.pkg
 
       # Windows
       - name: Signing for Windows
