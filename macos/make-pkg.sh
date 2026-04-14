@@ -80,7 +80,7 @@ cp ./macos/postinstall "$TARGET/scripts/"
 chmod 755 "$TARGET/scripts/postinstall"
 
 pkgbuild --analyze --root ./ROOT/ "$TARGET/components.plist"
-plutil -replace 0.BundleIsRelocatable -bool NO "$TARGET/components.plist"
+/usr/libexec/PlistBuddy -c "Set :0:BundleIsRelocatable false" "$TARGET/components.plist"
 
 cd "$TARGET"
 mkdir -p pkg
