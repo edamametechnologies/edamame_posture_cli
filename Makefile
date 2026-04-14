@@ -1,4 +1,4 @@
-.PHONY: clean macos macos_release macos_debug macos_publish windows windows_debug windows_release windows_publish linux linux_debug linux_release linux_publish upgrade unused_dependencies format test completions test_divergence_demo
+.PHONY: clean macos macos_release macos_debug macos_publish macos_package windows windows_debug windows_release windows_publish linux linux_debug linux_release linux_publish upgrade unused_dependencies format test completions test_divergence_demo install_provisioning
 
 # Import and export env for edamame_core and edamame_foundation
 -include ../secrets/lambda-signature.env
@@ -6,6 +6,7 @@
 -include ../secrets/sentry.env
 -include ../secrets/analytics.env
 -include ../secrets/edamame.env
+-include ../secrets/apple-provisioning.env
 export
 
 completions:
@@ -23,8 +24,16 @@ macos_debug:
 	cargo build
 	sudo bash -c "export RUST_BACKTRACE=1; export EDAMAME_LOG_LEVEL=info; rust-lldb ./target/debug/edamame_posture"
 
+install_provisioning:
+	@test -n "$(APPLE_ES_POSTURE_PROVISIONING_PROFILE)" || (echo "Missing APPLE_ES_POSTURE_PROVISIONING_PROFILE -- source ../secrets/apple-provisioning.env" && exit 1)
+	mkdir -p "$(HOME)/Library/MobileDevice/Provisioning Profiles"
+	echo "$(APPLE_ES_POSTURE_PROVISIONING_PROFILE)" | base64 --decode > "$(HOME)/Library/MobileDevice/Provisioning Profiles/EDAMAME_Posture.provisionprofile"
+	@echo "Provisioning profile installed."
+
+macos_package: macos_release
+	./macos/make-pkg.sh
+
 macos_publish: macos_release
-	# Sign + hardened runtime
 	./macos/sign.sh ./target/release/edamame_posture
 
 windows: windows_release completions
