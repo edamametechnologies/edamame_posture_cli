@@ -1310,7 +1310,7 @@ curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamamete
 
 > **How it installs:**  
 > - Linux: prefers APK on Alpine and APT on Debian/Ubuntu-family distros, falling back to the correct GNU/MUSL binary when unavailable.  
-> - macOS: tries Homebrew first, otherwise downloads the universal binary.  
+> - macOS: installs the notarized `.pkg` (includes the ES provisioning profile for Endpoint Security); falls back to Homebrew cask, then bare binary.  
 > - Windows: tries Chocolatey first, otherwise downloads the standalone `.exe`.  
 > See [`INSTALL.md`](INSTALL.md) for the full decision tree, supported flags (e.g., `--state-file`, `--debug-build`), and service-management details.
 
@@ -1533,28 +1533,31 @@ sudo mv edamame_posture-1.2.0-x86_64-unknown-linux-gnu /usr/local/bin/edamame_po
 
 ### macOS
 
-#### Homebrew Installation (Recommended)
-The easiest way to install on macOS is via Homebrew:
+#### PKG Installation (Recommended)
+The recommended way to install on macOS is via the signed and notarized `.pkg`, which includes the Endpoint Security provisioning profile required for full functionality:
 
 ```bash
-# Add the EDAMAME tap
+# Via Homebrew cask (installs the .pkg automatically)
 brew tap edamametechnologies/tap
-
-# Install EDAMAME Posture
-brew install edamame-posture
+brew install --cask edamame-posture
 
 # Verify installation
 edamame_posture --help
 ```
 
+Or download the `.pkg` directly from the [releases page](https://github.com/edamametechnologies/edamame_posture_cli/releases):
+```bash
+sudo installer -pkg edamame-posture-macos-VERSION.pkg -target /
+```
+
 To update to the latest version:
 ```bash
 brew update
-brew upgrade edamame-posture
+brew upgrade --cask edamame-posture
 ```
 
-#### macOS Manual Binary Installation
-For a manual installation on macOS:
+#### macOS Manual Binary Installation (Legacy)
+For environments that do not need Endpoint Security features, the bare universal binary is still available:
 
 1. **Download** the macOS universal binary:
    - [edamame_posture-1.2.0-universal-apple-darwin](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.2.0/edamame_posture-1.2.0-universal-apple-darwin)  
@@ -1566,6 +1569,8 @@ For a manual installation on macOS:
    ```
 
 3. **Run** a quick command like `edamame_posture score` to assess your device.
+
+> **Note:** The bare binary does not include the ES provisioning profile. macOS will terminate it with SIGKILL if it attempts to use the Endpoint Security entitlement.
 
 ### Windows
 

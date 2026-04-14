@@ -201,7 +201,7 @@ Note: When credentials (`--user`, `--domain`, `--pin`) are omitted, the installe
 │              5. PLATFORM-SPECIFIC INSTALLATION                       │
 │  ┌───────────────┐  ┌───────────────┐  ┌───────────────┐           │
 │  │ Linux         │  │ macOS         │  │ Windows       │           │
-│  │ APT/APK/Binary│  │ Homebrew/Bin  │  │ Choco/Binary  │           │
+│  │ APT/APK/Binary│  │ PKG/Brew/Bin  │  │ Choco/Binary  │           │
 │  └───────────────┘  └───────────────┘  └───────────────┘           │
 └─────────────────────────────────────────────────────────────────────┘
                                 │
@@ -279,10 +279,11 @@ This early check ensures:
    - If systemd/OpenRC unavailable (containers), falls back to manual daemon start
 
 #### macOS
-1. **Pre-check** (see above): If Homebrew installation exists and is up-to-date with matching credentials → skip everything
-2. Try installing/upgrading the [`edamametechnologies/tap`](https://github.com/edamametechnologies/homebrew-tap) formula via Homebrew (only if needed)
-3. If Homebrew is unavailable or fails (or `--force-binary`), download the universal macOS binary to `--install-dir`
-4. **Daemon management**: No system service; daemon started as background process when credentials provided
+1. **Pre-check** (see above): If existing installation is up-to-date with matching credentials → skip everything
+2. Try downloading the notarized `.pkg` from the GitHub release and installing it via `sudo installer -pkg`. The `.pkg` includes the ES provisioning profile required for the Endpoint Security entitlement.
+3. If the `.pkg` is not available (older release), fall back to Homebrew cask (`edamametechnologies/tap`)
+4. If Homebrew is unavailable or fails (or `--force-binary`), download the universal macOS binary to `--install-dir` (no ES entitlement support)
+5. **Daemon management**: No system service; daemon started as background process when credentials provided
 
 #### Windows
 1. **Pre-check** (see above): If Chocolatey installation exists and is up-to-date with matching credentials → skip everything
@@ -442,7 +443,7 @@ The installer uses a sophisticated decision tree to determine when and how to st
 | Credentials mismatch | Windows/macOS | Need to restart with new credentials |
 | Service start failed (OpenRC/systemd) | Linux | Fallback to manual start |
 | Binary installation (no package) | Any | No service file installed |
-| Homebrew/Chocolatey installation | macOS/Windows | No service file with these package managers |
+| PKG/Homebrew/Chocolatey installation | macOS/Windows | No service file with these package managers |
 
 #### Daemon Start Process
 
