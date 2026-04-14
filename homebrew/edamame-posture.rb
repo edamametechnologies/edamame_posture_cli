@@ -12,10 +12,15 @@ cask "edamame-posture" do
 
   pkg "edamame-posture-macos-#{version}.pkg"
 
-  uninstall delete: "/usr/local/bin/edamame_posture"
+  uninstall delete: [
+    "/usr/local/bin/edamame_posture",
+    "/Library/Application Support/EDAMAME/EDAMAME-Posture/edamame_posture.app",
+  ]
 
   caveats <<~EOS
     This package requires admin privileges to install.
-    The Endpoint Security provisioning profile is included in the package.
+    The package installs an app-like bundle with an embedded Endpoint Security
+    provisioning profile and exposes /usr/local/bin/edamame_posture as a
+    symlink into that bundle.
   EOS
 end

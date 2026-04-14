@@ -234,7 +234,7 @@ edamame-posture uninstall-agent-plugin <TYPE>
 | Linux x86_64 | .deb, .apk | sudo for remediation |
 | Linux aarch64 | .deb, .apk | sudo for remediation |
 | Linux armv7 | .deb | sudo for remediation |
-| macOS | .pkg (with ES provisioning profile), Homebrew cask | sudo for remediation |
+| macOS | .pkg (app-like bundle with embedded ES profile), Homebrew cask | sudo for remediation |
 | Windows | Chocolatey | Administrator |
 | Alpine | .apk (musl) | sudo for remediation |
 
@@ -243,7 +243,7 @@ edamame-posture uninstall-agent-plugin <TYPE>
 See [INSTALL.md](INSTALL.md) for complete installation instructions:
 - APT repository (Debian/Ubuntu)
 - APK repository (Alpine)
-- Notarized .pkg (macOS, includes ES provisioning profile)
+- Notarized .pkg (macOS, installs an app-like bundle with `embedded.provisionprofile`)
 - Homebrew cask (macOS)
 - Chocolatey (Windows)
 - Direct binary download (legacy, no ES entitlement on macOS)

@@ -322,6 +322,11 @@ jobs:
           ./macos/make-pkg.sh --provisioning-profile /tmp/EDAMAME_Posture.provisionprofile
           ./macos/notarization.sh ./target/pkg/edamame-posture.pkg
           sudo installer -verboseR -pkg ./target/pkg/edamame-posture.pkg -target /
+          BUNDLE_PATH="/Library/Application Support/EDAMAME/EDAMAME-Posture/edamame_posture.app"
+          test -d "$BUNDLE_PATH/Contents/MacOS"
+          test -f "$BUNDLE_PATH/Contents/embedded.provisionprofile"
+          test -L /usr/local/bin/edamame_posture
+          codesign --verify --deep --strict --verbose=2 "$BUNDLE_PATH"
           echo "BINARY_PATH=/usr/local/bin/edamame_posture" >> $GITHUB_ENV
 
       - name: Signing for Windows
