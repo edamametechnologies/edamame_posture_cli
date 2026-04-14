@@ -80,7 +80,31 @@ cp ./macos/postinstall "$TARGET/scripts/"
 chmod 755 "$TARGET/scripts/postinstall"
 
 pkgbuild --analyze --root ./ROOT/ "$TARGET/components.plist"
-/usr/libexec/PlistBuddy -c "Set :0:BundleIsRelocatable false" "$TARGET/components.plist"
+python3 - "$TARGET/components.plist" <<'PY'
+import plistlib
+import sys
+
+path = sys.argv[1]
+with open(path, "rb") as f:
+    data = plistlib.load(f)
+
+if isinstance(data, list):
+    entries = data
+elif isinstance(data, dict):
+    entries = data.get("ChildBundles", [])
+else:
+    raise SystemExit(f"Unexpected plist root type: {type(data)!r}")
+
+if not entries:
+    raise SystemExit("No bundle components found in pkgbuild analysis plist")
+
+for entry in entries:
+    if isinstance(entry, dict):
+        entry["BundleIsRelocatable"] = False
+
+with open(path, "wb") as f:
+    plistlib.dump(data, f)
+PY
 
 cd "$TARGET"
 mkdir -p pkg
