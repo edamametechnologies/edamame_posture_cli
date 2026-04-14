@@ -281,6 +281,8 @@ jobs:
         run: |
           mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
           echo "${{ secrets.APPLE_ES_POSTURE_PROVISIONING_PROFILE }}" | base64 --decode > "$HOME/Library/MobileDevice/Provisioning Profiles/EDAMAME_Posture.provisionprofile"
+          sudo mkdir -p "/Library/MobileDevice/Provisioning Profiles"
+          sudo cp "$HOME/Library/MobileDevice/Provisioning Profiles/EDAMAME_Posture.provisionprofile" "/Library/MobileDevice/Provisioning Profiles/EDAMAME_Posture.provisionprofile"
 
       - name: Setup signing for macOS
         if: matrix.os == 'macos'
