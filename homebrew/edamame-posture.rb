@@ -1,22 +1,21 @@
-class EdamamePosture < Formula
-  desc "EDAMAME Security posture analysis and remediation"
-  homepage "https://edamame.tech"
-  url "https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.2.0/edamame_posture-1.2.0-universal-apple-darwin"
-  sha256 "0000000000000000000000000000000000000000000000000000000000000000"
+# typed: true
+# frozen_string_literal: true
+
+cask "edamame-posture" do
   version "1.2.0"
-  license "Apache-2.0"
+  sha256 "0000000000000000000000000000000000000000000000000000000000000000"
 
-  def install
-    bin.install "edamame_posture-#{version}-universal-apple-darwin" => "edamame_posture"
-  end
+  url "https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v#{version}/edamame-posture-macos-#{version}.pkg"
+  name "EDAMAME Posture"
+  desc "EDAMAME Security posture analysis and remediation CLI"
+  homepage "https://github.com/edamametechnologies/edamame_posture_cli"
 
-  test do
-    system "#{bin}/edamame_posture", "get-core-version"
-  end
+  pkg "edamame-posture-macos-#{version}.pkg"
+
+  uninstall delete: "/usr/local/bin/edamame_posture"
+
+  caveats <<~EOS
+    This package requires admin privileges to install.
+    The Endpoint Security provisioning profile is included in the package.
+  EOS
 end
-
-
-
-
-
-

@@ -152,12 +152,11 @@ jobs:
       ############################################################################################
 
       # macOS
-      - name: Install ES provisioning profile for macOS
+      - name: Decode ES provisioning profile for macOS
         if: matrix.os == 'macos'
         shell: bash
         run: |
-          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
-          echo "${{ secrets.APPLE_ES_POSTURE_PROVISIONING_PROFILE }}" | base64 --decode > "$HOME/Library/MobileDevice/Provisioning Profiles/EDAMAME_Posture.provisionprofile"
+          echo "${{ secrets.APPLE_ES_POSTURE_PROVISIONING_PROFILE }}" | base64 --decode > /tmp/EDAMAME_Posture.provisionprofile
 
       - name: Setup signing for macOS
         if: matrix.os == 'macos'
@@ -202,15 +201,16 @@ jobs:
         if: matrix.os == 'macos'
         shell: bash
         run: |
-          # Release binary
-          ./macos/make-pkg.sh ./target/universal-apple-darwin/release/edamame_posture
-          ./macos/notarization.sh ./target/pkg/edamame-posture.pkg
           VERSION=$(grep '^version =' ./Cargo.toml | awk '{print $3}' | tr -d '"')
+          # Release binary
+          ./macos/make-pkg.sh --provisioning-profile /tmp/EDAMAME_Posture.provisionprofile ./target/universal-apple-darwin/release/edamame_posture
+          ./macos/notarization.sh ./target/pkg/edamame-posture.pkg
           cp ./target/pkg/edamame-posture.pkg ./target/pkg/edamame-posture-macos-${VERSION}.pkg
           # Debug binary
           rm -rf ./target/pkg/ROOT ./target/pkg/pkg
-          ./macos/make-pkg.sh ./target/universal-apple-darwin/debug/edamame_posture
+          ./macos/make-pkg.sh --provisioning-profile /tmp/EDAMAME_Posture.provisionprofile ./target/universal-apple-darwin/debug/edamame_posture
           ./macos/notarization.sh ./target/pkg/edamame-posture.pkg
+          cp ./target/pkg/edamame-posture.pkg ./target/pkg/edamame-posture-macos-${VERSION}-debug.pkg
 
       # Windows
       - name: Signing for Windows
@@ -307,7 +307,7 @@ jobs:
           Write-Host "Resolved Chocolatey version: $CHOCO_VERSION"
           echo "choco_version=$CHOCO_VERSION" >> $env:GITHUB_OUTPUT
 
-      # Main only - macOS upload (action works on hosted runners)
+      # Main only - macOS bare binary upload (legacy, no ES entitlement)
       - name: Upload asset to release (macOS)
         if: github.ref == 'refs/heads/main' && matrix.os == 'macos'
         uses: shogo82148/actions-upload-release-asset@v1
@@ -320,7 +320,20 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # Main only - macOS debug upload
+      # Main only - macOS .pkg upload (includes provisioning profile for ES entitlement)
+      - name: Upload pkg to release (macOS)
+        if: github.ref == 'refs/heads/main' && matrix.os == 'macos'
+        uses: shogo82148/actions-upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.get_release.outputs.exists == 'true' && steps.get_release.outputs.upload_url || steps.create_release.outputs.upload_url }}
+          asset_path: target/pkg/edamame-posture-macos-${{ steps.get_release.outputs.version }}.pkg
+          asset_name: edamame-posture-macos-${{ steps.get_release.outputs.version }}.pkg
+          asset_content_type: application/octet-stream
+          overwrite: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Main only - macOS debug uploads
       - name: Upload debug asset to release (macOS)
         if: github.ref == 'refs/heads/main' && matrix.os == 'macos'
         uses: shogo82148/actions-upload-release-asset@v1
@@ -328,6 +341,18 @@ jobs:
           upload_url: ${{ steps.get_release.outputs.exists == 'true' && steps.get_release.outputs.upload_url || steps.create_release.outputs.upload_url }}
           asset_path: target/${{ matrix.target }}/debug/edamame_posture
           asset_name: edamame_posture-${{ steps.get_release.outputs.version }}-${{ matrix.target }}-debug
+          asset_content_type: application/octet-stream
+          overwrite: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload debug pkg to release (macOS)
+        if: github.ref == 'refs/heads/main' && matrix.os == 'macos'
+        uses: shogo82148/actions-upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.get_release.outputs.exists == 'true' && steps.get_release.outputs.upload_url || steps.create_release.outputs.upload_url }}
+          asset_path: target/pkg/edamame-posture-macos-${{ steps.get_release.outputs.version }}-debug.pkg
+          asset_name: edamame-posture-macos-${{ steps.get_release.outputs.version }}-debug.pkg
           asset_content_type: application/octet-stream
           overwrite: true
         env:
@@ -386,40 +411,39 @@ jobs:
       # Package Managers
       ############################################################################################
 
-      # macOS - Publish to Homebrew
+      # macOS - Publish to Homebrew (cask, installs .pkg with ES provisioning profile)
       - name: Publish to Homebrew Tap
         if: github.ref == 'refs/heads/main' && matrix.os == 'macos'
         env:
           GH_TOKEN: ${{ secrets.DEV_GITHUB_TOKEN }}
         run: |
-          set -e  # Exit on any error
+          set -e
           VERSION=${{ steps.get_release.outputs.version }}
+          PKG_NAME="edamame-posture-macos-${VERSION}.pkg"
           
-          # Download the release asset to calculate SHA256
-          wget -q https://github.com/${{ github.repository }}/releases/download/v${VERSION}/edamame_posture-${VERSION}-universal-apple-darwin
-          SHA_MACOS=$(sha256sum edamame_posture-${VERSION}-universal-apple-darwin | awk '{print $1}')
+          # Download the .pkg release asset to calculate SHA256
+          wget -q "https://github.com/${{ github.repository }}/releases/download/v${VERSION}/${PKG_NAME}"
+          SHA_MACOS=$(sha256sum "${PKG_NAME}" | awk '{print $1}')
           
-          # Update Homebrew Formula
-          sed -i '' "s|url \".*\"|url \"https://github.com/${{ github.repository }}/releases/download/v${VERSION}/edamame_posture-${VERSION}-universal-apple-darwin\"|g" homebrew/edamame-posture.rb
+          # Update Homebrew Cask
           sed -i '' "s|sha256 \".*\"|sha256 \"${SHA_MACOS}\"|g" homebrew/edamame-posture.rb
           sed -i '' "s|version \".*\"|version \"${VERSION}\"|g" homebrew/edamame-posture.rb
           
-          # Only run if token is present
           if [ -n "${{ secrets.DEV_GITHUB_TOKEN }}" ]; then
-            # Disable credential helper to avoid keychain errors
             export GIT_TERMINAL_PROMPT=0
             git config --global credential.helper ""
             
             git clone https://oauth2:${{ secrets.DEV_GITHUB_TOKEN }}@github.com/edamametechnologies/homebrew-tap.git tap
-            mkdir -p tap/Formula
-            cp homebrew/edamame-posture.rb tap/Formula/edamame-posture.rb
+            mkdir -p tap/Casks
+            cp homebrew/edamame-posture.rb tap/Casks/edamame-posture.rb
+            # Remove old Formula if it exists (migrating from formula to cask)
+            rm -f tap/Formula/edamame-posture.rb
             cd tap
             git config user.name "EDAMAME Bot"
             git config user.email "bot@edamame.tech"
             git add .
-            # Check if there are changes (or if it's a new repo)
             if [ -z "$(git rev-parse HEAD 2>/dev/null)" ] || ! git diff-index --quiet HEAD 2>/dev/null; then
-              git commit -m "Update edamame-posture to ${VERSION}"
+              git commit -m "Update edamame-posture to ${VERSION} (cask with ES provisioning profile)"
               git push origin main
             else
               echo "No changes to commit"
