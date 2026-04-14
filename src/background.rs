@@ -861,6 +861,9 @@ fn configure_edamame_notifications() {
     if !slack_bot_token.is_empty() || !telegram_bot_token.is_empty() {
         let slack_enabled = !slack_bot_token.is_empty();
         let telegram_enabled = !telegram_bot_token.is_empty();
+        let export_to_portal = std::env::var("EDAMAME_EXPORT_TO_PORTAL")
+            .map(|v| !v.is_empty() && v != "0" && v.to_lowercase() != "false")
+            .unwrap_or(false);
         if agentic_set_llm_config(
             "internal".to_string(),
             String::new(),
@@ -874,6 +877,7 @@ fn configure_edamame_notifications() {
             telegram_chat_id,
             slack_enabled,
             telegram_enabled,
+            export_to_portal,
         ) {
             info!("Notification channels configured");
         } else {
@@ -983,6 +987,9 @@ pub fn background_configure_agentic(provider: String) {
 
     let slack_enabled = !slack_bot_token.is_empty();
     let telegram_enabled = !telegram_bot_token.is_empty();
+    let export_to_portal = std::env::var("EDAMAME_EXPORT_TO_PORTAL")
+        .map(|v| !v.is_empty() && v != "0" && v.to_lowercase() != "false")
+        .unwrap_or(false);
     if agentic_set_llm_config(
         provider.clone(),
         api_key.clone(),
@@ -996,6 +1003,7 @@ pub fn background_configure_agentic(provider: String) {
         telegram_chat_id,
         slack_enabled,
         telegram_enabled,
+        export_to_portal,
     ) {
         info!("AI Assistant configured: {} / {}", provider, model);
     } else {

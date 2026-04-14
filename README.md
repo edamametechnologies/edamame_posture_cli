@@ -250,6 +250,7 @@ In `analyze` mode, the AI assistant will:
 | `--agentic-mode auto/analyze` | Set AI behavior (see above) |
 | `--agentic-provider edamame` | Use EDAMAME Portal LLM for AI analysis |
 | `--agentic-interval 300` | Check for new security todos every 5 minutes |
+| `--export-to-portal` | Export agentic action history to EDAMAME Portal |
 
 ### Step 6: Verify the Daemon is Running
 
@@ -656,7 +657,7 @@ This command also returns a non-zero exit code when the policy is not met, allow
 The `start` command initiates a background process that continuously monitors the device's security posture and can enable conditional access controls as defined in the EDAMAME Hub:
 
 ```
-edamame_posture start --user <USER> --domain <DOMAIN> --pin <PIN> [--device-id <DEVICE_ID>] [--network-scan] [--packet-capture] [--whitelist <NAME>] [--fail-on-whitelist] [--fail-on-blacklist] [--fail-on-anomalous] [--include-local-traffic] [--cancel-on-violation] [--agentic-mode MODE] [--agentic-provider PROVIDER] [--agentic-interval SECONDS]
+edamame_posture start --user <USER> --domain <DOMAIN> --pin <PIN> [--device-id <DEVICE_ID>] [--network-scan] [--packet-capture] [--whitelist <NAME>] [--fail-on-whitelist] [--fail-on-blacklist] [--fail-on-anomalous] [--include-local-traffic] [--cancel-on-violation] [--agentic-mode MODE] [--agentic-provider PROVIDER] [--agentic-interval SECONDS] [--export-to-portal]
 ```
 
 Example:
@@ -1901,6 +1902,7 @@ The AI Assistant configuration is passed to the background daemon through enviro
 - `EDAMAME_AGENTIC_SLACK_ESCALATIONS_CHANNEL` - Slack channel ID for escalations/alerts (optional)
 - `EDAMAME_TELEGRAM_BOT_TOKEN` - Telegram bot token for direct EDAMAME notifications (agentic + divergence) (optional)
 - `EDAMAME_TELEGRAM_CHAT_ID` - Telegram chat ID for direct EDAMAME notifications (agentic + divergence) (optional)
+- `EDAMAME_EXPORT_TO_PORTAL` - Export agentic action history to EDAMAME Portal (optional, default: false). Also available as `--export-to-portal` CLI flag.
 
 **How it works:**
 1. Set environment variables in the shell before starting the daemon

@@ -773,6 +773,11 @@ fn start_common_args() -> Vec<Arg> {
             .long("cancel-on-violation")
             .help("Attempt to cancel the current CI pipeline when policy violations are detected")
             .action(ArgAction::SetTrue),
+        Arg::new("export_to_portal")
+            .long("export-to-portal")
+            .help("Export agentic action history to EDAMAME Portal")
+            .env("EDAMAME_EXPORT_TO_PORTAL")
+            .action(ArgAction::SetTrue),
     ]
 }
 
@@ -840,6 +845,11 @@ fn disconnected_start_args() -> Vec<Arg> {
         Arg::new("cancel_on_violation")
             .long("cancel-on-violation")
             .help("Attempt to cancel the current CI pipeline when policy violations are detected")
+            .action(ArgAction::SetTrue),
+        Arg::new("export_to_portal")
+            .long("export-to-portal")
+            .help("Export agentic action history to EDAMAME Portal")
+            .env("EDAMAME_EXPORT_TO_PORTAL")
             .action(ArgAction::SetTrue),
     ]
 }
