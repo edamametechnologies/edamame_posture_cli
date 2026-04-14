@@ -275,14 +275,11 @@ jobs:
         run: ./tests/basic_cargo_test.sh
         continue-on-error: true
 
-      - name: Install ES provisioning profile for macOS
+      - name: Decode ES provisioning profile for macOS
         if: matrix.os == 'macos'
         shell: bash
         run: |
-          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
-          echo "${{ secrets.APPLE_ES_POSTURE_PROVISIONING_PROFILE }}" | base64 --decode > "$HOME/Library/MobileDevice/Provisioning Profiles/EDAMAME_Posture.provisionprofile"
-          sudo mkdir -p "/Library/MobileDevice/Provisioning Profiles"
-          sudo cp "$HOME/Library/MobileDevice/Provisioning Profiles/EDAMAME_Posture.provisionprofile" "/Library/MobileDevice/Provisioning Profiles/EDAMAME_Posture.provisionprofile"
+          echo "${{ secrets.APPLE_ES_POSTURE_PROVISIONING_PROFILE }}" | base64 --decode > /tmp/EDAMAME_Posture.provisionprofile
 
       - name: Setup signing for macOS
         if: matrix.os == 'macos'
@@ -322,7 +319,7 @@ jobs:
         if: matrix.os == 'macos'
         shell: bash
         run: |
-          ./macos/make-pkg.sh
+          ./macos/make-pkg.sh --provisioning-profile /tmp/EDAMAME_Posture.provisionprofile
           ./macos/notarization.sh ./target/pkg/edamame-posture.pkg
           sudo installer -verboseR -pkg ./target/pkg/edamame-posture.pkg -target /
           echo "BINARY_PATH=/usr/local/bin/edamame_posture" >> $GITHUB_ENV

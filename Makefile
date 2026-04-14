@@ -28,10 +28,12 @@ install_provisioning:
 	@test -n "$(APPLE_ES_POSTURE_PROVISIONING_PROFILE)" || (echo "Missing APPLE_ES_POSTURE_PROVISIONING_PROFILE -- source ../secrets/apple-provisioning.env" && exit 1)
 	mkdir -p "$(HOME)/Library/MobileDevice/Provisioning Profiles"
 	echo "$(APPLE_ES_POSTURE_PROVISIONING_PROFILE)" | base64 --decode > "$(HOME)/Library/MobileDevice/Provisioning Profiles/EDAMAME_Posture.provisionprofile"
-	@echo "Provisioning profile installed."
+	sudo mkdir -p "/Library/MobileDevice/Provisioning Profiles"
+	sudo cp "$(HOME)/Library/MobileDevice/Provisioning Profiles/EDAMAME_Posture.provisionprofile" "/Library/MobileDevice/Provisioning Profiles/EDAMAME_Posture.provisionprofile"
+	@echo "Provisioning profile installed (user + system-wide)."
 
 macos_package: macos_release
-	./macos/make-pkg.sh
+	./macos/make-pkg.sh --provisioning-profile "$(HOME)/Library/MobileDevice/Provisioning Profiles/EDAMAME_Posture.provisionprofile"
 
 macos_publish: macos_release
 	./macos/sign.sh ./target/release/edamame_posture

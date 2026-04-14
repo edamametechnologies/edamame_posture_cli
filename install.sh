@@ -1264,12 +1264,66 @@ install_windows_via_choco() {
     return 0
 }
 
+install_macos_via_pkg() {
+    info "Installing via macOS .pkg (includes ES provisioning profile)..."
+
+    local version=""
+    if fetch_latest_release_tag && [ -n "$LATEST_RELEASE_TAG_PRIMARY" ]; then
+        version="$LATEST_RELEASE_TAG_PRIMARY"
+    else
+        version=$(fetch_latest_version)
+    fi
+    if [ -z "$version" ]; then
+        warn "Failed to determine latest version for .pkg download"
+        return 1
+    fi
+
+    local pkg_name="edamame-posture-macos-${version}.pkg"
+    local pkg_url="${REPO_BASE_URL}/releases/download/v${version}/${pkg_name}"
+    local tmp_pkg
+    tmp_pkg=$(mktemp /tmp/edamame-posture-XXXXXX.pkg)
+
+    info "Downloading ${pkg_url}"
+    if ! download_file "$pkg_url" "$tmp_pkg"; then
+        rm -f "$tmp_pkg"
+        if [ -n "$LATEST_RELEASE_TAG_SECONDARY" ]; then
+            version="$LATEST_RELEASE_TAG_SECONDARY"
+            pkg_name="edamame-posture-macos-${version}.pkg"
+            pkg_url="${REPO_BASE_URL}/releases/download/v${version}/${pkg_name}"
+            info "Primary .pkg not found, trying previous release: ${pkg_url}"
+            if ! download_file "$pkg_url" "$tmp_pkg"; then
+                rm -f "$tmp_pkg"
+                warn ".pkg not available for this release"
+                return 1
+            fi
+        else
+            warn ".pkg not available for this release"
+            return 1
+        fi
+    fi
+
+    info "Installing package (requires admin privileges)..."
+    if [ -n "$SUDO" ]; then
+        $SUDO installer -verboseR -pkg "$tmp_pkg" -target /
+    else
+        installer -verboseR -pkg "$tmp_pkg" -target /
+    fi
+    rm -f "$tmp_pkg"
+
+    BINARY_PATH="/usr/local/bin/edamame_posture"
+    FINAL_BINARY_PATH="$BINARY_PATH"
+    INSTALL_METHOD="pkg"
+    INSTALLED_VIA_PACKAGE_MANAGER="true"
+    info ".pkg installation complete"
+    return 0
+}
+
 install_macos_via_brew() {
     if ! command -v brew >/dev/null 2>&1; then
         return 1
     fi
 
-    info "Installing via Homebrew..."
+    info "Installing via Homebrew (legacy, no ES entitlement)..."
 
     if ! brew tap | grep -q "edamametechnologies/tap"; then
         if ! brew tap edamametechnologies/tap >/dev/null 2>&1 < /dev/null; then
@@ -1987,7 +2041,12 @@ if [ "$SKIP_INSTALLATION" = "false" ]; then
         warn "Package install not supported or unsupported glibc version detected. Using musl binary."
         install_binary_release "linux" "musl"
     elif [ "$PLATFORM" = "macos" ]; then
-        if [ "$CONFIG_FORCE_BINARY" != "true" ] && install_macos_via_brew; then
+        if [ "$CONFIG_FORCE_BINARY" = "true" ]; then
+            warn "Using direct binary installation for macOS (--force-binary)..."
+            install_binary_release "macos" ""
+        elif install_macos_via_pkg; then
+            :
+        elif install_macos_via_brew; then
             :
         else
             warn "Using direct binary installation for macOS..."
