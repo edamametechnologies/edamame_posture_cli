@@ -79,7 +79,7 @@ mkdir -p "$TARGET/scripts"
 cp ./macos/postinstall "$TARGET/scripts/"
 chmod 755 "$TARGET/scripts/postinstall"
 
-pkgbuild --analyze --root ./ROOT/ "$TARGET/components.plist"
+pkgbuild --analyze --root "$INSTALL_ROOT" "$TARGET/components.plist"
 python3 - "$TARGET/components.plist" <<'PY'
 import plistlib
 import sys
