@@ -79,7 +79,16 @@ mkdir -p "$TARGET/scripts"
 cp ./macos/postinstall "$TARGET/scripts/"
 chmod 755 "$TARGET/scripts/postinstall"
 
+pkgbuild --analyze --root ./ROOT/ "$TARGET/components.plist"
+plutil -replace 0.BundleIsRelocatable -bool NO "$TARGET/components.plist"
+
 cd "$TARGET"
 mkdir -p pkg
-pkgbuild --identifier "$BUNDLE_IDENTIFIER" --root ./ROOT/ --scripts ./scripts --version "$VERSION" pkg/edamame-posture-unsigned.pkg
+pkgbuild \
+  --identifier "$BUNDLE_IDENTIFIER" \
+  --root ./ROOT/ \
+  --component-plist ./components.plist \
+  --scripts ./scripts \
+  --version "$VERSION" \
+  pkg/edamame-posture-unsigned.pkg
 productsign --sign WSL782B48J pkg/edamame-posture-unsigned.pkg edamame-posture.pkg
