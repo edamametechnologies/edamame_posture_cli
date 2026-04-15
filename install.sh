@@ -360,7 +360,7 @@ log_core_info_for_binary() {
 }
 
 REPO_BASE_URL="https://github.com/edamametechnologies/edamame_posture_cli"
-FALLBACK_VERSION="1.1.2"
+FALLBACK_VERSION="1.1.4"
 LATEST_RELEASE_TAG_PRIMARY=""
 LATEST_RELEASE_TAG_SECONDARY=""
 ARTIFACT_SECONDARY_URL=""
@@ -1323,7 +1323,7 @@ install_macos_via_brew() {
         return 1
     fi
 
-    info "Installing via Homebrew (legacy, no ES entitlement)..."
+    info "Installing via Homebrew cask (.pkg with embedded ES profile)..."
 
     if ! brew tap | grep -q "edamametechnologies/tap"; then
         if ! brew tap edamametechnologies/tap >/dev/null 2>&1 < /dev/null; then
@@ -1332,12 +1332,12 @@ install_macos_via_brew() {
         fi
     fi
 
-    if brew list edamame-posture >/dev/null 2>&1; then
-        info "edamame-posture already installed via Homebrew, attempting upgrade..."
-        brew upgrade edamame-posture >/dev/null 2>&1 < /dev/null || true
+    if brew list --cask edamame-posture >/dev/null 2>&1; then
+        info "edamame-posture already installed via Homebrew cask, attempting upgrade..."
+        brew upgrade --cask edamame-posture >/dev/null 2>&1 < /dev/null || true
     else
-        if ! brew install edamame-posture >/dev/null 2>&1 < /dev/null; then
-            warn "Homebrew installation failed"
+        if ! brew install --cask edamame-posture >/dev/null 2>&1 < /dev/null; then
+            warn "Homebrew cask installation failed"
             return 1
         fi
     fi
@@ -1346,7 +1346,7 @@ install_macos_via_brew() {
     FINAL_BINARY_PATH="$BINARY_PATH"
     INSTALL_METHOD="homebrew"
     INSTALLED_VIA_PACKAGE_MANAGER="true"
-    info "Homebrew installation complete"
+    info "Homebrew cask installation complete"
     return 0
 }
 
@@ -1692,9 +1692,9 @@ check_existing_installation() {
             info "Detected package installation (APK)"
         fi
     elif [ "$PLATFORM" = "macos" ] && command -v brew >/dev/null 2>&1; then
-        if brew list edamame-posture >/dev/null 2>&1; then
+        if brew list --cask edamame-posture >/dev/null 2>&1; then
             IS_PACKAGE_INSTALL="true"
-            info "Detected package installation (Homebrew)"
+            info "Detected package installation (Homebrew cask)"
         fi
     elif [ "$PLATFORM" = "windows" ] && command -v choco >/dev/null 2>&1; then
         if choco list --local-only --exact edamame-posture 2>/dev/null | grep -q "^edamame-posture "; then
@@ -1729,12 +1729,12 @@ check_existing_installation() {
                 fi
             fi
         elif [ "$PLATFORM" = "macos" ] && command -v brew >/dev/null 2>&1; then
-            # Check if brew has an update
-            if brew outdated edamame-posture 2>/dev/null | grep -q "edamame-posture"; then
-                info "Newer version available via Homebrew"
+            # Check if Homebrew cask has an update
+            if brew outdated --cask edamame-posture 2>/dev/null | grep -q "edamame-posture"; then
+                info "Newer version available via Homebrew cask"
                 NEEDS_UPGRADE="true"
             else
-                info "Homebrew package is up to date"
+                info "Homebrew cask is up to date"
                 VERSION_CHECK_PASSED="true"
             fi
         elif [ "$PLATFORM" = "windows" ] && command -v choco >/dev/null 2>&1; then

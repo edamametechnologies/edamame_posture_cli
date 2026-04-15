@@ -88,19 +88,30 @@ path = sys.argv[1]
 with open(path, "rb") as f:
     data = plistlib.load(f)
 
+updated = False
+
 if isinstance(data, list):
     entries = data
+    for entry in entries:
+        if isinstance(entry, dict):
+            entry["BundleIsRelocatable"] = False
+            updated = True
 elif isinstance(data, dict):
-    entries = data.get("ChildBundles", [])
+    if "BundleIsRelocatable" in data:
+        data["BundleIsRelocatable"] = False
+        updated = True
+
+    child_bundles = data.get("ChildBundles", [])
+    if isinstance(child_bundles, list):
+        for entry in child_bundles:
+            if isinstance(entry, dict):
+                entry["BundleIsRelocatable"] = False
+                updated = True
 else:
     raise SystemExit(f"Unexpected plist root type: {type(data)!r}")
 
-if not entries:
+if not updated:
     raise SystemExit("No bundle components found in pkgbuild analysis plist")
-
-for entry in entries:
-    if isinstance(entry, dict):
-        entry["BundleIsRelocatable"] = False
 
 with open(path, "wb") as f:
     plistlib.dump(data, f)
