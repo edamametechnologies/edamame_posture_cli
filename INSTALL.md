@@ -231,10 +231,10 @@ Note: When credentials (`--user`, `--domain`, `--pin`) are omitted, the installe
    - If not found → proceed with installation
 
 2. **Version/SHA verification**
-   - **Package installations** (APT/APK/Homebrew/Choco): Check if upgrade is available
+   - **Package installations** (APT/APK/Homebrew cask/Choco): Check if upgrade is available
      - APT: `apt list --upgradable | grep edamame-posture`
      - APK: `apk version edamame-posture | grep "<"`
-     - Homebrew: `brew outdated edamame-posture`
+     - Homebrew cask: `brew outdated --cask edamame-posture`
      - Chocolatey: `choco outdated edamame-posture`
    - **Binary installations**: Fetch latest release SHA from GitHub API and compare with existing binary
    - If outdated → proceed with upgrade/update
