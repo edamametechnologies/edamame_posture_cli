@@ -2431,9 +2431,10 @@ if { credentials_provided || [ "$DISCONNECTED_MODE" = "true" ]; } && [ "$SKIP_CO
         # Binary installation - always start daemon
         info "  Decision: Binary installation - will start daemon"
         SHOULD_START_DAEMON="true"
-    elif [ "$INSTALL_METHOD" = "homebrew" ] || [ "$INSTALL_METHOD" = "chocolatey" ]; then
-        # Homebrew/Chocolatey don't install services - start daemon manually
-        info "  Decision: Homebrew/Chocolatey - will start daemon"
+    elif [ "$INSTALL_METHOD" = "homebrew" ] || [ "$INSTALL_METHOD" = "chocolatey" ] || [ "$INSTALL_METHOD" = "pkg" ]; then
+        # Desktop package installs on macOS/Windows don't install managed services.
+        # The installer must start the daemon explicitly after the package lands.
+        info "  Decision: Desktop package install - will start daemon"
         SHOULD_START_DAEMON="true"
     else
         info "  Decision: Service-based installation - daemon managed by service"
