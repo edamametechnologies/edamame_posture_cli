@@ -439,7 +439,9 @@ stop_existing_posture() {
 }
 
 fetch_latest_version() {
-    local api_url="${REPO_BASE_URL}/releases/latest"
+    local owner_repo
+    owner_repo=$(echo "$REPO_BASE_URL" | sed 's|https://github.com/||')
+    local api_url="https://api.github.com/repos/${owner_repo}/releases/latest"
     local json=""
     if command -v curl >/dev/null 2>&1; then
         if [ -n "$GITHUB_TOKEN" ]; then
