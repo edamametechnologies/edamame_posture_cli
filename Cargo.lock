@@ -1909,7 +1909,6 @@ dependencies = [
 [[package]]
 name = "edamame_backend"
 version = "0.3.5"
-source = "git+https://github.com/edamametechnologies/edamame_backend?branch=main#769c1cc4f2a7fabf80f9737d01a3c0eb51a72d98"
 dependencies = [
  "anyhow",
  "blake3",
@@ -1923,7 +1922,6 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "1.2.1"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#5c170dbe1690c720a4a9b407a4675883e03a00d0"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -2012,7 +2010,6 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "1.2.1"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#71d2036342b44238fe728a65976b6847864ee2e5"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -2354,7 +2351,6 @@ dependencies = [
 [[package]]
 name = "extended-isolation-forest"
 version = "0.2.3"
-source = "git+https://github.com/edamametechnologies/extended-isolation-forest?branch=main#b373e9dd5681447d5fff50c106a73ec2ee0f4377"
 dependencies = [
  "num-traits",
  "rand 0.8.5",
@@ -2487,7 +2483,6 @@ dependencies = [
 [[package]]
 name = "flodbadd"
 version = "1.2.1"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#06cc9d1b2cee47e6c6f716cd190fab8144543041"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -4102,7 +4097,6 @@ dependencies = [
 [[package]]
 name = "l7_ebpf_program"
 version = "0.1.0"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#06cc9d1b2cee47e6c6f716cd190fab8144543041"
 
 [[package]]
 name = "lazy_static"
@@ -7611,7 +7605,6 @@ dependencies = [
 [[package]]
 name = "threatmodels_rs"
 version = "0.1.1"
-source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#abb633eff7c7113716190dbcc436e3ebc4847fc0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -8150,7 +8143,6 @@ checksum = "562d481066bde0658276a35467c4af00bdc6ee726305698a55b86e61d7ad82bb"
 [[package]]
 name = "undeadlock"
 version = "1.2.0"
-source = "git+https://github.com/edamametechnologies/undeadlock?branch=main#130cd399fe4c0edca0220b78acb4a6f6913c75cf"
 dependencies = [
  "dashmap 6.1.0",
  "tokio",
