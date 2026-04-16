@@ -3163,7 +3163,7 @@ EDAMAME Posture CLI is designed to provide clear error messages and codes for co
 - In case of runtime errors (e.g., failure to connect to EDAMAME Hub, inability to write to a log or output file, etc.), the tool will return a non-zero exit code and print a descriptive error message to STDERR.
 - Remediation actions that fail will indicate the failure (for example, "Failed to enable firewall: <system error>"). The CLI will continue with other actions where possible, and at the end may return an error code indicating partial failure.
 
-Always refer to `edamame_posture.log` (if such a log is generated in your working directory or system log location) for detailed debug information when troubleshooting an error. Many commands have a `-v` or verbose mode that can be enabled for more insights.
+On macOS/Linux, daemon logs are written to `/var/log/edamame/edamame_posture_{pid}.YYYY-MM-DD.log` (daily rotation, 7-day retention). On Windows, logs are written beside the executable. Use `-v` for verbose stdout output or `edamame_posture background-logs` to read the in-memory ring buffer.
 
 ## Threat Evidence Tests
 

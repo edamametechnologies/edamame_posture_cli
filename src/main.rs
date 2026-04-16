@@ -148,13 +148,12 @@ pub fn initialize_core(
         device.device_id = (machine_uid + "/" + device_id.as_str()).to_string();
     }
 
-    // By changing the executable type, we can have different logging behavior
-    // "cli" is a special case in the logger that logs to file
-    // "posture_verbose" falls into the default case and logs to stdout
+    // "posture" writes rolling logs to /var/log/edamame/ with stdout suppressed (daemon mode).
+    // "posture_verbose" skips file logging and emits to stdout (for systemd/OpenRC or interactive -v).
     let executable_type = if verbose {
         "posture_verbose".to_string()
     } else {
-        "cli".to_string()
+        "posture".to_string()
     };
 
     initialize(
