@@ -22,7 +22,7 @@ This document explains how `install.sh` provisions EDAMAME Posture across platfo
 ### Prerequisites
 - Any platform: `curl` or `wget` to download the script.
 - Linux/macOS: ability to run commands with root privileges (`sudo`, `doas`, or root shell). The installer will attempt to install `sudo` automatically on Alpine/Debian systems when possible.
-- Windows (PowerShell or GitHub Actions Bash shell): Chocolatey preferred for package installation.
+- Windows (PowerShell or GitHub Actions Bash shell): direct binary download from GitHub releases (Chocolatey is used only as a fallback).
 
 Run the installer:
 ```bash
@@ -286,10 +286,15 @@ This early check ensures:
 5. **Daemon management**: No system service; daemon started as background process when credentials provided
 
 #### Windows
-1. **Pre-check** (see above): If Chocolatey installation exists and is up-to-date with matching credentials → skip everything
-2. Attempt to install/upgrade `edamame-posture` via Chocolatey (only if needed)
-3. If Chocolatey is unavailable or errors (or `--force-binary`), download the `x86_64-pc-windows-msvc(.exe)` artifact to `--install-dir`
+1. **Pre-check** (see above): If an existing binary matches the latest release SHA → skip everything
+2. Download the `x86_64-pc-windows-msvc(.exe)` binary directly from GitHub releases to `--install-dir`
+3. If the direct download fails, fall back to Chocolatey (`choco install edamame-posture`)
 4. **Daemon management**: No system service; daemon started as background process when credentials provided
+
+> **Why direct binary over Chocolatey?** The Chocolatey community feed always
+> lags behind GitHub releases due to its package moderation/review process.
+> Direct binary download ensures users and CI pipelines get the latest version
+> immediately.
 
 ---
 
