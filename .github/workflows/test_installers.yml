@@ -12,7 +12,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  FALLBACK_VERSION: "1.1.4"
+  FALLBACK_VERSION: "1.2.0"
   REPO_BASE: "https://github.com/edamametechnologies/edamame_posture_cli"
 
 jobs:
