@@ -806,15 +806,9 @@ install_binary_release() {
             fi
         fi
         if [ "$downloaded" = "false" ]; then
-            if [ "$platform" = "windows" ] && [ "$CONFIG_FORCE_BINARY" != "true" ]; then
-                warn "Binary download failed on Windows, retrying via Chocolatey..."
-                rm -f "$tmp_bin"
-                if install_windows_via_choco; then
-                    return 0
-                fi
-            fi
             rm -f "$tmp_bin"
-            error "Failed to download EDAMAME Posture binary."
+            warn "Failed to download EDAMAME Posture binary."
+            return 1
         fi
     fi
 
@@ -2063,11 +2057,15 @@ if [ "$SKIP_INSTALLATION" = "false" ]; then
             install_binary_release "macos" ""
         fi
     elif [ "$PLATFORM" = "windows" ]; then
-        if [ "$CONFIG_FORCE_BINARY" != "true" ] && install_windows_via_choco; then
-            :
-        else
-            warn "Using direct binary installation for Windows..."
-            install_binary_release "windows" ""
+        # Prefer direct binary on Windows: the Chocolatey community feed lags
+        # behind GitHub releases due to its moderation/review process, so
+        # direct binary download gives users the latest version immediately.
+        info "Installing via direct binary download for Windows..."
+        if ! install_binary_release "windows" ""; then
+            warn "Direct binary download failed, falling back to Chocolatey..."
+            if ! install_windows_via_choco; then
+                error "All Windows installation methods failed."
+            fi
         fi
     else
         info "Installing via direct binary download for $PLATFORM..."
