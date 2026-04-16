@@ -442,9 +442,17 @@ fetch_latest_version() {
     local api_url="${REPO_BASE_URL}/releases/latest"
     local json=""
     if command -v curl >/dev/null 2>&1; then
-        json=$(curl --connect-timeout 10 --max-time 30 -fsSL "$api_url" 2>/dev/null) || json=""
+        if [ -n "$GITHUB_TOKEN" ]; then
+            json=$(curl --connect-timeout 10 --max-time 30 -fsSL -H "Authorization: token $GITHUB_TOKEN" "$api_url" 2>/dev/null) || json=""
+        else
+            json=$(curl --connect-timeout 10 --max-time 30 -fsSL "$api_url" 2>/dev/null) || json=""
+        fi
     elif command -v wget >/dev/null 2>&1; then
-        json=$(wget --timeout=30 -q -O - "$api_url" 2>/dev/null) || json=""
+        if [ -n "$GITHUB_TOKEN" ]; then
+            json=$(wget --timeout=30 -q -O - --header="Authorization: token $GITHUB_TOKEN" "$api_url" 2>/dev/null) || json=""
+        else
+            json=$(wget --timeout=30 -q -O - "$api_url" 2>/dev/null) || json=""
+        fi
     fi
     echo "$json" | grep -m1 '"tag_name"' | sed -E 's/.*"v?([^"]+)".*/\1/' | sed 's/^v//'
 }
@@ -696,14 +704,14 @@ prepare_binary_artifact() {
             if [ -n "$LATEST_RELEASE_TAG_PRIMARY" ]; then
                 ARTIFACT_URL="${REPO_BASE_URL}/releases/download/v${LATEST_RELEASE_TAG_PRIMARY}/${ARTIFACT_NAME}"
             else
-                ARTIFACT_URL="${REPO_BASE_URL}/releases/latest/download/${ARTIFACT_NAME}"
+                ARTIFACT_URL="${REPO_BASE_URL}/releases/download/v${version}/${ARTIFACT_NAME}"
             fi
             if [ -n "$LATEST_RELEASE_TAG_SECONDARY" ]; then
                 ARTIFACT_SECONDARY_NAME="edamame_posture-${LATEST_RELEASE_TAG_SECONDARY}-${suffix}${ARTIFACT_EXT}"
                 ARTIFACT_SECONDARY_URL="${REPO_BASE_URL}/releases/download/v${LATEST_RELEASE_TAG_SECONDARY}/${ARTIFACT_SECONDARY_NAME}"
             fi
         else
-            ARTIFACT_URL="${REPO_BASE_URL}/releases/latest/download/${ARTIFACT_NAME}"
+            ARTIFACT_URL="${REPO_BASE_URL}/releases/download/v${version}/${ARTIFACT_NAME}"
         fi
         ARTIFACT_FALLBACK_URL="${REPO_BASE_URL}/releases/download/v${FALLBACK_VERSION}/${ARTIFACT_FALLBACK_NAME}"
     fi
