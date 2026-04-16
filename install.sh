@@ -360,7 +360,7 @@ log_core_info_for_binary() {
 }
 
 REPO_BASE_URL="https://github.com/edamametechnologies/edamame_posture_cli"
-FALLBACK_VERSION="1.1.4"
+FALLBACK_VERSION="1.2.0"
 LATEST_RELEASE_TAG_PRIMARY=""
 LATEST_RELEASE_TAG_SECONDARY=""
 ARTIFACT_SECONDARY_URL=""
