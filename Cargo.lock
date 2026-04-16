@@ -1909,6 +1909,7 @@ dependencies = [
 [[package]]
 name = "edamame_backend"
 version = "0.3.5"
+source = "git+https://github.com/edamametechnologies/edamame_backend?branch=main#769c1cc4f2a7fabf80f9737d01a3c0eb51a72d98"
 dependencies = [
  "anyhow",
  "blake3",
@@ -1922,6 +1923,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "1.2.1"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#aac79ec7a8ac1989eca1402899fc37ebaf0f8e3a"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -2010,6 +2012,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "1.2.1"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#654aa0429abf18f8492076ba784d172937efe849"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -2351,6 +2354,7 @@ dependencies = [
 [[package]]
 name = "extended-isolation-forest"
 version = "0.2.3"
+source = "git+https://github.com/edamametechnologies/extended-isolation-forest?branch=main#b373e9dd5681447d5fff50c106a73ec2ee0f4377"
 dependencies = [
  "num-traits",
  "rand 0.8.5",
@@ -2483,6 +2487,7 @@ dependencies = [
 [[package]]
 name = "flodbadd"
 version = "1.2.1"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#0dfd0793653ec07e2a8dd52ee1b918b376c7886e"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -4097,6 +4102,7 @@ dependencies = [
 [[package]]
 name = "l7_ebpf_program"
 version = "0.1.0"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#0dfd0793653ec07e2a8dd52ee1b918b376c7886e"
 
 [[package]]
 name = "lazy_static"
@@ -7605,6 +7611,7 @@ dependencies = [
 [[package]]
 name = "threatmodels_rs"
 version = "0.1.1"
+source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#abb633eff7c7113716190dbcc436e3ebc4847fc0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -8143,6 +8150,7 @@ checksum = "562d481066bde0658276a35467c4af00bdc6ee726305698a55b86e61d7ad82bb"
 [[package]]
 name = "undeadlock"
 version = "1.2.0"
+source = "git+https://github.com/edamametechnologies/undeadlock?branch=main#130cd399fe4c0edca0220b78acb4a6f6913c75cf"
 dependencies = [
  "dashmap 6.1.0",
  "tokio",
@@ -8566,9 +8574,9 @@ dependencies = [
 
 [[package]]
 name = "webbrowser"
-version = "1.2.0"
+version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fe985f41e291eecef5e5c0770a18d28390addb03331c043964d9e916453d6f16"
+checksum = "0fc95580916af1e68ff6a7be07446fc5db73ebf71cf092de939bbf5f7e189f72"
 dependencies = [
  "core-foundation 0.10.1",
  "jni 0.22.4",
