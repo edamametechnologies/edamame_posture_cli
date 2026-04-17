@@ -47,7 +47,6 @@ jobs:
     runs-on: ${{ matrix.runs-on }}
 
     env:
-      CC_PREFER_CLANG_CL_OVER_MSVC: "1"
       EDAMAME_APP_SENTRY: ${{ secrets.EDAMAME_APP_SENTRY }}
       PWNED_API_KEY: ${{ secrets.PWNED_API_KEY }}
       EDAMAME_TARGET: ${{ secrets.EDAMAME_TARGET }}
@@ -237,6 +236,22 @@ jobs:
           if (-not (dotnet tool list --global | Select-String -Pattern "AzureSignTool")) {
             dotnet tool install --global AzureSignTool
           }
+
+      - name: Configure Windows clang-cl toolchain
+        if: matrix.os == 'windows'
+        shell: pwsh
+        run: |
+          $clang = 'C:\Program Files\LLVM\bin\clang-cl.exe'
+          $llvmLib = 'C:\Program Files\LLVM\bin\llvm-lib.exe'
+          if (!(Test-Path $clang) -or !(Test-Path $llvmLib)) {
+            choco install llvm -y
+          }
+          if (!(Test-Path $clang) -or !(Test-Path $llvmLib)) {
+            throw "LLVM Windows toolchain not found"
+          }
+          "CC_x86_64_pc_windows_msvc=$clang" >> $env:GITHUB_ENV
+          "CXX_x86_64_pc_windows_msvc=$clang" >> $env:GITHUB_ENV
+          "AR_x86_64_pc_windows_msvc=$llvmLib" >> $env:GITHUB_ENV
 
       - name: Set environment variables
         shell: bash
