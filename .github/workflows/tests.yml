@@ -496,9 +496,8 @@ jobs:
     runs-on: ${{ matrix.runs-on }}
     container:
       image: ${{ matrix.container_image }}
-      # Needed for integration tests (pcap) and eBPF (kprobes require SYS_ADMIN/BPF capabilities);
-      # --network host bypasses Docker bridge networking issues on GH Actions runners
-      options: --cap-add=NET_ADMIN --cap-add=NET_RAW --cap-add=SYS_ADMIN --cap-add=SYS_PTRACE --cap-add=BPF --network host
+      # Needed for integration tests (pcap) and eBPF (kprobes require SYS_ADMIN/BPF capabilities)
+      options: --cap-add=NET_ADMIN --cap-add=NET_RAW --cap-add=SYS_ADMIN --cap-add=SYS_PTRACE --cap-add=BPF
     env:
       CARGO_TERM_COLOR: always
       EDAMAME_APP_SENTRY: ${{ secrets.EDAMAME_APP_SENTRY }}
@@ -539,6 +538,7 @@ jobs:
         shell: bash
         run: |
           export DEBIAN_FRONTEND=noninteractive
+          echo 'Acquire::ForceIPv4 "true";' > /etc/apt/apt.conf.d/99force-ipv4
           apt_retry() {
             local max=5 attempt=1
             while [ $attempt -le $max ]; do
