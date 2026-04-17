@@ -979,22 +979,87 @@ rollback_broken_deb_package() {
     $SUDO apt-get install -f -y 2>/dev/null || true
 }
 
+apt_package_installed() {
+    local pkg="$1"
+    if ! command -v dpkg >/dev/null 2>&1; then
+        return 1
+    fi
+    dpkg -s "$pkg" >/dev/null 2>&1
+}
+
+apt_update_quietly() {
+    if ! command -v apt-get >/dev/null 2>&1; then
+        return 0
+    fi
+
+    set +e
+    $SUDO apt-get update -qq 2>/dev/null < /dev/null
+    local exit_code=$?
+    set -e
+    return $exit_code
+}
+
+apt_install_package_with_retry() {
+    local pkg="$1"
+    local max_attempts=5
+    local attempt=1
+    local delay_seconds=5
+    local exit_code=1
+
+    if apt_package_installed "$pkg"; then
+        return 0
+    fi
+
+    while [ $attempt -le $max_attempts ]; do
+        if [ $attempt -eq 1 ]; then
+            apt_update_quietly || true
+        fi
+
+        set +e
+        $SUDO apt-get install -y "$pkg" 2>/dev/null < /dev/null
+        exit_code=$?
+        set -e
+
+        if [ $exit_code -eq 0 ] && apt_package_installed "$pkg"; then
+            return 0
+        fi
+
+        if [ $attempt -ge $max_attempts ]; then
+            return $exit_code
+        fi
+
+        warn "Failed to install $pkg (attempt $attempt/$max_attempts, exit code: $exit_code); retrying in ${delay_seconds}s"
+        apt_update_quietly || true
+        sleep $delay_seconds
+        attempt=$((attempt + 1))
+    done
+
+    return $exit_code
+}
+
 # Install libpcap runtime packages on Debian-based systems
 ensure_libpcap_runtime() {
     if ! command -v apt-get >/dev/null 2>&1; then
         return 0
     fi
 
+    if apt_package_installed libpcap0.8t64 || apt_package_installed libpcap0.8; then
+        return 0
+    fi
+
     if apt-cache show libpcap0.8t64 >/dev/null 2>&1 < /dev/null; then
         info "Installing libpcap runtime library (libpcap0.8t64)..."
-        if ! $SUDO apt-get install -y libpcap0.8t64 2>/dev/null < /dev/null; then
+        if ! apt_install_package_with_retry libpcap0.8t64; then
             warn "Failed to install libpcap0.8t64, falling back to libpcap0.8"
-            $SUDO apt-get install -y libpcap0.8 2>/dev/null < /dev/null || true
+            info "Installing libpcap runtime library (libpcap0.8)..."
+            apt_install_package_with_retry libpcap0.8 || return 1
         fi
     else
         info "Installing libpcap runtime library (libpcap0.8)..."
-        $SUDO apt-get install -y libpcap0.8 2>/dev/null < /dev/null || true
+        apt_install_package_with_retry libpcap0.8 || return 1
     fi
+
+    return 0
 }
 
 find_libpcap_shared() {
@@ -1057,6 +1122,11 @@ ensure_libpcap_soname() {
     if command -v ldconfig >/dev/null 2>&1; then
         $SUDO ldconfig 2>/dev/null || true
     fi
+
+    if [ ! -e "$target" ]; then
+        warn "Failed to create libpcap compatibility symlink at $target"
+        return 1
+    fi
 }
 
 # Install GTK3/GLib runtime packages on Debian-based systems
@@ -1090,11 +1160,13 @@ ensure_linux_runtime_deps() {
     fi
     case "$ID" in
         "ubuntu"|"debian"|"raspbian"|"pop"|"linuxmint"|"elementary"|"zorin")
-            ensure_libpcap_runtime
-            ensure_libpcap_soname || true
+            ensure_libpcap_runtime || return 1
+            ensure_libpcap_soname || return 1
             ensure_gtk_runtime
             ;;
     esac
+
+    return 0
 }
 
 # Legacy alias
@@ -2004,6 +2076,10 @@ check_existing_installation() {
 # Early check: determine if we can skip installation and/or configuration
 check_existing_installation || true  # Sets SKIP_INSTALLATION and SKIP_CONFIGURATION flags
 
+if [ "$PLATFORM" = "linux" ] && [ "$SKIP_INSTALLATION" = "true" ]; then
+    ensure_linux_packet_capture_support || error "Failed to repair required Linux runtime dependencies for existing edamame_posture installation"
+fi
+
 if [ "$SKIP_INSTALLATION" = "true" ] && [ "$SKIP_CONFIGURATION" = "true" ]; then
     info "✓ Installation check complete - existing installation is perfect, nothing to do"
 elif [ "$SKIP_INSTALLATION" = "true" ] && [ "$SKIP_CONFIGURATION" = "false" ]; then
@@ -2039,7 +2115,7 @@ if [ "$SKIP_INSTALLATION" = "false" ]; then
         if [ "$linux_pkg_installed" != "true" ]; then
             warn "Using direct binary installation for Linux..."
             install_binary_release "linux" "$LINUX_LIBC_FLAVOR"
-            ensure_linux_packet_capture_support
+            ensure_linux_packet_capture_support || error "Failed to install required Linux runtime dependencies for edamame_posture binary"
         fi
     elif [ "$PLATFORM" = "linux-musl" ]; then
         warn "Package install not supported or unsupported glibc version detected. Using musl binary."
@@ -2386,7 +2462,17 @@ if [ -z "$RESOLVED_BINARY_PATH" ]; then
 fi
 
 BINARY_PATH="$RESOLVED_BINARY_PATH"
-VERSION=$("$RESOLVED_BINARY_PATH" get-core-version 2>/dev/null || echo "unknown")
+set +e
+VERSION_OUTPUT=$("$RESOLVED_BINARY_PATH" --version 2>&1)
+VERSION_EXIT=$?
+set -e
+if [ $VERSION_EXIT -ne 0 ]; then
+    if [ -n "$VERSION_OUTPUT" ]; then
+        error "Installation verification failed. Unable to execute $RESOLVED_BINARY_PATH (exit code: $VERSION_EXIT): $VERSION_OUTPUT"
+    fi
+    error "Installation verification failed. Unable to execute $RESOLVED_BINARY_PATH (exit code: $VERSION_EXIT)."
+fi
+VERSION="${VERSION_OUTPUT:-unknown}"
 info "✓ EDAMAME Posture installed successfully!"
 info "  Version: $VERSION"
 info "  Location: $RESOLVED_BINARY_PATH"
