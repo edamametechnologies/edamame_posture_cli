@@ -132,12 +132,63 @@ clear_vuln_history() {
   call_rpc clear_vulnerability_history >>"$TICK_LOG" 2>&1 || true
 }
 
+fim_watch_paths_json() {
+  "$PYTHON" - <<'PY'
+import json
+import os
+import tempfile
+from pathlib import Path
+
+home = Path.home()
+candidates = [
+    home / ".ssh",
+    home / ".aws",
+    home / ".gnupg",
+    home / ".kube",
+    home / ".docker",
+]
+for c in candidates:
+    try:
+        c.mkdir(parents=True, exist_ok=True)
+    except Exception:
+        pass
+
+paths = [str(c) for c in candidates if c.exists()]
+paths.append(str(home))
+
+tmp = Path(tempfile.gettempdir())
+try:
+    tmp.mkdir(parents=True, exist_ok=True)
+except Exception:
+    pass
+if tmp.exists():
+    paths.append(str(tmp))
+
+if os.name == "nt":
+    for env_var in ("TEMP", "TMP"):
+        val = os.environ.get(env_var)
+        if val:
+            p = Path(val)
+            if p.exists() and str(p) not in paths:
+                paths.append(str(p))
+
+seen = []
+for p in paths:
+    if p not in seen:
+        seen.append(p)
+print(json.dumps(seen))
+PY
+}
+
 prepare_scenario_state() {
   local scenario="$1"
   local check="$2"
   if [[ "$check" == "file_system_tampering" ]]; then
+    local watch_json
+    watch_json="$(fim_watch_paths_json)"
+    log "  FIM watch paths: $watch_json"
     call_rpc clear_file_events >>"$TICK_LOG" 2>&1 || true
-    call_rpc start_file_monitor '[[]]' >>"$TICK_LOG" 2>&1 || true
+    call_rpc start_file_monitor "[$watch_json]" >>"$TICK_LOG" 2>&1 || true
     log "  FIM started for $scenario"
   fi
 }
@@ -171,7 +222,12 @@ def matches(finding: dict) -> bool:
         return False
     if not markers and not ports:
         return True
-    joined = "\n".join(str(p) for p in (finding.get("open_files") or [])).lower()
+    parts = []
+    parts.extend(str(p) for p in (finding.get("open_files") or []))
+    desc = finding.get("description")
+    if desc:
+        parts.append(str(desc))
+    joined = "\n".join(parts).lower()
     if markers and any(m in joined for m in markers):
         return True
     port = finding.get("destination_port")
