@@ -326,7 +326,7 @@ jobs:
           slack-message: |
             *Security Gate for ${{ github.repository }}*:
             - Report Generation: ${{ steps.report.outcome != 'failure' && '✅ Success' || '❌ Failed' }}
-            - Release Gate (multi-platform regression): ${{ steps.gate.outcome != 'failure' && '✅ Pass' || '❌ Regression on 2+ platforms' }}
+            - Release Gate (tiered): ${{ steps.gate.outcome != 'failure' && '✅ Pass' || '❌ Regression (non-flaky on 2+ platforms OR known-flaky on ALL platforms)' }}
             Branch: ${{ github.ref }}
             More details: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
         env:
@@ -338,9 +338,13 @@ jobs:
         run: |
           echo "## Security Gate Summary"
           echo "- Report Generation: ${{ steps.report.outcome != 'failure' && '✅ Success' || '❌ Failed' }}"
-          echo "- Release Gate (multi-platform regression): ${{ steps.gate.outcome != 'failure' && '✅ Pass' || '❌ Regression on 2+ platforms' }}"
+          echo "- Release Gate (tiered): ${{ steps.gate.outcome != 'failure' && '✅ Pass' || '❌ Regression (non-flaky on 2+ platforms OR known-flaky on ALL platforms)' }}"
           echo ""
-          echo "Forcing security job to fail because a scenario failed on 2+ platforms,"
-          echo "which indicates a real detector regression (not single-platform flakiness)."
+          echo "Forcing security job to fail because either:"
+          echo "  - a non-flaky CVE scenario failed on 2+ platforms"
+          echo "    (real detector regression), OR"
+          echo "  - a known-flaky scenario (see tests/security/check_gate.py"
+          echo "    :KNOWN_FLAKY_SCENARIOS) failed on every observed platform"
+          echo "    (full regression, not iForest noise)."
           echo "Block or roll back the release."
           exit 1
