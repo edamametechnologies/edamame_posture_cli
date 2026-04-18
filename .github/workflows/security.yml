@@ -1,5 +1,6 @@
 name: Security (CVE detection)
 
+# Triggered manually from release_all.sh (not on push/schedule).
 on:
   workflow_dispatch:
     inputs:
@@ -11,15 +12,14 @@ on:
         description: "Comma-separated CVE scenarios to run"
         required: false
         default: "blacklist_comm,cve_token_exfil,cve_sandbox_escape,memory_poisoning,credential_sprawl,tool_poisoning_effects,supply_chain_exfil,npm_rat_beacon,file_events"
-  schedule:
-    - cron: "47 6 * * 1"
 
+# Auto cancel previous runs if they were not completed.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
-permissions:
-  contents: write
+# Declare default permissions as read only.
+permissions: read-all
 
 env:
   DEFAULT_TRIGGER_DURATION: "180"
@@ -73,6 +73,7 @@ jobs:
           echo "EDAMAME_POSTURE=$EDAMAME_BINARY_PATH" >> "$GITHUB_ENV"
 
       - name: Install edamame_cli
+        id: install_cli
         shell: bash
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -105,6 +106,7 @@ jobs:
           "$EC" --version
 
       - name: Download CVE trigger scripts
+        id: triggers
         shell: bash
         run: |
           TRIGGERS_DIR="${RUNNER_TEMP:-/tmp}/cve_triggers"
@@ -136,6 +138,7 @@ jobs:
           "$EDAMAME_CLI" rpc get_core_version || true
 
       - name: Run CVE detection suite
+        id: detection
         timeout-minutes: 45
         shell: bash
         env:
@@ -154,6 +157,7 @@ jobs:
             --scenarios "${SCENARIOS}"
           echo "--- results summary ---"
           cat "results/${{ matrix.label }}/results.json" | python3 -c "import json,sys; d=json.load(sys.stdin); print(json.dumps(d['totals'], indent=2))"
+        continue-on-error: true
 
       - name: Sanitize logs
         if: always()
@@ -171,14 +175,39 @@ jobs:
           if-no-files-found: warn
           retention-days: 30
 
+      - name: Slack alerts
+        if: steps.install_cli.outcome == 'failure' || steps.triggers.outcome == 'failure' || steps.detection.outcome == 'failure'
+        uses: slackapi/slack-github-action@v1.26.0
+        with:
+          channel-id: 'C072J0U9TH7'
+          slack-message: |
+            *Security (CVE) Test Results for ${{ github.repository }} (${{ matrix.label }})*:
+            - edamame_cli install: ${{ steps.install_cli.outcome != 'failure' && '✅ Success' || '❌ Failed' }}
+            - Trigger fetch: ${{ steps.triggers.outcome != 'failure' && '✅ Success' || '❌ Failed' }}
+            - CVE Detection Suite: ${{ steps.detection.outcome != 'failure' && '✅ Success' || '❌ Failed' }}
+            Branch: ${{ github.ref }}
+            More details: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+
+      - name: Fail job if tests failed
+        shell: bash
+        if: steps.install_cli.outcome == 'failure' || steps.triggers.outcome == 'failure' || steps.detection.outcome == 'failure'
+        run: |
+          echo "## Security Results Summary (${{ matrix.label }})"
+          echo "- edamame_cli install: ${{ steps.install_cli.outcome != 'failure' && '✅ Success' || '❌ Failed' }}"
+          echo "- Trigger fetch: ${{ steps.triggers.outcome != 'failure' && '✅ Success' || '❌ Failed' }}"
+          echo "- CVE Detection Suite: ${{ steps.detection.outcome != 'failure' && '✅ Success' || '❌ Failed' }}"
+          echo ""
+          echo "Forcing security job to fail because tests did not succeed."
+          exit 1
+
   report:
     name: Consolidate report
     needs: detect
     if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 10
-    permissions:
-      contents: write
 
     steps:
       - name: Checkout
@@ -207,11 +236,14 @@ jobs:
           ls -la results
 
       - name: Generate VULNDETECTION.md
+        id: report
+        shell: bash
         run: |
           python3 tests/security/generate_report.py \
             --results-dir results \
             --output VULNDETECTION.md
           head -80 VULNDETECTION.md
+        continue-on-error: true
 
       - name: Append report to job summary
         if: always()
@@ -220,25 +252,40 @@ jobs:
           {
             echo "# Vulnerability Detection Report";
             echo;
-            cat VULNDETECTION.md;
+            if [[ -f VULNDETECTION.md ]]; then
+              cat VULNDETECTION.md;
+            else
+              echo "_VULNDETECTION.md was not generated (report step failed)._";
+            fi
           } >> "$GITHUB_STEP_SUMMARY" || true
 
       - name: Upload consolidated artifact
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: security-report
           path: |
             VULNDETECTION.md
             results/
+          if-no-files-found: warn
           retention-days: 90
 
-      - name: Auto-commit VULNDETECTION.md
-        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-        continue-on-error: true
-        uses: stefanzweifel/git-auto-commit-action@v5
+      - name: Slack alerts
+        if: steps.report.outcome == 'failure'
+        uses: slackapi/slack-github-action@v1.26.0
         with:
-          commit_message: "chore(security): refresh VULNDETECTION.md (${{ github.run_id }})"
-          file_pattern: VULNDETECTION.md
-          commit_user_name: edamame-bot
-          commit_user_email: bot@edamame.tech
-          branch: main
+          channel-id: 'C072J0U9TH7'
+          slack-message: |
+            *Security Report Generation for ${{ github.repository }}*:
+            - Report Generation: ❌ Failed
+            Branch: ${{ github.ref }}
+            More details: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+
+      - name: Fail job if report generation failed
+        if: steps.report.outcome == 'failure'
+        shell: bash
+        run: |
+          echo "VULNDETECTION.md generation failed. See report step logs."
+          exit 1
