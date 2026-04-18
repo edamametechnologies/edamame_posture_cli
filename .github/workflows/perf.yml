@@ -211,32 +211,30 @@ jobs:
           done
           ls -la results
 
-      - name: Download baseline from last successful run
+      - name: Restore perf baseline from cache
         id: baseline
+        uses: actions/cache/restore@v4
+        with:
+          # The Actions cache API runs on GitHub's internal service and is
+          # not affected by the org-level REST IP allow list that blocks
+          # gh api / gh run download from inside workflows. That is the
+          # reason we persist the baseline here instead of downloading an
+          # artifact from the previous run.
+          path: baseline
+          key: perf-baseline-v1-${{ github.run_id }}
+          restore-keys: |
+            perf-baseline-v1-
+
+      - name: Inspect baseline
+        if: always()
         shell: bash
-        continue-on-error: true
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REPO: ${{ github.repository }}
-          CURRENT_RUN_ID: ${{ github.run_id }}
         run: |
-          set +e
-          mkdir -p baseline
-          # Pick the most recent previous successful run of this workflow.
-          PREV_RUN_ID="$(gh run list --repo "$REPO" --workflow perf.yml \
-              --status success --limit 10 \
-              --json databaseId -q '.[].databaseId' \
-              | awk -v skip="$CURRENT_RUN_ID" '$1 != skip {print; exit}')"
-          if [ -z "$PREV_RUN_ID" ]; then
-            echo "No previous successful perf.yml run found - baseline is empty."
-            exit 0
+          if [ -d baseline/results ]; then
+            echo "Baseline present:"
+            ls -la baseline/results
+          else
+            echo "No baseline cache available - gate will run in soft-no-op mode."
           fi
-          echo "Baseline run: https://github.com/${REPO}/actions/runs/${PREV_RUN_ID}"
-          echo "BASELINE_RUN_ID=${PREV_RUN_ID}" >> "$GITHUB_ENV"
-          gh run download "$PREV_RUN_ID" --repo "$REPO" -n performance-report -D baseline \
-            || echo "Baseline artifact not available (older artifact retention or renamed)."
-          ls -la baseline || true
-          ls -la baseline/results 2>/dev/null | head || true
 
       - name: Generate PERFORMANCE.md
         id: report
@@ -295,6 +293,32 @@ jobs:
             results/
           if-no-files-found: warn
           retention-days: 90
+
+      - name: Promote current results to baseline cache
+        # Only promote when:
+        # - Report and gate succeeded (no silent regression -> baseline)
+        # - The run covered the full default scenario set AND full duration
+        #   (partial / smoke-test runs must not overwrite a real baseline).
+        id: promote
+        if: |
+          steps.report.outcome == 'success' && steps.gate.outcome == 'success' &&
+          (github.event.inputs.scenarios == '' || github.event.inputs.scenarios == 'idle,hub_idle,capture,lanscan,llm,all') &&
+          (github.event.inputs.duration_seconds == '' || fromJSON(github.event.inputs.duration_seconds) >= 300)
+        shell: bash
+        run: |
+          rm -rf baseline
+          mkdir -p baseline
+          cp -R results baseline/results
+          cp PERFORMANCE.md baseline/ 2>/dev/null || true
+          echo "Promoting current results to new baseline (run_id=${{ github.run_id }})"
+          echo "promoted=true" >> "$GITHUB_OUTPUT"
+
+      - name: Save perf baseline cache
+        if: steps.promote.outputs.promoted == 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: baseline
+          key: perf-baseline-v1-${{ github.run_id }}
 
       - name: Slack alerts
         if: steps.report.outcome == 'failure' || steps.gate.outcome == 'failure'
