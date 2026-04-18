@@ -5,9 +5,21 @@ on:
   workflow_dispatch:
     inputs:
       trigger_duration:
-        description: "Seconds each attack trigger runs (default 180)"
+        description: "Seconds each attack trigger runs (default 300, matches agent_security canonical harness)"
         required: false
-        default: "180"
+        default: "300"
+      readiness_wait:
+        description: "Seconds to wait for L7 attribution readiness before polling (default 120)"
+        required: false
+        default: "120"
+      poll_attempts:
+        description: "Number of detection verify attempts after readiness (default 6)"
+        required: false
+        default: "6"
+      poll_interval:
+        description: "Seconds between detection verify attempts (default 30)"
+        required: false
+        default: "30"
       scenarios:
         description: "Comma-separated CVE scenarios to run"
         required: false
@@ -22,13 +34,26 @@ concurrency:
 permissions: read-all
 
 env:
-  DEFAULT_TRIGGER_DURATION: "180"
+  # Defaults mirror the canonical agent_security E2E harness
+  # (tests/e2e/run_e2e_harness.sh):
+  #   SCENARIO_DURATION=150, l7_wait=120 for CVE scenarios,
+  #   DETECTION_VERIFY_RETRIES=5, DETECTION_VERIFY_INTERVAL=30
+  #   min_duration = l7_wait + (retries * interval) + 30 = 300s
+  # On GitHub-hosted Linux runners the slow-rate HTTP traffic produced
+  # by tool_poisoning_effects can take longer than 180s to reach the
+  # anomalous-session + open-files L7 readiness threshold, so the
+  # shorter window was producing spurious gate failures while macOS /
+  # Windows runs kept passing.
+  DEFAULT_TRIGGER_DURATION: "300"
+  DEFAULT_READINESS_WAIT: "120"
+  DEFAULT_POLL_ATTEMPTS: "6"
+  DEFAULT_POLL_INTERVAL: "30"
   DEFAULT_SCENARIOS: "blacklist_comm,cve_token_exfil,cve_sandbox_escape,memory_poisoning,credential_sprawl,tool_poisoning_effects,supply_chain_exfil,npm_rat_beacon,file_events"
 
 jobs:
   detect:
     name: Detect (${{ matrix.label }})
-    timeout-minutes: 75
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
@@ -46,7 +71,10 @@ jobs:
 
     env:
       EDAMAME_LLM_API_KEY: ${{ secrets.EDAMAME_LLM_API_KEY }}
-      TRIGGER_DURATION: ${{ github.event.inputs.trigger_duration || '180' }}
+      TRIGGER_DURATION: ${{ github.event.inputs.trigger_duration || '300' }}
+      READINESS_WAIT: ${{ github.event.inputs.readiness_wait || '120' }}
+      POLL_ATTEMPTS: ${{ github.event.inputs.poll_attempts || '6' }}
+      POLL_INTERVAL: ${{ github.event.inputs.poll_interval || '30' }}
       SCENARIOS: ${{ github.event.inputs.scenarios || 'blacklist_comm,cve_token_exfil,cve_sandbox_escape,memory_poisoning,credential_sprawl,tool_poisoning_effects,supply_chain_exfil,npm_rat_beacon,file_events' }}
 
     steps:
@@ -139,20 +167,23 @@ jobs:
 
       - name: Run CVE detection suite
         id: detection
-        timeout-minutes: 45
+        timeout-minutes: 60
         shell: bash
         env:
           EDAMAME_CLI: ${{ env.EDAMAME_CLI }}
         run: |
           mkdir -p "results/${{ matrix.label }}"
+          # Timing parameters track the canonical agent_security harness
+          # (tests/e2e/run_e2e_harness.sh) so behavior matches what plugin
+          # E2E workflows already validate end-to-end.
           bash tests/security/run_cve_detection.sh \
             --triggers-dir "$CVE_TRIGGERS_DIR" \
             --output-dir "results/${{ matrix.label }}" \
             --trigger-duration "${TRIGGER_DURATION}" \
             --post-wait 5 \
-            --poll-attempts 24 \
-            --poll-interval 6 \
-            --readiness-wait 60 \
+            --poll-attempts "${POLL_ATTEMPTS}" \
+            --poll-interval "${POLL_INTERVAL}" \
+            --readiness-wait "${READINESS_WAIT}" \
             --agent-type "openclaw" \
             --scenarios "${SCENARIOS}"
           echo "--- results summary ---"
