@@ -208,6 +208,7 @@ jobs:
 
       - name: Auto-commit PERFORMANCE.md
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        continue-on-error: true
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "chore(perf): refresh PERFORMANCE.md (${{ github.run_id }})"

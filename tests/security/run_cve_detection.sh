@@ -35,12 +35,13 @@ die() { log "ERROR: $*"; exit 1; }
 
 TRIGGERS_DIR=""
 OUTPUT_DIR=""
-TRIGGER_DURATION=90
-POST_WAIT=25
-COOLDOWN=5
-POLL_ATTEMPTS=6
-POLL_INTERVAL=15
-AGENT_TYPE="edamame_posture"
+TRIGGER_DURATION=180
+POST_WAIT=5
+COOLDOWN=8
+POLL_ATTEMPTS=24
+POLL_INTERVAL=6
+READINESS_WAIT=60
+AGENT_TYPE="openclaw"
 SCENARIOS_CSV="blacklist_comm,cve_token_exfil,cve_sandbox_escape,memory_poisoning,credential_sprawl,tool_poisoning_effects,supply_chain_exfil,npm_rat_beacon,file_events"
 
 while [[ $# -gt 0 ]]; do
@@ -52,6 +53,7 @@ while [[ $# -gt 0 ]]; do
     --cooldown)          COOLDOWN="$2"; shift 2;;
     --poll-attempts)     POLL_ATTEMPTS="$2"; shift 2;;
     --poll-interval)     POLL_INTERVAL="$2"; shift 2;;
+    --readiness-wait)    READINESS_WAIT="$2"; shift 2;;
     --agent-type)        AGENT_TYPE="$2"; shift 2;;
     --scenarios)         SCENARIOS_CSV="$2"; shift 2;;
     -h|--help) sed -n '2,30p' "$0"; exit 0;;
@@ -67,6 +69,13 @@ done
 PYTHON="${PYTHON:-python3}"
 mkdir -p "$OUTPUT_DIR"
 OUTPUT_DIR_ABS=$(cd "$OUTPUT_DIR" && pwd)
+case "$(uname -s 2>/dev/null || true)" in
+  MINGW*|MSYS*|CYGWIN*)
+    if command -v cygpath >/dev/null 2>&1; then
+      OUTPUT_DIR_ABS="$(cygpath -m "$OUTPUT_DIR_ABS")"
+    fi
+    ;;
+esac
 NDJSON="$OUTPUT_DIR_ABS/results.ndjson"
 TICK_LOG="$OUTPUT_DIR_ABS/detector_ticks.log"
 RESULT_JSON="$OUTPUT_DIR_ABS/results.json"
@@ -285,22 +294,10 @@ run_one_scenario() {
   local trigger_pid=$!
   log "  trigger started pid=$trigger_pid"
 
-  local waited=0
-  local cap=$((TRIGGER_DURATION + 30))
-  while kill -0 "$trigger_pid" 2>/dev/null && (( waited < cap )); do
-    sleep 2
-    waited=$((waited + 2))
-  done
-  if kill -0 "$trigger_pid" 2>/dev/null; then
-    log "  trigger still alive after ${cap}s, sending SIGTERM"
-    kill -TERM "$trigger_pid" 2>/dev/null || true
-    sleep 3
-    kill -9 "$trigger_pid" 2>/dev/null || true
+  if (( POST_WAIT > 0 )); then
+    log "  initial settle ${POST_WAIT}s for capture + L7 attribution"
+    sleep "$POST_WAIT"
   fi
-  wait "$trigger_pid" 2>/dev/null || true
-
-  log "  trigger ended; waiting ${POST_WAIT}s for L7 attribution / capture flush"
-  sleep "$POST_WAIT"
 
   local attempt=0
   local detected=0
@@ -309,7 +306,11 @@ run_one_scenario() {
   local history=0
   while (( attempt < POLL_ATTEMPTS )); do
     attempt=$((attempt + 1))
-    log "  verify attempt $attempt/$POLL_ATTEMPTS"
+    local trigger_state="alive"
+    if ! kill -0 "$trigger_pid" 2>/dev/null; then
+      trigger_state="ended"
+    fi
+    log "  verify attempt $attempt/$POLL_ATTEMPTS (trigger=$trigger_state)"
     force_vuln_tick
     sleep 2
     if [[ "$check" == "blacklisted_sessions" ]]; then
@@ -338,8 +339,50 @@ run_one_scenario() {
         break
       fi
     fi
+    if [[ "$trigger_state" == "ended" ]] && (( attempt >= 3 )); then
+      log "  trigger already ended and no detection after attempt $attempt; stopping poll"
+      break
+    fi
     sleep "$POLL_INTERVAL"
   done
+
+  if kill -0 "$trigger_pid" 2>/dev/null; then
+    log "  stopping trigger pid=$trigger_pid"
+    kill -TERM "$trigger_pid" 2>/dev/null || true
+    sleep 2
+    kill -9 "$trigger_pid" 2>/dev/null || true
+  fi
+  wait "$trigger_pid" 2>/dev/null || true
+
+  if (( detected == 0 )); then
+    log "  no detection within verify loop; final tick + tail poll"
+    force_vuln_tick
+    sleep 3
+    local triple
+    if [[ "$check" == "blacklisted_sessions" ]]; then
+      local bl_count
+      bl_count="$(TRIGGERS_DIR_ENV="$TRIGGERS_DIR" count_blacklisted_sessions || echo 0)"
+      bl_count=$(echo "$bl_count" | tr -dc '0-9')
+      [[ -z "$bl_count" ]] && bl_count=0
+      current=$bl_count
+      total=$bl_count
+      history=0
+      if (( bl_count > 0 )); then
+        detected=1
+        log "  DETECTED (tail): $bl_count active blacklisted sessions"
+      fi
+    else
+      triple="$(TRIGGERS_DIR_ENV="$TRIGGERS_DIR" count_finding_for_scenario "$scenario" "$check")"
+      total=${triple%%|*}
+      local rest=${triple#*|}
+      current=${rest%%|*}
+      history=${rest#*|}
+      if (( total > 0 )); then
+        detected=1
+        log "  DETECTED (tail): total=$total (current=$current, history=$history)"
+      fi
+    fi
+  fi
 
   local end_epoch
   end_epoch=$(date +%s)
@@ -405,6 +448,7 @@ summary = {
     "post_wait_s": int("$POST_WAIT"),
     "poll_attempts": int("$POLL_ATTEMPTS"),
     "poll_interval_s": int("$POLL_INTERVAL"),
+    "readiness_wait_s": int("$READINESS_WAIT"),
     "generated_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
 }
 with open("$RESULT_JSON", "w", encoding="utf-8") as fh:

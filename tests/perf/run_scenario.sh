@@ -58,6 +58,13 @@ esac
 
 mkdir -p "$OUTPUT_DIR"
 OUTPUT_DIR_ABS=$(cd "$OUTPUT_DIR" && pwd)
+case "$(uname -s 2>/dev/null || true)" in
+  MINGW*|MSYS*|CYGWIN*)
+    if command -v cygpath >/dev/null 2>&1; then
+      OUTPUT_DIR_ABS="$(cygpath -m "$OUTPUT_DIR_ABS")"
+    fi
+    ;;
+esac
 
 PYTHON="${PYTHON:-python3}"
 BIN="${EDAMAME_POSTURE_BIN:-$(command -v edamame_posture || true)}"
