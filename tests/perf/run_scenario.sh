@@ -67,12 +67,18 @@ case "$(uname -s 2>/dev/null || true)" in
 esac
 
 PYTHON="${PYTHON:-python3}"
+if ! command -v "$PYTHON" >/dev/null 2>&1; then
+  die "python interpreter '$PYTHON' not found"
+fi
+PYTHON_ABS="$(command -v "$PYTHON")"
 BIN="${EDAMAME_POSTURE_BIN:-$(command -v edamame_posture || true)}"
 [[ -n "$BIN" && -x "$BIN" ]] || die "edamame_posture binary not found (EDAMAME_POSTURE_BIN or PATH)"
 
 SUDO_PREFIX=""
+SAMPLER_SUDO_PREFIX=""
 IS_WINDOWS=0
-case "$(uname -s)" in
+OS_NAME="$(uname -s)"
+case "$OS_NAME" in
   Linux|Darwin)
     if [[ "${EDAMAME_POSTURE_SUDO:-1}" == "1" && "$(id -u 2>/dev/null || echo 0)" != "0" ]]; then
       SUDO_PREFIX="sudo -E"
@@ -82,6 +88,14 @@ case "$(uname -s)" in
     IS_WINDOWS=1
     ;;
 esac
+
+# On Linux, /proc is readable by unprivileged users so the sampler works without
+# elevation. On macOS, reading another user's process stats requires root, so
+# we must launch the sampler through sudo to collect non-zero samples when the
+# daemon runs under sudo -E.
+if [[ "$OS_NAME" == "Darwin" ]]; then
+  SAMPLER_SUDO_PREFIX="$SUDO_PREFIX"
+fi
 
 USER_SET="${EDAMAME_POSTURE_USER:-}"
 DOMAIN_SET="${EDAMAME_POSTURE_DOMAIN:-}"
@@ -284,8 +298,8 @@ log "starting sampler for ${DURATION}s"
 SAMPLER_JSONL="$OUTPUT_DIR_ABS/samples.jsonl"
 SAMPLER_SUMMARY="$OUTPUT_DIR_ABS/summary.json"
 SAMPLER_RC=0
-if [[ -n "$SUDO_PREFIX" ]]; then
-  $SUDO_PREFIX "$PYTHON" "$(dirname "$0")/sampler.py" \
+if [[ -n "$SAMPLER_SUDO_PREFIX" ]]; then
+  $SAMPLER_SUDO_PREFIX "$PYTHON_ABS" "$(dirname "$0")/sampler.py" \
     --pid "$DAEMON_PID" \
     --interval 1.0 \
     --duration "$DURATION" \
@@ -294,7 +308,7 @@ if [[ -n "$SUDO_PREFIX" ]]; then
     --jsonl-output "$SAMPLER_JSONL" \
     --summary-output "$SAMPLER_SUMMARY" || SAMPLER_RC=$?
 else
-  "$PYTHON" "$(dirname "$0")/sampler.py" \
+  "$PYTHON_ABS" "$(dirname "$0")/sampler.py" \
     --pid "$DAEMON_PID" \
     --interval 1.0 \
     --duration "$DURATION" \
