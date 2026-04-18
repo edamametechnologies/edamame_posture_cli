@@ -31,8 +31,7 @@ def _redact(text: str) -> str:
 
 def main(argv: list[str]) -> int:
     if len(argv) < 2:
-        print("usage: sanitize_logs.py <file> [file ...]", file=sys.stderr)
-        return 2
+        return 0
     for raw in argv[1:]:
         path = Path(raw)
         if not path.is_file():

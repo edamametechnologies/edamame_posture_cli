@@ -77,15 +77,28 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
+          install_cli() {
+            if [ "$RUNNER_OS" = "Windows" ]; then
+              curl --proto '=https' --tlsv1.2 -sSf \
+                https://raw.githubusercontent.com/edamametechnologies/edamame_cli/main/install.sh \
+                | sh -s -- --force-binary
+            else
+              curl --proto '=https' --tlsv1.2 -sSf \
+                https://raw.githubusercontent.com/edamametechnologies/edamame_cli/main/install.sh \
+                | sudo -E sh -s --
+            fi
+          }
+          for attempt in 1 2 3; do
+            if install_cli; then
+              echo "install attempt $attempt succeeded"
+              break
+            fi
+            echo "install attempt $attempt failed, sleeping before retry"
+            sleep $((attempt * 10))
+          done
           if [ "$RUNNER_OS" = "Windows" ]; then
-            curl --proto '=https' --tlsv1.2 -sSf \
-              https://raw.githubusercontent.com/edamametechnologies/edamame_cli/main/install.sh \
-              | sh -s --
             EC=$(command -v edamame_cli.exe 2>/dev/null || command -v edamame_cli 2>/dev/null || echo "$HOME/edamame_cli.exe")
           else
-            curl --proto '=https' --tlsv1.2 -sSf \
-              https://raw.githubusercontent.com/edamametechnologies/edamame_cli/main/install.sh \
-              | sudo -E sh -s --
             EC=$(command -v edamame_cli 2>/dev/null || echo /usr/local/bin/edamame_cli)
           fi
           echo "EDAMAME_CLI=$EC" >> "$GITHUB_ENV"
