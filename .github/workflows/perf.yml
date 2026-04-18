@@ -1,0 +1,217 @@
+name: Performance
+
+on:
+  workflow_dispatch:
+    inputs:
+      duration_seconds:
+        description: "Seconds per scenario (5 minutes by default)"
+        required: false
+        default: "300"
+      scenarios:
+        description: "Comma-separated scenarios to run (default: all six)"
+        required: false
+        default: "idle,hub_idle,capture,lanscan,llm,all"
+  schedule:
+    - cron: "23 5 * * 1"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+env:
+  DEFAULT_DURATION: "300"
+  DEFAULT_SCENARIOS: "idle,hub_idle,capture,lanscan,llm,all"
+
+jobs:
+  measure:
+    name: Measure (${{ matrix.label }})
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            label: ubuntu-24.04-x64
+            arch: x86_64
+          - os: ubuntu-24.04-arm
+            label: ubuntu-24.04-arm64
+            arch: aarch64
+          - os: macos-14
+            label: macos-14-arm64
+            arch: arm64
+          - os: windows-2022
+            label: windows-2022-x64
+            arch: x86_64
+    runs-on: ${{ matrix.os }}
+
+    env:
+      EDAMAME_POSTURE_USER: ${{ vars.EDAMAME_POSTURE_USER }}
+      EDAMAME_POSTURE_DOMAIN: ${{ vars.EDAMAME_POSTURE_DOMAIN }}
+      EDAMAME_POSTURE_PIN: ${{ secrets.EDAMAME_POSTURE_PIN }}
+      EDAMAME_LLM_API_KEY: ${{ secrets.EDAMAME_LLM_API_KEY }}
+      DURATION_SECONDS: ${{ github.event.inputs.duration_seconds || '300' }}
+      SCENARIOS: ${{ github.event.inputs.scenarios || 'idle,hub_idle,capture,lanscan,llm,all' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python dependencies
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install psutil==5.9.8 blake3==0.4.1
+
+      - name: Install EDAMAME Posture
+        uses: edamametechnologies/edamame_posture_action@v1
+        with:
+          edamame_user: ${{ vars.EDAMAME_POSTURE_USER }}
+          edamame_domain: ${{ vars.EDAMAME_POSTURE_DOMAIN }}
+          edamame_pin: ${{ secrets.EDAMAME_POSTURE_PIN }}
+          edamame_id: ${{ github.run_id }}-perf-${{ matrix.label }}
+          disconnected_mode: ${{ (vars.EDAMAME_POSTURE_USER == '' || vars.EDAMAME_POSTURE_DOMAIN == '' || secrets.EDAMAME_POSTURE_PIN == '') && 'true' || 'false' }}
+          checkout: false
+        env:
+          EDAMAME_LLM_API_KEY: ${{ secrets.EDAMAME_LLM_API_KEY }}
+
+      - name: Export EDAMAME_POSTURE_BIN
+        shell: bash
+        run: |
+          echo "EDAMAME_POSTURE_BIN=$EDAMAME_BINARY_PATH" >> "$GITHUB_ENV"
+          echo "binary path: $EDAMAME_BINARY_PATH"
+          "$EDAMAME_BINARY_PATH" get-core-version
+
+      - name: Stop auto-started daemon
+        shell: bash
+        run: |
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            "$EDAMAME_POSTURE_BIN" background-stop || true
+          else
+            sudo -E "$EDAMAME_POSTURE_BIN" background-stop || true
+          fi
+          sleep 5
+
+      - name: Calibrate CPU
+        shell: bash
+        run: |
+          mkdir -p "results/${{ matrix.label }}"
+          python3 tests/perf/calibrate.py \
+            --budget 3.0 \
+            --output "results/${{ matrix.label }}/calibration.json"
+          cat "results/${{ matrix.label }}/calibration.json"
+
+      - name: Run performance scenarios
+        shell: bash
+        env:
+          PYTHON: python3
+        run: |
+          set -u
+          IFS=',' read -r -a scen_list <<<"${SCENARIOS}"
+          for scen in "${scen_list[@]}"; do
+            scen="${scen// /}"
+            [[ -z "$scen" ]] && continue
+            echo "::group::scenario=$scen duration=${DURATION_SECONDS}s"
+            if bash tests/perf/run_scenario.sh \
+                --scenario "$scen" \
+                --duration "${DURATION_SECONDS}" \
+                --output-dir "results/${{ matrix.label }}/$scen"; then
+              echo "::endgroup::"
+            else
+              echo "scenario $scen FAILED on ${{ matrix.label }} (continuing)"
+              echo "::endgroup::"
+            fi
+          done
+
+      - name: Sanitize logs
+        if: always()
+        shell: bash
+        run: |
+          find "results/${{ matrix.label }}" -type f \( -name '*.log' -o -name '*.txt' \) -print0 \
+            | xargs -0 python3 tests/common/sanitize_logs.py || true
+
+      - name: Upload platform results
+        uses: actions/upload-artifact@v4
+        with:
+          name: perf-${{ matrix.label }}
+          path: results/${{ matrix.label }}
+          if-no-files-found: warn
+          retention-days: 30
+
+  report:
+    name: Consolidate report
+    needs: measure
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Download all platform results
+        uses: actions/download-artifact@v4
+        with:
+          pattern: perf-*
+          path: perf_artifacts
+
+      - name: Stage consolidated results
+        shell: bash
+        run: |
+          mkdir -p results
+          for d in perf_artifacts/perf-*; do
+            [[ -d "$d" ]] || continue
+            label=$(basename "$d" | sed 's/^perf-//')
+            cp -R "$d" "results/$label"
+          done
+          ls -la results
+
+      - name: Generate PERFORMANCE.md
+        run: |
+          python3 tests/perf/generate_report.py \
+            --results-dir results \
+            --output PERFORMANCE.md
+          head -80 PERFORMANCE.md
+
+      - name: Append report to job summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "# Performance Report";
+            echo;
+            cat PERFORMANCE.md;
+          } >> "$GITHUB_STEP_SUMMARY" || true
+
+      - name: Upload consolidated artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-report
+          path: |
+            PERFORMANCE.md
+            results/
+          retention-days: 90
+
+      - name: Auto-commit PERFORMANCE.md
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore(perf): refresh PERFORMANCE.md (${{ github.run_id }})"
+          file_pattern: PERFORMANCE.md
+          commit_user_name: edamame-bot
+          commit_user_email: bot@edamame.tech
+          branch: main
