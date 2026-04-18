@@ -96,7 +96,7 @@ EDAMAME Posture is a lightweight, developer-friendly security posture assessment
   - [eBPF Process Attribution (Linux)](#ebpf-process-attribution-linux)
 - [Error Handling](#error-handling)
 - [Threat Evidence Tests](#threat-evidence-tests)
-- [Continuous Performance and Vulnerability Detection Reporting](#continuous-performance-and-vulnerability-detection-reporting)
+- [Release-time Performance and Vulnerability Detection Reporting](#release-time-performance-and-vulnerability-detection-reporting)
 - [EDAMAME Ecosystem](#edamame-ecosystem)
 - [Author](#author)
 
@@ -3176,19 +3176,19 @@ This repository includes an open, reproducible threat-evidence harness that vali
 - Harness documentation: [`tests/threat_evidence/README.md`](tests/threat_evidence/README.md)
 - Threat-to-test mapping: [`docs/THREAT_EVIDENCE_MATRIX.md`](docs/THREAT_EVIDENCE_MATRIX.md)
 
-## Continuous Performance and Vulnerability Detection Reporting
+## Release-time Performance and Vulnerability Detection Reporting
 
-Two scheduled workflows regenerate public reports for every release by exercising `edamame_posture` on GitHub-managed Linux, macOS, and Windows runners:
+Two on-demand workflows regenerate cross-platform reports for every release by exercising `edamame_posture` on GitHub-managed Linux, macOS, and Windows runners. Both are triggered from the release orchestrator (`edamame_app/release_all.sh`) as part of pre-flight -- they do NOT run on every push, and the resulting reports are published as workflow artifacts (not committed back to the repository).
 
 - **Performance** -- [`.github/workflows/perf.yml`](.github/workflows/perf.yml) runs six scenarios (idle, hub-connected idle, packet capture, LAN scan, LLM processing, all features) for five minutes each, samples the daemon with `psutil`, and publishes resource-usage tables with cross-platform CPU normalization derived from a SHA-256 + BLAKE3 calibration benchmark.
-  - Report: [`PERFORMANCE.md`](PERFORMANCE.md)
+  - Report artifact: `performance-report` (contains `PERFORMANCE.md` + raw per-platform results)
   - Harness: [`tests/perf/`](tests/perf/) (`calibrate.py`, `sampler.py`, `run_scenario.sh`, `generate_report.py`)
 
 - **Vulnerability detection** -- [`.github/workflows/security.yml`](.github/workflows/security.yml) runs nine attack scenarios from [`agent_security/tests/e2e/triggers/`](https://github.com/edamametechnologies/agent_security/tree/main/tests/e2e/triggers) against a live daemon and verifies detector output via `edamame_cli` RPCs.
-  - Report: [`VULNDETECTION.md`](VULNDETECTION.md)
+  - Report artifact: `security-report` (contains `VULNDETECTION.md` + raw per-platform results)
   - Harness: [`tests/security/`](tests/security/) (`run_cve_detection.sh`, `generate_report.py`)
 
-Both workflows run weekly on `cron` and support `workflow_dispatch` for on-demand runs; the resulting reports are auto-committed back to `main` on scheduled and manual dispatches.
+Both workflows run on `workflow_dispatch` only, are triggered from the release pipeline, report failures to the shared Slack channel (same pattern as `tests.yml`), and fail the job when any platform regresses so the release gate blocks on them.
 
 ## EDAMAME Ecosystem
 EDAMAME Posture is part of a broader ecosystem of tools and services provided by EDAMAME Technologies:

@@ -1,5 +1,6 @@
 name: Performance
 
+# Triggered manually from release_all.sh (not on push/schedule).
 on:
   workflow_dispatch:
     inputs:
@@ -11,15 +12,14 @@ on:
         description: "Comma-separated scenarios to run (default: all six)"
         required: false
         default: "idle,hub_idle,capture,lanscan,llm,all"
-  schedule:
-    - cron: "23 5 * * 1"
 
+# Auto cancel previous runs if they were not completed.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
-permissions:
-  contents: write
+# Declare default permissions as read only.
+permissions: read-all
 
 env:
   DEFAULT_DURATION: "300"
@@ -100,6 +100,7 @@ jobs:
           sleep 5
 
       - name: Calibrate CPU
+        id: calibrate
         shell: bash
         run: |
           mkdir -p "results/${{ matrix.label }}"
@@ -107,13 +108,16 @@ jobs:
             --budget 3.0 \
             --output "results/${{ matrix.label }}/calibration.json"
           cat "results/${{ matrix.label }}/calibration.json"
+        continue-on-error: true
 
       - name: Run performance scenarios
+        id: scenarios
         shell: bash
         env:
           PYTHON: python3
         run: |
           set -u
+          any_fail=0
           IFS=',' read -r -a scen_list <<<"${SCENARIOS}"
           for scen in "${scen_list[@]}"; do
             scen="${scen// /}"
@@ -125,10 +129,13 @@ jobs:
                 --output-dir "results/${{ matrix.label }}/$scen"; then
               echo "::endgroup::"
             else
-              echo "scenario $scen FAILED on ${{ matrix.label }} (continuing)"
+              echo "scenario $scen FAILED on ${{ matrix.label }}"
               echo "::endgroup::"
+              any_fail=1
             fi
           done
+          exit "$any_fail"
+        continue-on-error: true
 
       - name: Sanitize logs
         if: always()
@@ -138,6 +145,7 @@ jobs:
             | xargs -0 python3 tests/common/sanitize_logs.py || true
 
       - name: Upload platform results
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: perf-${{ matrix.label }}
@@ -145,14 +153,37 @@ jobs:
           if-no-files-found: warn
           retention-days: 30
 
+      - name: Slack alerts
+        if: steps.calibrate.outcome == 'failure' || steps.scenarios.outcome == 'failure'
+        uses: slackapi/slack-github-action@v1.26.0
+        with:
+          channel-id: 'C072J0U9TH7'
+          slack-message: |
+            *Performance Test Results for ${{ github.repository }} (${{ matrix.label }})*:
+            - CPU Calibration: ${{ steps.calibrate.outcome != 'failure' && '✅ Success' || '❌ Failed' }}
+            - Performance Scenarios: ${{ steps.scenarios.outcome != 'failure' && '✅ Success' || '❌ Failed' }}
+            Branch: ${{ github.ref }}
+            More details: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+
+      - name: Fail job if tests failed
+        shell: bash
+        if: steps.calibrate.outcome == 'failure' || steps.scenarios.outcome == 'failure'
+        run: |
+          echo "## Performance Results Summary (${{ matrix.label }})"
+          echo "- CPU Calibration: ${{ steps.calibrate.outcome != 'failure' && '✅ Success' || '❌ Failed' }}"
+          echo "- Performance Scenarios: ${{ steps.scenarios.outcome != 'failure' && '✅ Success' || '❌ Failed' }}"
+          echo ""
+          echo "Forcing performance job to fail because tests did not succeed."
+          exit 1
+
   report:
     name: Consolidate report
     needs: measure
     if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 10
-    permissions:
-      contents: write
 
     steps:
       - name: Checkout
@@ -181,11 +212,14 @@ jobs:
           ls -la results
 
       - name: Generate PERFORMANCE.md
+        id: report
+        shell: bash
         run: |
           python3 tests/perf/generate_report.py \
             --results-dir results \
             --output PERFORMANCE.md
           head -80 PERFORMANCE.md
+        continue-on-error: true
 
       - name: Append report to job summary
         if: always()
@@ -194,25 +228,40 @@ jobs:
           {
             echo "# Performance Report";
             echo;
-            cat PERFORMANCE.md;
+            if [[ -f PERFORMANCE.md ]]; then
+              cat PERFORMANCE.md;
+            else
+              echo "_PERFORMANCE.md was not generated (report step failed)._";
+            fi
           } >> "$GITHUB_STEP_SUMMARY" || true
 
       - name: Upload consolidated artifact
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: performance-report
           path: |
             PERFORMANCE.md
             results/
+          if-no-files-found: warn
           retention-days: 90
 
-      - name: Auto-commit PERFORMANCE.md
-        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-        continue-on-error: true
-        uses: stefanzweifel/git-auto-commit-action@v5
+      - name: Slack alerts
+        if: steps.report.outcome == 'failure'
+        uses: slackapi/slack-github-action@v1.26.0
         with:
-          commit_message: "chore(perf): refresh PERFORMANCE.md (${{ github.run_id }})"
-          file_pattern: PERFORMANCE.md
-          commit_user_name: edamame-bot
-          commit_user_email: bot@edamame.tech
-          branch: main
+          channel-id: 'C072J0U9TH7'
+          slack-message: |
+            *Performance Report Generation for ${{ github.repository }}*:
+            - Report Generation: ❌ Failed
+            Branch: ${{ github.ref }}
+            More details: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+
+      - name: Fail job if report generation failed
+        if: steps.report.outcome == 'failure'
+        shell: bash
+        run: |
+          echo "PERFORMANCE.md generation failed. See report step logs."
+          exit 1
