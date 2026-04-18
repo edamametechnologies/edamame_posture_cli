@@ -183,11 +183,32 @@ jobs:
     needs: measure
     if: always()
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 30
+
+    env:
+      EDAMAME_POSTURE_USER: ${{ vars.EDAMAME_POSTURE_USER }}
+      EDAMAME_POSTURE_DOMAIN: ${{ vars.EDAMAME_POSTURE_DOMAIN }}
+      EDAMAME_POSTURE_PIN: ${{ secrets.EDAMAME_POSTURE_PIN }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      # The org-level IP allow list blocks gh api / gh run download from
+      # stock GitHub-hosted runners. Starting EDAMAME Posture in connected
+      # mode lets the daemon register this runner with the hub and get its
+      # egress IP whitelisted, which is the same pattern tests.yml uses.
+      - name: Setup EDAMAME Posture (whitelist runner IP)
+        uses: edamametechnologies/edamame_posture_action@v1
+        with:
+          edamame_user: ${{ vars.EDAMAME_POSTURE_USER }}
+          edamame_domain: ${{ vars.EDAMAME_POSTURE_DOMAIN }}
+          edamame_pin: ${{ secrets.EDAMAME_POSTURE_PIN }}
+          edamame_id: ${{ github.run_id }}-perf-report
+          checkout: false
+          token: ${{ secrets.DEV_GITHUB_TOKEN }}
+          wait_for_api: true
+          wait_for_https: true
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -211,29 +232,62 @@ jobs:
           done
           ls -la results
 
-      - name: Restore perf baseline from cache
+      - name: Download baseline from last successful perf run
         id: baseline
-        uses: actions/cache/restore@v4
-        with:
-          # The Actions cache API runs on GitHub's internal service and is
-          # not affected by the org-level REST IP allow list that blocks
-          # gh api / gh run download from inside workflows. That is the
-          # reason we persist the baseline here instead of downloading an
-          # artifact from the previous run.
-          path: baseline
-          key: perf-baseline-v1-${{ github.run_id }}
-          restore-keys: |
-            perf-baseline-v1-
+        shell: bash
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.DEV_GITHUB_TOKEN }}
+        run: |
+          mkdir -p baseline
+          # Find the most recent successful perf.yml run (other than this one).
+          # Only runs that explicitly uploaded performance-baseline count, so
+          # partial smoke-test runs that only upload performance-report are
+          # skipped.
+          echo "Looking for the most recent successful perf run with a performance-baseline artifact..."
+          PREV_RUN=""
+          RUNS=$(gh run list \
+            --workflow perf.yml \
+            --repo "${{ github.repository }}" \
+            --branch main \
+            --status success \
+            --limit 30 \
+            --json databaseId \
+            --jq '.[].databaseId' 2>/dev/null || true)
+          for rid in $RUNS; do
+            if [[ "$rid" == "${{ github.run_id }}" ]]; then
+              continue
+            fi
+            # Confirm the run has the baseline artifact (i.e. was a full run)
+            if gh api "repos/${{ github.repository }}/actions/runs/$rid/artifacts" \
+                --jq '.artifacts[].name' 2>/dev/null | grep -q '^performance-baseline$'; then
+              PREV_RUN="$rid"
+              break
+            fi
+          done
+
+          if [[ -z "$PREV_RUN" ]]; then
+            echo "No previous successful perf run with performance-baseline found."
+            echo "Gate will run in soft no-op mode."
+            exit 0
+          fi
+
+          echo "Downloading performance-baseline from run $PREV_RUN..."
+          gh run download "$PREV_RUN" \
+            --repo "${{ github.repository }}" \
+            --name performance-baseline \
+            --dir baseline
+          echo "baseline_run=$PREV_RUN" >> "$GITHUB_OUTPUT"
 
       - name: Inspect baseline
         if: always()
         shell: bash
         run: |
           if [ -d baseline/results ]; then
-            echo "Baseline present:"
+            echo "Baseline present (from run ${{ steps.baseline.outputs.baseline_run }}):"
             ls -la baseline/results
           else
-            echo "No baseline cache available - gate will run in soft-no-op mode."
+            echo "No baseline available - gate will run in soft no-op mode."
           fi
 
       - name: Generate PERFORMANCE.md
@@ -294,11 +348,11 @@ jobs:
           if-no-files-found: warn
           retention-days: 90
 
-      - name: Promote current results to baseline cache
-        # Only promote when:
-        # - Report and gate succeeded (no silent regression -> baseline)
+      - name: Stage baseline artifact for future runs
+        # Only publish a new baseline when:
+        # - Report and gate both succeeded (no silent regression -> baseline)
         # - The run covered the full default scenario set AND full duration
-        #   (partial / smoke-test runs must not overwrite a real baseline).
+        #   (partial / smoke-test runs must not overwrite a real baseline)
         id: promote
         if: |
           steps.report.outcome == 'success' && steps.gate.outcome == 'success' &&
@@ -306,19 +360,21 @@ jobs:
           (github.event.inputs.duration_seconds == '' || fromJSON(github.event.inputs.duration_seconds) >= 300)
         shell: bash
         run: |
-          rm -rf baseline
-          mkdir -p baseline
-          cp -R results baseline/results
-          cp PERFORMANCE.md baseline/ 2>/dev/null || true
-          echo "Promoting current results to new baseline (run_id=${{ github.run_id }})"
+          rm -rf baseline_next
+          mkdir -p baseline_next
+          cp -R results baseline_next/results
+          cp PERFORMANCE.md baseline_next/ 2>/dev/null || true
+          echo "Staged new baseline for future runs (run_id=${{ github.run_id }})"
           echo "promoted=true" >> "$GITHUB_OUTPUT"
 
-      - name: Save perf baseline cache
+      - name: Upload performance-baseline artifact
         if: steps.promote.outputs.promoted == 'true'
-        uses: actions/cache/save@v4
+        uses: actions/upload-artifact@v4
         with:
-          path: baseline
-          key: perf-baseline-v1-${{ github.run_id }}
+          name: performance-baseline
+          path: baseline_next/
+          if-no-files-found: warn
+          retention-days: 365
 
       - name: Slack alerts
         if: steps.report.outcome == 'failure' || steps.gate.outcome == 'failure'
