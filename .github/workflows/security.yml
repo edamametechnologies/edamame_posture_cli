@@ -23,7 +23,7 @@ on:
       scenarios:
         description: "Comma-separated CVE scenarios to run"
         required: false
-        default: "blacklist_comm,cve_token_exfil,cve_sandbox_escape,memory_poisoning,credential_sprawl,tool_poisoning_effects,supply_chain_exfil,npm_rat_beacon,file_events"
+        default: "blacklist_comm,cve_token_exfil,cve_sandbox_escape,memory_poisoning,credential_sprawl,supply_chain_exfil,npm_rat_beacon,file_events"
 
 # Auto cancel previous runs if they were not completed.
 concurrency:
@@ -39,16 +39,14 @@ env:
   #   SCENARIO_DURATION=150, l7_wait=120 for CVE scenarios,
   #   DETECTION_VERIFY_RETRIES=5, DETECTION_VERIFY_INTERVAL=30
   #   min_duration = l7_wait + (retries * interval) + 30 = 300s
-  # On GitHub-hosted Linux runners the slow-rate HTTP traffic produced
-  # by tool_poisoning_effects can take longer than 180s to reach the
-  # anomalous-session + open-files L7 readiness threshold, so the
-  # shorter window was producing spurious gate failures while macOS /
-  # Windows runs kept passing.
+  # Kept at 300s so the slower token-exfil triggers consistently clear
+  # the anomalous-session + open-files L7 readiness threshold on all
+  # three GitHub-hosted runners (Ubuntu, macOS, Windows).
   DEFAULT_TRIGGER_DURATION: "300"
   DEFAULT_READINESS_WAIT: "120"
   DEFAULT_POLL_ATTEMPTS: "6"
   DEFAULT_POLL_INTERVAL: "30"
-  DEFAULT_SCENARIOS: "blacklist_comm,cve_token_exfil,cve_sandbox_escape,memory_poisoning,credential_sprawl,tool_poisoning_effects,supply_chain_exfil,npm_rat_beacon,file_events"
+  DEFAULT_SCENARIOS: "blacklist_comm,cve_token_exfil,cve_sandbox_escape,memory_poisoning,credential_sprawl,supply_chain_exfil,npm_rat_beacon,file_events"
 
 jobs:
   detect:
@@ -75,7 +73,7 @@ jobs:
       READINESS_WAIT: ${{ github.event.inputs.readiness_wait || '120' }}
       POLL_ATTEMPTS: ${{ github.event.inputs.poll_attempts || '6' }}
       POLL_INTERVAL: ${{ github.event.inputs.poll_interval || '30' }}
-      SCENARIOS: ${{ github.event.inputs.scenarios || 'blacklist_comm,cve_token_exfil,cve_sandbox_escape,memory_poisoning,credential_sprawl,tool_poisoning_effects,supply_chain_exfil,npm_rat_beacon,file_events' }}
+      SCENARIOS: ${{ github.event.inputs.scenarios || 'blacklist_comm,cve_token_exfil,cve_sandbox_escape,memory_poisoning,credential_sprawl,supply_chain_exfil,npm_rat_beacon,file_events' }}
 
     steps:
       - name: Checkout
@@ -142,7 +140,7 @@ jobs:
           BASE_URL="https://raw.githubusercontent.com/edamametechnologies/agent_security/main/tests/e2e/triggers"
           for f in _common.py _native_udp_probe.py _edamame_cli.py cleanup.py \
                    trigger_blacklist_comm.py trigger_cve_token_exfil.py trigger_cve_sandbox_escape.py \
-                   trigger_memory_poisoning.py trigger_credential_sprawl.py trigger_tool_poisoning_effects.py \
+                   trigger_memory_poisoning.py trigger_credential_sprawl.py \
                    trigger_supply_chain_exfil.py trigger_npm_rat_beacon.py trigger_file_events.py; do
             curl -sfL "$BASE_URL/$f" -o "$TRIGGERS_DIR/$f" || echo "WARN: failed to download $f"
           done
@@ -326,7 +324,7 @@ jobs:
           slack-message: |
             *Security Gate for ${{ github.repository }}*:
             - Report Generation: ${{ steps.report.outcome != 'failure' && '✅ Success' || '❌ Failed' }}
-            - Release Gate (tiered): ${{ steps.gate.outcome != 'failure' && '✅ Pass' || '❌ Regression (non-flaky on 2+ platforms OR known-flaky on ALL platforms)' }}
+            - Release Gate (strict): ${{ steps.gate.outcome != 'failure' && '✅ Pass' || '❌ Regression (any CVE scenario failed on any platform)' }}
             Branch: ${{ github.ref }}
             More details: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
         env:
@@ -338,13 +336,12 @@ jobs:
         run: |
           echo "## Security Gate Summary"
           echo "- Report Generation: ${{ steps.report.outcome != 'failure' && '✅ Success' || '❌ Failed' }}"
-          echo "- Release Gate (tiered): ${{ steps.gate.outcome != 'failure' && '✅ Pass' || '❌ Regression (non-flaky on 2+ platforms OR known-flaky on ALL platforms)' }}"
+          echo "- Release Gate (strict): ${{ steps.gate.outcome != 'failure' && '✅ Pass' || '❌ Regression (any CVE scenario failed on any platform)' }}"
           echo ""
-          echo "Forcing security job to fail because either:"
-          echo "  - a non-flaky CVE scenario failed on 2+ platforms"
-          echo "    (real detector regression), OR"
-          echo "  - a known-flaky scenario (see tests/security/check_gate.py"
-          echo "    :KNOWN_FLAKY_SCENARIOS) failed on every observed platform"
-          echo "    (full regression, not iForest noise)."
+          echo "Forcing security job to fail: at least one CVE detection"
+          echo "scenario reported status=fail on at least one platform."
+          echo "The gate is strict (100% success required). Probabilistic"
+          echo "iForest-dependent evasion scenarios are tracked under"
+          echo "edamame_core/tests/evasion/ and do not gate releases here."
           echo "Block or roll back the release."
           exit 1

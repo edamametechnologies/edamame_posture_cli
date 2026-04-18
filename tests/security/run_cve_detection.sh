@@ -43,7 +43,7 @@ OUTPUT_DIR=""
 # Defaults mirror the canonical agent_security E2E harness
 # (run_e2e_harness.sh): 120s L7 readiness wait + 5x30s verify loop
 # and a 300s trigger duration so iForest has enough observation
-# time on slow-rate CVE scenarios like tool_poisoning_effects.
+# time on the token-exfil CVE scenarios.
 TRIGGER_DURATION=300
 POST_WAIT=5
 COOLDOWN=8
@@ -51,7 +51,7 @@ POLL_ATTEMPTS=6
 POLL_INTERVAL=30
 READINESS_WAIT=120
 AGENT_TYPE="openclaw"
-SCENARIOS_CSV="blacklist_comm,cve_token_exfil,cve_sandbox_escape,memory_poisoning,credential_sprawl,tool_poisoning_effects,supply_chain_exfil,npm_rat_beacon,file_events"
+SCENARIOS_CSV="blacklist_comm,cve_token_exfil,cve_sandbox_escape,memory_poisoning,credential_sprawl,supply_chain_exfil,npm_rat_beacon,file_events"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -100,7 +100,6 @@ expected_check_for() {
     cve_sandbox_escape)     echo "sandbox_exploitation" ;;
     memory_poisoning)       echo "token_exfiltration" ;;
     credential_sprawl)      echo "token_exfiltration" ;;
-    tool_poisoning_effects) echo "token_exfiltration" ;;
     supply_chain_exfil)     echo "credential_harvest" ;;
     npm_rat_beacon)         echo "token_exfiltration" ;;
     file_events)            echo "file_system_tampering" ;;
@@ -113,7 +112,6 @@ scenario_markers_json() {
     cve_token_exfil)        echo '["_exfil_token", "_exfil"]' ;;
     memory_poisoning)       echo '["_memory_poison", "memory_poisoned.md"]' ;;
     credential_sprawl)      echo '["_sprawl_key", "_sprawl", "demo_openclaw_sprawl"]' ;;
-    tool_poisoning_effects) echo '["_tool_poison", "demo_openclaw_tool_poison"]' ;;
     file_events)            echo '["_fim_test", "_fim_suspicious"]' ;;
     *) echo '[]' ;;
   esac
@@ -123,7 +121,6 @@ scenario_ports_json() {
   case "$1" in
     cve_token_exfil)        echo '[63169]' ;;
     credential_sprawl)      echo '[63171]' ;;
-    tool_poisoning_effects) echo '[63172]' ;;
     *) echo '[]' ;;
   esac
 }

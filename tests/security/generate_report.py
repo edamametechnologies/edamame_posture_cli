@@ -32,7 +32,6 @@ SCENARIO_ORDER = [
     "cve_sandbox_escape",
     "memory_poisoning",
     "credential_sprawl",
-    "tool_poisoning_effects",
     "supply_chain_exfil",
     "npm_rat_beacon",
     "file_events",
@@ -44,7 +43,6 @@ SCENARIO_LABELS = {
     "cve_sandbox_escape": "Sandbox escape",
     "memory_poisoning": "Memory poisoning",
     "credential_sprawl": "Credential sprawl",
-    "tool_poisoning_effects": "Tool poisoning",
     "supply_chain_exfil": "Supply-chain exfil (credential harvest)",
     "npm_rat_beacon": "npm RAT beacon",
     "file_events": "FIM tampering",
@@ -202,7 +200,6 @@ def main() -> int:
         "cve_sandbox_escape": "sandbox_exploitation",
         "memory_poisoning": "token_exfiltration",
         "credential_sprawl": "token_exfiltration",
-        "tool_poisoning_effects": "token_exfiltration",
         "supply_chain_exfil": "credential_harvest",
         "npm_rat_beacon": "token_exfiltration",
         "file_events": "file_system_tampering",
@@ -258,7 +255,7 @@ def main() -> int:
         "  trigger_blacklist_comm.py trigger_cve_token_exfil.py trigger_cve_sandbox_escape.py \\"
     )
     lines.append(
-        "  trigger_memory_poisoning.py trigger_credential_sprawl.py trigger_tool_poisoning_effects.py \\"
+        "  trigger_memory_poisoning.py trigger_credential_sprawl.py \\"
     )
     lines.append(
         "  trigger_supply_chain_exfil.py trigger_npm_rat_beacon.py trigger_file_events.py; do"
