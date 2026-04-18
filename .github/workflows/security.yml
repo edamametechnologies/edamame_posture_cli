@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       trigger_duration:
-        description: "Seconds each attack trigger runs (default 90)"
+        description: "Seconds each attack trigger runs (default 180)"
         required: false
-        default: "90"
+        default: "180"
       scenarios:
         description: "Comma-separated CVE scenarios to run"
         required: false
@@ -22,7 +22,7 @@ permissions:
   contents: write
 
 env:
-  DEFAULT_TRIGGER_DURATION: "90"
+  DEFAULT_TRIGGER_DURATION: "180"
   DEFAULT_SCENARIOS: "blacklist_comm,cve_token_exfil,cve_sandbox_escape,memory_poisoning,credential_sprawl,tool_poisoning_effects,supply_chain_exfil,npm_rat_beacon,file_events"
 
 jobs:
@@ -46,7 +46,7 @@ jobs:
 
     env:
       EDAMAME_LLM_API_KEY: ${{ secrets.EDAMAME_LLM_API_KEY }}
-      TRIGGER_DURATION: ${{ github.event.inputs.trigger_duration || '90' }}
+      TRIGGER_DURATION: ${{ github.event.inputs.trigger_duration || '180' }}
       SCENARIOS: ${{ github.event.inputs.scenarios || 'blacklist_comm,cve_token_exfil,cve_sandbox_escape,memory_poisoning,credential_sprawl,tool_poisoning_effects,supply_chain_exfil,npm_rat_beacon,file_events' }}
 
     steps:
@@ -133,10 +133,11 @@ jobs:
             --triggers-dir "$CVE_TRIGGERS_DIR" \
             --output-dir "results/${{ matrix.label }}" \
             --trigger-duration "${TRIGGER_DURATION}" \
-            --post-wait 25 \
-            --poll-attempts 6 \
-            --poll-interval 15 \
-            --agent-type "edamame_posture" \
+            --post-wait 5 \
+            --poll-attempts 24 \
+            --poll-interval 6 \
+            --readiness-wait 60 \
+            --agent-type "openclaw" \
             --scenarios "${SCENARIOS}"
           echo "--- results summary ---"
           cat "results/${{ matrix.label }}/results.json" | python3 -c "import json,sys; d=json.load(sys.stdin); print(json.dumps(d['totals'], indent=2))"
@@ -220,6 +221,7 @@ jobs:
 
       - name: Auto-commit VULNDETECTION.md
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        continue-on-error: true
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "chore(security): refresh VULNDETECTION.md (${{ github.run_id }})"
