@@ -11,13 +11,18 @@
 #   run_cve_detection.sh \
 #     --triggers-dir <dir> \
 #     --output-dir <dir> \
-#     [--trigger-duration <seconds>]     # default: 90
-#     [--post-wait <seconds>]            # default: 25
-#     [--cooldown <seconds>]             # default: 5
+#     [--trigger-duration <seconds>]     # default: 300
+#     [--post-wait <seconds>]            # default: 5
+#     [--cooldown <seconds>]             # default: 8
 #     [--poll-attempts <count>]          # default: 6
-#     [--poll-interval <seconds>]        # default: 15
-#     [--agent-type <string>]            # default: edamame_posture
+#     [--poll-interval <seconds>]        # default: 30
+#     [--readiness-wait <seconds>]       # default: 120
+#     [--agent-type <string>]            # default: openclaw
 #     [--scenarios <comma,separated>]    # default: all nine CVE scenarios
+#
+# Defaults mirror the canonical agent_security E2E harness
+# (tests/e2e/run_e2e_harness.sh) so detection timing matches what the plugin
+# E2E workflows already validate end-to-end.
 #
 # Environment:
 #   EDAMAME_CLI        path to edamame_cli binary (mandatory)
@@ -35,12 +40,16 @@ die() { log "ERROR: $*"; exit 1; }
 
 TRIGGERS_DIR=""
 OUTPUT_DIR=""
-TRIGGER_DURATION=180
+# Defaults mirror the canonical agent_security E2E harness
+# (run_e2e_harness.sh): 120s L7 readiness wait + 5x30s verify loop
+# and a 300s trigger duration so iForest has enough observation
+# time on slow-rate CVE scenarios like tool_poisoning_effects.
+TRIGGER_DURATION=300
 POST_WAIT=5
 COOLDOWN=8
-POLL_ATTEMPTS=24
-POLL_INTERVAL=6
-READINESS_WAIT=60
+POLL_ATTEMPTS=6
+POLL_INTERVAL=30
+READINESS_WAIT=120
 AGENT_TYPE="openclaw"
 SCENARIOS_CSV="blacklist_comm,cve_token_exfil,cve_sandbox_escape,memory_poisoning,credential_sprawl,tool_poisoning_effects,supply_chain_exfil,npm_rat_beacon,file_events"
 
