@@ -284,14 +284,25 @@ log "starting sampler for ${DURATION}s"
 SAMPLER_JSONL="$OUTPUT_DIR_ABS/samples.jsonl"
 SAMPLER_SUMMARY="$OUTPUT_DIR_ABS/summary.json"
 SAMPLER_RC=0
-"$PYTHON" "$(dirname "$0")/sampler.py" \
-  --pid "$DAEMON_PID" \
-  --interval 1.0 \
-  --duration "$DURATION" \
-  --warmup 2 \
-  --scenario "$SCENARIO" \
-  --jsonl-output "$SAMPLER_JSONL" \
-  --summary-output "$SAMPLER_SUMMARY" || SAMPLER_RC=$?
+if [[ -n "$SUDO_PREFIX" ]]; then
+  $SUDO_PREFIX "$PYTHON" "$(dirname "$0")/sampler.py" \
+    --pid "$DAEMON_PID" \
+    --interval 1.0 \
+    --duration "$DURATION" \
+    --warmup 2 \
+    --scenario "$SCENARIO" \
+    --jsonl-output "$SAMPLER_JSONL" \
+    --summary-output "$SAMPLER_SUMMARY" || SAMPLER_RC=$?
+else
+  "$PYTHON" "$(dirname "$0")/sampler.py" \
+    --pid "$DAEMON_PID" \
+    --interval 1.0 \
+    --duration "$DURATION" \
+    --warmup 2 \
+    --scenario "$SCENARIO" \
+    --jsonl-output "$SAMPLER_JSONL" \
+    --summary-output "$SAMPLER_SUMMARY" || SAMPLER_RC=$?
+fi
 
 if [[ $SAMPLER_RC -ne 0 ]]; then
   log "WARNING: sampler exited with rc=$SAMPLER_RC"
