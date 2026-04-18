@@ -4,5 +4,7 @@ npcap-*
 .DS_Store
 /tests_temp/
 /tests/threat_evidence/artifacts/
+__pycache__/
+*.pyc
 
 .cursor

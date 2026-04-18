@@ -1,0 +1,229 @@
+name: Security (CVE detection)
+
+on:
+  workflow_dispatch:
+    inputs:
+      trigger_duration:
+        description: "Seconds each attack trigger runs (default 90)"
+        required: false
+        default: "90"
+      scenarios:
+        description: "Comma-separated CVE scenarios to run"
+        required: false
+        default: "blacklist_comm,cve_token_exfil,cve_sandbox_escape,memory_poisoning,credential_sprawl,tool_poisoning_effects,supply_chain_exfil,npm_rat_beacon,file_events"
+  schedule:
+    - cron: "47 6 * * 1"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+env:
+  DEFAULT_TRIGGER_DURATION: "90"
+  DEFAULT_SCENARIOS: "blacklist_comm,cve_token_exfil,cve_sandbox_escape,memory_poisoning,credential_sprawl,tool_poisoning_effects,supply_chain_exfil,npm_rat_beacon,file_events"
+
+jobs:
+  detect:
+    name: Detect (${{ matrix.label }})
+    timeout-minutes: 75
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            label: ubuntu-24.04-x64
+            arch: x86_64
+          - os: macos-14
+            label: macos-14-arm64
+            arch: arm64
+          - os: windows-2022
+            label: windows-2022-x64
+            arch: x86_64
+    runs-on: ${{ matrix.os }}
+
+    env:
+      EDAMAME_LLM_API_KEY: ${{ secrets.EDAMAME_LLM_API_KEY }}
+      TRIGGER_DURATION: ${{ github.event.inputs.trigger_duration || '90' }}
+      SCENARIOS: ${{ github.event.inputs.scenarios || 'blacklist_comm,cve_token_exfil,cve_sandbox_escape,memory_poisoning,credential_sprawl,tool_poisoning_effects,supply_chain_exfil,npm_rat_beacon,file_events' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Setup EDAMAME Posture (packet_capture=true, disconnected)
+        uses: edamametechnologies/edamame_posture_action@v1
+        with:
+          disconnected_mode: true
+          packet_capture: true
+          checkout: false
+        env:
+          EDAMAME_LLM_API_KEY: ${{ secrets.EDAMAME_LLM_API_KEY }}
+
+      - name: Export EDAMAME_POSTURE env var
+        shell: bash
+        run: |
+          echo "EDAMAME_POSTURE=$EDAMAME_BINARY_PATH" >> "$GITHUB_ENV"
+
+      - name: Install edamame_cli
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            curl --proto '=https' --tlsv1.2 -sSf \
+              https://raw.githubusercontent.com/edamametechnologies/edamame_cli/main/install.sh \
+              | sh -s --
+            EC=$(command -v edamame_cli.exe 2>/dev/null || command -v edamame_cli 2>/dev/null || echo "$HOME/edamame_cli.exe")
+          else
+            curl --proto '=https' --tlsv1.2 -sSf \
+              https://raw.githubusercontent.com/edamametechnologies/edamame_cli/main/install.sh \
+              | sudo -E sh -s --
+            EC=$(command -v edamame_cli 2>/dev/null || echo /usr/local/bin/edamame_cli)
+          fi
+          echo "EDAMAME_CLI=$EC" >> "$GITHUB_ENV"
+          "$EC" --version
+
+      - name: Download CVE trigger scripts
+        shell: bash
+        run: |
+          TRIGGERS_DIR="${RUNNER_TEMP:-/tmp}/cve_triggers"
+          mkdir -p "$TRIGGERS_DIR"
+          BASE_URL="https://raw.githubusercontent.com/edamametechnologies/agent_security/main/tests/e2e/triggers"
+          for f in _common.py _native_udp_probe.py _edamame_cli.py cleanup.py \
+                   trigger_blacklist_comm.py trigger_cve_token_exfil.py trigger_cve_sandbox_escape.py \
+                   trigger_memory_poisoning.py trigger_credential_sprawl.py trigger_tool_poisoning_effects.py \
+                   trigger_supply_chain_exfil.py trigger_npm_rat_beacon.py trigger_file_events.py; do
+            curl -sfL "$BASE_URL/$f" -o "$TRIGGERS_DIR/$f" || echo "WARN: failed to download $f"
+          done
+          echo "CVE_TRIGGERS_DIR=$TRIGGERS_DIR" >> "$GITHUB_ENV"
+          ls -la "$TRIGGERS_DIR"
+
+      - name: Install Python deps for triggers
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install requests
+
+      - name: Verify daemon and capture readiness
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            "$EDAMAME_POSTURE" background-status || true
+          else
+            sudo -E "$EDAMAME_POSTURE" background-status || true
+          fi
+          "$EDAMAME_CLI" rpc get_core_version || true
+
+      - name: Run CVE detection suite
+        timeout-minutes: 45
+        shell: bash
+        env:
+          EDAMAME_CLI: ${{ env.EDAMAME_CLI }}
+        run: |
+          mkdir -p "results/${{ matrix.label }}"
+          bash tests/security/run_cve_detection.sh \
+            --triggers-dir "$CVE_TRIGGERS_DIR" \
+            --output-dir "results/${{ matrix.label }}" \
+            --trigger-duration "${TRIGGER_DURATION}" \
+            --post-wait 25 \
+            --poll-attempts 6 \
+            --poll-interval 15 \
+            --agent-type "edamame_posture" \
+            --scenarios "${SCENARIOS}"
+          echo "--- results summary ---"
+          cat "results/${{ matrix.label }}/results.json" | python3 -c "import json,sys; d=json.load(sys.stdin); print(json.dumps(d['totals'], indent=2))"
+
+      - name: Sanitize logs
+        if: always()
+        shell: bash
+        run: |
+          find "results/${{ matrix.label }}" -type f \( -name '*.log' -o -name '*.json' -o -name '*.ndjson' \) -print0 \
+            | xargs -0 python3 tests/common/sanitize_logs.py || true
+
+      - name: Upload platform results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-${{ matrix.label }}
+          path: results/${{ matrix.label }}
+          if-no-files-found: warn
+          retention-days: 30
+
+  report:
+    name: Consolidate report
+    needs: detect
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Download all platform results
+        uses: actions/download-artifact@v4
+        with:
+          pattern: security-*
+          path: security_artifacts
+
+      - name: Stage consolidated results
+        shell: bash
+        run: |
+          mkdir -p results
+          for d in security_artifacts/security-*; do
+            [[ -d "$d" ]] || continue
+            label=$(basename "$d" | sed 's/^security-//')
+            cp -R "$d" "results/$label"
+          done
+          ls -la results
+
+      - name: Generate VULNDETECTION.md
+        run: |
+          python3 tests/security/generate_report.py \
+            --results-dir results \
+            --output VULNDETECTION.md
+          head -80 VULNDETECTION.md
+
+      - name: Append report to job summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "# Vulnerability Detection Report";
+            echo;
+            cat VULNDETECTION.md;
+          } >> "$GITHUB_STEP_SUMMARY" || true
+
+      - name: Upload consolidated artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-report
+          path: |
+            VULNDETECTION.md
+            results/
+          retention-days: 90
+
+      - name: Auto-commit VULNDETECTION.md
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore(security): refresh VULNDETECTION.md (${{ github.run_id }})"
+          file_pattern: VULNDETECTION.md
+          commit_user_name: edamame-bot
+          commit_user_email: bot@edamame.tech
+          branch: main
