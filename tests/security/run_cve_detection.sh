@@ -132,6 +132,167 @@ clear_vuln_history() {
   call_rpc clear_vulnerability_history >>"$TICK_LOG" 2>&1 || true
 }
 
+# Poll until L7 attribution and anomaly detection have enough evidence for the
+# detector to fire. Returns early as soon as signal is visible or the trigger
+# has already produced a finding. Mirrors agent_security's wait_for_detection_readiness.
+wait_for_readiness() {
+  local scenario="$1"
+  local check="$2"
+  local max_wait="$3"
+  local interval=6
+  local waited=0
+  [[ "$max_wait" -le 0 ]] && return 0
+
+  while (( waited < max_wait )); do
+    local triple
+    triple="$(TRIGGERS_DIR_ENV="$TRIGGERS_DIR" count_finding_for_scenario "$scenario" "$check" 2>/dev/null)"
+    local total=${triple%%|*}
+    if [[ "$total" =~ ^[0-9]+$ ]] && (( total > 0 )); then
+      log "  readiness: finding already present after ${waited}s (total=$total)"
+      return 0
+    fi
+
+    local status
+    case "$check" in
+      token_exfiltration)
+        status="$(TRIGGERS_DIR_ENV="$TRIGGERS_DIR" token_exfil_readiness_status)"
+        ;;
+      credential_harvest)
+        status="$(TRIGGERS_DIR_ENV="$TRIGGERS_DIR" credential_harvest_readiness_status)"
+        ;;
+      sandbox_exploitation)
+        status="$(TRIGGERS_DIR_ENV="$TRIGGERS_DIR" sandbox_readiness_status)"
+        ;;
+      file_system_tampering)
+        status="$(TRIGGERS_DIR_ENV="$TRIGGERS_DIR" fim_readiness_status)"
+        ;;
+      *)
+        return 0
+        ;;
+    esac
+    local ready="${status%%|*}"
+    local detail="${status#*|}"
+    if [[ "$ready" == "1" ]]; then
+      log "  readiness reached for $scenario ($check): $detail"
+      return 0
+    fi
+    log "  waiting for readiness ($check): $detail (${waited}/${max_wait}s)"
+    local remaining=$((max_wait - waited))
+    local sleep_for=$interval
+    (( remaining < interval )) && sleep_for=$remaining
+    (( sleep_for <= 0 )) && break
+    sleep "$sleep_for"
+    waited=$((waited + sleep_for))
+  done
+  log "  readiness timeout for $scenario ($check) after ${max_wait}s; proceeding"
+  return 1
+}
+
+token_exfil_readiness_status() {
+  "$PYTHON" - <<'PY' 2>>"$TICK_LOG"
+import os, sys
+sys.path.insert(0, os.environ["TRIGGERS_DIR_ENV"])
+from _edamame_cli import cli_rpc
+try:
+    sessions = cli_rpc('get_anomalous_sessions') or []
+except Exception:
+    sessions = []
+active = [s for s in sessions if isinstance(s, dict) and (s.get('status') or {}).get('active')]
+with_of = [s for s in active if len(((s.get('l7') or {}).get('open_files') or [])) > 0]
+ready = 1 if (len(active) > 0 and len(with_of) > 0) else 0
+print(f"{ready}|active_anomalous={len(active)} with_open_files={len(with_of)}")
+PY
+}
+
+credential_harvest_readiness_status() {
+  "$PYTHON" - <<'PY' 2>>"$TICK_LOG"
+import os, sys
+sys.path.insert(0, os.environ["TRIGGERS_DIR_ENV"])
+from _edamame_cli import cli_rpc
+
+LABEL_MARKERS = {
+    'ssh': ['/.ssh/', '_supply_chain_key', '_sc_ssh'],
+    'aws': ['/.aws/', '_sc_credentials'],
+    'gcp': ['/gcloud/', '_sc_adc.json'],
+    'git': ['git-credentials', '/.git-credentials'],
+    'kube': ['/.kube/', '_sc_config'],
+    'docker': ['/.docker/', '_sc_config.json'],
+    'vault': ['vault-token'],
+    'env': ['/.env_', '_supply_chain'],
+    'crypto': ['/.bitcoin/', '/.ethereum/', '/solana/'],
+}
+
+def classify(paths):
+    labels = set()
+    for raw in paths or []:
+        p = str(raw).lower()
+        for label, needles in LABEL_MARKERS.items():
+            if any(needle in p for needle in needles):
+                labels.add(label)
+    return labels
+
+try:
+    sessions = cli_rpc('get_current_sessions') or []
+except Exception:
+    sessions = []
+active = [s for s in sessions if isinstance(s, dict) and (s.get('status') or {}).get('active')]
+candidates = 0
+max_labels = 0
+for s in active:
+    l7 = s.get('l7') or {}
+    of = l7.get('open_files') or []
+    labels = classify(of)
+    if len(labels) >= 3:
+        candidates += 1
+    if len(labels) > max_labels:
+        max_labels = len(labels)
+ready = 1 if candidates > 0 else 0
+print(f"{ready}|active={len(active)} candidates={candidates} max_labels={max_labels}")
+PY
+}
+
+sandbox_readiness_status() {
+  "$PYTHON" - <<'PY' 2>>"$TICK_LOG"
+import os, sys
+sys.path.insert(0, os.environ["TRIGGERS_DIR_ENV"])
+from _edamame_cli import cli_rpc
+try:
+    sessions = cli_rpc('get_current_sessions') or []
+except Exception:
+    sessions = []
+active = 0
+candidates = 0
+for s in sessions:
+    if not isinstance(s, dict):
+        continue
+    if not (s.get('status') or {}).get('active'):
+        continue
+    active += 1
+    l7 = s.get('l7') or {}
+    paths = [str(l7.get('parent_process_path') or ''), str(l7.get('parent_script_path') or ''), str(l7.get('process_path') or '')]
+    spawned = bool(l7.get('spawned_from_tmp'))
+    if spawned or any('/tmp/' in p for p in paths if p):
+        candidates += 1
+ready = 1 if candidates > 0 else 0
+print(f"{ready}|active={active} suspicious={candidates}")
+PY
+}
+
+fim_readiness_status() {
+  "$PYTHON" - <<'PY' 2>>"$TICK_LOG"
+import os, sys
+sys.path.insert(0, os.environ["TRIGGERS_DIR_ENV"])
+from _edamame_cli import cli_rpc
+try:
+    events = cli_rpc('get_file_events', '{"sensitive_only": false}') or []
+except Exception:
+    events = []
+sensitive = sum(1 for e in events if isinstance(e, dict) and e.get('is_sensitive'))
+ready = 1 if sensitive > 0 else 0
+print(f"{ready}|total={len(events) if isinstance(events, list) else 0} sensitive={sensitive}")
+PY
+}
+
 fim_watch_paths_json() {
   "$PYTHON" - <<'PY'
 import json
@@ -189,7 +350,7 @@ prepare_scenario_state() {
     log "  FIM watch paths: $watch_json"
     call_rpc clear_file_events >>"$TICK_LOG" 2>&1 || true
     call_rpc start_file_monitor "[$watch_json]" >>"$TICK_LOG" 2>&1 || true
-    log "  FIM started for $scenario"
+    log "  FIM started for $scenario (args=[$watch_json])"
   fi
 }
 
@@ -354,6 +515,10 @@ run_one_scenario() {
     log "  initial settle ${POST_WAIT}s for capture + L7 attribution"
     sleep "$POST_WAIT"
   fi
+
+  wait_for_readiness "$scenario" "$check" "$READINESS_WAIT" || true
+  force_vuln_tick
+  sleep 2
 
   local attempt=0
   local detected=0
