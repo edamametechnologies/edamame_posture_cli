@@ -245,6 +245,18 @@ jobs:
           head -80 VULNDETECTION.md
         continue-on-error: true
 
+      - name: Enforce security release gate
+        id: gate
+        if: always()
+        shell: bash
+        continue-on-error: true
+        run: |
+          set +e
+          python3 tests/security/check_gate.py --results-dir results | tee gate-summary.md
+          rc=${PIPESTATUS[0]}
+          echo "Gate exit code: $rc"
+          exit "$rc"
+
       - name: Append report to job summary
         if: always()
         shell: bash
@@ -252,6 +264,10 @@ jobs:
           {
             echo "# Vulnerability Detection Report";
             echo;
+            if [[ -f gate-summary.md ]]; then
+              cat gate-summary.md;
+              echo;
+            fi
             if [[ -f VULNDETECTION.md ]]; then
               cat VULNDETECTION.md;
             else
@@ -266,26 +282,33 @@ jobs:
           name: security-report
           path: |
             VULNDETECTION.md
+            gate-summary.md
             results/
           if-no-files-found: warn
           retention-days: 90
 
       - name: Slack alerts
-        if: steps.report.outcome == 'failure'
+        if: steps.report.outcome == 'failure' || steps.gate.outcome == 'failure'
         uses: slackapi/slack-github-action@v1.26.0
         with:
           channel-id: 'C072J0U9TH7'
           slack-message: |
-            *Security Report Generation for ${{ github.repository }}*:
-            - Report Generation: ❌ Failed
+            *Security Gate for ${{ github.repository }}*:
+            - Report Generation: ${{ steps.report.outcome != 'failure' && '✅ Success' || '❌ Failed' }}
+            - Release Gate (any scenario fail): ${{ steps.gate.outcome != 'failure' && '✅ Pass' || '❌ Regression' }}
             Branch: ${{ github.ref }}
             More details: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
 
-      - name: Fail job if report generation failed
-        if: steps.report.outcome == 'failure'
+      - name: Fail job if report or gate failed
+        if: steps.report.outcome == 'failure' || steps.gate.outcome == 'failure'
         shell: bash
         run: |
-          echo "VULNDETECTION.md generation failed. See report step logs."
+          echo "## Security Gate Summary"
+          echo "- Report Generation: ${{ steps.report.outcome != 'failure' && '✅ Success' || '❌ Failed' }}"
+          echo "- Release Gate: ${{ steps.gate.outcome != 'failure' && '✅ Pass' || '❌ Regression' }}"
+          echo ""
+          echo "Forcing security job to fail because the release gate is not satisfied."
+          echo "A regression here justifies blocking or rolling back the release."
           exit 1
