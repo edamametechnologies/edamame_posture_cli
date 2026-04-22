@@ -95,7 +95,6 @@ EDAMAME Posture is a lightweight, developer-friendly security posture assessment
 - [Requirements](#requirements)
   - [eBPF Process Attribution (Linux)](#ebpf-process-attribution-linux)
 - [Error Handling](#error-handling)
-- [Threat Evidence Tests](#threat-evidence-tests)
 - [Release-time Performance and Vulnerability Detection Reporting](#release-time-performance-and-vulnerability-detection-reporting)
 - [EDAMAME Ecosystem](#edamame-ecosystem)
 - [Author](#author)
@@ -3165,16 +3164,6 @@ EDAMAME Posture CLI is designed to provide clear error messages and codes for co
 - Remediation actions that fail will indicate the failure (for example, "Failed to enable firewall: <system error>"). The CLI will continue with other actions where possible, and at the end may return an error code indicating partial failure.
 
 On macOS/Linux, daemon logs are written to `/var/log/edamame/edamame_posture_{pid}.YYYY-MM-DD.log` (daily rotation, 7-day retention). On Windows, logs are written beside the executable. Use `-v` for verbose stdout output or `edamame_posture background-logs` to read the in-memory ring buffer.
-
-## Threat Evidence Tests
-
-This repository includes an open, reproducible threat-evidence harness that validates runtime detections described in EDAMAME Security content. The harness uses EDAMAME Posture in disconnected mode, Ubuntu via Lima for local runs, and GitHub Actions for CI.
-
-- CI workflow: [`.github/workflows/test_threat_evidence.yml`](.github/workflows/test_threat_evidence.yml)
-- Scenario catalog: [`tests/threat_evidence/threat_evidence_scenarios.json`](tests/threat_evidence/threat_evidence_scenarios.json)
-- Local runner (Lima): [`tests/threat_evidence/run_threat_evidence_lima.sh`](tests/threat_evidence/run_threat_evidence_lima.sh)
-- Harness documentation: [`tests/threat_evidence/README.md`](tests/threat_evidence/README.md)
-- Threat-to-test mapping: [`docs/THREAT_EVIDENCE_MATRIX.md`](docs/THREAT_EVIDENCE_MATRIX.md)
 
 ## Release-time Performance and Vulnerability Detection Reporting
 

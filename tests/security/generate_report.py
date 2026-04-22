@@ -156,6 +156,31 @@ def _totals_row(reports: Dict[str, dict]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _baseline_table(baselines: Dict[str, Optional[dict]]) -> str:
+    if not baselines:
+        return "_No baseline data recorded (legacy run)._\n"
+    lines = [
+        "| Platform | Status | Duration (s) | Elapsed (s) | Total findings | Current | History | First dirty sample |",
+        "|---|---|---|---|---|---|---|---|",
+    ]
+    for plat, data in baselines.items():
+        if not data:
+            lines.append(f"| {plat} | - | - | - | - | - | - | - |")
+            continue
+        status = str(data.get("status", "?"))
+        total = data.get("finding_total", 0) or 0
+        cur = data.get("finding_current", 0) or 0
+        hist = data.get("finding_history", 0) or 0
+        duration = data.get("duration_s", "?")
+        elapsed = data.get("elapsed_s", "?")
+        first = data.get("first_finding_sample") or "-"
+        lines.append(
+            f"| {plat} | `{status.upper()}` | {duration} | {elapsed}"
+            f" | {total} | {cur} | {hist} | `{first}` |"
+        )
+    return "\n".join(lines) + "\n"
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--results-dir", required=True)
@@ -168,9 +193,11 @@ def main() -> int:
         return 2
 
     reports: Dict[str, Optional[dict]] = {}
+    baselines: Dict[str, Optional[dict]] = {}
     for d in platform_dirs:
         label = os.path.basename(os.path.normpath(d))
         reports[label] = _load_json(os.path.join(d, "results.json"))
+        baselines[label] = _load_json(os.path.join(d, "baseline.json"))
 
     lines: List[str] = []
     lines.append("# EDAMAME Posture Vulnerability Detection Report")
@@ -226,6 +253,20 @@ def main() -> int:
         " completed before the poll loop but are still in history, matching the"
         " vulnerability finding persistence invariant."
     )
+    lines.append("")
+
+    lines.append("## False-positive baseline (10-minute idle window)")
+    lines.append("")
+    lines.append(
+        "Before the CVE suite runs, the daemon is observed idle for 10"
+        " minutes with no attack trigger active and no explicit file"
+        " monitor started. Any vulnerability finding emitted during that"
+        " window is a false positive and blocks the release."
+        " See `.github/workflows/security.yml` and"
+        " `tests/security/run_false_positive_baseline.sh` for the harness."
+    )
+    lines.append("")
+    lines.append(_baseline_table(baselines))
     lines.append("")
 
     lines.append("## Totals per platform")
