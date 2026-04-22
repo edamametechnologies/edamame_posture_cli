@@ -73,6 +73,29 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     env:
+      # --- Compile-time secrets required when inputs.build_from_source==true ---
+      # edamame_core / edamame_foundation call `envc!(...)` at build time, so
+      # these MUST be present in the environment during `cargo build --release`
+      # or the build explodes with "environment variable X not defined".
+      # Mirrors tests.yml's job-level env block verbatim so the from-source
+      # binary is identical to what tests.yml ships. All values resolve to
+      # empty strings when inputs.build_from_source==false, which is a no-op
+      # for the released-binary path.
+      EDAMAME_APP_SENTRY: ${{ secrets.EDAMAME_APP_SENTRY }}
+      PWNED_API_KEY: ${{ secrets.PWNED_API_KEY }}
+      EDAMAME_TARGET: ${{ secrets.EDAMAME_TARGET }}
+      EDAMAME_CORE_TARGET: ${{ secrets.EDAMAME_CORE_TARGET }}
+      EDAMAME_CORE_SERVER: ${{ secrets.EDAMAME_CORE_SERVER }}
+      EDAMAME_CA_PEM: ${{ secrets.EDAMAME_CA_PEM }}
+      EDAMAME_CLIENT_PEM: ${{ secrets.EDAMAME_CLIENT_PEM }}
+      EDAMAME_CLIENT_KEY: ${{ secrets.EDAMAME_CLIENT_KEY }}
+      EDAMAME_SERVER_PEM: ${{ secrets.EDAMAME_SERVER_PEM }}
+      EDAMAME_SERVER_KEY: ${{ secrets.EDAMAME_SERVER_KEY }}
+      EDAMAME_CLIENT_CA_PEM: ${{ secrets.EDAMAME_CLIENT_CA_PEM }}
+      LAMBDA_SIGNATURE: ${{ secrets.LAMBDA_SIGNATURE }}
+      MIXPANEL_TOKEN: ${{ secrets.MIXPANEL_TOKEN }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       EDAMAME_LLM_API_KEY: ${{ secrets.EDAMAME_LLM_API_KEY }}
       TRIGGER_DURATION: ${{ github.event.inputs.trigger_duration || '300' }}
       READINESS_WAIT: ${{ github.event.inputs.readiness_wait || '120' }}
