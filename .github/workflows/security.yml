@@ -99,6 +99,29 @@ jobs:
       # without the `com.apple.developer.endpoint-security.client` entitlement
       # -- without it the gate would silently measure a degraded detector.
 
+      # The EDAMAME org enforces an IP allow-list on GitHub, so before we can
+      # `cargo build --release` (which transitively fetches the private
+      # `edamame_core` crate over HTTPS) we MUST register this runner with the
+      # EDAMAME backend. The action's wait_for_api + wait_for_https loops spin
+      # until the backend pushes the runner IP into the allow-list - without
+      # this the cargo fetch dies with HTTP 403 (Http class 34). The
+      # released-binary path below (inputs.build_from_source != true) has the
+      # same action doing the same job later for the *detection* workload,
+      # but the from-source path needs it earlier to unblock cargo. We reuse
+      # the tests.yml invocation verbatim so the auth pipeline is identical.
+      - name: Setup EDAMAME Posture (IP allow-listing for private crate fetch)
+        if: inputs.build_from_source == true
+        uses: edamametechnologies/edamame_posture_action@v1
+        with:
+          edamame_user: ${{ vars.EDAMAME_POSTURE_USER }}
+          edamame_domain: ${{ vars.EDAMAME_POSTURE_DOMAIN }}
+          edamame_pin: ${{ secrets.EDAMAME_POSTURE_PIN }}
+          edamame_id: ${{ github.run_id }}-security-prebuild-${{ matrix.label }}
+          checkout: false
+          token: ${{ secrets.DEV_GITHUB_TOKEN }}
+          wait_for_api: true
+          wait_for_https: true
+
       - name: Configure Git Authentication to import private crates (from-source)
         if: inputs.build_from_source == true
         shell: bash
