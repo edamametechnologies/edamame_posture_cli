@@ -113,25 +113,6 @@ jobs:
           python-version: "3.12"
 
       # --- Optional: build edamame_posture from source (off by default) ---
-      # When inputs.build_from_source is true we replicate the tests.yml build
-      # flow 1:1 so the binary under test is *release-grade*: full Linux deps
-      # with apt-lock retry, .NET + AzureSignTool + clang-cl on Windows, and
-      # on macOS the complete ES provisioning profile + Keychain + pkg +
-      # notarization + install pipeline. The macOS path MUST sign and embed
-      # the provisioning profile because EndpointSecurity refuses to attach
-      # without the `com.apple.developer.endpoint-security.client` entitlement
-      # -- without it the gate would silently measure a degraded detector.
-
-      # The EDAMAME org enforces an IP allow-list on GitHub, so before we can
-      # `cargo build --release` (which transitively fetches the private
-      # `edamame_core` crate over HTTPS) we MUST register this runner with the
-      # EDAMAME backend. The action's wait_for_api + wait_for_https loops spin
-      # until the backend pushes the runner IP into the allow-list - without
-      # this the cargo fetch dies with HTTP 403 (Http class 34). The
-      # released-binary path below (inputs.build_from_source != true) has the
-      # same action doing the same job later for the *detection* workload,
-      # but the from-source path needs it earlier to unblock cargo. We reuse
-      # the tests.yml invocation verbatim so the auth pipeline is identical.
       - name: Setup EDAMAME Posture (IP allow-listing for private crate fetch)
         if: inputs.build_from_source == true
         uses: edamametechnologies/edamame_posture_action@v1
