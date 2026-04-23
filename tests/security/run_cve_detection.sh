@@ -277,7 +277,12 @@ for s in sessions:
     l7 = s.get('l7') or {}
     paths = [str(l7.get('parent_process_path') or ''), str(l7.get('parent_script_path') or ''), str(l7.get('process_path') or '')]
     spawned = bool(l7.get('spawned_from_tmp'))
-    if spawned or any('/tmp/' in p for p in paths if p):
+    def _is_suspicious(p: str) -> bool:
+        if not p:
+            return False
+        pl = p.lower().replace('\\', '/')
+        return '/tmp/' in pl or '/var/tmp/' in pl or '/appdata/local/temp/' in pl or '/temp/' in pl
+    if spawned or any(_is_suspicious(p) for p in paths):
         candidates += 1
 ready = 1 if candidates > 0 else 0
 print(f"{ready}|active={active} suspicious={candidates}")
