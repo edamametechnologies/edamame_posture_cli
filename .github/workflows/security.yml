@@ -565,6 +565,10 @@ jobs:
         run: |
           LOG_DEST="results/${{ matrix.label }}/daemon-logs"
           mkdir -p "$LOG_DEST"
+          # edamame_foundation's logger writes rolling files named
+          # "edamame_posture_<PID>.YYYY-MM-DD" (no .log extension).
+          # On Unix the preferred dir is /var/log/edamame; on Windows the
+          # logger falls back to the directory of the running executable.
           case "$RUNNER_OS" in
             Linux)
               if [[ -d /var/log/edamame ]]; then
@@ -581,12 +585,19 @@ jobs:
             Windows)
               BIN_DIR=$(dirname "${EDAMAME_BINARY_PATH:-}")
               if [[ -n "$BIN_DIR" && -d "$BIN_DIR" ]]; then
-                find "$BIN_DIR" -maxdepth 1 -type f -name 'edamame_posture*.log*' -print0 \
+                find "$BIN_DIR" -maxdepth 1 -type f \
+                  \( -name 'edamame_posture_*' -o -name 'edamame_posture*.log*' \) \
+                  -print0 \
                   | xargs -0 -I {} cp "{}" "$LOG_DEST/" 2>/dev/null || true
               fi
               ;;
           esac
+          echo "--- daemon-logs contents ---"
           ls -la "$LOG_DEST" 2>/dev/null || true
+          echo "--- daemon-logs vdiag grep (first 200 lines) ---"
+          find "$LOG_DEST" -type f -print0 2>/dev/null \
+            | xargs -0 -r grep -hE '(vdiag|token_exfil|sandbox|live_sensitive)' 2>/dev/null \
+            | head -200 || true
 
       - name: Sanitize logs
         if: always()
