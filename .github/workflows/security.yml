@@ -559,6 +559,35 @@ jobs:
           cat "results/${{ matrix.label }}/results.json" | python3 -c "import json,sys; d=json.load(sys.stdin); print(json.dumps(d['totals'], indent=2))"
         continue-on-error: true
 
+      - name: Collect edamame_posture daemon log
+        if: always()
+        shell: bash
+        run: |
+          LOG_DEST="results/${{ matrix.label }}/daemon-logs"
+          mkdir -p "$LOG_DEST"
+          case "$RUNNER_OS" in
+            Linux)
+              if [[ -d /var/log/edamame ]]; then
+                sudo cp -a /var/log/edamame/. "$LOG_DEST/" 2>/dev/null || true
+                sudo chmod -R +r "$LOG_DEST" 2>/dev/null || true
+              fi
+              ;;
+            macOS)
+              if [[ -d /var/log/edamame ]]; then
+                sudo cp -a /var/log/edamame/. "$LOG_DEST/" 2>/dev/null || true
+                sudo chmod -R +r "$LOG_DEST" 2>/dev/null || true
+              fi
+              ;;
+            Windows)
+              BIN_DIR=$(dirname "${EDAMAME_BINARY_PATH:-}")
+              if [[ -n "$BIN_DIR" && -d "$BIN_DIR" ]]; then
+                find "$BIN_DIR" -maxdepth 1 -type f -name 'edamame_posture*.log*' -print0 \
+                  | xargs -0 -I {} cp "{}" "$LOG_DEST/" 2>/dev/null || true
+              fi
+              ;;
+          esac
+          ls -la "$LOG_DEST" 2>/dev/null || true
+
       - name: Sanitize logs
         if: always()
         shell: bash
