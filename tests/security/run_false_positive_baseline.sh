@@ -20,6 +20,8 @@
 #     [--duration <seconds>]         # default: 600 (10 minutes)
 #     [--tick-interval <seconds>]    # default: 60
 #     [--abort-on-first-finding 0|1] # default: 1 (fail fast)
+#     [--anomaly-warmup-duration <seconds>] # default: 0 (disabled)
+#     [--anomaly-warmup-settle <seconds>]   # default: 15
 #
 # Environment:
 #   EDAMAME_CLI   path to edamame_cli binary (mandatory)
@@ -45,6 +47,9 @@ OUTPUT_DIR=""
 DURATION=600
 TICK_INTERVAL=60
 ABORT_ON_FIRST_FINDING=1
+ANOMALY_WARMUP_DURATION=0
+ANOMALY_WARMUP_SETTLE=15
+ANOMALY_WARMUP_URLS="${ANOMALY_WARMUP_URLS:-https://example.com/,https://example.net/,https://example.org/,https://www.apple.com/}"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -53,7 +58,9 @@ while [[ $# -gt 0 ]]; do
     --duration)                 DURATION="$2"; shift 2;;
     --tick-interval)            TICK_INTERVAL="$2"; shift 2;;
     --abort-on-first-finding)   ABORT_ON_FIRST_FINDING="$2"; shift 2;;
-    -h|--help) sed -n '2,36p' "$0"; exit 0;;
+    --anomaly-warmup-duration)  ANOMALY_WARMUP_DURATION="$2"; shift 2;;
+    --anomaly-warmup-settle)    ANOMALY_WARMUP_SETTLE="$2"; shift 2;;
+    -h|--help) sed -n '2,42p' "$0"; exit 0;;
     *) die "unknown flag: $1";;
   esac
 done
@@ -85,18 +92,18 @@ call_rpc() {
 }
 
 force_vuln_tick() {
-  call_rpc debug_run_vulnerability_detector_tick >>"$TICK_LOG" 2>&1 || true
+  call_rpc debug_run_vulnerability_detector_tick >>"$TICK_LOG" 2>&1
 }
 
 clear_vuln_history() {
   # Per the edamame_core vuln-persistence invariant, clearing history also
   # invalidates the detector input-hash cache so the next tick re-evaluates
   # live telemetry from a known-empty baseline instead of a stale skip.
-  call_rpc clear_vulnerability_history >>"$TICK_LOG" 2>&1 || true
+  call_rpc clear_vulnerability_history >>"$TICK_LOG" 2>&1
 }
 
 clear_file_events() {
-  call_rpc clear_file_events >>"$TICK_LOG" 2>&1 || true
+  call_rpc clear_file_events >>"$TICK_LOG" 2>&1
 }
 
 # Sample the detector state as JSON on stdout. Returns findings grouped
@@ -133,6 +140,7 @@ except Exception as exc:
     out["errors"].append(f"get_vulnerability_history: {exc}")
 
 print(json.dumps(out))
+sys.exit(1 if out["errors"] else 0)
 PY
 }
 
@@ -142,6 +150,9 @@ count_findings() {
 import json, sys
 with open(sys.argv[1], "r", encoding="utf-8") as fh:
     data = json.load(fh)
+errors = data.get("errors") or []
+if errors:
+    raise SystemExit("; ".join(str(e) for e in errors))
 current = data.get("current") or []
 history = data.get("history") or []
 # We treat every finding that has a `check` label as a positive, regardless
@@ -150,6 +161,65 @@ cur = sum(1 for f in current if isinstance(f, dict) and f.get("check"))
 his = sum(1 for f in history if isinstance(f, dict) and f.get("check"))
 print(f"{cur + his} {cur} {his}")
 PY
+}
+
+run_anomaly_warmup() {
+  [[ "$ANOMALY_WARMUP_DURATION" =~ ^[0-9]+$ ]] || die "--anomaly-warmup-duration must be an integer"
+  [[ "$ANOMALY_WARMUP_SETTLE" =~ ^[0-9]+$ ]] || die "--anomaly-warmup-settle must be an integer"
+  if (( ANOMALY_WARMUP_DURATION <= 0 )); then
+    return 0
+  fi
+
+  log "running pre-baseline anomaly warm-up: duration=${ANOMALY_WARMUP_DURATION}s settle=${ANOMALY_WARMUP_SETTLE}s"
+  if ! ANOMALY_WARMUP_DURATION_ENV="$ANOMALY_WARMUP_DURATION" \
+    ANOMALY_WARMUP_URLS_ENV="$ANOMALY_WARMUP_URLS" \
+    "$PYTHON" - <<'PY' >>"$TICK_LOG" 2>&1
+import os
+import sys
+import time
+
+try:
+    import requests
+except Exception as exc:
+    print(f"[warmup] requests import failed: {exc}", file=sys.stderr)
+    raise SystemExit(1)
+
+duration = int(os.environ["ANOMALY_WARMUP_DURATION_ENV"])
+urls = [u.strip() for u in os.environ.get("ANOMALY_WARMUP_URLS_ENV", "").split(",") if u.strip()]
+if duration <= 0 or not urls:
+    raise SystemExit(0)
+
+deadline = time.monotonic() + duration
+successes = 0
+attempts = 0
+session = requests.Session()
+
+while time.monotonic() < deadline:
+    url = urls[attempts % len(urls)]
+    attempts += 1
+    try:
+        resp = session.get(url, timeout=10)
+        _ = resp.content[:256]
+        successes += 1
+        print(f"[warmup] GET {url} -> {resp.status_code}", flush=True)
+    except Exception as exc:
+        print(f"[warmup] GET {url} failed: {exc}", file=sys.stderr, flush=True)
+    time.sleep(1.0)
+
+if successes == 0:
+    print("[warmup] no warm-up requests succeeded", file=sys.stderr)
+    raise SystemExit(1)
+
+print(f"[warmup] completed: attempts={attempts} successes={successes}", flush=True)
+PY
+  then
+    die "anomaly warm-up failed"
+  fi
+
+  if (( ANOMALY_WARMUP_SETTLE > 0 )); then
+    log "settling after anomaly warm-up for ${ANOMALY_WARMUP_SETTLE}s"
+    sleep "$ANOMALY_WARMUP_SETTLE"
+  fi
 }
 
 write_result_json() {
@@ -211,8 +281,11 @@ PY
 
 log "starting false-positive baseline: duration=${DURATION}s tick_interval=${TICK_INTERVAL}s"
 log "abort_on_first_finding=${ABORT_ON_FIRST_FINDING}"
+log "anomaly_warmup_duration=${ANOMALY_WARMUP_DURATION}s anomaly_warmup_settle=${ANOMALY_WARMUP_SETTLE}s"
 log "output dir: $OUTPUT_DIR_ABS"
 log "cli: $EDAMAME_CLI"
+
+run_anomaly_warmup
 
 start_epoch=$(date +%s)
 
@@ -259,11 +332,12 @@ while :; do
   sleep 1
   sample_file="$SAMPLES_DIR/sample_$(printf '%04d' "$sample_count").json"
   if ! sample_findings >"$sample_file"; then
-    log "  WARN: sample ${sample_count} failed to collect"
-    continue
+    die "sample ${sample_count} failed to collect cleanly"
   fi
 
-  read -r sample_total sample_cur sample_hist < <(count_findings "$sample_file")
+  if ! read -r sample_total sample_cur sample_hist < <(count_findings "$sample_file"); then
+    die "sample ${sample_count} reported RPC/read errors"
+  fi
   sample_total=${sample_total:-0}
   sample_cur=${sample_cur:-0}
   sample_hist=${sample_hist:-0}
@@ -286,19 +360,22 @@ force_vuln_tick
 sleep 2
 sample_count=$((sample_count + 1))
 sample_file="$SAMPLES_DIR/sample_$(printf '%04d' "$sample_count")_final.json"
-sample_findings >"$sample_file" || true
+if ! sample_findings >"$sample_file"; then
+  die "final sample failed to collect cleanly"
+fi
 
-if read -r sample_total sample_cur sample_hist < <(count_findings "$sample_file"); then
-  sample_total=${sample_total:-0}
-  sample_cur=${sample_cur:-0}
-  sample_hist=${sample_hist:-0}
-  if (( sample_total > total )); then
-    total=$sample_total
-    current=$sample_cur
-    history=$sample_hist
-    [[ -z "$first_finding_sample" ]] && first_finding_sample=$(basename "$sample_file")
-    log "  final sweep found additional findings: total=$sample_total"
-  fi
+if ! read -r sample_total sample_cur sample_hist < <(count_findings "$sample_file"); then
+  die "final sample reported RPC/read errors"
+fi
+sample_total=${sample_total:-0}
+sample_cur=${sample_cur:-0}
+sample_hist=${sample_hist:-0}
+if (( sample_total > total )); then
+  total=$sample_total
+  current=$sample_cur
+  history=$sample_hist
+  [[ -z "$first_finding_sample" ]] && first_finding_sample=$(basename "$sample_file")
+  log "  final sweep found additional findings: total=$sample_total"
 fi
 
 if emit_result; then
