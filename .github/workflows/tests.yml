@@ -78,6 +78,10 @@ on:
       - 'src/**'
       - 'Cargo.toml'
       - 'Cargo.lock'
+      # Also re-run when the workflow itself or any test/perf/security
+      # harness changes, so iterating on the gate stays push-triggered.
+      - '.github/workflows/tests.yml'
+      - 'tests/**'
 
 # Auto cancel previous runs if they were not completed.
 concurrency:
