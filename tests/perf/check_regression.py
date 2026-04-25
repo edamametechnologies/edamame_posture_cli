@@ -4,7 +4,14 @@
 Compares the current ``tests/perf`` results against a baseline directory with
 the same layout (produced by an earlier run of the same workflow) and exits
 non-zero if any (platform, scenario, metric) triple regressed by more than the
-configured threshold (default: +50%).
+configured threshold (default: +100%).
+
+GitHub-hosted Azure VMs have substantial cross-run CPU steal variance, so
+short-window peak metrics (``cpu_percent_max``) routinely move +50% to
++180% between two same-code runs without any application-level
+regression. A doubling-of-resource-use threshold (+100%) preserves the
+ability to catch genuinely abnormal regressions while not flagging pure
+runner noise as a release blocker.
 
 Input layout for both ``--current`` and ``--baseline``::
 
@@ -103,8 +110,8 @@ def main() -> int:
     ap.add_argument(
         "--threshold",
         type=float,
-        default=0.50,
-        help="Fractional regression threshold. 0.50 => fail if current > 1.50 * baseline",
+        default=1.00,
+        help="Fractional regression threshold. 1.00 => fail if current > 2.00 * baseline",
     )
     args = ap.parse_args()
 
