@@ -721,7 +721,12 @@ jobs:
           test -f "$BUNDLE_PATH/Contents/embedded.provisionprofile"
           test -L /usr/local/bin/edamame_posture
           codesign --verify --deep --strict --verbose=2 "$BUNDLE_PATH"
-          echo "BINARY_PATH=/usr/local/bin/edamame_posture" >> "$GITHUB_ENV"
+          # Mirror the Linux/Windows layout so test scripts that auto-discover
+          # the binary via `find ./target` (standalone/integration/llm) work
+          # the same way on macOS.
+          mkdir -p target/release
+          ln -sf /usr/local/bin/edamame_posture target/release/edamame_posture
+          echo "BINARY_PATH=$(pwd)/target/release/edamame_posture" >> "$GITHUB_ENV"
 
       - name: Install pre-built binary (Windows, signed exe)
         if: matrix.os == 'windows'
@@ -1190,7 +1195,9 @@ jobs:
           test -f "$BUNDLE_PATH/Contents/embedded.provisionprofile"
           test -L /usr/local/bin/edamame_posture
           codesign --verify --deep --strict --verbose=2 "$BUNDLE_PATH"
-          echo "BINARY_PATH=/usr/local/bin/edamame_posture" >> "$GITHUB_ENV"
+          mkdir -p target/release
+          ln -sf /usr/local/bin/edamame_posture target/release/edamame_posture
+          echo "BINARY_PATH=$(pwd)/target/release/edamame_posture" >> "$GITHUB_ENV"
 
       - name: Install pre-built binary (Windows, signed exe)
         if: env.BUILD_FROM_SOURCE == 'true' && matrix.os == 'windows'
@@ -1448,7 +1455,9 @@ jobs:
           test -f "$BUNDLE_PATH/Contents/embedded.provisionprofile"
           test -L /usr/local/bin/edamame_posture
           codesign --verify --deep --strict --verbose=2 "$BUNDLE_PATH"
-          echo "BINARY_PATH=/usr/local/bin/edamame_posture" >> "$GITHUB_ENV"
+          mkdir -p target/release
+          ln -sf /usr/local/bin/edamame_posture target/release/edamame_posture
+          echo "BINARY_PATH=$(pwd)/target/release/edamame_posture" >> "$GITHUB_ENV"
 
       - name: Install pre-built binary (Windows, signed exe)
         if: env.BUILD_FROM_SOURCE == 'true' && matrix.os == 'windows'
