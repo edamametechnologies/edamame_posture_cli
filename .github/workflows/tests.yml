@@ -1938,6 +1938,16 @@ jobs:
           # runner noise as regression. A real perf regression worth
           # blocking a release is one that doubles steady-state CPU/RSS,
           # which the +100% threshold still catches.
+          # check_regression.py applies per-metric and per-scenario
+          # multipliers on top of this base threshold:
+          #   * cpu_percent_max gets x2 (peak CPU is dominated by 1-second
+          #     cross-tenant CPU steal spikes on shared Azure VMs).
+          #   * the `llm` scenario gets x4 across all metrics because
+          #     the local LLM model is downloaded/loaded lazily and may
+          #     warm during one run but not another, producing legitimate
+          #     2-3x swings in CPU/RSS independent of the code under test.
+          # See tests/perf/check_regression.py METRICS / SCENARIO_MULTIPLIERS
+          # for the per-knob rationale.
           REGRESSION_THRESHOLD: "1.00"
         run: |
           set +e

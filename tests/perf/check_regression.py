@@ -87,8 +87,30 @@ Metrics whose baseline value is strictly below the floor are not compared;
 this avoids false positives on very small values (e.g. idle CPU percent).
 
 The threshold multiplier scales the global ``--threshold`` for that metric:
-  effective_threshold = global_threshold * multiplier
+  effective_threshold = global_threshold * metric_multiplier * scenario_multiplier
 """
+
+
+# Per-scenario threshold multipliers. Some scenarios are intrinsically
+# more variable than the steady-state ones because they involve work
+# that does not converge inside the 5-minute sampling window:
+#
+# - ``llm``: agentic mode with the EDAMAME LLM provider. The local LLM
+#   model is downloaded/loaded lazily on first use, then runs inference
+#   on captured traffic. Whether and when the model finishes loading
+#   inside the 5-minute window depends on host disk speed, network
+#   bandwidth and CPU steal. Empirically the same code can produce
+#   570 MB / 48% CPU runs (model not yet warm) and 1.4 GB / 240%
+#   CPU runs (model warm and inferring) on consecutive ubuntu-x64
+#   runners. We still want this scenario in the report for visibility,
+#   but a +100% regression gate cannot distinguish "released a slower
+#   LLM" from "got a faster runner that warmed the model in time".
+#   A 4x multiplier (effective +400%/+800% headroom) tolerates the
+#   warm-vs-cold transition while still flagging a 5x+ regression
+#   that would indicate a real problem.
+SCENARIO_MULTIPLIERS: Dict[str, float] = {
+    "llm": 4.0,
+}
 
 
 def _load_summary(path: str) -> Optional[dict]:
@@ -158,6 +180,15 @@ def main() -> int:
         note = "" if mult == 1.0 else f" (x{mult:g} multiplier for runner-noise tolerance)"
         print(f"| {label} | +{eff * 100:.0f}%{note} |")
     print()
+    if SCENARIO_MULTIPLIERS:
+        print("| Scenario | Threshold multiplier |")
+        print("|---|---|")
+        for scen, mult in sorted(SCENARIO_MULTIPLIERS.items()):
+            print(
+                f"| `{scen}` | x{mult:g}"
+                " (intrinsic variance from LLM model load/inference timing) |"
+            )
+        print()
 
     if not os.path.isdir(args.baseline):
         print(
@@ -195,7 +226,8 @@ def main() -> int:
                     continue
                 comparisons += 1
                 ratio = (cv - bv) / bv
-                effective_threshold = args.threshold * mult
+                scen_mult = SCENARIO_MULTIPLIERS.get(scen, 1.0)
+                effective_threshold = args.threshold * mult * scen_mult
                 if ratio > effective_threshold:
                     regressions.append(
                         (plat, scen, label, bv, cv, ratio, floor, effective_threshold)
