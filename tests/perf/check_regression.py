@@ -185,7 +185,7 @@ def main() -> int:
         )
     print()
     print(
-        "This gate is enforced by `.github/workflows/perf.yml`. Any regression"
+        "This gate is enforced by the `perf` job in `.github/workflows/tests.yml`. Any regression"
         " here justifies blocking the release (or rolling it back) because it"
         " means `edamame_posture` consumes materially more CPU or memory than"
         " the previous green run."
