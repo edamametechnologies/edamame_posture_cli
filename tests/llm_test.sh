@@ -34,15 +34,16 @@ echo "=============================================="
 echo ""
 
 # --- Configuration ---
-FOUND_BINARY=$(find ./target -type f \( -name edamame_posture -o -name edamame_posture.exe \) -print -quit 2>/dev/null)
+if [ -z "${BINARY_PATH:-}" ]; then
+    BINARY_PATH=$(find ./target -type f \( -name edamame_posture -o -name edamame_posture.exe \) -print -quit 2>/dev/null)
+fi
 
-if [ -z "$FOUND_BINARY" ]; then
-    echo "Error: Could not find 'edamame_posture' binary in ./target"
+if [ -z "$BINARY_PATH" ] || [ ! -e "$BINARY_PATH" ]; then
+    echo "Error: Could not find 'edamame_posture' binary (BINARY_PATH or ./target)"
     echo "   Please build the project first: cargo build --release"
     exit 1
 fi
 
-BINARY_PATH="${BINARY_PATH:-$FOUND_BINARY}"
 RUNNER_OS="${RUNNER_OS:-$(uname)}"
 SUDO_CMD="${SUDO_CMD:-sudo -E}"
 
