@@ -3,15 +3,27 @@
 
 Compares the current ``tests/perf`` results against a baseline directory with
 the same layout (produced by an earlier run of the same workflow) and exits
-non-zero if any (platform, scenario, metric) triple regressed by more than the
-configured threshold (default: +100%).
+non-zero if any (platform, scenario, metric) triple regressed by more than its
+per-metric threshold.
 
-GitHub-hosted Azure VMs have substantial cross-run CPU steal variance, so
-short-window peak metrics (``cpu_percent_max``) routinely move +50% to
-+180% between two same-code runs without any application-level
-regression. A doubling-of-resource-use threshold (+100%) preserves the
-ability to catch genuinely abnormal regressions while not flagging pure
-runner noise as a release blocker.
+GitHub-hosted Azure VMs share host CPU/IO with neighbour tenants, so the
+variance profile of each metric is fundamentally different:
+
+- ``*_avg`` metrics (``cpu_percent_avg``, ``rss_mb_avg``) integrate over
+  the whole scenario window and are reasonably stable: empirical noise
+  is below +/-100% across same-code consecutive runs.
+- ``cpu_percent_max`` is a 1-second peak sample on a 4-core box and
+  routinely swings between +50% and +200% across same-code runs because
+  background scheduler steal hits unpredictably.
+- ``rss_mb_max`` is a peak resident-set sample but memory growth is
+  much more deterministic than CPU peak, so the same +100% headroom as
+  the avg metrics keeps it tight.
+
+The thresholds below mirror this physics: avg metrics gate at +100%
+(genuine regressions worth blocking double the steady-state load), peak
+CPU at +200% (can spike on cross-tenant noise without any code change),
+and peak RSS at +100% (memory peak should not double on a no-op release
+candidate).
 
 Input layout for both ``--current`` and ``--baseline``::
 
@@ -57,16 +69,25 @@ import sys
 from typing import Dict, List, Optional, Tuple
 
 
-METRICS: List[Tuple[str, str, float]] = [
-    ("cpu_percent_avg", "CPU avg %", 1.0),
-    ("cpu_percent_max", "CPU max %", 5.0),
-    ("rss_mb_avg", "RSS avg MB", 10.0),
-    ("rss_mb_max", "RSS max MB", 10.0),
+# (summary.json key, human label, absolute floor, fractional regression
+# threshold multiplier). The threshold multiplier is applied on top of
+# the global --threshold default (so a multiplier of 2.0 doubles the
+# headroom for a metric known to be noisy).
+METRICS: List[Tuple[str, str, float, float]] = [
+    ("cpu_percent_avg", "CPU avg %", 1.0, 1.0),
+    # cpu_percent_max is a 1-second peak sample dominated by neighbour
+    # CPU steal on Azure-hosted shared runners; double the headroom.
+    ("cpu_percent_max", "CPU max %", 5.0, 2.0),
+    ("rss_mb_avg", "RSS avg MB", 10.0, 1.0),
+    ("rss_mb_max", "RSS max MB", 10.0, 1.0),
 ]
-"""List of (summary.json key, human label, absolute floor).
+"""List of (summary.json key, human label, absolute floor, threshold multiplier).
 
 Metrics whose baseline value is strictly below the floor are not compared;
 this avoids false positives on very small values (e.g. idle CPU percent).
+
+The threshold multiplier scales the global ``--threshold`` for that metric:
+  effective_threshold = global_threshold * multiplier
 """
 
 
@@ -126,9 +147,16 @@ def main() -> int:
     print("## Performance release gate")
     print()
     print(
-        f"Threshold: current must not exceed baseline by more than"
+        f"Base threshold: current must not exceed baseline by more than"
         f" **{args.threshold * 100:+.0f}%** on any tracked metric."
     )
+    print()
+    print("| Metric | Effective threshold |")
+    print("|---|---|")
+    for _, label, _, mult in METRICS:
+        eff = args.threshold * mult
+        note = "" if mult == 1.0 else f" (x{mult:g} multiplier for runner-noise tolerance)"
+        print(f"| {label} | +{eff * 100:.0f}%{note} |")
     print()
 
     if not os.path.isdir(args.baseline):
@@ -146,14 +174,14 @@ def main() -> int:
         )
         return 0
 
-    regressions: List[Tuple[str, str, str, float, float, float, float]] = []
+    regressions: List[Tuple[str, str, str, float, float, float, float, float]] = []
     comparisons = 0
     for plat, scen_map in sorted(cur.items()):
         for scen, cur_summary in sorted(scen_map.items()):
             base_summary = base.get(plat, {}).get(scen)
             if not base_summary:
                 continue
-            for key, label, floor in METRICS:
+            for key, label, floor, mult in METRICS:
                 cv = cur_summary.get(key)
                 bv = base_summary.get(key)
                 if cv is None or bv is None:
@@ -167,8 +195,11 @@ def main() -> int:
                     continue
                 comparisons += 1
                 ratio = (cv - bv) / bv
-                if ratio > args.threshold:
-                    regressions.append((plat, scen, label, bv, cv, ratio, floor))
+                effective_threshold = args.threshold * mult
+                if ratio > effective_threshold:
+                    regressions.append(
+                        (plat, scen, label, bv, cv, ratio, floor, effective_threshold)
+                    )
 
     if not regressions:
         print(
@@ -179,16 +210,17 @@ def main() -> int:
         return 0
 
     print(
-        f"FAIL - {len(regressions)} metric(s) regressed by more than"
-        f" {args.threshold * 100:+.0f}% relative to the baseline run."
+        f"FAIL - {len(regressions)} metric(s) regressed beyond the"
+        " per-metric threshold relative to the baseline run."
     )
     print()
-    print("| Platform | Scenario | Metric | Baseline | Current | Change | Absolute floor |")
-    print("|---|---|---|---|---|---|---|")
-    for plat, scen, label, bv, cv, ratio, floor in regressions:
+    print("| Platform | Scenario | Metric | Baseline | Current | Change | Threshold | Absolute floor |")
+    print("|---|---|---|---|---|---|---|---|")
+    for plat, scen, label, bv, cv, ratio, floor, eff in regressions:
         print(
             f"| {plat} | {scen} | {label} |"
-            f" {bv:,.2f} | {cv:,.2f} | {ratio * 100:+.1f}% | {floor:g} |"
+            f" {bv:,.2f} | {cv:,.2f} | {ratio * 100:+.1f}% |"
+            f" +{eff * 100:.0f}% | {floor:g} |"
         )
     print()
     print(
