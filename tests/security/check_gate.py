@@ -253,7 +253,7 @@ def main() -> int:
         print()
 
     print(
-        "This gate is enforced by `.github/workflows/security.yml`. It"
+        "This gate is enforced by the `security` job in `.github/workflows/tests.yml`. It"
         " requires every scenario on every platform to produce a"
         " deterministic detection AND a clean 10-minute idle baseline"
         " before the CVE suite. Scenarios whose detection path is"

@@ -3167,17 +3167,47 @@ On macOS/Linux, daemon logs are written to `/var/log/edamame/edamame_posture_{pi
 
 ## Release-time Performance and Vulnerability Detection Reporting
 
-Two on-demand workflows regenerate cross-platform reports for every release by exercising `edamame_posture` on GitHub-managed Linux, macOS, and Windows runners. Both are triggered from the release orchestrator (`edamame_app/release_all.sh`) as part of pre-flight -- they do NOT run on every push, and the resulting reports are published as workflow artifacts (not committed back to the repository).
+A single cross-platform workflow,
+[`.github/workflows/tests.yml`](.github/workflows/tests.yml), regenerates the
+per-release reports by exercising `edamame_posture` on GitHub-managed Linux,
+macOS, and Windows runners. It triggers on `workflow_dispatch` and on pushes
+to `dev`/`main` (paths-filtered to `src/`, `Cargo.toml`, `Cargo.lock`),
+publishes its reports as workflow artifacts (not committed back to the
+repository), and the release orchestrator (`edamame_app/release_all.sh`)
+verifies in Phase 0 that its latest run on `main` is green; it does NOT
+trigger it.
 
-- **Performance** -- [`.github/workflows/perf.yml`](.github/workflows/perf.yml) runs six scenarios (idle, hub-connected idle, packet capture, LAN scan, LLM processing, all features) for five minutes each, samples the daemon with `psutil`, and publishes resource-usage tables with cross-platform CPU normalization derived from a SHA-256 + BLAKE3 calibration benchmark.
+The workflow runs three suites against a single per-platform build (signed
+and notarized on macOS) shared via GitHub Actions artifacts:
+
+- **Functional tests** (jobs `test-native` / `test-container`) -- eBPF
+  diagnostics, cargo unit tests, standalone command coverage, integration
+  suites, and LLM provider tests on the full Linux/macOS/Windows matrix
+  (containers always rebuild internally because of libc differences).
+
+- **Performance** (job `perf`) -- runs six scenarios (idle, hub-connected
+  idle, packet capture, LAN scan, LLM processing, all features) for five
+  minutes each, samples the daemon with `psutil`, and publishes
+  resource-usage tables with cross-platform CPU normalization derived from a
+  SHA-256 + BLAKE3 calibration benchmark.
   - Report artifact: `performance-report` (contains `PERFORMANCE.md` + raw per-platform results)
   - Harness: [`tests/perf/`](tests/perf/) (`calibrate.py`, `sampler.py`, `run_scenario.sh`, `generate_report.py`)
 
-- **Vulnerability detection** -- [`.github/workflows/security.yml`](.github/workflows/security.yml) runs nine attack scenarios from [`agent_security/tests/e2e/triggers/`](https://github.com/edamametechnologies/agent_security/tree/main/tests/e2e/triggers) against a live daemon and verifies detector output via `edamame_cli` RPCs.
+- **Vulnerability detection** (job `security`) -- runs nine attack scenarios
+  from [`agent_security/tests/e2e/triggers/`](https://github.com/edamametechnologies/agent_security/tree/main/tests/e2e/triggers)
+  against a live daemon and verifies detector output via `edamame_cli` RPCs.
   - Report artifact: `security-report` (contains `VULNDETECTION.md` + raw per-platform results)
   - Harness: [`tests/security/`](tests/security/) (`run_cve_detection.sh`, `generate_report.py`)
 
-Both workflows run on `workflow_dispatch` only, are triggered from the release pipeline, report failures to the shared Slack channel (same pattern as `tests.yml`), and fail the job when any platform regresses so the release gate blocks on them.
+`workflow_dispatch` exposes `run_tests` / `run_perf` / `run_security`
+booleans, a `platforms` filter, and a `build_from_source` toggle so a single
+manual run can target a subset of suites or platforms, or exercise the
+last-released `edamame_posture` binary instead of building from source
+(the legacy released-binary behaviour of the standalone security
+workflow). All failures are
+reported to the shared Slack channel (same pattern as the rest of the
+suite) and fail the job when any platform regresses so the release gate
+blocks on them.
 
 ## EDAMAME Ecosystem
 EDAMAME Posture is part of a broader ecosystem of tools and services provided by EDAMAME Technologies:
