@@ -144,7 +144,7 @@ edamame-posture agentic-status
 # Vulnerability detector
 edamame-posture vulnerability-start [INTERVAL_SECS]
 edamame-posture vulnerability-stop
-edamame-posture vulnerability-status
+edamame-posture vulnerability-status [--fail-on-findings]
 edamame-posture vulnerability-dismiss <FINDING_KEY>
 edamame-posture vulnerability-undismiss <FINDING_KEY>
 edamame-posture vulnerability-reset-suppressions

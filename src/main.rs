@@ -1218,9 +1218,10 @@ fn run_base() {
             exit_code = background_vulnerability_stop();
             is_background = true;
         }
-        Some(("background-vulnerability-status", _)) => {
+        Some(("background-vulnerability-status", sub_matches)) => {
+            let fail_on_findings = sub_matches.get_flag("fail-on-findings");
             initialize_core("".to_string(), false, false, false, false, false, verbose);
-            exit_code = background_vulnerability_status();
+            exit_code = background_vulnerability_status(fail_on_findings);
             is_background = true;
         }
         Some(("background-vulnerability-dismiss", sub_matches)) => {
