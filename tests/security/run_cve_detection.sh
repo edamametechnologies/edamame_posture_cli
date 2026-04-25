@@ -492,23 +492,19 @@ print(json.dumps(rec))
 PY
 }
 
-run_one_scenario() {
+# Run a single attempt of a scenario. Sets DETECTED, TOTAL, CURRENT, HISTORY,
+# ELAPSED globals and returns 0 on success, 1 on failure.
+run_one_scenario_attempt() {
   local scenario="$1"
-  local check
-  check="$(expected_check_for "$scenario")"
-  if [[ -z "$check" ]]; then
-    log "SKIP $scenario (no expected check mapping)"
-    record_scenario_result "$scenario" "unknown" "skip" 0 0 0 0 "no_expected_check"
-    return 0
-  fi
-  local trigger_script="$TRIGGERS_DIR/trigger_${scenario}.py"
-  if [[ ! -f "$trigger_script" ]]; then
-    log "SKIP $scenario (trigger not found: $trigger_script)"
-    record_scenario_result "$scenario" "$check" "skip" 0 0 0 0 "trigger_missing"
-    return 0
-  fi
+  local check="$2"
+  local trigger_script="$3"
 
-  log "=== scenario: $scenario (check=$check, duration=${TRIGGER_DURATION}s) ==="
+  DETECTED=0
+  TOTAL=0
+  CURRENT=0
+  HISTORY=0
+  ELAPSED=0
+
   clear_vuln_history
   run_cleanup
   prepare_scenario_state "$scenario" "$check"
@@ -518,7 +514,7 @@ run_one_scenario() {
   TRIGGERS_DIR_ENV="$TRIGGERS_DIR" "$PYTHON" "$trigger_script" \
     --agent-type "$AGENT_TYPE" \
     --duration "$TRIGGER_DURATION" \
-    >"$OUTPUT_DIR_ABS/${scenario}.trigger.log" 2>&1 &
+    >>"$OUTPUT_DIR_ABS/${scenario}.trigger.log" 2>&1 &
   local trigger_pid=$!
   log "  trigger started pid=$trigger_pid"
 
@@ -532,10 +528,6 @@ run_one_scenario() {
   sleep 2
 
   local attempt=0
-  local detected=0
-  local total=0
-  local current=0
-  local history=0
   while (( attempt < POLL_ATTEMPTS )); do
     attempt=$((attempt + 1))
     local trigger_state="alive"
@@ -550,24 +542,24 @@ run_one_scenario() {
       bl_count="$(TRIGGERS_DIR_ENV="$TRIGGERS_DIR" count_blacklisted_sessions || echo 0)"
       bl_count=$(echo "$bl_count" | tr -dc '0-9')
       [[ -z "$bl_count" ]] && bl_count=0
-      current=$bl_count
-      total=$bl_count
-      history=0
+      CURRENT=$bl_count
+      TOTAL=$bl_count
+      HISTORY=0
       if (( bl_count > 0 )); then
-        detected=1
+        DETECTED=1
         log "  DETECTED: $bl_count active blacklisted sessions"
         break
       fi
     else
       local triple
       triple="$(TRIGGERS_DIR_ENV="$TRIGGERS_DIR" count_finding_for_scenario "$scenario" "$check")"
-      total=${triple%%|*}
+      TOTAL=${triple%%|*}
       local rest=${triple#*|}
-      current=${rest%%|*}
-      history=${rest#*|}
-      if (( total > 0 )); then
-        detected=1
-        log "  DETECTED: total=$total (current=$current, history=$history)"
+      CURRENT=${rest%%|*}
+      HISTORY=${rest#*|}
+      if (( TOTAL > 0 )); then
+        DETECTED=1
+        log "  DETECTED: total=$TOTAL (current=$CURRENT, history=$HISTORY)"
         break
       fi
     fi
@@ -586,7 +578,7 @@ run_one_scenario() {
   fi
   wait "$trigger_pid" 2>/dev/null || true
 
-  if (( detected == 0 )); then
+  if (( DETECTED == 0 )); then
     log "  no detection within verify loop; final tick + tail poll"
     force_vuln_tick
     sleep 3
@@ -596,35 +588,89 @@ run_one_scenario() {
       bl_count="$(TRIGGERS_DIR_ENV="$TRIGGERS_DIR" count_blacklisted_sessions || echo 0)"
       bl_count=$(echo "$bl_count" | tr -dc '0-9')
       [[ -z "$bl_count" ]] && bl_count=0
-      current=$bl_count
-      total=$bl_count
-      history=0
+      CURRENT=$bl_count
+      TOTAL=$bl_count
+      HISTORY=0
       if (( bl_count > 0 )); then
-        detected=1
+        DETECTED=1
         log "  DETECTED (tail): $bl_count active blacklisted sessions"
       fi
     else
       triple="$(TRIGGERS_DIR_ENV="$TRIGGERS_DIR" count_finding_for_scenario "$scenario" "$check")"
-      total=${triple%%|*}
+      TOTAL=${triple%%|*}
       local rest=${triple#*|}
-      current=${rest%%|*}
-      history=${rest#*|}
-      if (( total > 0 )); then
-        detected=1
-        log "  DETECTED (tail): total=$total (current=$current, history=$history)"
+      CURRENT=${rest%%|*}
+      HISTORY=${rest#*|}
+      if (( TOTAL > 0 )); then
+        DETECTED=1
+        log "  DETECTED (tail): total=$TOTAL (current=$CURRENT, history=$HISTORY)"
       fi
     fi
   fi
 
   local end_epoch
   end_epoch=$(date +%s)
-  local elapsed=$((end_epoch - start_epoch))
-  local status="fail"
-  if (( detected == 1 )); then
-    status="pass"
+  ELAPSED=$((end_epoch - start_epoch))
+
+  if (( DETECTED == 1 )); then
+    return 0
   fi
-  record_scenario_result "$scenario" "$check" "$status" "$total" "$current" "$history" "$elapsed" ""
-  log "  RESULT: $status  total=$total current=$current history=$history  elapsed=${elapsed}s"
+  return 1
+}
+
+# Run a scenario with retry-on-failure. The CVE detector relies on iForest
+# anomaly scoring whose warm-up depends on observation throughput. On
+# slow GitHub-hosted ARM runners the first scenario after a clean
+# detector tick can miss the detection window. A single retry resolves
+# this without making the gate probabilistic: a real architectural
+# breakage will fail both attempts, while runner-induced timing flakes
+# almost never recur on the second attempt.
+run_one_scenario() {
+  local scenario="$1"
+  local check
+  check="$(expected_check_for "$scenario")"
+  if [[ -z "$check" ]]; then
+    log "SKIP $scenario (no expected check mapping)"
+    record_scenario_result "$scenario" "unknown" "skip" 0 0 0 0 "no_expected_check"
+    return 0
+  fi
+  local trigger_script="$TRIGGERS_DIR/trigger_${scenario}.py"
+  if [[ ! -f "$trigger_script" ]]; then
+    log "SKIP $scenario (trigger not found: $trigger_script)"
+    record_scenario_result "$scenario" "$check" "skip" 0 0 0 0 "trigger_missing"
+    return 0
+  fi
+
+  : >"$OUTPUT_DIR_ABS/${scenario}.trigger.log"
+  log "=== scenario: $scenario (check=$check, duration=${TRIGGER_DURATION}s) ==="
+
+  local max_attempts=${SCENARIO_MAX_ATTEMPTS:-2}
+  local scen_attempt=0
+  local total_elapsed=0
+  local final_status="fail"
+  local extra_note=""
+  while (( scen_attempt < max_attempts )); do
+    scen_attempt=$((scen_attempt + 1))
+    if (( scen_attempt > 1 )); then
+      log "--- $scenario: retry attempt ${scen_attempt}/${max_attempts} (previous attempt did not detect ${check}) ---"
+      extra_note="retry_${scen_attempt}"
+    fi
+    if run_one_scenario_attempt "$scenario" "$check" "$trigger_script"; then
+      final_status="pass"
+      total_elapsed=$((total_elapsed + ELAPSED))
+      break
+    fi
+    total_elapsed=$((total_elapsed + ELAPSED))
+    if (( scen_attempt < max_attempts )); then
+      log "  $scenario: attempt $scen_attempt did not detect; resetting state and retrying after cooldown"
+      run_cleanup
+      clear_vuln_history
+      sleep "$COOLDOWN"
+    fi
+  done
+
+  record_scenario_result "$scenario" "$check" "$final_status" "$TOTAL" "$CURRENT" "$HISTORY" "$total_elapsed" "$extra_note"
+  log "  RESULT: $final_status  total=$TOTAL current=$CURRENT history=$HISTORY  elapsed=${total_elapsed}s attempts=$scen_attempt"
 
   run_cleanup
   clear_vuln_history

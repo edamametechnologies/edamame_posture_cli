@@ -258,31 +258,53 @@ run_whitelist_test() {
     
     EXCEPTION_COUNT=0
     UNKNOWN_COUNT=0
+    UNKNOWN_INFRA_COUNT=0
     if [ -f "$EXCEPTIONS_FILE" ] && [ -s "$EXCEPTIONS_FILE" ]; then
         echo "Counting exceptions..."
         EXCEPTION_COUNT=$(grep "whitelisted: NonConforming" "$EXCEPTIONS_FILE" | wc -l | xargs || true)
         echo "Non-conforming count: $EXCEPTION_COUNT"
+        # Total unknown sessions, including any cloud-runner infrastructure noise.
         UNKNOWN_COUNT=$(grep "whitelisted: Unknown" "$EXCEPTIONS_FILE" | wc -l | xargs || true)
-        echo "Unknown count: $UNKNOWN_COUNT"
+        echo "Unknown count (raw): $UNKNOWN_COUNT"
+        # Cloud-runner infrastructure traffic that the dynamically-created
+        # whitelist cannot anticipate. Examples:
+        #   * 168.63.129.16 (Azure WireServer / health probe -- runner host)
+        #   * 169.254.169.254 (AWS/GCP/Azure IMDS)
+        #   * 169.254.169.123 (Amazon Time Sync)
+        # These are emitted by the host VM at unpredictable times, so they
+        # show up as "Unknown" if they happen after the dynamic whitelist
+        # is captured. They are not application traffic and must not gate
+        # the test.
+        UNKNOWN_INFRA_COUNT=$(grep "whitelisted: Unknown" "$EXCEPTIONS_FILE" \
+            | grep -E "168\\.63\\.129\\.16|169\\.254\\.169\\.254|169\\.254\\.169\\.123" \
+            | wc -l | xargs || true)
+        echo "Unknown count (cloud-runner infra excluded): $((UNKNOWN_COUNT - UNKNOWN_INFRA_COUNT))"
     fi
-    
-    echo "Detected $EXCEPTION_COUNT non-conforming exceptions and $UNKNOWN_COUNT unknown exceptions."
-    
+
+    # Subtract the cloud infra noise from the comparison count.
+    UNKNOWN_APP_COUNT=$((UNKNOWN_COUNT - UNKNOWN_INFRA_COUNT))
+    if [ "$UNKNOWN_APP_COUNT" -lt 0 ]; then UNKNOWN_APP_COUNT=0; fi
+
+    echo "Detected $EXCEPTION_COUNT non-conforming exceptions and $UNKNOWN_APP_COUNT unknown exceptions (excluding $UNKNOWN_INFRA_COUNT cloud-runner infra session(s))."
+
     # Show first 10 non-conforming exceptions for debugging
     if [ "$EXCEPTION_COUNT" -gt 0 ]; then
         echo "First 10 non-conforming exceptions (for debugging):"
         grep "whitelisted: NonConforming" "$EXCEPTIONS_FILE" | head -10 || true
     fi
-    
+
     if [ "$UNKNOWN_COUNT" -gt 0 ]; then
         echo "Unknown exceptions (for debugging):"
         grep "whitelisted: Unknown" "$EXCEPTIONS_FILE" || true
     fi
 
-    # Determine if this is an error condition
+    # Determine if this is an error condition.
+    # The Unknown threshold is 2 application-level sessions; cloud-runner
+    # infrastructure noise (Azure WireServer, IMDS, etc.) is filtered out
+    # via UNKNOWN_INFRA_COUNT before comparison.
     local is_error=false
-    echo "Checking if errors exist: EXCEPTION_COUNT=$EXCEPTION_COUNT > MAX_ALLOWED_EXCEPTIONS=$MAX_ALLOWED_EXCEPTIONS or UNKNOWN_COUNT=$UNKNOWN_COUNT > 2"
-    if [ "$EXCEPTION_COUNT" -gt "$MAX_ALLOWED_EXCEPTIONS" ] || [ "$UNKNOWN_COUNT" -gt 2 ]; then
+    echo "Checking if errors exist: EXCEPTION_COUNT=$EXCEPTION_COUNT > MAX_ALLOWED_EXCEPTIONS=$MAX_ALLOWED_EXCEPTIONS or UNKNOWN_APP_COUNT=$UNKNOWN_APP_COUNT > 2"
+    if [ "$EXCEPTION_COUNT" -gt "$MAX_ALLOWED_EXCEPTIONS" ] || [ "$UNKNOWN_APP_COUNT" -gt 2 ]; then
         echo "Error condition detected!"
         is_error=true
     else
@@ -291,7 +313,7 @@ run_whitelist_test() {
 
     # Handle test result using common function
     local test_mode=$(echo "$test_key" | cut -d '_' -f1)  # Extract "connected" or "disconnected"
-    local error_message="Detected too many non-conforming exceptions (${EXCEPTION_COUNT} > ${MAX_ALLOWED_EXCEPTIONS}) or unknown exceptions (${UNKNOWN_COUNT} > 2)."
+    local error_message="Detected too many non-conforming exceptions (${EXCEPTION_COUNT} > ${MAX_ALLOWED_EXCEPTIONS}) or unknown exceptions (${UNKNOWN_APP_COUNT} > 2, excluding ${UNKNOWN_INFRA_COUNT} cloud-runner infra session(s))."
     echo "Calling handle_test_result with: whitelist, $test_mode, $is_error, '$error_message'"
     handle_test_result "whitelist" "$test_mode" "$is_error" "$error_message"
 
