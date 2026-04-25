@@ -455,7 +455,12 @@ pub fn build_cli() -> Command {
     .subcommand(
         Command::new("background-vulnerability-status")
             .alias("vulnerability-status")
-            .about("Get vulnerability detector status"),
+            .about("Get vulnerability detector status")
+            .arg(
+                arg!(--"fail-on-findings" "Exit with code 1 if active vulnerability findings are detected")
+                    .required(false)
+                    .action(ArgAction::SetTrue),
+            ),
     )
     .subcommand(
         Command::new("background-vulnerability-dismiss")
@@ -1187,6 +1192,32 @@ mod tests {
         let (sub, sub_matches) = matches.subcommand().expect("expected subcommand");
         assert_eq!(sub, "background-get-file-events");
         assert!(!sub_matches.get_flag("fail-on-suspicious"));
+    }
+
+    #[test]
+    fn vulnerability_status_parses_with_fail_flag() {
+        let matches = build_cli()
+            .try_get_matches_from([
+                "edamame_posture",
+                "background-vulnerability-status",
+                "--fail-on-findings",
+            ])
+            .expect("background-vulnerability-status should accept --fail-on-findings");
+
+        let (sub, sub_matches) = matches.subcommand().expect("expected subcommand");
+        assert_eq!(sub, "background-vulnerability-status");
+        assert!(sub_matches.get_flag("fail-on-findings"));
+    }
+
+    #[test]
+    fn vulnerability_status_alias_parses_without_fail_flag() {
+        let matches = build_cli()
+            .try_get_matches_from(["edamame_posture", "vulnerability-status"])
+            .expect("vulnerability-status alias should parse");
+
+        let (sub, sub_matches) = matches.subcommand().expect("expected subcommand");
+        assert_eq!(sub, "background-vulnerability-status");
+        assert!(!sub_matches.get_flag("fail-on-findings"));
     }
 
     #[test]

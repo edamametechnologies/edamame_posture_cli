@@ -1861,14 +1861,46 @@ pub fn background_vulnerability_stop() -> i32 {
     }
 }
 
-pub fn background_vulnerability_status() -> i32 {
+pub fn background_vulnerability_status(fail_on_findings: bool) -> i32 {
     match rpc_get_vulnerability_detector_status(
         &EDAMAME_CA_PEM,
         &EDAMAME_CLIENT_PEM,
         &EDAMAME_CLIENT_KEY,
         &EDAMAME_TARGET,
     ) {
-        Ok(result) => print_json_pretty(&result, "vulnerability detector status"),
+        Ok(result) => {
+            let json_value: serde_json::Value = match serde_json::from_str(&result) {
+                Ok(value) => value,
+                Err(e) => {
+                    eprintln!("Error parsing vulnerability detector status JSON: {}", e);
+                    return ERROR_CODE_SERVER_ERROR;
+                }
+            };
+
+            match serde_json::to_string_pretty(&json_value) {
+                Ok(pretty_json) => println!("{}", pretty_json),
+                Err(e) => {
+                    eprintln!("Error formatting vulnerability detector status JSON: {}", e);
+                    return ERROR_CODE_SERVER_ERROR;
+                }
+            }
+
+            if fail_on_findings {
+                let active_findings = json_value
+                    .get("active_findings")
+                    .and_then(|value| value.as_u64())
+                    .unwrap_or(0);
+                if active_findings > 0 {
+                    eprintln!(
+                        "Active vulnerability findings detected: {}",
+                        active_findings
+                    );
+                    return ERROR_CODE_MISMATCH;
+                }
+            }
+
+            0
+        }
         Err(e) => {
             eprintln!("Error getting vulnerability detector status: {}", e);
             ERROR_CODE_SERVER_ERROR
