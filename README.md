@@ -327,6 +327,8 @@ edamame_posture get-file-events [--fail-on-suspicious]
 edamame_posture clear-file-events
 ```
 
+The vulnerability detector does **not** require an LLM provider or API key to emit findings. It runs model-independent runtime checks from packet capture, blacklist/anomaly evidence, file integrity events, and host telemetry. For CI/security gates, though, configuring an LLM is strongly recommended: EDAMAME can use it to adjudicate, suppress likely false positives, and produce better alert context. Without an LLM, raw detector findings still appear and `--fail-on-findings` still gates CI.
+
 
 ### Step 8: Stop the Daemon (When Needed)
 
@@ -1622,7 +1624,7 @@ Once installed, EDAMAME Posture is invoked via the `edamame_posture` command. Mo
 - **dismiss-device** `<IP_ADDRESS>` / **dismiss-device-port** `<IP_ADDRESS>` `<PORT>`: Mark an entire device (or a single port) as intentionally allowed. These commands add the relevant dismiss rules so future network scans treat the traffic as expected—ideal when you intentionally allow a service but still want posture reporting for everything else.
 - **dismiss-session** `<SESSION_UID>` / **dismiss-session-process** `<SESSION_UID>`: Silence a specific network session or every future session spawned by the same process. Use these commands after reviewing agentic/Slack summaries to acknowledge expected but noisy connections.
 - **background-divergence-dismiss** `<FINDING_KEY>` / **background-divergence-undismiss** `<FINDING_KEY>`: Dismiss or restore divergence evidence by finding key. Use when Slack/Telegram alerts indicate a divergence finding; the finding key is shown in the notification.
-- **background-vulnerability-status** / **vulnerability-status** `[--fail-on-findings]`: Display runtime vulnerability detector status. Use `--fail-on-findings` in CI/CD to return a non-zero exit code when active runtime vulnerability findings exist.
+- **background-vulnerability-status** / **vulnerability-status** `[--fail-on-findings]`: Display runtime vulnerability detector status. Use `--fail-on-findings` in CI/CD to return a non-zero exit code when active runtime vulnerability findings exist. This gate does not require an LLM, but an LLM is recommended for CI/security use because adjudication and suppression reduce noise and improve alert text.
 - **background-vulnerability-dismiss** `<FINDING_KEY>` / **background-vulnerability-undismiss** `<FINDING_KEY>`: Dismiss or restore vulnerability findings by finding key.
 - **check-policy** `<min_score>` `"<threat_ids>"` `"[tag_prefixes]"`: Check whether the system meets a specified security policy. You provide a minimum score threshold, a comma-separated list of critical threat IDs to ensure are not present (or have specific states), and optional tag prefixes for compliance frameworks. This command exits with code 0 if the policy is met, or non-zero if not met (making it perfect for CI gating).
 - **check-policy-for-domain** `<domain>` `<policy_name>`: Similar to check-policy, but retrieves the policy requirements from EDAMAME Hub for the given domain and policy name. This allows centralized policies to be enforced on the local machine. Requires that the machine is enrolled (or at least has a policy cached) for that domain.
@@ -1689,7 +1691,7 @@ For completeness, here is a list of EDAMAME Posture CLI subcommands with detaile
 - **background-divergence-dismiss** (alias **divergence-dismiss**) `<FINDING_KEY>` – Dismiss divergence evidence by finding key. Communicates with the running daemon. Use when Slack/Telegram alerts indicate a divergence finding; the finding key is shown in the notification.
 - **background-divergence-undismiss** (alias **divergence-undismiss**) `<FINDING_KEY>` – Restore previously dismissed divergence evidence.
 - **background-divergence-reset-suppressions** (alias **divergence-reset-suppressions**) – Reset all divergence suppressions.
-- **background-vulnerability-status** (alias **vulnerability-status**) `[--fail-on-findings]` – Display runtime vulnerability detector status. With `--fail-on-findings`, returns non-zero when `active_findings` is greater than zero, making it suitable as a CI/CD stop-on-vulnerability gate.
+- **background-vulnerability-status** (alias **vulnerability-status**) `[--fail-on-findings]` – Display runtime vulnerability detector status. With `--fail-on-findings`, returns non-zero when `active_findings` is greater than zero, making it suitable as a CI/CD stop-on-vulnerability gate. No LLM is required for raw findings, but LLM configuration is recommended for adjudication, suppression, and clearer alerts.
 - **background-vulnerability-dismiss** (alias **vulnerability-dismiss**) `<FINDING_KEY>` – Dismiss vulnerability finding by finding key.
 - **background-vulnerability-undismiss** (alias **vulnerability-undismiss**) `<FINDING_KEY>` – Restore previously dismissed vulnerability finding.
 - **background-vulnerability-reset-suppressions** (alias **vulnerability-reset-suppressions**) – Reset all vulnerability suppressions.

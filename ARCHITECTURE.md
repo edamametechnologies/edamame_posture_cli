@@ -164,6 +164,8 @@ edamame-posture divergence-undismiss <FINDING_KEY>
 edamame-posture divergence-reset-suppressions
 ```
 
+The vulnerability detector is model-independent for detection: it can emit findings and fail CI via `vulnerability-status --fail-on-findings` without an LLM provider or API key. For CI/security gates, LLM configuration is strongly recommended because it enables adjudication, likely false-positive suppression, and clearer alert text.
+
 ### File Integrity Monitoring Commands
 ```bash
 edamame-posture start-file-monitor [--paths <PATHS>]
