@@ -1,9 +1,9 @@
-# EDAMAME Posture: Free CI/CD & Coding Agents CLI
+# EDAMAME Posture: Free CI/CD and Coding Agent CLI
 
-> Part of the **[EDAMAME Agents](https://github.com/edamametechnologies#edamame-agents)** family - AI-powered security assistants for the modern SDLC with shared LLM subscription via [EDAMAME Portal](https://portal.edamame.tech).
+> **EDAMAME** is the developer-first, agent-first runtime security layer for the SDLC. **EDAMAME Posture** secures CI/CD runners, build hosts, and self-hosted agent hosts, **EDAMAME Security** protects workstations and local coding sessions, **EDAMAME Hub** gives teams fleet visibility and proof, and **EDAMAME Portal** handles account access and managed LLM subscription.
 
 ## What is it?
-EDAMAME Posture is a lightweight, developer-friendly security posture assessment and remediation tool—perfect for those who want a straightforward way to secure their development environment, CI/CD pipelines, and coding agent infrastructure without slowing down development.
+EDAMAME Posture is a lightweight, developer-first CLI for runner and build-host trust gates, posture checks, runtime network enforcement, and self-hosted agent infrastructure without slowing down development.
 
 ## Table of Contents
 - [What is it?](#what-is-it)
@@ -1717,7 +1717,7 @@ Each command may have additional options and flags; run `edamame_posture <comman
 
 ## AI Assistant for Automated Security Management
 
-EDAMAME Posture includes an **AI Assistant** that provides automated "Do It For Me" functionality for security posture management. The AI assistant can automatically process security todos using LLM (Large Language Model) analysis, reducing manual security work while maintaining safety.
+EDAMAME Posture includes an **AI Assistant** that provides automated "Do It For Me" functionality for posture checks, runtime monitoring, and remediation. The AI assistant can automatically process security todos using LLM (Large Language Model) analysis, reducing manual security work while maintaining safety.
 
 ### Background Daemon Integration (Recommended)
 
