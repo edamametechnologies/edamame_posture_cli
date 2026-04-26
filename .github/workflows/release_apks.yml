@@ -62,7 +62,14 @@ jobs:
           token: ${{ secrets.DEV_GITHUB_TOKEN }}
           wait_for_api: true
           wait_for_https: true
-
+          packet_capture: true
+          vulnerability_detection: true
+          vulnerability_detection_interval: "60"
+          agentic_mode: analyze
+          agentic_provider: edamame
+          agentic_interval: 600
+        env:
+          EDAMAME_LLM_API_KEY: ${{ secrets.EDAMAME_LLM_API_KEY }}
       ############################################################################################
       # Setup
       ############################################################################################
@@ -439,6 +446,8 @@ jobs:
           dump_sessions_log: true
           promote_exceptions: ${{ vars.EDAMAME_AUTO_WHITELIST_PROMOTE_EXCEPTIONS }}      
           
+          dump_vulnerability_findings: true
+          exit_on_vulnerability_findings: true
       - name: Slack alert on failure
         if: failure()
         uses: slackapi/slack-github-action@v1.26.0
