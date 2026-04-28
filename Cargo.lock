@@ -1861,8 +1861,8 @@ dependencies = [
 
 [[package]]
 name = "edamame_core"
-version = "1.2.2"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#b8ed3c7928b6d95f1c0c809c50ff18abed67f303"
+version = "1.2.3"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#cf3b46cc7965ac8addfc125fa15cc173397edab9"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -1950,8 +1950,8 @@ dependencies = [
 
 [[package]]
 name = "edamame_foundation"
-version = "1.2.2"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#52a3c11c9b3bacd062338df0ee5de64ccc9ff1f4"
+version = "1.2.3"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#98a22352376d49a6c8223fb6ee9a892904545e3e"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -1981,12 +1981,10 @@ dependencies = [
  "once_cell",
  "oui",
  "parking_lot",
- "powershell_script",
  "prost",
  "rand 0.9.4",
  "regex",
  "reqwest",
- "run_script",
  "sentry",
  "sentry-tracing",
  "serde",
@@ -2425,8 +2423,8 @@ dependencies = [
 
 [[package]]
 name = "flodbadd"
-version = "1.2.2"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#64f73f1c560882f5a598779fb4c8f6cf17840def"
+version = "1.2.3"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#1164cf2a9f1a1903fea8f1e6e8b965d362ec3770"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -4031,7 +4029,7 @@ dependencies = [
 [[package]]
 name = "l7_ebpf_program"
 version = "0.1.0"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#64f73f1c560882f5a598779fb4c8f6cf17840def"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#1164cf2a9f1a1903fea8f1e6e8b965d362ec3770"
 
 [[package]]
 name = "lazy_static"
@@ -7493,7 +7491,7 @@ dependencies = [
 [[package]]
 name = "threatmodels_rs"
 version = "0.1.1"
-source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#7e33421f42c830b8c37718cfdcca446cfc0476c4"
+source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#86d93c1fc2991edc9cd51d460b07b4c6c4d84904"
 dependencies = [
  "anyhow",
  "chrono",
@@ -8032,7 +8030,7 @@ checksum = "40ce102ab67701b8526c123c1bab5cbe42d7040ccfd0f64af1a385808d2f43de"
 [[package]]
 name = "undeadlock"
 version = "1.2.0"
-source = "git+https://github.com/edamametechnologies/undeadlock?branch=main#d89d4bb59d9bb5a94824f767cb0777d90376ba4f"
+source = "git+https://github.com/edamametechnologies/undeadlock?branch=main#e243a6d586aedd1bf7a4c8dc561560b7c0b67dcf"
 dependencies = [
  "dashmap 6.1.0",
  "tokio",
