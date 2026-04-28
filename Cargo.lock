@@ -1862,7 +1862,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "1.2.3"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#cf3b46cc7965ac8addfc125fa15cc173397edab9"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#b3158746ddf827cb6f46621c59674ab240fa86f1"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -1951,7 +1951,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "1.2.3"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#98a22352376d49a6c8223fb6ee9a892904545e3e"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#8670613fcd82cbcb0088222650d77a25762d317b"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -3529,7 +3529,7 @@ dependencies = [
  "js-sys",
  "log",
  "wasm-bindgen",
- "windows-core 0.62.2",
+ "windows-core 0.58.0",
 ]
 
 [[package]]
@@ -8030,7 +8030,7 @@ checksum = "40ce102ab67701b8526c123c1bab5cbe42d7040ccfd0f64af1a385808d2f43de"
 [[package]]
 name = "undeadlock"
 version = "1.2.0"
-source = "git+https://github.com/edamametechnologies/undeadlock?branch=main#e243a6d586aedd1bf7a4c8dc561560b7c0b67dcf"
+source = "git+https://github.com/edamametechnologies/undeadlock?branch=main#b913637e74368cf2f347df6cca32c6f38a3c587d"
 dependencies = [
  "dashmap 6.1.0",
  "tokio",
