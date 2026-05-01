@@ -1861,6 +1861,67 @@ pub fn background_vulnerability_stop() -> i32 {
     }
 }
 
+/// Dump active runtime vulnerability findings as JSON.
+///
+/// Calls the `get_vulnerability_findings` RPC on the running daemon and
+/// pretty-prints the report (which includes per-finding `finding_key`,
+/// `check`, `severity`, `description`, `process_*`, `destination_*`,
+/// `open_files`, and `detection_basis`). When `--active-only` is set,
+/// the output is filtered to non-dismissed findings only.
+///
+/// Exit codes:
+///   0 -- printed report (zero or more findings)
+///   ERROR_CODE_SERVER_ERROR -- RPC failed or response was unparseable
+pub fn background_vulnerability_findings(active_only: bool) -> i32 {
+    match rpc_get_vulnerability_findings(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => {
+            // The RPC returns a JSON-encoded string (the inner value is
+            // already a JSON object with `findings` etc.). Parse it once
+            // so we can pretty-print and optionally filter.
+            let inner: serde_json::Value = match serde_json::from_str(&result) {
+                Ok(v) => v,
+                Err(e) => {
+                    eprintln!(
+                        "Error parsing vulnerability findings JSON: {} -- raw: {}",
+                        e, result
+                    );
+                    return ERROR_CODE_SERVER_ERROR;
+                }
+            };
+
+            let mut report = inner;
+            if active_only {
+                if let Some(findings) = report.get_mut("findings").and_then(|f| f.as_array_mut()) {
+                    findings.retain(|finding| {
+                        !finding
+                            .get("dismissed")
+                            .and_then(|d| d.as_bool())
+                            .unwrap_or(false)
+                    });
+                }
+            }
+
+            match serde_json::to_string_pretty(&report) {
+                Ok(pretty) => println!("{}", pretty),
+                Err(e) => {
+                    eprintln!("Error formatting vulnerability findings JSON: {}", e);
+                    return ERROR_CODE_SERVER_ERROR;
+                }
+            }
+            0
+        }
+        Err(e) => {
+            eprintln!("Error getting vulnerability findings: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
 pub fn background_vulnerability_status(fail_on_findings: bool) -> i32 {
     match rpc_get_vulnerability_detector_status(
         &EDAMAME_CA_PEM,

@@ -463,6 +463,16 @@ pub fn build_cli() -> Command {
             ),
     )
     .subcommand(
+        Command::new("background-vulnerability-findings")
+            .alias("vulnerability-findings")
+            .about("Dump active runtime vulnerability findings as JSON")
+            .arg(
+                arg!(--"active-only" "Filter out dismissed findings before printing")
+                    .required(false)
+                    .action(ArgAction::SetTrue),
+            ),
+    )
+    .subcommand(
         Command::new("background-vulnerability-dismiss")
             .alias("vulnerability-dismiss")
             .about("Dismiss vulnerability finding by finding key")

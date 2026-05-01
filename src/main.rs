@@ -1224,6 +1224,12 @@ fn run_base() {
             exit_code = background_vulnerability_status(fail_on_findings);
             is_background = true;
         }
+        Some(("background-vulnerability-findings", sub_matches)) => {
+            let active_only = sub_matches.get_flag("active-only");
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_vulnerability_findings(active_only);
+            is_background = true;
+        }
         Some(("background-vulnerability-dismiss", sub_matches)) => {
             let finding_key = sub_matches
                 .get_one::<String>("FINDING_KEY")
