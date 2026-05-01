@@ -1727,6 +1727,33 @@ jobs:
           find "results/${{ matrix.label }}" -type f \( -name '*.log' -o -name '*.json' -o -name '*.ndjson' \) -print0 \
             | xargs -0 python3 tests/common/sanitize_logs.py || true
 
+      # CVE scenarios deliberately fire `HIGH`/`CRITICAL` vulnerability
+      # findings (xmrig/exfil under /tmp/.hidden, credential sprawl, token
+      # exfiltration, etc.). These persist in the daemon's
+      # `agentic_config.json` and would be picked up by ANY subsequent job
+      # on the same runner that calls `vulnerability-status
+      # --fail-on-findings` (the runner-protection gate that all release,
+      # test, and signing workflows now use). The cluster of github-hosted
+      # runners we use here is ephemeral, but if any of these matrix legs
+      # ever lands on a self-hosted runner the persisted findings would
+      # leak into the next job. Clear the vuln history at the end of every
+      # security run so the next job sees a clean state.
+      - name: Clear runtime vulnerability state (test artifacts)
+        if: always()
+        shell: bash
+        env:
+          EDAMAME_CLI: ${{ env.EDAMAME_CLI }}
+        run: |
+          if [[ -z "${EDAMAME_CLI:-}" ]] || ! command -v "$EDAMAME_CLI" >/dev/null 2>&1; then
+            echo "edamame_cli not available; skipping runtime cleanup."
+            exit 0
+          fi
+          echo "Clearing all runtime vulnerability findings (test scenarios)..."
+          "$EDAMAME_CLI" rpc clear_vulnerability_history || true
+          "$EDAMAME_CLI" rpc reset_vulnerability_suppressions || true
+          echo "After cleanup:"
+          "$EDAMAME_CLI" rpc get_vulnerability_detector_status --pretty || true
+
       - name: Upload platform results
         if: always()
         uses: actions/upload-artifact@v4
