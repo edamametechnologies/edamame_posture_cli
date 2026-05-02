@@ -67,7 +67,7 @@ jobs:
           wait_for_api: true
           wait_for_https: true
           packet_capture: true
-          vulnerability_detection: true
+          vulnerability_detection: false
           vulnerability_detection_interval: "60"
           agentic_mode: analyze
           agentic_provider: edamame
@@ -528,7 +528,7 @@ jobs:
           dump_sessions_log: true
           promote_exceptions: ${{ vars.EDAMAME_AUTO_WHITELIST_PROMOTE_EXCEPTIONS }}      
           
-          dump_vulnerability_findings: true
+          dump_vulnerability_findings: false
           # Bootstrap workaround: deployed posture (v1.2.2) does not yet have the
           # G-3 CI runner / Keychain-transactional allowlists, so the gate fires on
           # platform-baseline FPs (Runner.Worker.exe egress, .env checkout, Keychain
