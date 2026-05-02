@@ -108,8 +108,40 @@ The threshold multiplier scales the global ``--threshold`` for that metric:
 #   A 4x multiplier (effective +400%/+800% headroom) tolerates the
 #   warm-vs-cold transition while still flagging a 5x+ regression
 #   that would indicate a real problem.
+#
+# - ``lanscan``: discovery scenario that drives ARP/ICMP/mDNS/DNS
+#   probes against the runner's RFC1918 subnet plus a 1020-entry
+#   gateway candidate sweep. Several inputs whose cost we do not
+#   control land in the 5-minute window:
+#     * Upstream DNS / mDNS responsiveness (varies with neighbour
+#       traffic on the shared Azure subnet).
+#     * On-demand decode of `Lazy<String>` CloudModel embedded
+#       fallbacks (OUI, vendor_vulns_db, port_vulns_db, ...) when
+#       device classification first touches each DB; subsequent
+#       reads are pointer loads but the first-touch decode shows
+#       up in the avg if it lands inside the sampling window.
+#     * Windows subprocess invocation cost (PowerShell-backed
+#       lookups + Defender real-time scanning of the spawned
+#       processes) which is unusually expensive on shared
+#       windows-2022 runners.
+#   Empirically this can swing the same code's `cpu_percent_avg`
+#   from ~2.5% to ~5.5% on consecutive windows-x64 runs without any
+#   real change. A 2x multiplier (effective +200%/+400% headroom)
+#   absorbs this without masking a real 3x+ steady-state
+#   regression.
 SCENARIO_MULTIPLIERS: Dict[str, float] = {
     "llm": 4.0,
+    "lanscan": 2.0,
+}
+
+# Short rationale string per scenario, used to label the per-scenario
+# multiplier in the gate's Markdown output. Keeping this separate from
+# ``SCENARIO_MULTIPLIERS`` so that the table renders correctly even if
+# someone adds a multiplier without updating the rationale (the table
+# falls back to a generic note).
+SCENARIO_MULTIPLIER_NOTES: Dict[str, str] = {
+    "llm": "intrinsic variance from LLM model load/inference timing",
+    "lanscan": "intrinsic variance from DNS/mDNS/Defender + on-demand CloudModel fallback decode",
 }
 
 
@@ -184,10 +216,8 @@ def main() -> int:
         print("| Scenario | Threshold multiplier |")
         print("|---|---|")
         for scen, mult in sorted(SCENARIO_MULTIPLIERS.items()):
-            print(
-                f"| `{scen}` | x{mult:g}"
-                " (intrinsic variance from LLM model load/inference timing) |"
-            )
+            note = SCENARIO_MULTIPLIER_NOTES.get(scen, "intrinsic variance")
+            print(f"| `{scen}` | x{mult:g} ({note}) |")
         print()
 
     if not os.path.isdir(args.baseline):
