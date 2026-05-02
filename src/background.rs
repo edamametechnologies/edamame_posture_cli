@@ -1947,14 +1947,33 @@ pub fn background_vulnerability_status(fail_on_findings: bool) -> i32 {
             }
 
             if fail_on_findings {
-                let active_findings = json_value
-                    .get("active_findings")
-                    .and_then(|value| value.as_u64())
-                    .unwrap_or(0);
+                // Prefer `active_alertable_findings` (HIGH/CRITICAL only)
+                // when the daemon exposes it. LOW severity findings
+                // (e.g. ambient `spawned_from_tmp` signals from CI
+                // bootstrappers like `rustup-init` or `cargo install`)
+                // appear in the dashboard for visibility but should not
+                // by themselves fail the gate. Older daemons that do
+                // not yet emit this field fall back to the raw
+                // `active_findings` total so the gate keeps working
+                // during a rolling upgrade.
+                let alertable_findings = json_value
+                    .get("active_alertable_findings")
+                    .and_then(|value| value.as_u64());
+                let active_findings = alertable_findings.unwrap_or_else(|| {
+                    json_value
+                        .get("active_findings")
+                        .and_then(|value| value.as_u64())
+                        .unwrap_or(0)
+                });
                 if active_findings > 0 {
                     eprintln!(
-                        "Active vulnerability findings detected: {}",
-                        active_findings
+                        "Active vulnerability findings detected: {} ({})",
+                        active_findings,
+                        if alertable_findings.is_some() {
+                            "HIGH/CRITICAL severity"
+                        } else {
+                            "all severities (legacy daemon)"
+                        }
                     );
                     return ERROR_CODE_MISMATCH;
                 }
