@@ -365,6 +365,27 @@ prepare_scenario_state() {
   fi
 }
 
+trigger_extra_args() {
+  local scenario="$1"
+  case "$scenario" in
+    npm_rat_beacon)
+      # The npm RAT scenario detects through the anomaly-token path:
+      # active anomalous session + sensitive open file attribution.
+      # A 10s beacon cadence only emits ~30 requests in the 5-minute
+      # CI window, which is too sparse on noisy ubuntu-x64 runners: the
+      # iForest anomaly window can appear after the live-open-file sample
+      # has already missed the stage-2 process. Keep the same threat
+      # shape (stage-2 beacon from /tmp with npm/ssh files held open)
+      # but shorten the cadence so anomaly scoring and L7 enrichment have
+      # overlapping samples inside the fixed release-gate window.
+      echo "--interval 2"
+      ;;
+    *)
+      echo ""
+      ;;
+  esac
+}
+
 run_cleanup() {
   local cleanup_path="$TRIGGERS_DIR/cleanup.py"
   [[ -f "$cleanup_path" ]] || return 0
@@ -511,9 +532,12 @@ run_one_scenario_attempt() {
 
   local start_epoch
   start_epoch=$(date +%s)
+  local extra_args=()
+  read -r -a extra_args <<<"$(trigger_extra_args "$scenario")"
   TRIGGERS_DIR_ENV="$TRIGGERS_DIR" "$PYTHON" "$trigger_script" \
     --agent-type "$AGENT_TYPE" \
     --duration "$TRIGGER_DURATION" \
+    "${extra_args[@]}" \
     >>"$OUTPUT_DIR_ABS/${scenario}.trigger.log" 2>&1 &
   local trigger_pid=$!
   log "  trigger started pid=$trigger_pid"

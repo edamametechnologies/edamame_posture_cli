@@ -172,7 +172,13 @@ fi
 # Test request-report command (using a test email)
 if [[ "$signature" != "signature_error" && ! -z "$signature" ]]; then
     echo "Request report:"
-    $SUDO_CMD "$BINARY_PATH" $VERBOSE_FLAG request-report "test@example.com" "$signature" && request_report_result="✅" || request_report_result="❌"
+    # Git Bash/MSYS treats argv entries starting with "/" as POSIX paths and
+    # rewrites them to "C:/Program Files/Git/..." before launching Windows
+    # binaries. Report signatures are base64 and can legitimately start with
+    # "/" (for example "/qCVo...="). Disable that argv conversion only for
+    # this command so Clap receives the exact signature emitted above.
+    MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL='*' \
+        $SUDO_CMD "$BINARY_PATH" $VERBOSE_FLAG request-report "test@example.com" "$signature" && request_report_result="✅" || request_report_result="❌"
 else
     echo "🔴 Error: Skipping request-report due to signature error or empty signature."
     request_report_result="⏭️"
