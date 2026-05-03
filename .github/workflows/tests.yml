@@ -42,6 +42,10 @@ on:
         description: "Build edamame_posture from this checkout. If false, perf/security run against the latest released binary installed by edamame_posture_action; general tests are skipped (they require source)."
         type: boolean
         default: true
+      reuse_build_run_id:
+        description: "Existing workflow run ID to download posture-binary-* artifacts from. Empty = build in this run."
+        required: false
+        default: ""
       perf_duration_seconds:
         description: "Seconds per perf scenario (default 300)."
         required: false
@@ -105,6 +109,7 @@ jobs:
       run_perf: ${{ steps.flags.outputs.run_perf }}
       run_security: ${{ steps.flags.outputs.run_security }}
       build_from_source: ${{ steps.flags.outputs.build_from_source }}
+      reuse_build_run_id: ${{ steps.flags.outputs.reuse_build_run_id }}
       full_default_run: ${{ steps.flags.outputs.full_default_run }}
       perf_duration_seconds: ${{ steps.flags.outputs.perf_duration_seconds }}
       perf_scenarios: ${{ steps.flags.outputs.perf_scenarios }}
@@ -127,6 +132,7 @@ jobs:
           IN_RUN_PERF: ${{ github.event.inputs.run_perf }}
           IN_RUN_SECURITY: ${{ github.event.inputs.run_security }}
           IN_BUILD_FROM_SOURCE: ${{ github.event.inputs.build_from_source }}
+          IN_REUSE_BUILD_RUN_ID: ${{ github.event.inputs.reuse_build_run_id }}
           IN_PLATFORMS: ${{ github.event.inputs.platforms }}
           IN_PERF_DURATION: ${{ github.event.inputs.perf_duration_seconds }}
           IN_PERF_SCENARIOS: ${{ github.event.inputs.perf_scenarios }}
@@ -147,6 +153,7 @@ jobs:
           RP="${IN_RUN_PERF:-true}"
           RS="${IN_RUN_SECURITY:-true}"
           BF="${IN_BUILD_FROM_SOURCE:-true}"
+          RBR="${IN_REUSE_BUILD_RUN_ID:-}"
           PD="${IN_PERF_DURATION:-300}"
           PS="${IN_PERF_SCENARIOS:-$DEFAULT_PERF_SCEN}"
           ST="${IN_SEC_TRIGGER:-300}"
@@ -164,6 +171,10 @@ jobs:
           else
             FULL_DEFAULT=false
           fi
+          if [[ -n "$RBR" && "$BF" != "true" ]]; then
+            echo "::error::reuse_build_run_id requires build_from_source=true"
+            exit 1
+          fi
 
           # perf_full_default: true when perf would, additionally, cover
           # the full default scenario set at the canonical 300s duration.
@@ -180,6 +191,7 @@ jobs:
             echo "run_perf=$RP"
             echo "run_security=$RS"
             echo "build_from_source=$BF"
+            echo "reuse_build_run_id=$RBR"
             echo "full_default_run=$FULL_DEFAULT"
             echo "perf_duration_seconds=$PD"
             echo "perf_scenarios=$PS"
@@ -192,7 +204,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
           echo "Effective flags:"
-          echo "  run_tests=$RT  run_perf=$RP  run_security=$RS  build_from_source=$BF"
+          echo "  run_tests=$RT  run_perf=$RP  run_security=$RS  build_from_source=$BF  reuse_build_run_id=${RBR:-<current run>}"
           echo "  full_default_run=$FULL_DEFAULT  perf_full_default=$PERF_FULL_DEFAULT"
 
       - name: Build native + container matrices
@@ -265,7 +277,7 @@ jobs:
   build:
     name: Build (${{ matrix.label }})
     needs: setup
-    if: needs.setup.outputs.build_from_source == 'true' && needs.setup.outputs.have_native == 'true'
+    if: needs.setup.outputs.build_from_source == 'true' && needs.setup.outputs.reuse_build_run_id == '' && needs.setup.outputs.have_native == 'true'
     timeout-minutes: 90
     strategy:
       fail-fast: false
@@ -1118,7 +1130,7 @@ jobs:
       always() && needs.setup.result == 'success' &&
       needs.setup.outputs.run_perf == 'true' &&
       needs.setup.outputs.have_native == 'true' &&
-      (needs.setup.outputs.build_from_source != 'true' || needs.build.result == 'success')
+      (needs.setup.outputs.build_from_source != 'true' || needs.build.result == 'success' || needs.setup.outputs.reuse_build_run_id != '')
     timeout-minutes: 120
     strategy:
       fail-fast: false
@@ -1175,6 +1187,8 @@ jobs:
         with:
           name: posture-binary-${{ matrix.label }}
           path: posture-artifact
+          run-id: ${{ needs.setup.outputs.reuse_build_run_id != '' && needs.setup.outputs.reuse_build_run_id || github.run_id }}
+          github-token: ${{ github.token }}
 
       - name: Install pre-built binary (Linux)
         if: env.BUILD_FROM_SOURCE == 'true' && matrix.os == 'ubuntu'
@@ -1375,7 +1389,7 @@ jobs:
       always() && needs.setup.result == 'success' &&
       needs.setup.outputs.run_security == 'true' &&
       needs.setup.outputs.have_native == 'true' &&
-      (needs.setup.outputs.build_from_source != 'true' || needs.build.result == 'success')
+      (needs.setup.outputs.build_from_source != 'true' || needs.build.result == 'success' || needs.setup.outputs.reuse_build_run_id != '')
     timeout-minutes: 120
     strategy:
       fail-fast: false
@@ -1435,6 +1449,8 @@ jobs:
         with:
           name: posture-binary-${{ matrix.label }}
           path: posture-artifact
+          run-id: ${{ needs.setup.outputs.reuse_build_run_id != '' && needs.setup.outputs.reuse_build_run_id || github.run_id }}
+          github-token: ${{ github.token }}
 
       - name: Install pre-built binary (Linux)
         if: env.BUILD_FROM_SOURCE == 'true' && matrix.os == 'ubuntu'
