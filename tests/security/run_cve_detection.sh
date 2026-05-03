@@ -532,13 +532,22 @@ run_one_scenario_attempt() {
 
   local start_epoch
   start_epoch=$(date +%s)
-  local extra_args=()
-  read -r -a extra_args <<<"$(trigger_extra_args "$scenario")"
-  TRIGGERS_DIR_ENV="$TRIGGERS_DIR" "$PYTHON" "$trigger_script" \
-    --agent-type "$AGENT_TYPE" \
-    --duration "$TRIGGER_DURATION" \
-    "${extra_args[@]}" \
-    >>"$OUTPUT_DIR_ABS/${scenario}.trigger.log" 2>&1 &
+  local extra_args_str
+  extra_args_str="$(trigger_extra_args "$scenario")"
+  if [[ -n "$extra_args_str" ]]; then
+    # shellcheck disable=SC2206 # Intentional simple flag splitting.
+    local extra_args=( $extra_args_str )
+    TRIGGERS_DIR_ENV="$TRIGGERS_DIR" "$PYTHON" "$trigger_script" \
+      --agent-type "$AGENT_TYPE" \
+      --duration "$TRIGGER_DURATION" \
+      "${extra_args[@]}" \
+      >>"$OUTPUT_DIR_ABS/${scenario}.trigger.log" 2>&1 &
+  else
+    TRIGGERS_DIR_ENV="$TRIGGERS_DIR" "$PYTHON" "$trigger_script" \
+      --agent-type "$AGENT_TYPE" \
+      --duration "$TRIGGER_DURATION" \
+      >>"$OUTPUT_DIR_ABS/${scenario}.trigger.log" 2>&1 &
+  fi
   local trigger_pid=$!
   log "  trigger started pid=$trigger_pid"
 
