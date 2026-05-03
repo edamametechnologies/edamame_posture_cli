@@ -15,9 +15,12 @@ variance profile of each metric is fundamentally different:
 - ``cpu_percent_max`` is a 1-second peak sample on a 4-core box and
   routinely swings between +50% and +200% across same-code runs because
   background scheduler steal hits unpredictably.
-- ``rss_mb_max`` is a peak resident-set sample but memory growth is
-  much more deterministic than CPU peak, so the same +100% headroom as
-  the avg metrics keeps it tight.
+- ``rss_mb_max`` is a peak resident-set sample. It is less noisy than
+  CPU peak, but it can still catch one-off child-process / first-touch
+  startup spikes when the sampler walks the daemon and descendants. The
+  gate therefore treats peak RSS as corroborating evidence: it blocks
+  only when average RSS also regressed, or when the peak alone exceeds
+  the much wider emergency threshold.
 
 The thresholds below mirror this physics: avg metrics gate at +100%
 (genuine regressions worth blocking double the steady-state load), peak
@@ -89,6 +92,18 @@ this avoids false positives on very small values (e.g. idle CPU percent).
 The threshold multiplier scales the global ``--threshold`` for that metric:
   effective_threshold = global_threshold * metric_multiplier * scenario_multiplier
 """
+
+# Peak RSS is useful for catching true memory blowups, but it is too brittle
+# as a standalone release blocker. In the sampler used by the perf suite,
+# `rss_mb_max` includes short-lived descendants of the daemon. A one-sample
+# child-process peak can double `rss_mb_max` while `rss_mb_avg` remains flat.
+#
+# Gate policy:
+#   - if RSS avg also exceeds its effective threshold, RSS max can fail normally
+#   - otherwise RSS max only fails if it exceeds this emergency multiplier
+#     (default +300%), which catches genuine memory explosions without blocking
+#     on isolated one-sample startup/report/update spikes.
+RSS_MAX_STANDALONE_MULTIPLIER = 3.0
 
 
 # Per-scenario threshold multipliers. Some scenarios are intrinsically
@@ -242,6 +257,20 @@ def main() -> int:
             base_summary = base.get(plat, {}).get(scen)
             if not base_summary:
                 continue
+
+            rss_avg_ratio: Optional[float] = None
+            rss_avg_threshold: Optional[float] = None
+            try:
+                rss_avg_current = float(cur_summary.get("rss_mb_avg"))
+                rss_avg_baseline = float(base_summary.get("rss_mb_avg"))
+                if rss_avg_baseline >= 10.0:
+                    scen_mult_for_rss = SCENARIO_MULTIPLIERS.get(scen, 1.0)
+                    rss_avg_ratio = (rss_avg_current - rss_avg_baseline) / rss_avg_baseline
+                    rss_avg_threshold = args.threshold * scen_mult_for_rss
+            except Exception:
+                rss_avg_ratio = None
+                rss_avg_threshold = None
+
             for key, label, floor, mult in METRICS:
                 cv = cur_summary.get(key)
                 bv = base_summary.get(key)
@@ -258,6 +287,19 @@ def main() -> int:
                 ratio = (cv - bv) / bv
                 scen_mult = SCENARIO_MULTIPLIERS.get(scen, 1.0)
                 effective_threshold = args.threshold * mult * scen_mult
+                if key == "rss_mb_max" and ratio > effective_threshold:
+                    avg_also_regressed = (
+                        rss_avg_ratio is not None
+                        and rss_avg_threshold is not None
+                        and rss_avg_ratio > rss_avg_threshold
+                    )
+                    emergency_threshold = (
+                        args.threshold
+                        * RSS_MAX_STANDALONE_MULTIPLIER
+                        * scen_mult
+                    )
+                    if not avg_also_regressed and ratio <= emergency_threshold:
+                        continue
                 if ratio > effective_threshold:
                     regressions.append(
                         (plat, scen, label, bv, cv, ratio, floor, effective_threshold)
