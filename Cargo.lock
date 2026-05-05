@@ -1822,7 +1822,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "1.3.2"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#e74fb8519ea204787a84322958180c404ea02373"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#e1dad1ba138257516fa2b25847d2a7f4b4373058"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -1911,7 +1911,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "1.3.2"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#85a718c34ecb8b4b1ad39d8573fde705be1d115c"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#7766d20b59e95f36aacf3a07597fe4b00697e532"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -2359,7 +2359,7 @@ dependencies = [
 [[package]]
 name = "flodbadd"
 version = "1.3.2"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#a54a8abb05862e2db6b4c6eccd2e22c4b2bafa01"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#29daff611c4ce9749ed4ad855f8dc9ac6907a3bd"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -3924,7 +3924,7 @@ dependencies = [
 [[package]]
 name = "l7_ebpf_program"
 version = "0.1.0"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#a54a8abb05862e2db6b4c6eccd2e22c4b2bafa01"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#29daff611c4ce9749ed4ad855f8dc9ac6907a3bd"
 
 [[package]]
 name = "lazy_static"
@@ -5380,18 +5380,18 @@ dependencies = [
 
 [[package]]
 name = "pin-project"
-version = "1.1.11"
+version = "1.1.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f1749c7ed4bcaf4c3d0a3efc28538844fb29bcdd7d2b67b2be7e20ba861ff517"
+checksum = "cbf0d9e68100b3a7989b4901972f265cd542e560a3a8a724e1e20322f4d06ce9"
 dependencies = [
  "pin-project-internal",
 ]
 
 [[package]]
 name = "pin-project-internal"
-version = "1.1.11"
+version = "1.1.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d9b20ed30f105399776b9c883e68e536ef602a16ae6f596d2c473591d6ad64c6"
+checksum = "a990e22f43e84855daf260dded30524ef4a9021cc7541c26540500a50b624389"
 dependencies = [
  "proc-macro2",
  "quote",
