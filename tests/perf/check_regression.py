@@ -10,8 +10,10 @@ GitHub-hosted Azure VMs share host CPU/IO with neighbour tenants, so the
 variance profile of each metric is fundamentally different:
 
 - ``*_avg`` metrics (``cpu_percent_avg``, ``rss_mb_avg``) integrate over
-  the whole scenario window and are reasonably stable: empirical noise
-  is below +/-100% across same-code consecutive runs.
+  the whole scenario window and are generally more stable than peaks, but
+  capture-heavy windows can still exceed +/-100% across same-code consecutive
+  runs when shared-runner CPU steal, packet-capture startup, and CloudModel
+  refresh work land inside the same 5-minute sample.
 - ``cpu_percent_max`` is a 1-second peak sample on a 4-core box and
   routinely swings between +50% and +200% across same-code runs because
   background scheduler steal hits unpredictably.
@@ -110,6 +112,19 @@ RSS_MAX_STANDALONE_MULTIPLIER = 3.0
 # more variable than the steady-state ones because they involve work
 # that does not converge inside the 5-minute sampling window:
 #
+# - ``capture``: packet capture startup on GitHub-hosted runners includes
+#   pcap/eBPF initialization, first session analysis, resolver/cache warmup,
+#   and CloudModel update/check work. On shared Azure-hosted ubuntu-x64
+#   runners, same-code CPU avg can move a little over 2x at low absolute
+#   values depending on host steal and network background traffic. A 2x
+#   multiplier preserves a release block for a 3x+ capture regression while
+#   avoiding repeated false blocks from runner noise.
+#
+# - ``all``: combines capture, LAN scan, hub reporting, and agentic setup in
+#   one 5-minute window. It inherits the startup variance of the component
+#   scenarios, so it gets the same moderate multiplier rather than forcing
+#   every component to be perfectly phase-aligned with the previous baseline.
+#
 # - ``llm``: agentic mode with the EDAMAME LLM provider. The local LLM
 #   model is downloaded/loaded lazily on first use, then runs inference
 #   on captured traffic. Whether and when the model finishes loading
@@ -145,6 +160,8 @@ RSS_MAX_STANDALONE_MULTIPLIER = 3.0
 #   absorbs this without masking a real 3x+ steady-state
 #   regression.
 SCENARIO_MULTIPLIERS: Dict[str, float] = {
+    "all": 2.0,
+    "capture": 2.0,
     "llm": 4.0,
     "lanscan": 2.0,
 }
@@ -155,6 +172,8 @@ SCENARIO_MULTIPLIERS: Dict[str, float] = {
 # someone adds a multiplier without updating the rationale (the table
 # falls back to a generic note).
 SCENARIO_MULTIPLIER_NOTES: Dict[str, str] = {
+    "all": "combined capture/LAN/agentic startup variance on shared runners",
+    "capture": "packet-capture startup and first-window CloudModel/network variance",
     "llm": "intrinsic variance from LLM model load/inference timing",
     "lanscan": "intrinsic variance from DNS/mDNS/Defender + on-demand CloudModel fallback decode",
 }
