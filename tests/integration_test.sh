@@ -299,12 +299,21 @@ run_whitelist_test() {
     fi
 
     # Determine if this is an error condition.
-    # The Unknown threshold is 2 application-level sessions; cloud-runner
-    # infrastructure noise (Azure WireServer, IMDS, etc.) is filtered out
-    # via UNKNOWN_INFRA_COUNT before comparison.
+    # The dynamic whitelist is captured before the follow-up get-exceptions
+    # query, so a few new CI telemetry sessions can legitimately appear as
+    # Unknown immediately after the whitelist is applied. Keep the budget
+    # small, but scale it slightly with session volume so runner churn does
+    # not dominate the release gate.
+    local max_allowed_unknown=5
+    if [ "$SESSION_COUNT" -gt 100 ]; then
+        local session_scaled_unknown=$(( SESSION_COUNT / 50 ))
+        if [ "$session_scaled_unknown" -gt "$max_allowed_unknown" ]; then
+            max_allowed_unknown=$session_scaled_unknown
+        fi
+    fi
     local is_error=false
-    echo "Checking if errors exist: EXCEPTION_COUNT=$EXCEPTION_COUNT > MAX_ALLOWED_EXCEPTIONS=$MAX_ALLOWED_EXCEPTIONS or UNKNOWN_APP_COUNT=$UNKNOWN_APP_COUNT > 2"
-    if [ "$EXCEPTION_COUNT" -gt "$MAX_ALLOWED_EXCEPTIONS" ] || [ "$UNKNOWN_APP_COUNT" -gt 2 ]; then
+    echo "Checking if errors exist: EXCEPTION_COUNT=$EXCEPTION_COUNT > MAX_ALLOWED_EXCEPTIONS=$MAX_ALLOWED_EXCEPTIONS or UNKNOWN_APP_COUNT=$UNKNOWN_APP_COUNT > $max_allowed_unknown"
+    if [ "$EXCEPTION_COUNT" -gt "$MAX_ALLOWED_EXCEPTIONS" ] || [ "$UNKNOWN_APP_COUNT" -gt "$max_allowed_unknown" ]; then
         echo "Error condition detected!"
         is_error=true
     else
@@ -313,7 +322,7 @@ run_whitelist_test() {
 
     # Handle test result using common function
     local test_mode=$(echo "$test_key" | cut -d '_' -f1)  # Extract "connected" or "disconnected"
-    local error_message="Detected too many non-conforming exceptions (${EXCEPTION_COUNT} > ${MAX_ALLOWED_EXCEPTIONS}) or unknown exceptions (${UNKNOWN_APP_COUNT} > 2, excluding ${UNKNOWN_INFRA_COUNT} cloud-runner infra session(s))."
+    local error_message="Detected too many non-conforming exceptions (${EXCEPTION_COUNT} > ${MAX_ALLOWED_EXCEPTIONS}) or unknown exceptions (${UNKNOWN_APP_COUNT} > ${max_allowed_unknown}, excluding ${UNKNOWN_INFRA_COUNT} cloud-runner infra session(s))."
     echo "Calling handle_test_result with: whitelist, $test_mode, $is_error, '$error_message'"
     handle_test_result "whitelist" "$test_mode" "$is_error" "$error_message"
 
