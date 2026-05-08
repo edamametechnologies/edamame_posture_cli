@@ -120,4 +120,7 @@ vergen-gitcl = { version = "10.0.0-beta.5", features = [ "build", "cargo", "rust
 #flodbadd = { path = "../flodbadd", features = [ "packetcapture", "asyncpacketcapture" ] }
 flodbadd = { git = "https://github.com/edamametechnologies/flodbadd", branch = "main", features = [ "packetcapture", "asyncpacketcapture" ] }
 
-
+# CI: retrigger tests.yml on push event so release_all.sh's
+# "edamame_posture:tests.yml:event=push" gate sees a fresh push run
+# of the post-FP-CI-3 fix. The dispatch run that validated the fix
+# does not satisfy the strict push-only release gate.
