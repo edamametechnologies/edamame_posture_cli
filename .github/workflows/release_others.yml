@@ -545,13 +545,25 @@ jobs:
             exit $LASTEXITCODE
           }
           
-          # Publish to Chocolatey if API key is present
+          # Publish to Chocolatey if API key is present.
+          # `choco push` is non-idempotent: re-running this step after a
+          # successful publish (e.g. when `gh run rerun --failed` retries the
+          # whole job after a downstream step failed) returns HTTP 409
+          # Conflict. Capture the verbose output and treat the
+          # "already published" 409 as a success so workflow retries do not
+          # masquerade as real release failures.
           if ("${{ secrets.CHOCOLATEY_API_KEY }}" -ne "") {
             Write-Host "Pushing to Chocolatey..."
-            choco push edamame-posture.${CHOCO_VERSION}.nupkg -s https://push.chocolatey.org/ -k ${{ secrets.CHOCOLATEY_API_KEY }} --verbose
-            if ($LASTEXITCODE -ne 0) {
-              Write-Host "ERROR: choco push failed with exit code $LASTEXITCODE"
-              exit $LASTEXITCODE
+            $pushOut = choco push edamame-posture.${CHOCO_VERSION}.nupkg -s https://push.chocolatey.org/ -k ${{ secrets.CHOCOLATEY_API_KEY }} --verbose 2>&1 | Out-String
+            $pushRc = $LASTEXITCODE
+            Write-Host $pushOut
+            if ($pushRc -ne 0) {
+              if ($pushOut -match '409 \(Conflict\)' -or $pushOut -match 'already exists' -or $pushOut -match 'SkipDuplicate') {
+                Write-Host "INFO: choco push reported the package version is already published; treating as success (rerun-safe)."
+              } else {
+                Write-Host "ERROR: choco push failed with exit code $pushRc"
+                exit $pushRc
+              }
             }
           } else {
             Write-Host "Skipping Chocolatey publish: CHOCOLATEY_API_KEY not set"
