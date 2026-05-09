@@ -560,6 +560,9 @@ jobs:
             if ($pushRc -ne 0) {
               if ($pushOut -match '409 \(Conflict\)' -or $pushOut -match 'already exists' -or $pushOut -match 'SkipDuplicate') {
                 Write-Host "INFO: choco push reported the package version is already published; treating as success (rerun-safe)."
+                # Explicitly reset $LASTEXITCODE so the pwsh wrapper does not
+                # propagate choco's non-zero exit code as the step's exit code.
+                $global:LASTEXITCODE = 0
               } else {
                 Write-Host "ERROR: choco push failed with exit code $pushRc"
                 exit $pushRc
