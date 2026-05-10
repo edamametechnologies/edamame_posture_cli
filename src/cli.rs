@@ -497,6 +497,39 @@ pub fn build_cli() -> Command {
             .alias("vulnerability-reset-suppressions")
             .about("Reset all vulnerability suppressions"),
     )
+    .subcommand(
+        Command::new("background-agentic-dismiss-with-scope")
+            .alias("agentic-dismiss-with-scope")
+            .alias("vulnerability-dismiss-with-scope")
+            .about("Create a recurrence-aware dismissal rule from an agentic_dismiss_with_scope JSON request")
+            .arg(
+                arg!(<REQUEST_JSON> "JSON request accepted by agentic_dismiss_with_scope")
+                    .required(true)
+                    .value_parser(clap::value_parser!(String)),
+            ),
+    )
+    .subcommand(
+        Command::new("background-agentic-list-dismissal-rules")
+            .alias("agentic-list-dismissal-rules")
+            .alias("dismissal-rules")
+            .about("List recurrence-aware dismissal rules")
+            .arg(
+                arg!(--domain <DOMAIN> "Optional domain filter: vulnerability or divergence")
+                    .required(false)
+                    .value_parser(clap::value_parser!(String)),
+            ),
+    )
+    .subcommand(
+        Command::new("background-agentic-remove-dismissal-rule")
+            .alias("agentic-remove-dismissal-rule")
+            .alias("remove-dismissal-rule")
+            .about("Remove a recurrence-aware dismissal rule by id")
+            .arg(
+                arg!(<RULE_ID> "Dismissal rule id to remove")
+                    .required(true)
+                    .value_parser(clap::value_parser!(String)),
+            ),
+    )
     .subcommand(Command::new("background-status").alias("status").about("Get status of reporting background process"))
     .subcommand(Command::new("background-last-report-signature").alias("get-last-report-signature").about("Get last report signature of background process"))
     .subcommand(Command::new("background-get-history").alias("get-history").about("Get history of score modifications"))

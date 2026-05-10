@@ -1253,6 +1253,30 @@ fn run_base() {
             exit_code = background_vulnerability_reset_suppressions();
             is_background = true;
         }
+        Some(("background-agentic-dismiss-with-scope", sub_matches)) => {
+            let request_json = sub_matches
+                .get_one::<String>("REQUEST_JSON")
+                .expect("REQUEST_JSON not provided")
+                .to_string();
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_agentic_dismiss_with_scope(request_json);
+            is_background = true;
+        }
+        Some(("background-agentic-list-dismissal-rules", sub_matches)) => {
+            let domain = sub_matches.get_one::<String>("domain").cloned();
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_agentic_list_dismissal_rules(domain);
+            is_background = true;
+        }
+        Some(("background-agentic-remove-dismissal-rule", sub_matches)) => {
+            let rule_id = sub_matches
+                .get_one::<String>("RULE_ID")
+                .expect("RULE_ID not provided")
+                .to_string();
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_agentic_remove_dismissal_rule(rule_id);
+            is_background = true;
+        }
         Some(("install-agent-plugin", sub_matches)) => {
             let agent_type = sub_matches
                 .get_one::<String>("TYPE")

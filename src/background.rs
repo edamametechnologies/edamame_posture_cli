@@ -2109,6 +2109,133 @@ pub fn background_vulnerability_reset_suppressions() -> i32 {
     }
 }
 
+pub fn background_agentic_dismiss_with_scope(request_json: String) -> i32 {
+    if request_json.trim().is_empty() {
+        eprintln!("Dismiss-with-scope request JSON cannot be empty");
+        return ERROR_CODE_PARAM;
+    }
+    match rpc_agentic_dismiss_with_scope(
+        request_json,
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => {
+            let json: serde_json::Value = match serde_json::from_str(&result) {
+                Ok(v) => v,
+                Err(e) => {
+                    eprintln!("Error parsing dismiss-with-scope result: {}", e);
+                    return ERROR_CODE_SERVER_ERROR;
+                }
+            };
+            if json["success"].as_bool().unwrap_or(false) {
+                println!(
+                    "Dismissal rule created: {}",
+                    json["rule_id"].as_str().unwrap_or("unknown")
+                );
+                0
+            } else {
+                eprintln!(
+                    "Failed to create dismissal rule: {}",
+                    json["error"].as_str().unwrap_or("Unknown")
+                );
+                ERROR_CODE_SERVER_ERROR
+            }
+        }
+        Err(e) => {
+            eprintln!("Error creating dismissal rule: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn background_agentic_list_dismissal_rules(domain: Option<String>) -> i32 {
+    let domain = domain
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or("");
+    match rpc_agentic_list_dismissal_rules(
+        domain.to_string(),
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => {
+            let json: serde_json::Value = match serde_json::from_str(&result) {
+                Ok(v) => v,
+                Err(e) => {
+                    eprintln!("Error parsing dismissal rules JSON: {}", e);
+                    return ERROR_CODE_SERVER_ERROR;
+                }
+            };
+            if !json["success"].as_bool().unwrap_or(false) {
+                eprintln!(
+                    "Failed to list dismissal rules: {}",
+                    json["error"].as_str().unwrap_or("Unknown")
+                );
+                return ERROR_CODE_SERVER_ERROR;
+            }
+            match serde_json::to_string_pretty(&json) {
+                Ok(pretty) => println!("{}", pretty),
+                Err(e) => {
+                    eprintln!("Error formatting dismissal rules JSON: {}", e);
+                    return ERROR_CODE_SERVER_ERROR;
+                }
+            }
+            0
+        }
+        Err(e) => {
+            eprintln!("Error listing dismissal rules: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn background_agentic_remove_dismissal_rule(rule_id: String) -> i32 {
+    if rule_id.trim().is_empty() {
+        eprintln!("Dismissal rule id cannot be empty");
+        return ERROR_CODE_PARAM;
+    }
+    match rpc_agentic_remove_dismissal_rule(
+        rule_id.trim().to_string(),
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => {
+            let json: serde_json::Value = match serde_json::from_str(&result) {
+                Ok(v) => v,
+                Err(e) => {
+                    eprintln!("Error parsing remove-rule result: {}", e);
+                    return ERROR_CODE_SERVER_ERROR;
+                }
+            };
+            if json["success"].as_bool().unwrap_or(false) {
+                if json["removed"].as_bool().unwrap_or(true) {
+                    println!("Dismissal rule removed.");
+                } else {
+                    println!("No matching dismissal rule found.");
+                }
+                0
+            } else {
+                eprintln!(
+                    "Failed to remove dismissal rule: {}",
+                    json["error"].as_str().unwrap_or("Unknown")
+                );
+                ERROR_CODE_SERVER_ERROR
+            }
+        }
+        Err(e) => {
+            eprintln!("Error removing dismissal rule: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
 /// Process security todos with AI in background mode
 pub fn background_process_agentic(mode: &str) {
     info!(
