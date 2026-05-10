@@ -67,7 +67,10 @@ jobs:
           wait_for_api: true
           wait_for_https: true
           packet_capture: true
-          vulnerability_detection: true
+          # Temporarily disabled for the Windows matrix entry until this
+          # release carries the FIM share-delete hashing fix to runner-side
+          # edamame_posture_action installs. Keep macOS monitoring enabled.
+          vulnerability_detection: ${{ matrix.os != 'windows' }}
           vulnerability_detection_interval: "60"
           agentic_mode: analyze
           agentic_provider: edamame
@@ -584,9 +587,11 @@ jobs:
         with:
           dump_sessions_log: true
           promote_exceptions: ${{ vars.EDAMAME_AUTO_WHITELIST_PROMOTE_EXCEPTIONS }}      
-          
-          dump_vulnerability_findings: true
-          exit_on_vulnerability_findings: true
+
+          # Temporarily disabled with the Windows setup detector above.
+          # Re-enable for Windows after the fixed posture binary is released.
+          dump_vulnerability_findings: ${{ matrix.os != 'windows' }}
+          exit_on_vulnerability_findings: ${{ matrix.os != 'windows' }}
       - name: Slack alert on failure
         if: failure()
         uses: slackapi/slack-github-action@v1.26.0
