@@ -77,6 +77,29 @@ jobs:
           agentic_interval: 600
         env:
           EDAMAME_LLM_API_KEY: ${{ secrets.EDAMAME_LLM_API_KEY }}
+
+      # FP-CI-2 TEMP RELEASE-BOOTSTRAP GUARD:
+      # Delete this whole step in the next release after the current one,
+      # once edamame_posture_action@v1 installs the posture binary from
+      # this release. That binary carries the Windows FIM share-delete
+      # hashing fix, so the detector/gate must be re-enabled instead of
+      # keeping this stop-FIM bridge.
+      - name: Stop stale FIM while Windows vulnerability detector is paused
+        if: matrix.os == 'windows'
+        shell: bash
+        run: |
+          set +e
+          EDAMAME_CMD="${EDAMAME_BINARY_PATH:-}"
+          if [ -z "$EDAMAME_CMD" ] && [ -f "$HOME/edamame_posture.exe" ]; then
+            EDAMAME_CMD="$HOME/edamame_posture.exe"
+          fi
+          if [ -z "$EDAMAME_CMD" ]; then
+            echo "::warning::edamame_posture binary not found; cannot explicitly stop FIM"
+            exit 0
+          fi
+          "$EDAMAME_CMD" stop-file-monitor || true
+          "$EDAMAME_CMD" background-file-monitor-status || true
+
       - name: Configure Git Authentication to import private crates
         run: |
           git config --global user.email "dev@edamame.tech"
