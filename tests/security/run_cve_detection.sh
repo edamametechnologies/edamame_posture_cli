@@ -125,6 +125,33 @@ scenario_ports_json() {
   esac
 }
 
+# Per-scenario knob overrides for github-hosted runners that need a
+# longer detection window. The default cycle (POLL_ATTEMPTS=6 x 30s =
+# 180s) plus 300s trigger covers macos / windows / self-hosted lanes,
+# but `cve_sandbox_escape` and `memory_poisoning` reproducibly miss
+# detection on the github-hosted ubuntu runners (both x64 and arm64)
+# because L7 enrichment + iForest convergence lose the race against
+# the verify window under shared-runner CPU pressure. Per
+# `edamame_app/.cursor/rules/workspace.mdc` ("Self-Hosted Runners"
+# / known transient CI failures), the canonical fix is per-scenario
+# `POLL_ATTEMPTS` lift on the test side rather than relaxing the
+# deterministic gate.
+scenario_poll_attempts_for() {
+  case "$1" in
+    cve_sandbox_escape)     echo "${SANDBOX_POLL_ATTEMPTS:-12}" ;;
+    memory_poisoning)       echo "${MEMORY_POLL_ATTEMPTS:-12}" ;;
+    *) echo "$POLL_ATTEMPTS" ;;
+  esac
+}
+
+scenario_trigger_duration_for() {
+  case "$1" in
+    cve_sandbox_escape)     echo "${SANDBOX_TRIGGER_DURATION:-600}" ;;
+    memory_poisoning)       echo "${MEMORY_TRIGGER_DURATION:-600}" ;;
+    *) echo "$TRIGGER_DURATION" ;;
+  esac
+}
+
 call_rpc() {
   "$EDAMAME_CLI" rpc "$@" 2>>"$TICK_LOG"
 }
@@ -520,6 +547,14 @@ run_one_scenario_attempt() {
   local check="$2"
   local trigger_script="$3"
 
+  # Per-scenario overrides for slow github-hosted ubuntu runners. The
+  # outer-scope POLL_ATTEMPTS and TRIGGER_DURATION are intentionally
+  # shadowed inside this function so the existing verify loop and
+  # trigger-launch use the per-scenario values without further plumbing.
+  local POLL_ATTEMPTS TRIGGER_DURATION
+  POLL_ATTEMPTS="$(scenario_poll_attempts_for "$scenario")"
+  TRIGGER_DURATION="$(scenario_trigger_duration_for "$scenario")"
+
   DETECTED=0
   TOTAL=0
   CURRENT=0
@@ -675,7 +710,10 @@ run_one_scenario() {
   fi
 
   : >"$OUTPUT_DIR_ABS/${scenario}.trigger.log"
-  log "=== scenario: $scenario (check=$check, duration=${TRIGGER_DURATION}s) ==="
+  local scenario_duration scenario_polls
+  scenario_duration="$(scenario_trigger_duration_for "$scenario")"
+  scenario_polls="$(scenario_poll_attempts_for "$scenario")"
+  log "=== scenario: $scenario (check=$check, duration=${scenario_duration}s, polls=${scenario_polls}) ==="
 
   local max_attempts=${SCENARIO_MAX_ATTEMPTS:-2}
   local scen_attempt=0
