@@ -547,13 +547,17 @@ run_one_scenario_attempt() {
   local check="$2"
   local trigger_script="$3"
 
-  # Per-scenario overrides for slow github-hosted ubuntu runners. The
-  # outer-scope POLL_ATTEMPTS and TRIGGER_DURATION are intentionally
-  # shadowed inside this function so the existing verify loop and
-  # trigger-launch use the per-scenario values without further plumbing.
-  local POLL_ATTEMPTS TRIGGER_DURATION
-  POLL_ATTEMPTS="$(scenario_poll_attempts_for "$scenario")"
-  TRIGGER_DURATION="$(scenario_trigger_duration_for "$scenario")"
+  # Per-scenario overrides for slow github-hosted ubuntu runners.
+  # Compute the per-scenario values BEFORE declaring the local
+  # shadows: bash uses dynamic scoping, so a `local POLL_ATTEMPTS`
+  # declared first would be visible to `scenario_poll_attempts_for`
+  # as an empty string, making its `*) echo "$POLL_ATTEMPTS"` fall-
+  # through return empty. Computing first reads the outer scope.
+  local _scen_polls _scen_dur
+  _scen_polls="$(scenario_poll_attempts_for "$scenario")"
+  _scen_dur="$(scenario_trigger_duration_for "$scenario")"
+  local POLL_ATTEMPTS="$_scen_polls"
+  local TRIGGER_DURATION="$_scen_dur"
 
   DETECTED=0
   TOTAL=0
