@@ -122,5 +122,7 @@ flodbadd = { git = "https://github.com/edamametechnologies/flodbadd", branch = "
 
 # CI: retrigger tests.yml on push event so release_all.sh's
 # "edamame_posture:tests.yml:event=push" gate sees a fresh push run
-# of the post-FP-CI-3 fix. The dispatch run that validated the fix
-# does not satisfy the strict push-only release gate.
+# of the post-FP-MAC-8/CI-5/CI-6/CI-7 fixes. The original push run on
+# this commit caught a documented Windows hub_idle CPU spike flake
+# (+299.7% on shared Azure runner) that does not satisfy the strict
+# push-only release gate.
