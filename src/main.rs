@@ -143,6 +143,9 @@ pub fn initialize_core(
         mac: "".to_string(),
         peer_ids: vec![],
         is_online: false,
+        // posture CLI has no Flutter app version; the core's own
+        // CARGO_PKG_VERSION is reported separately as $app_version_string.
+        flutter_app_version: "".to_string(),
     };
     if device_id != "" {
         device.device_id = (machine_uid + "/" + device_id.as_str()).to_string();
