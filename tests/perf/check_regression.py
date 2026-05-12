@@ -86,6 +86,26 @@ METRICS: List[Tuple[str, str, float, float]] = [
     ("rss_mb_avg", "RSS avg MB", 10.0, 1.0),
     ("rss_mb_max", "RSS max MB", 10.0, 1.0),
 ]
+
+# Per-scenario per-metric overrides. When a scenario's tracked metric is
+# structurally noisy for that workload shape, we evaluate a different
+# summary key instead. The label and threshold multiplier are taken from
+# the original METRICS entry; only the underlying summary.json key is
+# remapped.
+#
+# - hub_idle: replaces cpu_percent_max with cpu_percent_p95. hub_idle is
+#   an idle daemon whose only CPU activity is sub-second PowerShell
+#   threat-metric checks fired by compute_score_task every 300s. The
+#   1Hz sampler aliases those bursts as 100-180% spikes; whether a given
+#   run catches one, two, or zero of them inside the sampling window is
+#   pure phase noise. cpu_percent_p95 cuts off the top 5% of samples,
+#   which neutralises the burst-aliasing artifact while still catching
+#   any genuine sustained CPU regression. (run_scenario.sh also bumps
+#   hub_idle's duration to 360s so the window is no longer a multiple
+#   of the 300s score-task period.)
+SCENARIO_METRIC_OVERRIDES: Dict[str, Dict[str, str]] = {
+    "hub_idle": {"cpu_percent_max": "cpu_percent_p95"},
+}
 """List of (summary.json key, human label, absolute floor, threshold multiplier).
 
 Metrics whose baseline value is strictly below the floor are not compared;
@@ -291,8 +311,18 @@ def main() -> int:
                 rss_avg_threshold = None
 
             for key, label, floor, mult in METRICS:
-                cv = cur_summary.get(key)
-                bv = base_summary.get(key)
+                # Per-scenario metric remap: e.g. hub_idle gates on
+                # cpu_percent_p95 instead of cpu_percent_max because its CPU
+                # profile is "steady-state idle plus periodic sub-second
+                # bursts" that the 1Hz sampler aliases unpredictably.
+                effective_key = SCENARIO_METRIC_OVERRIDES.get(scen, {}).get(key, key)
+                effective_label = label
+                if effective_key != key:
+                    # Annotate the label so the gate's output makes the
+                    # remap obvious to anyone reading the report.
+                    effective_label = f"{label} (via {effective_key})"
+                cv = cur_summary.get(effective_key)
+                bv = base_summary.get(effective_key)
                 if cv is None or bv is None:
                     continue
                 try:
@@ -306,6 +336,9 @@ def main() -> int:
                 ratio = (cv - bv) / bv
                 scen_mult = SCENARIO_MULTIPLIERS.get(scen, 1.0)
                 effective_threshold = args.threshold * mult * scen_mult
+                # Use the local effective_label going forward so the report
+                # reflects the remapped metric.
+                label = effective_label
                 if key == "rss_mb_max" and ratio > effective_threshold:
                     avg_also_regressed = (
                         rss_avg_ratio is not None

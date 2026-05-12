@@ -149,6 +149,27 @@ def _summarize(samples: List[dict], duration_s: float) -> dict:
         vs = [s[key] for s in samples if key in s]
         return max(vs) if vs else 0.0
 
+    def _p95(key: str) -> float:
+        vs = [s[key] for s in samples if key in s]
+        if not vs:
+            return 0.0
+        # statistics.quantiles with n=100, method="exclusive" can extrapolate
+        # past max() on tiny samples (the linear interpolation formula yields
+        # an index slightly above the largest data point when count <= ~20).
+        # In production the 1Hz sampler runs for ~300-600s so this never
+        # triggers, but unit-tests with a handful of values can produce
+        # p95 > max which is nonsensical. Clamp to max() for safety AND
+        # fall back to max() on tiny samples.
+        upper = max(vs)
+        if len(vs) < 2:
+            return upper
+        try:
+            cuts = statistics.quantiles(vs, n=100, method="exclusive")
+            # cuts[i] is the (i+1)-th percentile cut, so cuts[94] is p95.
+            return min(float(cuts[94]), upper)
+        except statistics.StatisticsError:
+            return upper
+
     ncpu_logical = psutil.cpu_count(logical=True) or 0
     ncpu_physical = psutil.cpu_count(logical=False) or 0
     total_ram = 0
@@ -161,8 +182,15 @@ def _summarize(samples: List[dict], duration_s: float) -> dict:
         "samples": len(samples),
         "cpu_percent_avg": _avg("cpu_percent"),
         "cpu_percent_max": _max("cpu_percent"),
+        # cpu_percent_p95 is more stable than cpu_percent_max for scenarios
+        # whose CPU profile is "steady-state idle plus periodic sub-second
+        # bursts" (e.g. hub_idle's compute_score_task PowerShell checks).
+        # Used as the gate metric for those scenarios in
+        # tests/perf/check_regression.py.
+        "cpu_percent_p95": _p95("cpu_percent"),
         "cpu_cores_used_avg": _avg("cpu_percent") / 100.0,
         "cpu_cores_used_max": _max("cpu_percent") / 100.0,
+        "cpu_cores_used_p95": _p95("cpu_percent") / 100.0,
         "rss_mb_avg": _avg("rss_mb"),
         "rss_mb_max": _max("rss_mb"),
         "vms_mb_avg": _avg("vms_mb"),
