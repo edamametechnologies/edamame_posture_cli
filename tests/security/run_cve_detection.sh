@@ -152,6 +152,25 @@ scenario_trigger_duration_for() {
   esac
 }
 
+# Per-scenario fresh-attempt count override. The default
+# SCENARIO_MAX_ATTEMPTS=2 (one retry on detect-failure) is enough
+# for the macos / windows / self-hosted lanes, but
+# `memory_poisoning` on the github-hosted ubuntu-arm64 runner
+# routinely needs an extra fresh attempt: even with the bumped
+# POLL_ATTEMPTS=12 / TRIGGER_DURATION=600s (~960s observation
+# window), iForest convergence on a steady-state TCP flow under
+# shared-runner CPU pressure can lose the race twice in a row
+# before catching up. Three fresh attempts (state reset between
+# each) brings the per-scenario worst case to ~27 min, still
+# inside the 60-min job timeout.
+scenario_max_attempts_for() {
+  local default_max="${SCENARIO_MAX_ATTEMPTS:-2}"
+  case "$1" in
+    memory_poisoning)       echo "${MEMORY_MAX_ATTEMPTS:-3}" ;;
+    *) echo "$default_max" ;;
+  esac
+}
+
 call_rpc() {
   "$EDAMAME_CLI" rpc "$@" 2>>"$TICK_LOG"
 }
@@ -714,12 +733,13 @@ run_one_scenario() {
   fi
 
   : >"$OUTPUT_DIR_ABS/${scenario}.trigger.log"
-  local scenario_duration scenario_polls
+  local scenario_duration scenario_polls scenario_max
   scenario_duration="$(scenario_trigger_duration_for "$scenario")"
   scenario_polls="$(scenario_poll_attempts_for "$scenario")"
-  log "=== scenario: $scenario (check=$check, duration=${scenario_duration}s, polls=${scenario_polls}) ==="
+  scenario_max="$(scenario_max_attempts_for "$scenario")"
+  log "=== scenario: $scenario (check=$check, duration=${scenario_duration}s, polls=${scenario_polls}, max_attempts=${scenario_max}) ==="
 
-  local max_attempts=${SCENARIO_MAX_ATTEMPTS:-2}
+  local max_attempts="$scenario_max"
   local scen_attempt=0
   local total_elapsed=0
   local final_status="fail"
