@@ -1053,9 +1053,9 @@ dependencies = [
 
 [[package]]
 name = "clap_complete"
-version = "4.6.4"
+version = "4.6.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e3e962dae2b1e5007fe9e3db363ddc43a8bf25546d279f7a8a4401204690e80c"
+checksum = "e0a7a9bfdb35811f9e59832f0f05975114d2251b415fb534108e6f34060fd772"
 dependencies = [
  "clap",
 ]
@@ -1822,7 +1822,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "1.3.6"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#e9b518d2042108617cb9975bd6d2a4ee4023d7f8"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#844ab2eeb679d3e83051edb79a50b36c2aac73b3"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -1911,7 +1911,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "1.3.6"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#5fbfc5315f61cfa09661fd7af9cd0e98735c199a"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#066ffaa4cf9ebc4e2a55918ffe89afd8200c4f6a"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -2358,7 +2358,7 @@ dependencies = [
 [[package]]
 name = "flodbadd"
 version = "1.3.6"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#a7b047b11bb6dfde826a9f6d65bd8d63ed08d7d8"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#6eaf511e6201ef5abd49646830a882bddcf03244"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -3914,7 +3914,7 @@ dependencies = [
 [[package]]
 name = "l7_ebpf_program"
 version = "0.1.0"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#a7b047b11bb6dfde826a9f6d65bd8d63ed08d7d8"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#6eaf511e6201ef5abd49646830a882bddcf03244"
 
 [[package]]
 name = "lazy_static"
