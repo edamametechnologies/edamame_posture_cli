@@ -150,7 +150,20 @@ pub fn background_process(
     // Request a score computation
     compute_score();
 
-    // Configure agentic AI if enabled
+    // Configure agentic AI only when the operator explicitly opted in. When
+    // `agentic_mode == "disabled"` (the default in /etc/edamame_posture.conf, and
+    // the default for `edamame_posture_action` jobs that don't pass --agentic-mode),
+    // the daemon MUST NOT call background_set_agentic_loop(false, ...). That call
+    // routes through edamame_core::core_manager_agentic::auto_processing::
+    // set_agentic_auto_processing(false, ...), which has an asymmetric side-effect
+    // that also disables the vulnerability detector. Calling it on every daemon
+    // restart overwrites operator-set persisted state (vulnerability detector
+    // enabled = true via RPC) every time the service restarts.
+    //
+    // Mirror the EDAMAME app behavior: at startup, hydrate from persisted state
+    // (already done in initialize_core via hydrate_agentic_from_persisted_config)
+    // and only mutate agentic state when the operator explicitly opted in via
+    // --agentic-mode <something other than "disabled">.
     let agentic_enabled = agentic_mode != "disabled";
     if agentic_enabled {
         info!(
@@ -158,20 +171,20 @@ pub fn background_process(
             agentic_mode, agentic_provider, agentic_interval
         );
 
-        // Set LLM configuration if provider specified
         if let Some(provider) = &agentic_provider {
             crate::background_configure_agentic(provider.clone());
         }
-    }
 
-    if !crate::background_set_agentic_loop(agentic_enabled, agentic_interval, &agentic_mode) {
-        warn!("Failed to configure AI Assistant background loop");
-    }
+        if !crate::background_set_agentic_loop(agentic_enabled, agentic_interval, &agentic_mode) {
+            warn!("Failed to configure AI Assistant background loop");
+        }
 
-    // Initial processing of todos if agentic mode enabled
-    if agentic_enabled {
         info!("AI Assistant: Processing security todos...");
         crate::background_process_agentic(&agentic_mode);
+    } else {
+        info!(
+            "AI Assistant mode 'disabled': leaving persisted agentic state untouched (auto-processing/divergence/vulnerability detector remain as last set by the operator)"
+        );
     }
 
     // Loop forever as background process is running
