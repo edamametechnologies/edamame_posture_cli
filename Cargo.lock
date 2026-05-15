@@ -1822,7 +1822,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "1.3.9"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#f917a12ae97812efbfaed69d443caa0ac4e8135a"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#02ff419d8c79f6cdff21dbcc7bfa30ce925a4ef8"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -1911,7 +1911,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "1.3.9"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#6354568cd72d29ecd2480eae1b8336e505230a45"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#40d1b632f76c3f84fd489c65bc1ae504957227ef"
 dependencies = [
  "anyhow",
  "arc-swap",
