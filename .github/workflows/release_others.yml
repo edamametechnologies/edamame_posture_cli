@@ -586,11 +586,12 @@ jobs:
           dump_sessions_log: true
           promote_exceptions: ${{ vars.EDAMAME_AUTO_WHITELIST_PROMOTE_EXCEPTIONS }}      
 
-          # Self-hosted Windows runner gates strictly on findings; github-hosted
-          # macOS runner is monitor-only (no persistent dismissal store across
-          # ephemeral runs) per workspace.mdc "Github-Hosted Runners (Monitor-Only Mode)".
+          # Both self-hosted Windows AND github-hosted macOS runners enforce
+          # the gate per workspace.mdc "Github-Hosted Runners (Enforced Gate)".
+          # Structural ephemeral-runner FPs are zeroed by the demo-mode-leak
+          # cleanup step before this gate runs.
           dump_vulnerability_findings: true
-          exit_on_vulnerability_findings: ${{ matrix.os == 'windows' }}
+          exit_on_vulnerability_findings: true
       - name: Slack alert on failure
         if: failure()
         uses: slackapi/slack-github-action@v1.26.0
