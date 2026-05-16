@@ -25,7 +25,7 @@ pub fn background_process(
     whitelist_name: String,
     fail_on_whitelist: bool,
     fail_on_blacklist: bool,
-    fail_on_anomalous: bool,
+    fail_on_findings: bool,
     cancel_on_violation: bool,
     local_traffic: bool,
     agentic_mode: String,
@@ -39,8 +39,8 @@ pub fn background_process(
     };
 
     info!(
-        "Starting background process with user: {}, domain: {}, lan_scanning: {}, packet_capture: {}, whitelist: {}, fail_on_whitelist: {}, fail_on_blacklist: {}, fail_on_anomalous: {}, local_traffic: {}",
-        user, domain, lan_scanning, packet_capture, whitelist_display, fail_on_whitelist, fail_on_blacklist, fail_on_anomalous, local_traffic
+        "Starting background process with user: {}, domain: {}, lan_scanning: {}, packet_capture: {}, whitelist: {}, fail_on_whitelist: {}, fail_on_blacklist: {}, fail_on_findings: {}, local_traffic: {}",
+        user, domain, lan_scanning, packet_capture, whitelist_display, fail_on_whitelist, fail_on_blacklist, fail_on_findings, local_traffic
     );
 
     if fail_on_whitelist && whitelist_name.is_empty() {
@@ -51,8 +51,8 @@ pub fn background_process(
     }
 
     info!(
-        "Session check settings -> whitelist: {}, blacklist: {}, anomalous: {}, cancel_on_violation: {}",
-        fail_on_whitelist, fail_on_blacklist, fail_on_anomalous, cancel_on_violation
+        "Live violation settings -> whitelist: {}, blacklist: {}, vulnerability_findings: {}, cancel_on_violation: {}",
+        fail_on_whitelist, fail_on_blacklist, fail_on_findings, cancel_on_violation
     );
 
     // We are using the logger as we are in the background process
@@ -200,24 +200,33 @@ pub fn background_process(
             match collect_policy_violations(
                 fail_on_whitelist,
                 fail_on_blacklist,
-                fail_on_anomalous,
+                fail_on_findings,
                 local_traffic,
             ) {
-                Ok(violating_sessions) => {
-                    if !violating_sessions.is_empty() {
-                        println!("\n=== Violating Sessions Detected ===");
-                        background_display_sessions(
-                            violating_sessions,
-                            false,
-                            local_traffic,
-                            false,
-                        );
-                        println!(
-                            "Policy violations detected by background daemon. Attempting to cancel CI pipeline..."
-                        );
-                        if let Err(e) = halt_ci_pipeline(
-                            "edamame_posture background daemon detected policy violations",
-                        ) {
+                Ok(violations) => {
+                    if !violations.is_empty() {
+                        if !violations.sessions.is_empty() {
+                            println!("\n=== Violating Sessions Detected ===");
+                            background_display_sessions(
+                                violations.sessions,
+                                false,
+                                local_traffic,
+                                false,
+                            );
+                        }
+                        if violations.vulnerability_findings > 0 {
+                            println!(
+                                "\nActive vulnerability findings detected: {} ({})",
+                                violations.vulnerability_findings, violations.vulnerability_label
+                            );
+                        }
+                        println!("Live violations detected by background daemon. Attempting to cancel CI pipeline...");
+                        let reason = if violations.vulnerability_findings > 0 {
+                            "edamame_posture background daemon detected vulnerability findings"
+                        } else {
+                            "edamame_posture background daemon detected policy violations"
+                        };
+                        if let Err(e) = halt_ci_pipeline(reason) {
                             eprintln!("Failed to cancel pipeline: {}", e);
                         }
                         std::process::exit(ERROR_CODE_MISMATCH);
@@ -231,13 +240,27 @@ pub fn background_process(
     }
 }
 
+struct PolicyViolations {
+    sessions: Vec<SessionInfoAPI>,
+    vulnerability_findings: u64,
+    vulnerability_label: &'static str,
+}
+
+impl PolicyViolations {
+    fn is_empty(&self) -> bool {
+        self.sessions.is_empty() && self.vulnerability_findings == 0
+    }
+}
+
 fn collect_policy_violations(
     fail_on_whitelist: bool,
     fail_on_blacklist: bool,
-    fail_on_anomalous: bool,
+    fail_on_findings: bool,
     include_local_traffic: bool,
-) -> Result<Vec<SessionInfoAPI>, String> {
+) -> Result<PolicyViolations, String> {
     let mut violating_sessions: Vec<SessionInfoAPI> = Vec::new();
+    let mut vulnerability_findings = 0u64;
+    let mut vulnerability_label = "HIGH/CRITICAL severity";
 
     if fail_on_whitelist {
         let conforms = rpc_get_whitelist_conformance(
@@ -289,24 +312,38 @@ fn collect_policy_violations(
         }
     }
 
-    if fail_on_anomalous {
-        let mut anomalous = rpc_get_anomalous_sessions(
-            &EDAMAME_CA_PEM,
-            &EDAMAME_CLIENT_PEM,
-            &EDAMAME_CLIENT_KEY,
-            &EDAMAME_TARGET,
-        )
-        .map_err(|e| format!("Error retrieving anomalous sessions: {}", e))?;
+    if fail_on_findings {
+        let status = edamame_core::api::api_agentic::get_vulnerability_detector_status();
+        let status_json: serde_json::Value = serde_json::from_str(&status)
+            .map_err(|e| format!("Error parsing vulnerability detector status: {}", e))?;
 
-        if !anomalous.is_empty() {
-            if !include_local_traffic {
-                anomalous = filter_global_sessions(anomalous);
-            }
-            violating_sessions.extend(anomalous);
+        if let Some(error) = status_json.get("error").and_then(|value| value.as_str()) {
+            return Err(format!(
+                "Error getting vulnerability detector status: {}",
+                error
+            ));
+        }
+
+        if let Some(alertable) = status_json
+            .get("active_alertable_findings")
+            .and_then(|value| value.as_u64())
+        {
+            vulnerability_findings = alertable;
+            vulnerability_label = "HIGH/CRITICAL severity";
+        } else {
+            vulnerability_findings = status_json
+                .get("active_findings")
+                .and_then(|value| value.as_u64())
+                .unwrap_or(0);
+            vulnerability_label = "all severities (legacy daemon)";
         }
     }
 
-    Ok(violating_sessions)
+    Ok(PolicyViolations {
+        sessions: violating_sessions,
+        vulnerability_findings,
+        vulnerability_label,
+    })
 }
 
 fn halt_ci_pipeline(reason: &str) -> Result<(), String> {
@@ -469,7 +506,7 @@ pub fn background_start(
     whitelist_name: String,
     fail_on_whitelist: bool,
     fail_on_blacklist: bool,
-    fail_on_anomalous: bool,
+    fail_on_findings: bool,
     cancel_on_violation: bool,
     local_traffic: bool,
     agentic_mode: String,
@@ -501,8 +538,8 @@ pub fn background_start(
         whitelist_name.as_str()
     };
 
-    println!("Starting background process with provided parameters, user: {}, domain: {}, device_id: {}, lan_scanning: {}, packet_capture: {}, whitelist_name: {}, fail_on_whitelist: {}, fail_on_blacklist: {}, fail_on_anomalous: {}, cancel_on_violation: {}, local_traffic: {}, agentic_mode: {}, agentic_interval: {}s", 
-             user, domain, device_id, lan_scanning, packet_capture, whitelist_display, fail_on_whitelist, fail_on_blacklist, fail_on_anomalous, cancel_on_violation, local_traffic, agentic_mode, agentic_interval);
+    println!("Starting background process with provided parameters, user: {}, domain: {}, device_id: {}, lan_scanning: {}, packet_capture: {}, whitelist_name: {}, fail_on_whitelist: {}, fail_on_blacklist: {}, fail_on_findings: {}, cancel_on_violation: {}, local_traffic: {}, agentic_mode: {}, agentic_interval: {}s",
+             user, domain, device_id, lan_scanning, packet_capture, whitelist_display, fail_on_whitelist, fail_on_blacklist, fail_on_findings, cancel_on_violation, local_traffic, agentic_mode, agentic_interval);
 
     #[cfg(unix)]
     {
@@ -531,7 +568,7 @@ pub fn background_start(
                     .arg(&whitelist_name)
                     .arg(&fail_on_whitelist.to_string())
                     .arg(&fail_on_blacklist.to_string())
-                    .arg(&fail_on_anomalous.to_string())
+                    .arg(&fail_on_findings.to_string())
                     .arg(&cancel_on_violation.to_string())
                     .arg(&local_traffic.to_string())
                     .arg(&agentic_mode)
@@ -587,7 +624,7 @@ pub fn background_start(
             whitelist_name,
             fail_on_whitelist.to_string(),
             fail_on_blacklist.to_string(),
-            fail_on_anomalous.to_string(),
+            fail_on_findings.to_string(),
             cancel_on_violation.to_string(),
             local_traffic.to_string(),
             agentic_mode,

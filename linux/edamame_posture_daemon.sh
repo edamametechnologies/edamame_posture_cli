@@ -55,7 +55,7 @@ start_capture="$(get_config_value "start_capture")"
 whitelist_name="$(get_config_value "whitelist_name")"
 fail_on_whitelist="$(get_config_value "fail_on_whitelist")"
 fail_on_blacklist="$(get_config_value "fail_on_blacklist")"
-fail_on_anomalous="$(get_config_value "fail_on_anomalous")"
+fail_on_findings="$(get_config_value "fail_on_findings")"
 cancel_on_violation="$(get_config_value "cancel_on_violation")"
 include_local_traffic="$(get_config_value "include_local_traffic")"
 
@@ -99,7 +99,7 @@ start_lanscan=$(echo "$start_lanscan" | tr '[:upper:]' '[:lower:]')
 start_capture=$(echo "$start_capture" | tr '[:upper:]' '[:lower:]')
 fail_on_whitelist=$(echo "$fail_on_whitelist" | tr '[:upper:]' '[:lower:]')
 fail_on_blacklist=$(echo "$fail_on_blacklist" | tr '[:upper:]' '[:lower:]')
-fail_on_anomalous=$(echo "$fail_on_anomalous" | tr '[:upper:]' '[:lower:]')
+fail_on_findings=$(echo "$fail_on_findings" | tr '[:upper:]' '[:lower:]')
 cancel_on_violation=$(echo "$cancel_on_violation" | tr '[:upper:]' '[:lower:]')
 include_local_traffic=$(echo "$include_local_traffic" | tr '[:upper:]' '[:lower:]')
 notification_provider=$(echo "$notification_provider" | tr '[:upper:]' '[:lower:]')
@@ -232,9 +232,9 @@ if [ "$fail_on_blacklist" = "true" ]; then
   echo "Fail on blacklist matches: enabled"
 fi
 
-if [ "$fail_on_anomalous" = "true" ]; then
-  set -- "$@" --fail-on-anomalous
-  echo "Fail on anomalous sessions: enabled"
+if [ "$fail_on_findings" = "true" ]; then
+  set -- "$@" --fail-on-findings
+  echo "Fail on vulnerability findings: enabled"
 fi
 
 # Violation handling

@@ -14,7 +14,7 @@
 #   --whitelist NAME               Whitelist name (e.g., github_ubuntu)
 #   --fail-on-whitelist            Pass --fail-on-whitelist (exit on whitelist violations)
 #   --fail-on-blacklist            Pass --fail-on-blacklist (exit on blacklisted IPs)
-#   --fail-on-anomalous            Pass --fail-on-anomalous (exit on anomalous connections)
+#   --fail-on-findings             Pass --fail-on-findings (exit on vulnerability findings)
 #   --cancel-on-violation          Pass --cancel-on-violation (cancel pipeline on violations)
 #   --include-local-traffic        Pass --include-local-traffic (include local traffic)
 #
@@ -1445,7 +1445,7 @@ CONFIG_START_LANSCAN="false"
 CONFIG_START_CAPTURE="false"
 CONFIG_FAIL_ON_WHITELIST="false"
 CONFIG_FAIL_ON_BLACKLIST="false"
-CONFIG_FAIL_ON_ANOMALOUS="false"
+CONFIG_FAIL_ON_FINDINGS="false"
 CONFIG_CANCEL_ON_VIOLATION="false"
 CONFIG_INCLUDE_LOCAL_TRAFFIC="false"
 CONFIG_WHITELIST=""
@@ -1481,8 +1481,8 @@ while [ $# -gt 0 ]; do
             CONFIG_FAIL_ON_BLACKLIST="true"
             shift
             ;;
-        --fail-on-anomalous)
-            CONFIG_FAIL_ON_ANOMALOUS="true"
+        --fail-on-findings)
+            CONFIG_FAIL_ON_FINDINGS="true"
             shift
             ;;
         --cancel-on-violation)
@@ -2207,7 +2207,7 @@ start_capture: "${CONFIG_START_CAPTURE}"
 whitelist_name: "${ESC_WHITELIST}"
 fail_on_whitelist: "${CONFIG_FAIL_ON_WHITELIST}"
 fail_on_blacklist: "${CONFIG_FAIL_ON_BLACKLIST}"
-fail_on_anomalous: "${CONFIG_FAIL_ON_ANOMALOUS}"
+fail_on_findings: "${CONFIG_FAIL_ON_FINDINGS}"
 cancel_on_violation: "${CONFIG_CANCEL_ON_VIOLATION}"
 include_local_traffic: "${CONFIG_INCLUDE_LOCAL_TRAFFIC}"
 
@@ -2605,7 +2605,7 @@ if [ "$SHOULD_START_DAEMON" = "true" ]; then
         [ -n "$CONFIG_WHITELIST" ] && set -- "$@" --whitelist "$CONFIG_WHITELIST"
         [ "$CONFIG_FAIL_ON_WHITELIST" = "true" ] && set -- "$@" --fail-on-whitelist
         [ "$CONFIG_FAIL_ON_BLACKLIST" = "true" ] && set -- "$@" --fail-on-blacklist
-        [ "$CONFIG_FAIL_ON_ANOMALOUS" = "true" ] && set -- "$@" --fail-on-anomalous
+        [ "$CONFIG_FAIL_ON_FINDINGS" = "true" ] && set -- "$@" --fail-on-findings
         [ "$CONFIG_CANCEL_ON_VIOLATION" = "true" ] && set -- "$@" --cancel-on-violation
         [ "$CONFIG_INCLUDE_LOCAL_TRAFFIC" = "true" ] && set -- "$@" --include-local-traffic
         

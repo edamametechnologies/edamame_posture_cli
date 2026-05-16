@@ -210,7 +210,7 @@ fn run() {
                 args[8].to_string(),            // whitelist_name
                 args[9].to_string() == "true",  // fail_on_whitelist
                 args[10].to_string() == "true", // fail_on_blacklist
-                args[11].to_string() == "true", // fail_on_anomalous
+                args[11].to_string() == "true", // fail_on_findings
                 args[12].to_string() == "true", // cancel_on_violation
                 args[13].to_string() == "true", // local_traffic
                 false,                          // verbose
@@ -248,7 +248,7 @@ pub fn run_background(
     whitelist_name: String,
     fail_on_whitelist: bool,
     fail_on_blacklist: bool,
-    fail_on_anomalous: bool,
+    fail_on_findings: bool,
     cancel_on_violation: bool,
     local_traffic: bool,
     verbose: bool,
@@ -287,7 +287,7 @@ pub fn run_background(
         whitelist_name,
         fail_on_whitelist,
         fail_on_blacklist,
-        fail_on_anomalous,
+        fail_on_findings,
         cancel_on_violation,
         local_traffic,
         agentic_mode,
@@ -800,7 +800,7 @@ fn run_base() {
             let fail_on_whitelist =
                 sub_matches.get_flag("fail_on_whitelist") || !whitelist_name.is_empty();
             let fail_on_blacklist = sub_matches.get_flag("fail_on_blacklist");
-            let fail_on_anomalous = sub_matches.get_flag("fail_on_anomalous");
+            let fail_on_findings = sub_matches.get_flag("fail_on_findings");
             let cancel_on_violation = sub_matches.get_flag("cancel_on_violation");
             let include_local_traffic = sub_matches.get_flag("include_local_traffic");
             let agentic_mode = sub_matches
@@ -836,7 +836,7 @@ fn run_base() {
                 whitelist_name,
                 fail_on_whitelist,
                 fail_on_blacklist,
-                fail_on_anomalous,
+                fail_on_findings,
                 cancel_on_violation,
                 include_local_traffic,
                 agentic_mode,
@@ -854,7 +854,7 @@ fn run_base() {
             let fail_on_whitelist =
                 sub_matches.get_flag("fail_on_whitelist") || !whitelist_name.is_empty();
             let fail_on_blacklist = sub_matches.get_flag("fail_on_blacklist");
-            let fail_on_anomalous = sub_matches.get_flag("fail_on_anomalous");
+            let fail_on_findings = sub_matches.get_flag("fail_on_findings");
             let cancel_on_violation = sub_matches.get_flag("cancel_on_violation");
             let include_local_traffic = sub_matches.get_flag("include_local_traffic");
             let agentic_mode = sub_matches
@@ -890,7 +890,7 @@ fn run_base() {
                 whitelist_name,
                 fail_on_whitelist,
                 fail_on_blacklist,
-                fail_on_anomalous,
+                fail_on_findings,
                 cancel_on_violation,
                 include_local_traffic,
                 agentic_mode,
@@ -924,7 +924,7 @@ fn run_base() {
             let fail_on_whitelist =
                 sub_matches.get_flag("fail_on_whitelist") || !whitelist_name.is_empty();
             let fail_on_blacklist = sub_matches.get_flag("fail_on_blacklist");
-            let fail_on_anomalous = sub_matches.get_flag("fail_on_anomalous");
+            let fail_on_findings = sub_matches.get_flag("fail_on_findings");
             let cancel_on_violation = sub_matches.get_flag("cancel_on_violation");
             let include_local_traffic = sub_matches.get_flag("include_local_traffic");
             let agentic_mode = sub_matches
@@ -950,7 +950,7 @@ fn run_base() {
                 whitelist_name,
                 fail_on_whitelist,
                 fail_on_blacklist,
-                fail_on_anomalous,
+                fail_on_findings,
                 cancel_on_violation,
                 include_local_traffic,
                 verbose,

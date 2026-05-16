@@ -791,9 +791,9 @@ fn start_common_args() -> Vec<Arg> {
             .long("fail-on-blacklist")
             .help("Treat blacklist violations as fatal")
             .action(ArgAction::SetTrue),
-        Arg::new("fail_on_anomalous")
-            .long("fail-on-anomalous")
-            .help("Treat anomalous sessions as fatal")
+        Arg::new("fail_on_findings")
+            .long("fail-on-findings")
+            .help("Treat active vulnerability findings as fatal")
             .action(ArgAction::SetTrue),
         Arg::new("include_local_traffic")
             .long("include-local-traffic")
@@ -864,9 +864,9 @@ fn disconnected_start_args() -> Vec<Arg> {
             .long("fail-on-blacklist")
             .help("Treat blacklist violations as fatal")
             .action(ArgAction::SetTrue),
-        Arg::new("fail_on_anomalous")
-            .long("fail-on-anomalous")
-            .help("Treat anomalous sessions as fatal")
+        Arg::new("fail_on_findings")
+            .long("fail-on-findings")
+            .help("Treat active vulnerability findings as fatal")
             .action(ArgAction::SetTrue),
         Arg::new("include_local_traffic")
             .long("include-local-traffic")
@@ -925,7 +925,7 @@ mod tests {
                 "custom_whitelist",
                 "--fail-on-whitelist",
                 "--fail-on-blacklist",
-                "--fail-on-anomalous",
+                "--fail-on-findings",
                 "--include-local-traffic",
                 "--cancel-on-violation",
                 "--agentic-mode",
@@ -963,7 +963,7 @@ mod tests {
         assert!(sub_matches.get_flag("network_scan"));
         assert!(sub_matches.get_flag("fail_on_whitelist"));
         assert!(sub_matches.get_flag("fail_on_blacklist"));
-        assert!(sub_matches.get_flag("fail_on_anomalous"));
+        assert!(sub_matches.get_flag("fail_on_findings"));
         assert!(sub_matches.get_flag("include_local_traffic"));
         assert!(sub_matches.get_flag("cancel_on_violation"));
         assert_eq!(
@@ -1011,7 +1011,7 @@ mod tests {
         assert_eq!(sub_matches.get_one::<String>("whitelist"), None);
         assert!(!sub_matches.get_flag("fail_on_whitelist"));
         assert!(!sub_matches.get_flag("fail_on_blacklist"));
-        assert!(!sub_matches.get_flag("fail_on_anomalous"));
+        assert!(!sub_matches.get_flag("fail_on_findings"));
         assert!(!sub_matches.get_flag("cancel_on_violation"));
         assert!(!sub_matches.get_flag("include_local_traffic"));
         assert_eq!(

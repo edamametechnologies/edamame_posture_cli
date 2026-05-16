@@ -49,7 +49,7 @@ curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamamete
 | `--whitelist <name>` | Whitelist name to use (e.g., `github_ubuntu`). Passed to daemon on start. |
 | `--fail-on-whitelist` | Pass `--fail-on-whitelist` to daemon (exit non-zero on whitelist violations). |
 | `--fail-on-blacklist` | Pass `--fail-on-blacklist` to daemon (exit non-zero on blacklisted IPs). |
-| `--fail-on-anomalous` | Pass `--fail-on-anomalous` to daemon (exit non-zero on anomalous connections). |
+| `--fail-on-findings` | Pass `--fail-on-findings` to daemon (exit non-zero on active vulnerability findings). |
 | `--cancel-on-violation` | Pass `--cancel-on-violation` to daemon (attempt pipeline cancellation on violations). |
 | `--include-local-traffic` | Pass `--include-local-traffic` to daemon (include local traffic in capture). |
 
@@ -115,7 +115,7 @@ curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamamete
   --start-capture \
   --whitelist builder \
   --fail-on-whitelist \
-  --fail-on-anomalous
+  --fail-on-findings
 ```
 
 #### Disconnected Mode (No Hub Connection)
@@ -342,7 +342,7 @@ Package installs create `/etc/edamame_posture.conf` which supports all daemon pa
 - `whitelist_name`: Whitelist to use (e.g., "github_ubuntu")
 - `fail_on_whitelist`: "true" → pass `--fail-on-whitelist`
 - `fail_on_blacklist`: "true" → pass `--fail-on-blacklist`
-- `fail_on_anomalous`: "true" → pass `--fail-on-anomalous`
+- `fail_on_findings`: "true" → pass `--fail-on-findings`
 - `cancel_on_violation`: "true" → pass `--cancel-on-violation`
 - `include_local_traffic`: "true" → pass `--include-local-traffic`
 
@@ -499,7 +499,7 @@ packet_capture → --start-capture
 whitelist → --whitelist
 check_whitelist → --fail-on-whitelist
 check_blacklist → --fail-on-blacklist
-check_anomalous → --fail-on-anomalous
+vulnerability_detection + exit_on_vulnerability_findings → --fail-on-findings
 cancel_on_violation → --cancel-on-violation
 include_local_traffic → --include-local-traffic
 ```
