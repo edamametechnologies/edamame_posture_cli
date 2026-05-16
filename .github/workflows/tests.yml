@@ -2239,3 +2239,5 @@ jobs:
           echo "edamame_core/tests/evasion/ and do not gate releases here."
           echo "Block or roll back the release."
           exit 1
+
+# ci: retrigger after transient lanscan perf flake (2026-05-16)
