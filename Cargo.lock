@@ -1822,7 +1822,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "1.3.10"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#05fc3485d415951c9e65ade740813ad164e1dfe4"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#c9b595011e40d4028bdecc26e6cc707a74150b9b"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -3443,7 +3443,7 @@ dependencies = [
  "js-sys",
  "log",
  "wasm-bindgen",
- "windows-core 0.58.0",
+ "windows-core 0.62.2",
 ]
 
 [[package]]
