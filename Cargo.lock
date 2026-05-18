@@ -1523,9 +1523,9 @@ dependencies = [
 
 [[package]]
 name = "dashmap"
-version = "6.1.0"
+version = "6.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5041cc499144891f3790297212f32a74fb938e5136a14943f338ef9e0ae276cf"
+checksum = "e6361d5c062261c78a176addb82d4c821ae42bed6089de0e12603cd25de2059c"
 dependencies = [
  "cfg-if",
  "crossbeam-utils",
@@ -1821,8 +1821,8 @@ dependencies = [
 
 [[package]]
 name = "edamame_core"
-version = "1.3.10"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#b2f2911fd63e9724594ad73c2098fdc12d68a890"
+version = "1.3.11"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#b56777d41a209049b8da8ff8c936c4dddd5a006c"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -1834,7 +1834,7 @@ dependencies = [
  "bincode 2.0.1",
  "chrono",
  "ctor",
- "dashmap 6.1.0",
+ "dashmap 6.2.1",
  "dirs",
  "dotenv-build",
  "edamame_backend",
@@ -1910,8 +1910,8 @@ dependencies = [
 
 [[package]]
 name = "edamame_foundation"
-version = "1.3.10"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#c61599b0a3e9a2d8efbb7a1d43bfed4843fb3e3f"
+version = "1.3.11"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#f62e29a397d2796ebdabed65f18de67a1349ab81"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -1922,7 +1922,7 @@ dependencies = [
  "chrono",
  "console-subscriber",
  "csv",
- "dashmap 6.1.0",
+ "dashmap 6.2.1",
  "dirs",
  "edamame_backend",
  "encoding_rs",
@@ -1977,7 +1977,7 @@ dependencies = [
 
 [[package]]
 name = "edamame_posture"
-version = "1.3.10"
+version = "1.3.11"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -2357,8 +2357,8 @@ dependencies = [
 
 [[package]]
 name = "flodbadd"
-version = "1.3.10"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#716ba49f0fff3627c3aeba8c0d6fe05107ffb0ca"
+version = "1.3.11"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#704637d7213673ceb56e521bf085740de40d6ab1"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -2369,7 +2369,7 @@ dependencies = [
  "chrono",
  "csv",
  "ctor",
- "dashmap 6.1.0",
+ "dashmap 6.2.1",
  "dns-parser",
  "edamame_backend",
  "encoding_rs",
@@ -2960,7 +2960,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9efcab3c1958580ff1f25a2a41be1668f7603d849bb63af523b208a3cc1223b8"
 dependencies = [
  "cfg-if",
- "dashmap 6.1.0",
+ "dashmap 6.2.1",
  "futures-sink",
  "futures-timer",
  "futures-util",
@@ -3914,7 +3914,7 @@ dependencies = [
 [[package]]
 name = "l7_ebpf_program"
 version = "0.1.0"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#716ba49f0fff3627c3aeba8c0d6fe05107ffb0ca"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#704637d7213673ceb56e521bf085740de40d6ab1"
 
 [[package]]
 name = "lazy_static"
@@ -7304,7 +7304,7 @@ dependencies = [
 [[package]]
 name = "threatmodels_rs"
 version = "0.1.1"
-source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#fb296f480208e96cef80e5d31cf7ee46a5702545"
+source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#ae3d7ee3c1c83e5e4db2698d3dd2669eaa27eb45"
 dependencies = [
  "anyhow",
  "chrono",
@@ -7843,9 +7843,9 @@ checksum = "40ce102ab67701b8526c123c1bab5cbe42d7040ccfd0f64af1a385808d2f43de"
 [[package]]
 name = "undeadlock"
 version = "1.2.0"
-source = "git+https://github.com/edamametechnologies/undeadlock?branch=main#d51fa3a67d8237d7a2a95afb30e9071af50ff67c"
+source = "git+https://github.com/edamametechnologies/undeadlock?branch=main#77451cf9f6e27f2773f284e7f6a2968b66e58733"
 dependencies = [
- "dashmap 6.1.0",
+ "dashmap 6.2.1",
  "tokio",
  "tracing",
 ]
