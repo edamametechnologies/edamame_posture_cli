@@ -2109,6 +2109,24 @@ pub fn background_vulnerability_reset_suppressions() -> i32 {
     }
 }
 
+pub fn background_clear_vulnerability_history() -> i32 {
+    match rpc_clear_vulnerability_history(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(_) => {
+            println!("Vulnerability history cleared.");
+            0
+        }
+        Err(e) => {
+            eprintln!("Error clearing vulnerability history: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
 pub fn background_agentic_dismiss_with_scope(request_json: String) -> i32 {
     if request_json.trim().is_empty() {
         eprintln!("Dismiss-with-scope request JSON cannot be empty");

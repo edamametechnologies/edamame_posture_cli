@@ -1256,6 +1256,11 @@ fn run_base() {
             exit_code = background_vulnerability_reset_suppressions();
             is_background = true;
         }
+        Some(("background-clear-vulnerability-history", _)) => {
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_clear_vulnerability_history();
+            is_background = true;
+        }
         Some(("background-agentic-dismiss-with-scope", sub_matches)) => {
             let request_json = sub_matches
                 .get_one::<String>("REQUEST_JSON")

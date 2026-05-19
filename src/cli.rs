@@ -498,6 +498,11 @@ pub fn build_cli() -> Command {
             .about("Reset all vulnerability suppressions"),
     )
     .subcommand(
+        Command::new("background-clear-vulnerability-history")
+            .alias("clear-vulnerability-history")
+            .about("Clear the daemon's in-memory and persisted vulnerability action_history (test-induced FP cleanup)"),
+    )
+    .subcommand(
         Command::new("background-agentic-dismiss-with-scope")
             .alias("agentic-dismiss-with-scope")
             .alias("vulnerability-dismiss-with-scope")
