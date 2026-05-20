@@ -1821,8 +1821,8 @@ dependencies = [
 
 [[package]]
 name = "edamame_core"
-version = "1.3.12"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#a9b621a6307e2dbd4baabb748dc6263cd36a3890"
+version = "1.3.13"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#0ecc467377640b4aa39e0aacbbf841368188a723"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -1910,8 +1910,8 @@ dependencies = [
 
 [[package]]
 name = "edamame_foundation"
-version = "1.3.12"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#13848b28f963103266c2a44f54ae64af49fe2f47"
+version = "1.3.13"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#7217da00fc10535e05e4bcb613337179461bedf7"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -1977,7 +1977,7 @@ dependencies = [
 
 [[package]]
 name = "edamame_posture"
-version = "1.3.12"
+version = "1.3.13"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -2357,8 +2357,8 @@ dependencies = [
 
 [[package]]
 name = "flodbadd"
-version = "1.3.12"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#bd34c60043e05ffd24dc44a6e3ff04b180c92682"
+version = "1.3.13"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#c4092c7e4a52ad9024ae80d749e3b290aa2a4d67"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -2613,9 +2613,9 @@ checksum = "037711b3d59c33004d3856fbdc83b99d4ff37a24768fa1be9ce3538a1cde4393"
 
 [[package]]
 name = "futures-timer"
-version = "3.0.3"
+version = "3.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f288b0a4f20f9a56b5d1da57e2227c661b7b16168e2f72365f57b63326e29b24"
+checksum = "af43fadb8a98512d547e37b4e92e0ced13e205c061b87b4623eff01d918d6968"
 
 [[package]]
 name = "futures-util"
@@ -3914,7 +3914,7 @@ dependencies = [
 [[package]]
 name = "l7_ebpf_program"
 version = "0.1.0"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#bd34c60043e05ffd24dc44a6e3ff04b180c92682"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#c4092c7e4a52ad9024ae80d749e3b290aa2a4d67"
 
 [[package]]
 name = "lazy_static"
@@ -5850,9 +5850,9 @@ dependencies = [
 
 [[package]]
 name = "pulldown-cmark"
-version = "0.13.3"
+version = "0.13.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7c3a14896dfa883796f1cb410461aef38810ea05f2b2c33c5aded3649095fdad"
+checksum = "e9f068eba8e7071c5f9511831b44f32c740d5adf574e990f946ddb53db2f314e"
 dependencies = [
  "bitflags 2.11.1",
  "memchr",
