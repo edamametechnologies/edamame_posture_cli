@@ -16,7 +16,10 @@ name: Cross-platform tests
 #
 # Phase 0 release gates are evaluated on the success of THIS workflow:
 #   - tests       : test-native + test-container must succeed
-#   - perf        : perf-report enforces the +50% regression gate
+#   - perf        : perf-report enforces the +100% regression gate (with
+#                   per-scenario multipliers, e.g. x2 for `lanscan` to
+#                   absorb Windows Defender / DNS / mDNS variance on
+#                   GitHub-hosted runners; see gate-summary.md table)
 #   - security    : security-report enforces zero CVE failures (strict)
 
 on:
