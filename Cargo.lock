@@ -497,9 +497,9 @@ dependencies = [
 
 [[package]]
 name = "autocfg"
-version = "1.5.0"
+version = "1.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c08606f8c3cbf4ce6ec8e28fb0014a2c086708fe954eaa885384a6165172e7e8"
+checksum = "f2032f911046de80f0a198e0901378627c33f59ea0ac00e363d481118bd70a53"
 
 [[package]]
 name = "axum"
@@ -1821,8 +1821,8 @@ dependencies = [
 
 [[package]]
 name = "edamame_core"
-version = "1.3.14"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#1e3ee30c3f99b2c3a219bcd7585316b2807247b7"
+version = "1.3.15"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#b7b9a99d0619ae992749ef4e563609f6330e30eb"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -1910,8 +1910,8 @@ dependencies = [
 
 [[package]]
 name = "edamame_foundation"
-version = "1.3.14"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#82718263253f61f7e4a5653036c2c3e0404dc6a7"
+version = "1.3.15"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#fde885c7f7a5d1324fc61c9dac8ed094db652305"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -1977,7 +1977,7 @@ dependencies = [
 
 [[package]]
 name = "edamame_posture"
-version = "1.3.14"
+version = "1.3.15"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -2357,8 +2357,8 @@ dependencies = [
 
 [[package]]
 name = "flodbadd"
-version = "1.3.14"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#1dbaa34ad33a3de69a4abd08dd1c9dc971103e20"
+version = "1.3.15"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#b6696278cfdad2b9d8de35545cf22d141d83a508"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -3914,7 +3914,7 @@ dependencies = [
 [[package]]
 name = "l7_ebpf_program"
 version = "0.1.0"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#1dbaa34ad33a3de69a4abd08dd1c9dc971103e20"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#b6696278cfdad2b9d8de35545cf22d141d83a508"
 
 [[package]]
 name = "lazy_static"
@@ -7304,7 +7304,7 @@ dependencies = [
 [[package]]
 name = "threatmodels_rs"
 version = "0.1.1"
-source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#cd3c6473fa00879e83e62f39483e97e0abaacf59"
+source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#727067280cb24d8db299692e25817e8b84c70643"
 dependencies = [
  "anyhow",
  "chrono",
@@ -7843,7 +7843,7 @@ checksum = "40ce102ab67701b8526c123c1bab5cbe42d7040ccfd0f64af1a385808d2f43de"
 [[package]]
 name = "undeadlock"
 version = "1.2.0"
-source = "git+https://github.com/edamametechnologies/undeadlock?branch=main#743124e80c647d4d56b1994ce0620f298cd442e7"
+source = "git+https://github.com/edamametechnologies/undeadlock?branch=main#6cd49f4de559449956eece3ad374e8cd97de0882"
 dependencies = [
  "dashmap 6.2.1",
  "tokio",
