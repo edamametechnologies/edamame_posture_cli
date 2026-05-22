@@ -556,7 +556,7 @@ The daemon is older than the methods. Update both binaries
 and the same for `edamame_cli`).
 
 **The daemon prints findings I don't want in this stream.**
-The vulnerability detector and divergence engine emit findings as a
+The attack pattern detector and divergence engine emit findings as a
 separate concern; if you only want raw user behavior, ignore them
 (don't call `start_vulnerability_detector` / `start_divergence_engine`).
 The streams documented here are independent.

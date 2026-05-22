@@ -434,12 +434,18 @@ pub fn build_cli() -> Command {
             .about("Reset all divergence suppressions"),
     )
     ////////////////
-    // Vulnerability Detector commands (model-independent)
+    // Attack Pattern Detector commands (model-independent)
+    //
+    // Transition note: legacy names use "vulnerability"; new names use
+    // "attack-pattern". Both work via clap aliases. See the workspace rules
+    // (Vulnerability -> Attack Pattern Detection Terminology Transition).
     ////////////////
     .subcommand(
         Command::new("background-vulnerability-start")
             .alias("vulnerability-start")
-            .about("Start vulnerability detector in background process")
+            .alias("background-attack-pattern-start")
+            .alias("attack-pattern-start")
+            .about("Start attack pattern detector in background process")
             .arg(
                 arg!([INTERVAL_SECS] "Tick interval in seconds")
                     .required(false)
@@ -450,14 +456,18 @@ pub fn build_cli() -> Command {
     .subcommand(
         Command::new("background-vulnerability-stop")
             .alias("vulnerability-stop")
-            .about("Stop vulnerability detector in background process"),
+            .alias("background-attack-pattern-stop")
+            .alias("attack-pattern-stop")
+            .about("Stop attack pattern detector in background process"),
     )
     .subcommand(
         Command::new("background-vulnerability-status")
             .alias("vulnerability-status")
-            .about("Get vulnerability detector status")
+            .alias("background-attack-pattern-status")
+            .alias("attack-pattern-status")
+            .about("Get attack pattern detector status")
             .arg(
-                arg!(--"fail-on-findings" "Exit with code 1 if active vulnerability findings are detected")
+                arg!(--"fail-on-findings" "Exit with code 1 if active attack pattern findings are detected")
                     .required(false)
                     .action(ArgAction::SetTrue),
             ),
@@ -465,7 +475,9 @@ pub fn build_cli() -> Command {
     .subcommand(
         Command::new("background-vulnerability-findings")
             .alias("vulnerability-findings")
-            .about("Dump active runtime vulnerability findings as JSON")
+            .alias("background-attack-pattern-findings")
+            .alias("attack-pattern-findings")
+            .about("Dump active runtime attack pattern findings as JSON")
             .arg(
                 arg!(--"active-only" "Filter out dismissed findings before printing")
                     .required(false)
@@ -475,7 +487,9 @@ pub fn build_cli() -> Command {
     .subcommand(
         Command::new("background-vulnerability-dismiss")
             .alias("vulnerability-dismiss")
-            .about("Dismiss vulnerability finding by finding key")
+            .alias("background-attack-pattern-dismiss")
+            .alias("attack-pattern-dismiss")
+            .about("Dismiss attack pattern finding by finding key")
             .arg(
                 arg!(<FINDING_KEY> "Finding key to dismiss")
                     .required(true)
@@ -485,7 +499,9 @@ pub fn build_cli() -> Command {
     .subcommand(
         Command::new("background-vulnerability-undismiss")
             .alias("vulnerability-undismiss")
-            .about("Restore previously dismissed vulnerability finding")
+            .alias("background-attack-pattern-undismiss")
+            .alias("attack-pattern-undismiss")
+            .about("Restore previously dismissed attack pattern finding")
             .arg(
                 arg!(<FINDING_KEY> "Finding key to restore")
                     .required(true)
@@ -495,12 +511,16 @@ pub fn build_cli() -> Command {
     .subcommand(
         Command::new("background-vulnerability-reset-suppressions")
             .alias("vulnerability-reset-suppressions")
-            .about("Reset all vulnerability suppressions"),
+            .alias("background-attack-pattern-reset-suppressions")
+            .alias("attack-pattern-reset-suppressions")
+            .about("Reset all attack pattern suppressions"),
     )
     .subcommand(
         Command::new("background-clear-vulnerability-history")
             .alias("clear-vulnerability-history")
-            .about("Clear the daemon's in-memory and persisted vulnerability action_history (test-induced FP cleanup)"),
+            .alias("background-clear-attack-pattern-history")
+            .alias("clear-attack-pattern-history")
+            .about("Clear the daemon's in-memory and persisted attack pattern action_history (test-induced FP cleanup)"),
     )
     .subcommand(
         Command::new("background-agentic-dismiss-with-scope")
