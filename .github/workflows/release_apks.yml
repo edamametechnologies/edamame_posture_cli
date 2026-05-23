@@ -57,6 +57,7 @@ jobs:
           edamame_id: ${{ github.run_id }}
           network_scan: true
           auto_whitelist: true
+          auto_whitelist_artifact_name: edamame-auto-whitelist-${{ matrix.runs-on }}
           auto_remediate: true
           checkout: true
           token: ${{ secrets.DEV_GITHUB_TOKEN }}

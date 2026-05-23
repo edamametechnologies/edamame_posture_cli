@@ -27,6 +27,7 @@ jobs:
           auto_remediate: true
           network_scan: true
           auto_whitelist: true
+          auto_whitelist_artifact_name: edamame-auto-whitelist-ubuntu-latest
           checkout: true
           # Wait for the API to be ready
           wait_for_api: true
