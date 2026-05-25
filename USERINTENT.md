@@ -18,9 +18,17 @@ The daemon is the data source. `edamame_cli` is a thin RPC client that
 turns the same RPC surface used by the EDAMAME app and the posture CLI
 into JSON on stdout, ready to pipe into your own tooling.
 
-> Throughout this guide we assume **disconnected mode** (no EDAMAME Hub
-> account, no Portal LLM key required). The signals listed here are local
-> and do not depend on any backend.
+> Throughout this guide we assume **disconnected mode** -- no EDAMAME Hub
+> account is required. The system-plane streams (applications, network
+> flows, file events) are fully local and do not depend on any backend.
+> The reasoning-plane stream (AI-agent intent) is also local in the sense
+> that transcripts never leave the host, but turning raw transcripts into
+> the structured behavioral model (`tool_names`, `commands`,
+> `derived_expected_traffic`, ...) requires **some** LLM provider to be
+> configured. That can be a local one (e.g. Ollama on `localhost`) so the
+> "nothing leaves the host" promise still holds; see
+> [Configure an LLM provider for stream 2](#configure-an-llm-provider-for-stream-2)
+> below.
 
 ---
 
@@ -30,13 +38,14 @@ into JSON on stdout, ready to pipe into your own tooling.
 2. [Architecture in one paragraph](#architecture-in-one-paragraph)
 3. [Install](#install)
 4. [Bring up the daemon](#bring-up-the-daemon)
-5. [Discover and call RPCs](#discover-and-call-rpcs)
-6. [Stream 1: applications and per-app network activity](#stream-1-applications-and-per-app-network-activity)
-7. [Stream 2: AI agent usage](#stream-2-ai-agent-usage)
-8. [Stream 3: filesystem activity](#stream-3-filesystem-activity)
-9. [A complete tick loop](#a-complete-tick-loop)
-10. [Privacy, scope, and what is NOT captured](#privacy-scope-and-what-is-not-captured)
-11. [Troubleshooting](#troubleshooting)
+5. [Configure an LLM provider for stream 2](#configure-an-llm-provider-for-stream-2)
+6. [Discover and call RPCs](#discover-and-call-rpcs)
+7. [Stream 1: applications and per-app network activity](#stream-1-applications-and-per-app-network-activity)
+8. [Stream 2: AI agent usage](#stream-2-ai-agent-usage)
+9. [Stream 3: filesystem activity](#stream-3-filesystem-activity)
+10. [A complete tick loop](#a-complete-tick-loop)
+11. [Privacy, scope, and what is NOT captured](#privacy-scope-and-what-is-not-captured)
+12. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -68,6 +77,18 @@ that bake in sensible defaults.
 > status, pause/resume, force-tick) is part of the agentic API and is
 > only exposed through the generic RPC client.
 
+### What each stream needs to be wired up
+
+| Stream | Needs the agentic ticker on? | Needs an LLM provider configured? |
+|---|---|---|
+| 1 -- apps + per-app network | No. Driven by the `flodbadd` capture pipeline. | No. |
+| 2 -- AI agent usage (behavioral model contributors, model history, observer status) | Yes -- but it auto-starts. The transcript-observer enable flag defaults to `true` per supported agent, and that alone makes the agentic ticker start. You do NOT need to set `agentic_mode: analyze` or enable the divergence/vulnerability loops. | **Yes.** Translating raw transcripts into the structured `BehavioralWindow` (with `tool_names`, `commands`, `derived_expected_*`, ...) is an LLM call. Without a configured provider, `upsert_behavioral_model_from_raw_sessions` fails with `No configured LLM provider available for raw-session ingest` and the per-agent contributor list stays empty. `get_transcript_observer_status` itself does NOT need an LLM -- it just reports per-agent discovery and last-tick metadata, so you can confirm "the observer found my Cursor transcripts" before doing the LLM step. |
+| 3 -- file events | No. Driven by `start_file_monitor`. | No. |
+
+If all you want is streams 1 and 3, skip the
+[Configure an LLM provider for stream 2](#configure-an-llm-provider-for-stream-2)
+section -- bring the daemon up and start reading.
+
 ---
 
 ## Architecture in one paragraph
@@ -83,8 +104,10 @@ commands, and the destinations / process paths the agent said it would
 touch. Both streams are exposed over a local JSON-RPC endpoint that the
 posture binary, the EDAMAME app, and `edamame_cli` all share.
 
-You read it; you do not have to install plugins, sign in, or reach a
-backend.
+You read it; you do not have to install plugins or sign in to the
+EDAMAME Hub. Streams 1 and 3 need no backend at all. Stream 2 needs
+some LLM endpoint -- which can be a local Ollama instance, so the
+"nothing leaves the host" property is preserved if you want it.
 
 ---
 
@@ -178,6 +201,14 @@ edamame_posture background-start-file-monitor
 > If the agent has never run on this host there is nothing to observe and
 > the API returns an empty contributor list -- this is normal.
 
+> Discovery is enough to see *which* agents the user runs
+> (`get_transcript_observer_status`). To actually extract intent
+> (`get_behavioral_model_contributors`, `get_behavioral_model`,
+> `get_behavioral_model_history`) you also need an LLM provider
+> configured -- see
+> [Configure an LLM provider for stream 2](#configure-an-llm-provider-for-stream-2).
+> Streams 1 and 3 are independent and need no LLM.
+
 ### Alternative: foreground for one-shot extraction
 
 ```bash
@@ -194,6 +225,102 @@ process when done.
 ```bash
 edamame_posture background-stop
 edamame_posture background-status
+```
+
+---
+
+## Configure an LLM provider for stream 2
+
+Skip this section if you only need streams 1 (apps + network) and 3
+(file events). They run on packet capture and FIM and do not call an
+LLM at any point.
+
+For stream 2, the transcript observer uses an LLM to translate raw
+transcripts into the structured `BehavioralWindow` payload that
+`get_behavioral_model_contributors`, `get_behavioral_model`, and
+`get_behavioral_model_history` return. Without a configured provider,
+the per-agent contributor list stays empty and the daemon logs
+`No configured LLM provider available for raw-session ingest` on every
+observer tick.
+
+Four providers are supported: `ollama` (local), `openai`, `claude`,
+`internal` (EDAMAME Portal). For a fully local pipeline use `ollama`.
+
+### Option A: local LLM via Ollama (recommended for disconnected mode)
+
+1. Install Ollama from [ollama.com](https://ollama.com/) and pull a
+   small instruction-tuned model:
+
+   ```bash
+   ollama pull llama3.1:8b      # or qwen2.5:7b, mistral, etc.
+   ollama serve                 # usually started automatically
+   ```
+
+   Verify the server is reachable:
+
+   ```bash
+   curl -s http://127.0.0.1:11434/api/tags
+   ```
+
+2. Point the daemon at it via the `agentic_set_llm_config` RPC. The
+   call signature is positional, in declaration order. The
+   notification fields (Slack / Telegram) are optional for this use
+   case -- pass empty strings:
+
+   ```bash
+   edamame_cli rpc agentic_set_llm_config \
+     '["ollama","","llama3.1:8b","http://127.0.0.1:11434","","","","","","",false,false,false]'
+   ```
+
+3. Test that the daemon can actually reach the provider:
+
+   ```bash
+   edamame_cli rpc agentic_test_llm --pretty
+   ```
+
+   Expected: `"success": true`.
+
+4. Force one observer tick to populate the behavioral model:
+
+   ```bash
+   edamame_cli rpc run_transcript_observer_tick_for '["cursor"]'
+   edamame_cli rpc get_behavioral_model_contributors --pretty
+   ```
+
+### Option B: EDAMAME Portal LLM (no local LLM needed, requires API key)
+
+```bash
+export EDAMAME_LLM_API_KEY="..."   # provisioned out of band
+edamame_cli rpc agentic_set_llm_config \
+  '["internal","'"$EDAMAME_LLM_API_KEY"'","","","","","","","","",false,false,false]'
+edamame_cli rpc agentic_test_llm --pretty
+```
+
+This sends transcripts to `portal.edamame.tech` for the model
+extraction step. Use Option A above if that is incompatible with your
+privacy posture.
+
+### Option C: Claude or OpenAI direct
+
+```bash
+# Claude
+edamame_cli rpc agentic_set_llm_config \
+  '["claude","sk-ant-...","claude-3-5-sonnet-latest","","","","","","","",false,false,false]'
+
+# OpenAI
+edamame_cli rpc agentic_set_llm_config \
+  '["openai","sk-...","gpt-4o-mini","","","","","","","",false,false,false]'
+```
+
+### Inspect or clear the current LLM config
+
+```bash
+edamame_cli rpc agentic_get_llm_config --pretty
+
+# Disable the LLM entirely (stream 2 will stop producing behavioral
+# slices; streams 1 and 3 are unaffected)
+edamame_cli rpc agentic_set_llm_config \
+  '["none","","","","","","","","","",false,false,false]'
 ```
 
 ---
@@ -316,6 +443,14 @@ This is the **reasoning plane**: what the user asked the agent to do, the
 tools the agent called, and the destinations / process paths the agent
 itself said it would touch. The transcript observer reads this directly
 from each agent's on-disk transcript store -- no plugin install required.
+
+> **LLM provider required for this stream.** Discovery (`get_transcript_observer_status`)
+> works without one, but extracting the structured behavioral payload
+> (`get_behavioral_model_contributors`, `get_behavioral_model`, history)
+> calls an LLM under the hood. If you have not done so yet, configure a
+> provider via
+> [Configure an LLM provider for stream 2](#configure-an-llm-provider-for-stream-2).
+> Use Ollama if you want everything to stay on the host.
 
 ### Discover what's being observed
 
@@ -541,6 +676,26 @@ The user has never run a supported AI agent on this machine, or the
 agent stores its transcripts somewhere non-standard. Run the agent
 once, then `edamame_cli rpc run_transcript_observer_tick_for '["cursor"]'`
 (or the relevant agent type) to force a tick.
+
+**`get_behavioral_model_contributors` is empty even though
+`get_transcript_observer_status` shows recent ticks with non-zero
+`last_session_count`.**
+The observer is finding transcripts but cannot translate them into the
+behavioral model because no LLM provider is configured. Check the
+daemon log for `No configured LLM provider available for raw-session
+ingest`, then run `edamame_cli rpc agentic_get_llm_config --pretty`. If
+`provider` is `none` or empty, follow
+[Configure an LLM provider for stream 2](#configure-an-llm-provider-for-stream-2)
+and re-run `edamame_cli rpc run_transcript_observer_tick_for '["cursor"]'`.
+
+**`agentic_test_llm` returns `"success": false` or
+`run_transcript_observer_tick_for` returns
+`Raw-session LLM generation failed: ...`.**
+The provider is configured but unreachable. For Ollama, verify that
+`ollama serve` is up and `curl http://127.0.0.1:11434/api/tags` works
+from the same machine; for `internal`, verify the
+`EDAMAME_LLM_API_KEY` (or the OAuth session) is still valid; for
+`openai` / `claude`, verify the API key.
 
 **Sessions show `l7: null`.**
 L7 attribution requires elevated capture rights. On Linux make sure the
