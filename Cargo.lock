@@ -1822,7 +1822,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "1.3.17"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#c61c1600201c7bea8d8b332fbca69bd0daa38b14"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#c7f2ae12cbeb3957b6f67027f76c625d3e71e679"
 dependencies = [
  "anyhow",
  "arc-swap",
