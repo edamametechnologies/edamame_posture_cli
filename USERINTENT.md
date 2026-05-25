@@ -58,6 +58,7 @@ into JSON on stdout, ready to pipe into your own tooling.
 | Blacklisted destinations hit | `background-get-blacklisted-sessions` | `get_blacklisted_sessions` | Continuous |
 | Capture / analyzer health | -- | `is_capturing`, `get_packet_stats`, `get_analyzer_stats` | On demand |
 | Agent transcript observer status | -- (RPC only) | `get_transcript_observer_status` | On demand |
+| Raw pre-LLM agent activity (no LLM call) | -- (RPC only) | `get_raw_agent_activity` | On demand |
 | Per-agent behavioral slices | -- (RPC only) | `get_behavioral_model_contributors` | Per tick of observer |
 | Merged behavioral model | `background-divergence-get-model` | `get_behavioral_model` | Per tick of observer |
 | Behavioral model history | `background-divergence-get-history [LIMIT]` | `get_behavioral_model_history` | On demand |
@@ -82,7 +83,7 @@ that bake in sensible defaults.
 | Stream | Needs the agentic ticker on? | Needs an LLM provider configured? |
 |---|---|---|
 | 1 -- apps + per-app network | No. Driven by the `flodbadd` capture pipeline. | No. |
-| 2 -- AI agent usage (behavioral model contributors, model history, observer status) | Yes -- but it auto-starts. The transcript-observer enable flag defaults to `true` per supported agent, and that alone makes the agentic ticker start. You do NOT need to set `agentic_mode: analyze` or enable the divergence/vulnerability loops. | **Yes.** Translating raw transcripts into the structured `BehavioralWindow` (with `tool_names`, `commands`, `derived_expected_*`, ...) is an LLM call. Without a configured provider, `upsert_behavioral_model_from_raw_sessions` fails with `No configured LLM provider available for raw-session ingest` and the per-agent contributor list stays empty. `get_transcript_observer_status` itself does NOT need an LLM -- it just reports per-agent discovery and last-tick metadata, so you can confirm "the observer found my Cursor transcripts" before doing the LLM step. |
+| 2 -- AI agent usage (behavioral model contributors, model history, observer status) | Yes -- but it auto-starts. The transcript-observer enable flag defaults to `true` per supported agent, and that alone makes the agentic ticker start. You do NOT need to set `agentic_mode: analyze` or enable the divergence/vulnerability loops. | **Yes for the extrapolated view, no for the raw view.** Translating raw transcripts into the structured `BehavioralWindow` -- the `expected_*` / `not_expected_*` slices in `get_behavioral_model_contributors` / `get_behavioral_model` -- is an LLM call. Without a configured provider, `upsert_behavioral_model_from_raw_sessions` fails with `No configured LLM provider available for raw-session ingest` and the per-agent contributor list stays empty. Two RPCs work without an LLM: `get_transcript_observer_status` reports per-agent discovery and last-tick metadata, and `get_raw_agent_activity` returns the foundation parser's pre-LLM payload (`user_text`, `assistant_text`, `tool_names`, `commands`, `derived_expected_*` hints). Use those to confirm "the observer found my Cursor transcripts and here's what the agent is doing right now" before deciding whether to configure an LLM. |
 | 3 -- file events | No. Driven by `start_file_monitor`. | No. |
 
 If all you want is streams 1 and 3, skip the
@@ -444,11 +445,13 @@ tools the agent called, and the destinations / process paths the agent
 itself said it would touch. The transcript observer reads this directly
 from each agent's on-disk transcript store -- no plugin install required.
 
-> **LLM provider required for this stream.** Discovery (`get_transcript_observer_status`)
-> works without one, but extracting the structured behavioral payload
-> (`get_behavioral_model_contributors`, `get_behavioral_model`, history)
-> calls an LLM under the hood. If you have not done so yet, configure a
-> provider via
+> **LLM provider required for the extrapolated view.** Discovery
+> (`get_transcript_observer_status`) and the raw pre-LLM activity view
+> (`get_raw_agent_activity`, see below) both work without one. The
+> structured behavioral payload behind
+> `get_behavioral_model_contributors`, `get_behavioral_model`, and the
+> divergence model history is an LLM call. If you have not done so yet,
+> configure a provider via
 > [Configure an LLM provider for stream 2](#configure-an-llm-provider-for-stream-2).
 > Use Ollama if you want everything to stay on the host.
 
@@ -461,6 +464,71 @@ edamame_cli rpc get_transcript_observer_status --pretty
 Returns one entry per supported agent type with whether it was
 discovered, when it last ticked, whether the operator paused it, and how
 many sessions it ingested.
+
+### Read raw agent activity without an LLM
+
+```bash
+# All defaults: most recent 3 sessions whose mtime is within the last 30 min
+edamame_cli rpc get_raw_agent_activity '["cursor", 0, 0]' --pretty
+
+# Operator-supplied window: last 5 sessions modified within the last 5 minutes
+edamame_cli rpc get_raw_agent_activity '["cursor", 5, 5]' --pretty
+```
+
+This calls the foundation transcript parser directly and returns the
+exact same `CollectResult` that feeds the transcript observer's LLM
+ingest step -- but without invoking any LLM. Useful when no LLM
+provider is configured yet, or when you want the deterministic
+parser view instead of the extrapolated `BehavioralWindow`.
+
+The three positional arguments are:
+
+| Argument | Type | Meaning |
+|---|---|---|
+| `agent_type` | string | One of `cursor`, `claude_code`, `claude_desktop`, `codex`, `openclaw` |
+| `active_window_minutes` | u64 | Only sessions modified within this many minutes qualify (`0` falls back to the observer default of 30) |
+| `limit` | u32 | Maximum number of most-recently-modified sessions to include (`0` falls back to the observer default of 3) |
+
+The response is JSON with shape:
+
+```jsonc
+{
+  "payload": {
+    "agent_type": "cursor",
+    "agent_instance_id": "...",
+    "window_start": "...",
+    "window_end": "...",
+    "source_kind": "cursor",
+    "sessions": [
+      {
+        "session_key": "...",
+        "title": "...",
+        "started_at": "...",
+        "modified_at": "...",
+        "user_text": "...",            // what the user asked
+        "assistant_text": "...",       // what the agent replied
+        "tool_names": ["...", "..."],  // MCP / built-in tools invoked
+        "commands": ["..."],           // shell commands the agent ran
+        "derived_expected_traffic": [...],
+        "derived_expected_local_open_ports": [...],
+        "derived_expected_process_paths": [...],
+        "derived_expected_parent_paths": [...],
+        "derived_expected_open_files": [...],
+        "source_path": "..."
+      }
+    ]
+  },
+  "diagnostics": {
+    "transcripts_root_accessible": true,
+    "transcripts_roots": ["/Users/.../.cursor/projects"],
+    "hostname": "..."
+  }
+}
+```
+
+Unknown agent types return an empty `sessions` array plus
+`transcripts_root_accessible: false`, so operator-side discovery
+probing is well-defined (no error path).
 
 ### Read the per-agent behavioral slices
 
@@ -687,6 +755,9 @@ ingest`, then run `edamame_cli rpc agentic_get_llm_config --pretty`. If
 `provider` is `none` or empty, follow
 [Configure an LLM provider for stream 2](#configure-an-llm-provider-for-stream-2)
 and re-run `edamame_cli rpc run_transcript_observer_tick_for '["cursor"]'`.
+In the meantime, `edamame_cli rpc get_raw_agent_activity '["cursor", 0, 0]' --pretty`
+returns the same sessions in pre-LLM form so you can still see what the
+agent is doing right now.
 
 **`agentic_test_llm` returns `"success": false` or
 `run_transcript_observer_tick_for` returns
