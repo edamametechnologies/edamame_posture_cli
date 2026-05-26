@@ -490,7 +490,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "16e2cdb6d5ed835199484bb92bb8b3edd526effe995c61732580439c1a67e2e9"
 dependencies = [
  "base64 0.22.1",
- "http 1.4.0",
+ "http 1.4.1",
  "log",
  "url",
 ]
@@ -511,7 +511,7 @@ dependencies = [
  "bytes",
  "form_urlencoded",
  "futures-util",
- "http 1.4.0",
+ "http 1.4.1",
  "http-body 1.0.1",
  "http-body-util",
  "hyper 1.9.0",
@@ -542,7 +542,7 @@ checksum = "08c78f31d7b1291f7ee735c1c6780ccde7785daae9a9206026862dab7d8792d1"
 dependencies = [
  "bytes",
  "futures-core",
- "http 1.4.0",
+ "http 1.4.1",
  "http-body 1.0.1",
  "http-body-util",
  "mime",
@@ -1808,7 +1808,7 @@ dependencies = [
 [[package]]
 name = "edamame_backend"
 version = "0.3.5"
-source = "git+https://github.com/edamametechnologies/edamame_backend?branch=main#35b6c05d478b89d98a5947951ee9436baaec7c26"
+source = "git+https://github.com/edamametechnologies/edamame_backend?branch=main#a3894f34cce48b85af087feffbf995f56ca8ce8e"
 dependencies = [
  "anyhow",
  "blake3",
@@ -1822,7 +1822,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "1.3.17"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#c7f2ae12cbeb3957b6f67027f76c625d3e71e679"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#e04a87766cb6f7ce444bd2f8373e2d7abc4c8c48"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -1851,7 +1851,7 @@ dependencies = [
  "hex",
  "hmac",
  "hostname",
- "http 1.4.0",
+ "http 1.4.1",
  "humansize",
  "image",
  "ipnet",
@@ -1911,7 +1911,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "1.3.17"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#e4953b589da78b5c790ef1e01b0d193b53a3511e"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#dfe2cd1c48355f2b561d8c25bca0e8d7922e4ac0"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -2358,7 +2358,7 @@ dependencies = [
 [[package]]
 name = "flodbadd"
 version = "1.3.17"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#df1c7c5cabee1a5733e4012a89de2da52ef2297e"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#0e4bfaa19b770b6c61380fab13668a7090529e5e"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -3050,7 +3050,7 @@ dependencies = [
  "fnv",
  "futures-core",
  "futures-sink",
- "http 1.4.0",
+ "http 1.4.1",
  "indexmap 2.14.0",
  "slab",
  "tokio",
@@ -3251,9 +3251,9 @@ dependencies = [
 
 [[package]]
 name = "http"
-version = "1.4.0"
+version = "1.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e3ba2a386d7f85a81f119ad7498ebe444d2e22c2af0b86b069416ace48b3311a"
+checksum = "8be7462df143984c4598a256ef469b251d7d7f9e271135073e78fc535414f3d0"
 dependencies = [
  "bytes",
  "itoa",
@@ -3277,7 +3277,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1efedce1fb8e6913f23e0c92de8e62cd5b772a67e7b3946df930a62566c93184"
 dependencies = [
  "bytes",
- "http 1.4.0",
+ "http 1.4.1",
 ]
 
 [[package]]
@@ -3288,7 +3288,7 @@ checksum = "b021d93e26becf5dc7e1b75b1bed1fd93124b374ceb73f43d4d4eafec896a64a"
 dependencies = [
  "bytes",
  "futures-core",
- "http 1.4.0",
+ "http 1.4.1",
  "http-body 1.0.1",
  "pin-project-lite",
 ]
@@ -3354,7 +3354,7 @@ dependencies = [
  "futures-channel",
  "futures-core",
  "h2",
- "http 1.4.0",
+ "http 1.4.1",
  "http-body 1.0.1",
  "httparse",
  "httpdate",
@@ -3371,7 +3371,7 @@ version = "0.27.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "33ca68d021ef39cf6463ab54c1d0f5daf03377b70561305bb89a8f83aab66e0f"
 dependencies = [
- "http 1.4.0",
+ "http 1.4.1",
  "hyper 1.9.0",
  "hyper-util",
  "rustls",
@@ -3418,7 +3418,7 @@ dependencies = [
  "bytes",
  "futures-channel",
  "futures-util",
- "http 1.4.0",
+ "http 1.4.1",
  "http-body 1.0.1",
  "hyper 1.9.0",
  "ipnet",
@@ -3443,7 +3443,7 @@ dependencies = [
  "js-sys",
  "log",
  "wasm-bindgen",
- "windows-core 0.62.2",
+ "windows-core 0.58.0",
 ]
 
 [[package]]
@@ -3634,7 +3634,7 @@ dependencies = [
  "attohttpc",
  "bytes",
  "futures",
- "http 1.4.0",
+ "http 1.4.1",
  "http-body-util",
  "hyper 1.9.0",
  "hyper-util",
@@ -3914,7 +3914,7 @@ dependencies = [
 [[package]]
 name = "l7_ebpf_program"
 version = "0.1.0"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#df1c7c5cabee1a5733e4012a89de2da52ef2297e"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#0e4bfaa19b770b6c61380fab13668a7090529e5e"
 
 [[package]]
 name = "lazy_static"
@@ -4950,7 +4950,7 @@ dependencies = [
  "base64 0.22.1",
  "chrono",
  "getrandom 0.2.17",
- "http 1.4.0",
+ "http 1.4.1",
  "rand 0.8.6",
  "reqwest",
  "serde",
@@ -6218,7 +6218,7 @@ dependencies = [
  "futures-channel",
  "futures-core",
  "futures-util",
- "http 1.4.0",
+ "http 1.4.1",
  "http-body 1.0.1",
  "http-body-util",
  "hyper 1.9.0",
@@ -6288,7 +6288,7 @@ dependencies = [
  "bytes",
  "chrono",
  "futures",
- "http 1.4.0",
+ "http 1.4.1",
  "http-body 1.0.1",
  "http-body-util",
  "paste",
@@ -7304,7 +7304,7 @@ dependencies = [
 [[package]]
 name = "threatmodels_rs"
 version = "0.1.1"
-source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#ce0f16b5e182087768cab45e6849db0792328121"
+source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#29b9433bf12042988e13a1ef0c58ecb6cd73a18b"
 dependencies = [
  "anyhow",
  "chrono",
@@ -7567,7 +7567,7 @@ dependencies = [
  "base64 0.22.1",
  "bytes",
  "h2",
- "http 1.4.0",
+ "http 1.4.1",
  "http-body 1.0.1",
  "http-body-util",
  "hyper 1.9.0",
@@ -7655,7 +7655,7 @@ dependencies = [
  "bytes",
  "futures-core",
  "futures-util",
- "http 1.4.0",
+ "http 1.4.1",
  "http-body 1.0.1",
  "http-body-util",
  "pin-project-lite",
@@ -7843,7 +7843,7 @@ checksum = "40ce102ab67701b8526c123c1bab5cbe42d7040ccfd0f64af1a385808d2f43de"
 [[package]]
 name = "undeadlock"
 version = "1.2.0"
-source = "git+https://github.com/edamametechnologies/undeadlock?branch=main#b5852a5d86d77d8a2e03a8a6d452fce0c8f2dd42"
+source = "git+https://github.com/edamametechnologies/undeadlock?branch=main#58fdaeb40b168f397e9c4a96cda4a048737e9efb"
 dependencies = [
  "dashmap 6.2.1",
  "tokio",
@@ -7958,7 +7958,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e994ba84b0bd1b1b0cf92878b7ef898a5c1760108fe7b6010327e274917a808c"
 dependencies = [
  "base64 0.22.1",
- "http 1.4.0",
+ "http 1.4.1",
  "httparse",
  "log",
 ]
