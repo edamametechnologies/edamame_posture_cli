@@ -2,6 +2,7 @@
 name = "edamame_posture"
 version = "1.3.18"
 edition = "2021"
+license = "Apache-2.0"
 description = "EDAMAME Security posture analysis and remediation"
 
 [dependencies]
