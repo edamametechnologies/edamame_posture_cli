@@ -516,6 +516,27 @@ pub fn build_cli() -> Command {
             .about("Reset all attack pattern suppressions"),
     )
     .subcommand(
+        Command::new("background-vulnerability-debug-trace")
+            .alias("vulnerability-debug-trace")
+            .alias("background-attack-pattern-debug-trace")
+            .alias("attack-pattern-debug-trace")
+            .about(
+                "Dump VulnerabilityDebugTrace JSON for a past attack pattern report \
+                 (FP corpus capture / detector replay input)",
+            )
+            .arg(
+                arg!(--"latest" "Resolve report_id from the latest in-memory report (default when no REPORT_ID given)")
+                    .required(false)
+                    .action(ArgAction::SetTrue)
+                    .conflicts_with("REPORT_ID"),
+            )
+            .arg(
+                arg!([REPORT_ID] "Explicit report_id to fetch (overrides --latest)")
+                    .required(false)
+                    .value_parser(clap::value_parser!(String)),
+            ),
+    )
+    .subcommand(
         Command::new("background-clear-vulnerability-history")
             .alias("clear-vulnerability-history")
             .alias("background-clear-attack-pattern-history")

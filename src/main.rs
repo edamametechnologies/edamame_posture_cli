@@ -1256,6 +1256,12 @@ fn run_base() {
             exit_code = background_vulnerability_reset_suppressions();
             is_background = true;
         }
+        Some(("background-vulnerability-debug-trace", sub_matches)) => {
+            let report_id = sub_matches.get_one::<String>("REPORT_ID").cloned();
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_vulnerability_debug_trace(report_id);
+            is_background = true;
+        }
         Some(("background-clear-vulnerability-history", _)) => {
             initialize_core("".to_string(), false, false, false, false, false, verbose);
             exit_code = background_clear_vulnerability_history();

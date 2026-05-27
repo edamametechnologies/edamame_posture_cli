@@ -1988,6 +1988,100 @@ pub fn background_vulnerability_status(fail_on_findings: bool) -> i32 {
     }
 }
 
+/// Dump the `VulnerabilityDebugTrace` JSON for a past attack pattern report.
+///
+/// Calls `get_vulnerability_debug_trace(report_id)` on the running daemon and
+/// pretty-prints the trace (`input_snapshot`, `deterministic_findings`,
+/// `llm_decision`, etc.). This is the canonical FP corpus capture input:
+/// the trace can be replayed deterministically through the detector to
+/// validate suppression-hook changes against historical false positives
+/// without re-running the original live scenario.
+///
+/// When `report_id` is `None`, resolves the latest in-memory report by first
+/// calling `get_vulnerability_findings` and extracting its `report_id`. This
+/// is the `--latest` CLI path.
+///
+/// Exit codes:
+///   0                       -- printed trace JSON (or `{"trace": null}` when no trace is stored)
+///   ERROR_CODE_PARAM        -- daemon has no current report to resolve `--latest` against
+///   ERROR_CODE_SERVER_ERROR -- RPC failed or response was unparseable
+pub fn background_vulnerability_debug_trace(report_id: Option<String>) -> i32 {
+    let resolved_id = match report_id {
+        Some(id) if !id.trim().is_empty() => id.trim().to_string(),
+        _ => {
+            // Resolve latest report_id from get_vulnerability_findings.
+            match rpc_get_vulnerability_findings(
+                &EDAMAME_CA_PEM,
+                &EDAMAME_CLIENT_PEM,
+                &EDAMAME_CLIENT_KEY,
+                &EDAMAME_TARGET,
+            ) {
+                Ok(result) => {
+                    let inner: serde_json::Value = match serde_json::from_str(&result) {
+                        Ok(v) => v,
+                        Err(e) => {
+                            eprintln!(
+                                "Error parsing vulnerability findings JSON: {} -- raw: {}",
+                                e, result
+                            );
+                            return ERROR_CODE_SERVER_ERROR;
+                        }
+                    };
+                    match inner.get("report_id").and_then(|v| v.as_str()) {
+                        Some(id) if !id.is_empty() => id.to_string(),
+                        _ => {
+                            eprintln!(
+                                "No current vulnerability report available; daemon may not have run a detector tick yet."
+                            );
+                            return ERROR_CODE_PARAM;
+                        }
+                    }
+                }
+                Err(e) => {
+                    eprintln!("Error resolving latest report_id: {}", e);
+                    return ERROR_CODE_SERVER_ERROR;
+                }
+            }
+        }
+    };
+
+    match rpc_get_vulnerability_debug_trace(
+        resolved_id.clone(),
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => {
+            let trace: serde_json::Value = match serde_json::from_str(&result) {
+                Ok(v) => v,
+                Err(e) => {
+                    eprintln!(
+                        "Error parsing vulnerability debug trace JSON: {} -- raw: {}",
+                        e, result
+                    );
+                    return ERROR_CODE_SERVER_ERROR;
+                }
+            };
+            match serde_json::to_string_pretty(&trace) {
+                Ok(pretty) => println!("{}", pretty),
+                Err(e) => {
+                    eprintln!("Error formatting vulnerability debug trace JSON: {}", e);
+                    return ERROR_CODE_SERVER_ERROR;
+                }
+            }
+            0
+        }
+        Err(e) => {
+            eprintln!(
+                "Error getting vulnerability debug trace (report_id={}): {}",
+                resolved_id, e
+            );
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
 pub fn background_vulnerability_dismiss(finding_key: String) -> i32 {
     if finding_key.trim().is_empty() {
         eprintln!("Finding key cannot be empty");
