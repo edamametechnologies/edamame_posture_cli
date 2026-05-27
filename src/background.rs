@@ -1991,7 +1991,7 @@ pub fn background_vulnerability_status(fail_on_findings: bool) -> i32 {
 /// Dump the `VulnerabilityDebugTrace` JSON for a past attack pattern report.
 ///
 /// Calls `get_vulnerability_debug_trace(report_id)` on the running daemon and
-/// pretty-prints the trace (`input_snapshot`, `deterministic_findings`,
+/// pretty-prints the trace (`input_slices`, `deterministic_findings`,
 /// `llm_decision`, etc.). This is the canonical FP corpus capture input:
 /// the trace can be replayed deterministically through the detector to
 /// validate suppression-hook changes against historical false positives
