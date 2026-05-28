@@ -360,7 +360,7 @@ log_core_info_for_binary() {
 }
 
 REPO_BASE_URL="https://github.com/edamametechnologies/edamame_posture_cli"
-FALLBACK_VERSION="1.2.0"
+FALLBACK_VERSION="1.3.18"
 LATEST_RELEASE_TAG_PRIMARY=""
 LATEST_RELEASE_TAG_SECONDARY=""
 ARTIFACT_SECONDARY_URL=""
@@ -438,7 +438,47 @@ stop_existing_posture() {
     fi
 }
 
+fetch_latest_tag_via_redirect() {
+    # Resolve the latest release tag via the github.com /releases/latest HTML
+    # redirect. This is NOT subject to the api.github.com IP allow list that
+    # edamametechnologies has enabled on the org (which blocks github-hosted
+    # runner pools with HTTP 403 even with $GITHUB_TOKEN). The redirect is
+    # served by github.com itself and works without authentication for any
+    # public repo.
+    local redirect_url="${REPO_BASE_URL}/releases/latest"
+    local location=""
+    local http_code=""
+    if command -v curl >/dev/null 2>&1; then
+        local tmp
+        tmp=$(mktemp)
+        http_code=$(curl --connect-timeout 10 --max-time 30 -sI -o "$tmp" -w "%{http_code}" "$redirect_url" 2>/dev/null || echo "000")
+        location=$(grep -i '^location:' "$tmp" 2>/dev/null | tail -1 | sed -E 's/^[Ll]ocation:[[:space:]]*//' | tr -d '\r' || true)
+        rm -f "$tmp"
+    elif command -v wget >/dev/null 2>&1; then
+        local headers
+        headers=$(wget --max-redirect=0 --server-response --timeout=30 -q -O /dev/null "$redirect_url" 2>&1 || true)
+        http_code=$(echo "$headers" | awk '/HTTP\//{print $2}' | tail -1)
+        location=$(echo "$headers" | awk '/[Ll]ocation:/{print $2}' | tail -1 | tr -d '\r')
+    fi
+    case "$http_code" in
+        30*) ;;
+        *) return 1 ;;
+    esac
+    if [ -z "$location" ]; then
+        return 1
+    fi
+    printf '%s\n' "$location" | sed -nE 's@.*/releases/tag/v([0-9][0-9.]*)/?$@\1@p'
+}
+
 fetch_latest_version() {
+    # Try the redirect path first. It is the only reliable mechanism on github-
+    # hosted runner pools (api.github.com is blocked by the org IP allow list).
+    local redirect_tag
+    redirect_tag=$(fetch_latest_tag_via_redirect 2>/dev/null || true)
+    if [ -n "$redirect_tag" ]; then
+        echo "$redirect_tag"
+        return 0
+    fi
     local owner_repo
     owner_repo=$(echo "$REPO_BASE_URL" | sed 's|https://github.com/||')
     local api_url="https://api.github.com/repos/${owner_repo}/releases/latest"
@@ -520,18 +560,28 @@ fetch_latest_release_tag() {
     if [ -n "$LATEST_RELEASE_TAG_PRIMARY" ]; then
         return 0
     fi
-    if ! fetch_release_feed; then
-        return 1
-    fi
-    local response="$GITHUB_RELEASES_RESPONSE"
-    if [ -n "$response" ]; then
-        local tags
-        tags=$(printf '%s\n' "$response" | awk -F\" '/"tag_name"/ {gsub(/^v/, "", $4); if($4!="") print $4}')
-        LATEST_RELEASE_TAG_PRIMARY=$(printf '%s\n' "$tags" | sed -n '1p')
-        LATEST_RELEASE_TAG_SECONDARY=$(printf '%s\n' "$tags" | sed -n '2p')
-        if [ -n "$LATEST_RELEASE_TAG_PRIMARY" ]; then
-            return 0
+    if fetch_release_feed; then
+        local response="$GITHUB_RELEASES_RESPONSE"
+        if [ -n "$response" ]; then
+            local tags
+            tags=$(printf '%s\n' "$response" | awk -F\" '/"tag_name"/ {gsub(/^v/, "", $4); if($4!="") print $4}')
+            LATEST_RELEASE_TAG_PRIMARY=$(printf '%s\n' "$tags" | sed -n '1p')
+            LATEST_RELEASE_TAG_SECONDARY=$(printf '%s\n' "$tags" | sed -n '2p')
+            if [ -n "$LATEST_RELEASE_TAG_PRIMARY" ]; then
+                return 0
+            fi
         fi
+    fi
+    # api.github.com is blocked by the org IP allow list on github-hosted
+    # runners; fall back to the github.com /releases/latest redirect, which is
+    # not subject to that allow list. We only get a single tag (the latest),
+    # so LATEST_RELEASE_TAG_SECONDARY stays empty -- the consumer code already
+    # tolerates that.
+    local redirect_tag
+    redirect_tag=$(fetch_latest_tag_via_redirect 2>/dev/null || true)
+    if [ -n "$redirect_tag" ]; then
+        LATEST_RELEASE_TAG_PRIMARY="$redirect_tag"
+        return 0
     fi
     return 1
 }
