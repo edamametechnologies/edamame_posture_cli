@@ -1412,17 +1412,42 @@ install_macos_via_pkg() {
     info "Downloading ${pkg_url}"
     if ! download_file "$pkg_url" "$tmp_pkg"; then
         rm -f "$tmp_pkg"
+        local pkg_downloaded="false"
         if [ -n "$LATEST_RELEASE_TAG_SECONDARY" ]; then
             version="$LATEST_RELEASE_TAG_SECONDARY"
             pkg_name="edamame-posture-macos-${version}.pkg"
             pkg_url="${REPO_BASE_URL}/releases/download/v${version}/${pkg_name}"
             info "Primary .pkg not found, trying previous release: ${pkg_url}"
-            if ! download_file "$pkg_url" "$tmp_pkg"; then
+            tmp_pkg=$(mktemp /tmp/edamame-posture-XXXXXX.pkg)
+            if download_file "$pkg_url" "$tmp_pkg"; then
+                pkg_downloaded="true"
+            else
                 rm -f "$tmp_pkg"
-                warn ".pkg not available for this release"
-                return 1
             fi
-        else
+        fi
+        # Last-resort fallback: try FALLBACK_VERSION .pkg. This is the only
+        # macOS path that survives "the latest release is missing macOS
+        # assets" -- which happens transiently while a release_others.yml
+        # macOS upload is being rebuilt. Without this fallback, install.sh
+        # would fall through to direct binary download of the universal-
+        # apple-darwin artifact, which is NOT notarized (only the .pkg is)
+        # and gets Killed: 9 by Gatekeeper on github-hosted macos-latest
+        # runners.
+        if [ "$pkg_downloaded" = "false" ] && [ -n "$FALLBACK_VERSION" ] \
+           && [ "$FALLBACK_VERSION" != "$LATEST_RELEASE_TAG_PRIMARY" ] \
+           && [ "$FALLBACK_VERSION" != "$LATEST_RELEASE_TAG_SECONDARY" ]; then
+            version="$FALLBACK_VERSION"
+            pkg_name="edamame-posture-macos-${version}.pkg"
+            pkg_url="${REPO_BASE_URL}/releases/download/v${version}/${pkg_name}"
+            info "Previous release .pkg unavailable, trying pinned fallback: ${pkg_url}"
+            tmp_pkg=$(mktemp /tmp/edamame-posture-XXXXXX.pkg)
+            if download_file "$pkg_url" "$tmp_pkg"; then
+                pkg_downloaded="true"
+            else
+                rm -f "$tmp_pkg"
+            fi
+        fi
+        if [ "$pkg_downloaded" = "false" ]; then
             warn ".pkg not available for this release"
             return 1
         fi
