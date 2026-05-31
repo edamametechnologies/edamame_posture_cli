@@ -1180,9 +1180,18 @@ pub fn background_mcp_status() -> i32 {
 }
 
 pub fn background_agentic_summary() -> i32 {
-    use edamame_core::api::api_agentic::agentic_get_summary;
-
-    let summary = agentic_get_summary();
+    let summary = match rpc_agentic_get_summary(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(summary) => summary,
+        Err(e) => {
+            eprintln!("Error querying agentic summary: {}", e);
+            return ERROR_CODE_SERVER_ERROR;
+        }
+    };
 
     println!("================================================================");
     println!("                    AGENTIC STATUS SUMMARY                      ");

@@ -141,13 +141,18 @@ edamame-posture agentic-start [auto|analyze] [INTERVAL_SECS]
 edamame-posture agentic-stop
 edamame-posture agentic-status
 
-# Attack pattern detector
-edamame-posture vulnerability-start [INTERVAL_SECS]
-edamame-posture vulnerability-stop
-edamame-posture vulnerability-status [--fail-on-findings]
-edamame-posture vulnerability-dismiss <FINDING_KEY>
-edamame-posture vulnerability-undismiss <FINDING_KEY>
-edamame-posture vulnerability-reset-suppressions
+# Attack pattern detector (preferred names)
+edamame-posture attack-pattern-start [INTERVAL_SECS]
+edamame-posture attack-pattern-stop
+edamame-posture attack-pattern-status [--fail-on-findings]
+edamame-posture attack-pattern-findings [--active-only]
+edamame-posture attack-pattern-dismiss <FINDING_KEY>
+edamame-posture attack-pattern-undismiss <FINDING_KEY>
+edamame-posture attack-pattern-reset-suppressions
+edamame-posture clear-attack-pattern-history
+# Legacy vulnerability-* names still work as aliases:
+#   vulnerability-start / -stop / -status / -findings / -dismiss /
+#   -undismiss / -reset-suppressions, and clear-vulnerability-history
 
 # Divergence engine
 edamame-posture divergence-start [INTERVAL_SECS]
@@ -164,7 +169,7 @@ edamame-posture divergence-undismiss <FINDING_KEY>
 edamame-posture divergence-reset-suppressions
 ```
 
-The attack pattern detector is model-independent for detection: it can emit findings and fail CI via `vulnerability-status --fail-on-findings` without an LLM provider or API key. For CI/security gates, LLM configuration is strongly recommended because it enables adjudication, likely false-positive suppression, and clearer alert text.
+The attack pattern detector is model-independent for detection: it can emit findings and fail CI via `attack-pattern-status --fail-on-findings` (legacy: `vulnerability-status`) without an LLM provider or API key. For CI/security gates, LLM configuration is strongly recommended because it enables adjudication, likely false-positive suppression, and clearer alert text.
 
 ### File Integrity Monitoring Commands
 ```bash

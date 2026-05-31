@@ -587,8 +587,6 @@ jobs:
           dump_sessions_log: true
           promote_exceptions: ${{ vars.EDAMAME_AUTO_WHITELIST_PROMOTE_EXCEPTIONS }}      
 
-          # Both self-hosted Windows AND github-hosted macOS runners enforce
-          # the gate per workspace.mdc "Github-Hosted Runners (Enforced Gate)".
           # Structural ephemeral-runner FPs are zeroed by the demo-mode-leak
           # cleanup step before this gate runs.
           dump_vulnerability_findings: true
