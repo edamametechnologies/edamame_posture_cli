@@ -1822,7 +1822,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "1.3.21"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#a19fc633b2489393afdea8506089d80621013ccb"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#469737d141733b45c921be8528c68d3096f3bfe8"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -1911,7 +1911,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "1.3.21"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#6eb963cd212320ee619a9e32a41dbf70d4221119"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#c237928ed3e7f7a9bd9c2f8c9add423f88e6efff"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -2358,7 +2358,7 @@ dependencies = [
 [[package]]
 name = "flodbadd"
 version = "1.3.21"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#deb1d7a0468b42bfc049e1c285c4a09a1048ab96"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#5c6a298a0160e772f1aac2c20caa05d573ae9a66"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -3443,7 +3443,7 @@ dependencies = [
  "js-sys",
  "log",
  "wasm-bindgen",
- "windows-core 0.58.0",
+ "windows-core 0.62.2",
 ]
 
 [[package]]
@@ -3914,7 +3914,7 @@ dependencies = [
 [[package]]
 name = "l7_ebpf_program"
 version = "0.1.0"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#deb1d7a0468b42bfc049e1c285c4a09a1048ab96"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#5c6a298a0160e772f1aac2c20caa05d573ae9a66"
 
 [[package]]
 name = "lazy_static"
@@ -7294,7 +7294,7 @@ dependencies = [
 [[package]]
 name = "threatmodels_rs"
 version = "0.1.1"
-source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#5343ad792efacf677877154bd248974ffab835c2"
+source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#34371fc6afce635782e982ba38a47d28454e3d66"
 dependencies = [
  "anyhow",
  "chrono",
