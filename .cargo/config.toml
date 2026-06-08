@@ -5,8 +5,12 @@ rustflags = ["-C", "target-feature=+crt-static"]
 [target.x86_64-unknown-linux-musl]
 rustflags = ["-L/usr/local/musl/usr/lib"]
 
+# relocation-model=static: aarch64 static (non-PIE) musl link. The system
+# libpcap.a is compiled -fpic and its internal `eproto_db` GOT reference uses
+# the 15-bit R_AARCH64_LD64_GOTPAGE_LO15 form; absolute Rust relocations keep
+# the GOT small enough that libpcap's entry stays in range as the binary grows.
 [target.aarch64-unknown-linux-musl]
-rustflags = ["-L/usr/local/musl/usr/lib"]
+rustflags = ["-L/usr/local/musl/usr/lib", "-C", "relocation-model=static"]
 
 [target.x86_64-unknown-linux-gnu]
 linker = "x86_64-linux-gnu-gcc"
