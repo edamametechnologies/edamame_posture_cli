@@ -9,6 +9,7 @@ use crate::ERROR_CODE_SERVER_ERROR;
 use crate::ERROR_CODE_TIMEOUT;
 use edamame_core::api::api_agentic::*;
 use edamame_core::api::api_core::*;
+use edamame_core::api::api_visibility::*;
 use edamame_core::api::api_fim::*;
 use edamame_core::api::api_flodbadd::*;
 use edamame_core::api::api_score::*;
@@ -2352,6 +2353,1148 @@ pub fn background_agentic_remove_dismissal_rule(rule_id: String) -> i32 {
         }
         Err(e) => {
             eprintln!("Error removing dismissal rule: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+// ===========================================================================
+// Agent Visibility + Transcript Observer (MVP)
+//
+// Reads return JSON strings (same convention as vulnerability findings); we
+// parse + pretty-print. Mutators return a {"success": bool, ...} envelope.
+// See edamame_core/VISIBILITYIMPROVEMENTS.md.
+// ===========================================================================
+
+/// Pretty-print a JSON string returned by a visibility/observer read RPC.
+fn print_visibility_json(raw: &str, label: &str) -> i32 {
+    match serde_json::from_str::<serde_json::Value>(raw) {
+        Ok(value) => match serde_json::to_string_pretty(&value) {
+            Ok(pretty) => {
+                println!("{}", pretty);
+                0
+            }
+            Err(e) => {
+                eprintln!("Error formatting {} JSON: {}", label, e);
+                ERROR_CODE_SERVER_ERROR
+            }
+        },
+        Err(e) => {
+            eprintln!("Error parsing {} JSON: {} -- raw: {}", label, e, raw);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+/// Validate + pretty-print a `{"success": bool, ...}` envelope returned by a
+/// visibility/observer mutator RPC. Exit code reflects `success`.
+fn print_visibility_envelope(raw: &str, label: &str) -> i32 {
+    match serde_json::from_str::<serde_json::Value>(raw) {
+        Ok(json) => {
+            if json["success"].as_bool().unwrap_or(false) {
+                match serde_json::to_string_pretty(&json) {
+                    Ok(pretty) => println!("{}", pretty),
+                    Err(_) => println!("{}", raw),
+                }
+                0
+            } else {
+                eprintln!(
+                    "{} failed: {}",
+                    label,
+                    json["error"].as_str().unwrap_or("Unknown")
+                );
+                ERROR_CODE_SERVER_ERROR
+            }
+        }
+        Err(e) => {
+            eprintln!("Error parsing {} result: {} -- raw: {}", label, e, raw);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn background_agent_visibility_refresh() -> i32 {
+    match rpc_refresh_agent_visibility(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => print_visibility_envelope(&result, "Agent visibility refresh"),
+        Err(e) => {
+            eprintln!("Error refreshing agent visibility: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn background_visibility_summary() -> i32 {
+    match rpc_get_visibility_summary(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(summary) => match serde_json::to_string_pretty(&summary) {
+            Ok(pretty) => {
+                println!("{}", pretty);
+                0
+            }
+            Err(e) => {
+                eprintln!("Error formatting visibility summary: {}", e);
+                ERROR_CODE_SERVER_ERROR
+            }
+        },
+        Err(e) => {
+            eprintln!("Error getting visibility summary: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn background_mcp_inventory() -> i32 {
+    match rpc_get_mcp_inventory(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => print_visibility_json(&result, "MCP inventory"),
+        Err(e) => {
+            eprintln!("Error getting MCP inventory: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn background_mcp_findings() -> i32 {
+    match rpc_get_mcp_findings(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => print_visibility_json(&result, "MCP findings"),
+        Err(e) => {
+            eprintln!("Error getting MCP findings: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn background_agent_sboms() -> i32 {
+    match rpc_get_agent_sboms(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => print_visibility_json(&result, "Agent SBOMs"),
+        Err(e) => {
+            eprintln!("Error getting agent SBOMs: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn background_agent_sbom_cyclonedx(agent_type: String) -> i32 {
+    if agent_type.trim().is_empty() {
+        eprintln!("Agent type cannot be empty");
+        return ERROR_CODE_PARAM;
+    }
+    match rpc_get_agent_sbom_cyclonedx(
+        agent_type.trim().to_string(),
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => print_visibility_json(&result, "CycloneDX SBOM"),
+        Err(e) => {
+            eprintln!("Error exporting CycloneDX SBOM: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn background_agent_sbom_diff(agent_type: String) -> i32 {
+    if agent_type.trim().is_empty() {
+        eprintln!("Agent type cannot be empty");
+        return ERROR_CODE_PARAM;
+    }
+    match rpc_get_agent_sbom_diff(
+        agent_type.trim().to_string(),
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => print_visibility_json(&result, "SBOM diff"),
+        Err(e) => {
+            eprintln!("Error getting SBOM diff: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn background_capability_graph() -> i32 {
+    match rpc_get_capability_graph(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => print_visibility_json(&result, "Capability graph"),
+        Err(e) => {
+            eprintln!("Error getting capability graph: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn background_recursion_risk() -> i32 {
+    match rpc_get_recursion_risk(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => print_visibility_json(&result, "Recursion risk"),
+        Err(e) => {
+            eprintln!("Error getting recursion risk: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn background_agent_inventory() -> i32 {
+    match rpc_get_agent_inventory(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => print_visibility_json(&result, "Agent inventory"),
+        Err(e) => {
+            eprintln!("Error getting agent inventory: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn background_graph_reachability() -> i32 {
+    match rpc_get_graph_reachability(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => print_visibility_json(&result, "Graph reachability"),
+        Err(e) => {
+            eprintln!("Error getting graph reachability: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn background_effective_capabilities() -> i32 {
+    match rpc_get_effective_capabilities(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => print_visibility_json(&result, "Effective capabilities"),
+        Err(e) => {
+            eprintln!("Error getting effective capabilities: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn background_approve_agent(agent_type: String) -> i32 {
+    if agent_type.trim().is_empty() {
+        eprintln!("Agent type cannot be empty");
+        return ERROR_CODE_PARAM;
+    }
+    match rpc_approve_agent(
+        agent_type.trim().to_string(),
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => print_visibility_envelope(&result, "Approve agent"),
+        Err(e) => {
+            eprintln!("Error approving agent: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn background_revoke_agent_approval(agent_type: String) -> i32 {
+    if agent_type.trim().is_empty() {
+        eprintln!("Agent type cannot be empty");
+        return ERROR_CODE_PARAM;
+    }
+    match rpc_revoke_agent_approval(
+        agent_type.trim().to_string(),
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => print_visibility_envelope(&result, "Revoke agent approval"),
+        Err(e) => {
+            eprintln!("Error revoking agent approval: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn background_approve_sbom_baseline(agent_type: String) -> i32 {
+    if agent_type.trim().is_empty() {
+        eprintln!("Agent type cannot be empty");
+        return ERROR_CODE_PARAM;
+    }
+    match rpc_approve_agent_sbom_baseline(
+        agent_type.trim().to_string(),
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => print_visibility_envelope(&result, "Approve SBOM baseline"),
+        Err(e) => {
+            eprintln!("Error approving SBOM baseline: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn background_visibility_roadmap() -> i32 {
+    match rpc_get_visibility_roadmap(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(roadmap) => match serde_json::to_string_pretty(&roadmap) {
+            Ok(pretty) => {
+                println!("{}", pretty);
+                0
+            }
+            Err(e) => {
+                eprintln!("Error formatting visibility roadmap: {}", e);
+                ERROR_CODE_SERVER_ERROR
+            }
+        },
+        Err(e) => {
+            eprintln!("Error getting visibility roadmap: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn background_mcp_endpoints() -> i32 {
+    match rpc_get_mcp_endpoints(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => print_visibility_json(&result, "MCP endpoints"),
+        Err(e) => {
+            eprintln!("Error getting MCP endpoints: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn background_visibility_capture_tier() -> i32 {
+    match rpc_get_visibility_capture_tier(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(tier) => match serde_json::to_string_pretty(&tier) {
+            Ok(pretty) => {
+                println!("{}", pretty);
+                0
+            }
+            Err(e) => {
+                eprintln!("Error formatting visibility capture tier: {}", e);
+                ERROR_CODE_SERVER_ERROR
+            }
+        },
+        Err(e) => {
+            eprintln!("Error getting visibility capture tier: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn background_set_visibility_capture_tier(tier: String) -> i32 {
+    if tier.trim().is_empty() {
+        eprintln!("Capture tier cannot be empty");
+        return ERROR_CODE_PARAM;
+    }
+    match rpc_set_visibility_capture_tier(
+        tier.trim().to_string(),
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => print_visibility_envelope(&result, "Set visibility capture tier"),
+        Err(e) => {
+            eprintln!("Error setting visibility capture tier: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// INC-5 Flight Recorder
+// ---------------------------------------------------------------------------
+
+pub fn background_refresh_run_provenance() -> i32 {
+    match rpc_refresh_run_provenance(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => print_visibility_envelope(&result, "Refresh run provenance"),
+        Err(e) => {
+            eprintln!("Error refreshing run provenance: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn background_list_recent_runs() -> i32 {
+    match rpc_list_recent_runs(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => print_visibility_json(&result, "Recent runs"),
+        Err(e) => {
+            eprintln!("Error listing recent runs: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn background_run_provenance(run_id: String) -> i32 {
+    if run_id.trim().is_empty() {
+        eprintln!("Run id cannot be empty");
+        return ERROR_CODE_PARAM;
+    }
+    match rpc_get_run_provenance(
+        run_id.trim().to_string(),
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => print_visibility_json(&result, "Run provenance"),
+        Err(e) => {
+            eprintln!("Error getting run provenance: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn background_explain_run_event(run_id: String, event_id: String) -> i32 {
+    if run_id.trim().is_empty() || event_id.trim().is_empty() {
+        eprintln!("Run id and event id cannot be empty");
+        return ERROR_CODE_PARAM;
+    }
+    match rpc_explain_run_event(
+        run_id.trim().to_string(),
+        event_id.trim().to_string(),
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => print_visibility_json(&result, "Run event explanation"),
+        Err(e) => {
+            eprintln!("Error explaining run event: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// INC-6 Drift Timeline
+// ---------------------------------------------------------------------------
+
+pub fn background_refresh_agent_drift() -> i32 {
+    match rpc_refresh_agent_drift(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => print_visibility_envelope(&result, "Refresh agent drift"),
+        Err(e) => {
+            eprintln!("Error refreshing agent drift: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn background_agent_drift() -> i32 {
+    match rpc_get_agent_drift(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => print_visibility_json(&result, "Agent drift"),
+        Err(e) => {
+            eprintln!("Error getting agent drift: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn background_agent_drift_timeline(agent_key: String) -> i32 {
+    if agent_key.trim().is_empty() {
+        eprintln!("Agent key cannot be empty");
+        return ERROR_CODE_PARAM;
+    }
+    match rpc_get_agent_drift_timeline(
+        agent_key.trim().to_string(),
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => print_visibility_json(&result, "Agent drift timeline"),
+        Err(e) => {
+            eprintln!("Error getting agent drift timeline: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn background_explain_agent_drift(agent_key: String, event_id: String) -> i32 {
+    if agent_key.trim().is_empty() || event_id.trim().is_empty() {
+        eprintln!("Agent key and event id cannot be empty");
+        return ERROR_CODE_PARAM;
+    }
+    match rpc_explain_agent_drift(
+        agent_key.trim().to_string(),
+        event_id.trim().to_string(),
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => print_visibility_json(&result, "Agent drift explanation"),
+        Err(e) => {
+            eprintln!("Error explaining agent drift: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// INC-7 Data-Flow Map
+// ---------------------------------------------------------------------------
+
+pub fn background_refresh_dataflow_maps() -> i32 {
+    match rpc_refresh_dataflow_maps(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => print_visibility_envelope(&result, "Refresh data-flow maps"),
+        Err(e) => {
+            eprintln!("Error refreshing data-flow maps: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn background_dataflow_maps() -> i32 {
+    match rpc_get_dataflow_maps(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => print_visibility_json(&result, "Data-flow maps"),
+        Err(e) => {
+            eprintln!("Error getting data-flow maps: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn background_dataflow_map(agent_type: String) -> i32 {
+    if agent_type.trim().is_empty() {
+        eprintln!("Agent type cannot be empty");
+        return ERROR_CODE_PARAM;
+    }
+    match rpc_get_dataflow_map(
+        agent_type.trim().to_string(),
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => print_visibility_json(&result, "Data-flow map"),
+        Err(e) => {
+            eprintln!("Error getting data-flow map: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// INC-8 Memory & RAG inventory
+// ---------------------------------------------------------------------------
+
+pub fn background_refresh_memory_inventory() -> i32 {
+    match rpc_refresh_memory_inventory(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => print_visibility_envelope(&result, "Refresh memory inventory"),
+        Err(e) => {
+            eprintln!("Error refreshing memory inventory: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn background_memory_inventory() -> i32 {
+    match rpc_get_memory_inventory(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => print_visibility_json(&result, "Memory inventory"),
+        Err(e) => {
+            eprintln!("Error getting memory inventory: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// INC-9 A2A mapping
+// ---------------------------------------------------------------------------
+
+pub fn background_refresh_a2a_graph() -> i32 {
+    match rpc_refresh_a2a_graph(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => print_visibility_envelope(&result, "Refresh A2A graph"),
+        Err(e) => {
+            eprintln!("Error refreshing A2A graph: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn background_a2a_graph() -> i32 {
+    match rpc_get_a2a_graph(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => print_visibility_json(&result, "A2A graph"),
+        Err(e) => {
+            eprintln!("Error getting A2A graph: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// INC-12 Alignment rollup
+// ---------------------------------------------------------------------------
+
+pub fn background_refresh_alignment_rollup() -> i32 {
+    match rpc_refresh_alignment_rollup(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => print_visibility_envelope(&result, "Refresh alignment rollup"),
+        Err(e) => {
+            eprintln!("Error refreshing alignment rollup: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn background_alignment_rollup() -> i32 {
+    match rpc_get_alignment_rollup(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => print_visibility_json(&result, "Alignment rollup"),
+        Err(e) => {
+            eprintln!("Error getting alignment rollup: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// INC-10 Tool-Call Firewall
+// ---------------------------------------------------------------------------
+
+pub fn background_firewall_status() -> i32 {
+    match rpc_get_firewall_status(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => print_visibility_json(&result, "Firewall status"),
+        Err(e) => {
+            eprintln!("Error getting firewall status: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn background_firewall_evaluations() -> i32 {
+    match rpc_get_firewall_evaluations(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => print_visibility_json(&result, "Firewall evaluations"),
+        Err(e) => {
+            eprintln!("Error getting firewall evaluations: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn background_refresh_firewall_evaluations() -> i32 {
+    match rpc_refresh_firewall_evaluations(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => print_visibility_envelope(&result, "Refresh firewall evaluations"),
+        Err(e) => {
+            eprintln!("Error refreshing firewall evaluations: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn background_set_firewall_mode(mode: String) -> i32 {
+    if mode.trim().is_empty() {
+        eprintln!("Firewall mode cannot be empty");
+        return ERROR_CODE_PARAM;
+    }
+    match rpc_set_firewall_mode(
+        mode.trim().to_string(),
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => print_visibility_envelope(&result, "Set firewall mode"),
+        Err(e) => {
+            eprintln!("Error setting firewall mode: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// INC-11 ADR Response & Case Export
+// ---------------------------------------------------------------------------
+
+pub fn background_response_action_catalog() -> i32 {
+    match rpc_get_response_action_catalog(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => print_visibility_json(&result, "Response action catalog"),
+        Err(e) => {
+            eprintln!("Error getting response action catalog: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn background_response_action_history() -> i32 {
+    match rpc_get_response_action_history(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => print_visibility_json(&result, "Response action history"),
+        Err(e) => {
+            eprintln!("Error getting response action history: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn background_request_response_action(
+    kind: String,
+    target_ref: String,
+    reason: String,
+    simulated: bool,
+) -> i32 {
+    if kind.trim().is_empty() || target_ref.trim().is_empty() {
+        eprintln!("Response action kind and target_ref cannot be empty");
+        return ERROR_CODE_PARAM;
+    }
+    match rpc_request_response_action(
+        kind.trim().to_string(),
+        target_ref.trim().to_string(),
+        reason,
+        simulated,
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => print_visibility_envelope(&result, "Request response action"),
+        Err(e) => {
+            eprintln!("Error requesting response action: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn background_undo_response_action(action_id: String) -> i32 {
+    if action_id.trim().is_empty() {
+        eprintln!("Action id cannot be empty");
+        return ERROR_CODE_PARAM;
+    }
+    match rpc_undo_response_action(
+        action_id.trim().to_string(),
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => print_visibility_envelope(&result, "Undo response action"),
+        Err(e) => {
+            eprintln!("Error undoing response action: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn background_export_visibility_case(run_id: String) -> i32 {
+    if run_id.trim().is_empty() {
+        eprintln!("Run id cannot be empty");
+        return ERROR_CODE_PARAM;
+    }
+    match rpc_export_visibility_case(
+        run_id.trim().to_string(),
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => print_visibility_json(&result, "Visibility case export"),
+        Err(e) => {
+            eprintln!("Error exporting visibility case: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// INC-13 Governance (policy packs, attestation, cross-zone)
+// ---------------------------------------------------------------------------
+
+pub fn background_policy_pack() -> i32 {
+    match rpc_get_policy_pack(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => print_visibility_json(&result, "Policy pack"),
+        Err(e) => {
+            eprintln!("Error getting policy pack: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn background_set_policy_pack(pack: String) -> i32 {
+    if pack.trim().is_empty() {
+        eprintln!("Policy pack argument cannot be empty");
+        return ERROR_CODE_PARAM;
+    }
+    // The argument is either a path to a JSON file or inline JSON. If it points
+    // at a readable file, load its contents; otherwise treat it as literal JSON.
+    let pack_json = if std::path::Path::new(pack.trim()).is_file() {
+        match std::fs::read_to_string(pack.trim()) {
+            Ok(contents) => contents,
+            Err(e) => {
+                eprintln!("Error reading policy pack file '{}': {}", pack.trim(), e);
+                return ERROR_CODE_PARAM;
+            }
+        }
+    } else {
+        pack
+    };
+    match rpc_set_policy_pack(
+        pack_json,
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => print_visibility_envelope(&result, "Set policy pack"),
+        Err(e) => {
+            eprintln!("Error setting policy pack: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn background_refresh_policy_evaluation() -> i32 {
+    match rpc_refresh_policy_evaluation(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => print_visibility_envelope(&result, "Refresh policy evaluation"),
+        Err(e) => {
+            eprintln!("Error refreshing policy evaluation: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn background_policy_evaluation() -> i32 {
+    match rpc_get_policy_evaluation(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => print_visibility_json(&result, "Policy evaluation"),
+        Err(e) => {
+            eprintln!("Error getting policy evaluation: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn background_attest_policy_evaluation() -> i32 {
+    match rpc_attest_policy_evaluation(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => print_visibility_envelope(&result, "Attest policy evaluation"),
+        Err(e) => {
+            eprintln!("Error attesting policy evaluation: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn background_attest_agent_sbom(agent_type: String) -> i32 {
+    if agent_type.trim().is_empty() {
+        eprintln!("Agent type cannot be empty");
+        return ERROR_CODE_PARAM;
+    }
+    match rpc_attest_agent_sbom(
+        agent_type.trim().to_string(),
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => print_visibility_envelope(&result, "Attest agent SBOM"),
+        Err(e) => {
+            eprintln!("Error attesting agent SBOM: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn background_policy_attestations() -> i32 {
+    match rpc_get_policy_attestations(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => print_visibility_json(&result, "Policy attestations"),
+        Err(e) => {
+            eprintln!("Error getting policy attestations: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn background_zone_promotions() -> i32 {
+    match rpc_get_zone_promotions(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => print_visibility_json(&result, "Zone promotions"),
+        Err(e) => {
+            eprintln!("Error getting zone promotions: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn background_request_zone_promotion(
+    agent_type: String,
+    target_zone: String,
+    reason: String,
+) -> i32 {
+    if agent_type.trim().is_empty() || target_zone.trim().is_empty() {
+        eprintln!("Agent type and target zone cannot be empty");
+        return ERROR_CODE_PARAM;
+    }
+    match rpc_request_zone_promotion(
+        agent_type.trim().to_string(),
+        target_zone.trim().to_string(),
+        reason,
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => print_visibility_envelope(&result, "Request zone promotion"),
+        Err(e) => {
+            eprintln!("Error requesting zone promotion: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn background_decide_zone_promotion(promotion_id: String, decision: String) -> i32 {
+    if promotion_id.trim().is_empty() {
+        eprintln!("Promotion id cannot be empty");
+        return ERROR_CODE_PARAM;
+    }
+    let approve = match decision.trim().to_ascii_lowercase().as_str() {
+        "approve" | "approved" | "accept" | "yes" | "true" => true,
+        "reject" | "rejected" | "deny" | "denied" | "no" | "false" => false,
+        other => {
+            eprintln!(
+                "Unknown decision '{}' (expected approve | reject)",
+                other
+            );
+            return ERROR_CODE_PARAM;
+        }
+    };
+    match rpc_decide_zone_promotion(
+        promotion_id.trim().to_string(),
+        approve,
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => print_visibility_envelope(&result, "Decide zone promotion"),
+        Err(e) => {
+            eprintln!("Error deciding zone promotion: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn background_observer_status() -> i32 {
+    match rpc_get_transcript_observer_status(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => print_visibility_json(&result, "Transcript observer status"),
+        Err(e) => {
+            eprintln!("Error getting transcript observer status: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn background_observer_set_enabled(agent_type: String, enabled: bool) -> i32 {
+    if agent_type.trim().is_empty() {
+        eprintln!("Agent type cannot be empty");
+        return ERROR_CODE_PARAM;
+    }
+    match rpc_set_transcript_observer_enabled(
+        agent_type.trim().to_string(),
+        enabled,
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => print_visibility_envelope(
+            &result,
+            if enabled {
+                "Observer enable"
+            } else {
+                "Observer disable"
+            },
+        ),
+        Err(e) => {
+            eprintln!("Error setting transcript observer state: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn background_observer_tick(agent_type: String) -> i32 {
+    if agent_type.trim().is_empty() {
+        eprintln!("Agent type cannot be empty");
+        return ERROR_CODE_PARAM;
+    }
+    match rpc_run_transcript_observer_tick_for(
+        agent_type.trim().to_string(),
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => print_visibility_envelope(&result, "Observer tick"),
+        Err(e) => {
+            eprintln!("Error running transcript observer tick: {}", e);
             ERROR_CODE_SERVER_ERROR
         }
     }

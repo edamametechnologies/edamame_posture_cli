@@ -1291,6 +1291,429 @@ fn run_base() {
             exit_code = background_agentic_remove_dismissal_rule(rule_id);
             is_background = true;
         }
+        // Agent Visibility (MCP discovery / SBOM / capability graph / recursion)
+        Some(("background-agent-visibility-refresh", _)) => {
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_agent_visibility_refresh();
+            is_background = true;
+        }
+        Some(("background-visibility-summary", _)) => {
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_visibility_summary();
+            is_background = true;
+        }
+        Some(("background-mcp-inventory", _)) => {
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_mcp_inventory();
+            is_background = true;
+        }
+        Some(("background-mcp-findings", _)) => {
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_mcp_findings();
+            is_background = true;
+        }
+        Some(("background-agent-sboms", _)) => {
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_agent_sboms();
+            is_background = true;
+        }
+        Some(("background-agent-sbom-cyclonedx", sub_matches)) => {
+            let agent_type = sub_matches
+                .get_one::<String>("AGENT_TYPE")
+                .expect("AGENT_TYPE not provided")
+                .to_string();
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_agent_sbom_cyclonedx(agent_type);
+            is_background = true;
+        }
+        Some(("background-agent-sbom-diff", sub_matches)) => {
+            let agent_type = sub_matches
+                .get_one::<String>("AGENT_TYPE")
+                .expect("AGENT_TYPE not provided")
+                .to_string();
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_agent_sbom_diff(agent_type);
+            is_background = true;
+        }
+        Some(("background-capability-graph", _)) => {
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_capability_graph();
+            is_background = true;
+        }
+        Some(("background-recursion-risk", _)) => {
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_recursion_risk();
+            is_background = true;
+        }
+        Some(("background-agent-inventory", _)) => {
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_agent_inventory();
+            is_background = true;
+        }
+        Some(("background-graph-reachability", _)) => {
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_graph_reachability();
+            is_background = true;
+        }
+        Some(("background-effective-capabilities", _)) => {
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_effective_capabilities();
+            is_background = true;
+        }
+        Some(("background-approve-agent", sub_matches)) => {
+            let agent_type = sub_matches
+                .get_one::<String>("AGENT_TYPE")
+                .expect("AGENT_TYPE not provided")
+                .to_string();
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_approve_agent(agent_type);
+            is_background = true;
+        }
+        Some(("background-revoke-agent-approval", sub_matches)) => {
+            let agent_type = sub_matches
+                .get_one::<String>("AGENT_TYPE")
+                .expect("AGENT_TYPE not provided")
+                .to_string();
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_revoke_agent_approval(agent_type);
+            is_background = true;
+        }
+        Some(("background-approve-sbom-baseline", sub_matches)) => {
+            let agent_type = sub_matches
+                .get_one::<String>("AGENT_TYPE")
+                .expect("AGENT_TYPE not provided")
+                .to_string();
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_approve_sbom_baseline(agent_type);
+            is_background = true;
+        }
+        Some(("background-visibility-roadmap", _)) => {
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_visibility_roadmap();
+            is_background = true;
+        }
+        Some(("background-mcp-endpoints", _)) => {
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_mcp_endpoints();
+            is_background = true;
+        }
+        Some(("background-visibility-capture-tier", _)) => {
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_visibility_capture_tier();
+            is_background = true;
+        }
+        Some(("background-set-visibility-capture-tier", sub_matches)) => {
+            let tier = sub_matches
+                .get_one::<String>("TIER")
+                .expect("TIER not provided")
+                .to_string();
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_set_visibility_capture_tier(tier);
+            is_background = true;
+        }
+        // INC-5 Flight Recorder
+        Some(("background-refresh-run-provenance", _)) => {
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_refresh_run_provenance();
+            is_background = true;
+        }
+        Some(("background-list-runs", _)) => {
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_list_recent_runs();
+            is_background = true;
+        }
+        Some(("background-run-provenance", sub_matches)) => {
+            let run_id = sub_matches
+                .get_one::<String>("RUN_ID")
+                .expect("RUN_ID not provided")
+                .to_string();
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_run_provenance(run_id);
+            is_background = true;
+        }
+        Some(("background-explain-run-event", sub_matches)) => {
+            let run_id = sub_matches
+                .get_one::<String>("RUN_ID")
+                .expect("RUN_ID not provided")
+                .to_string();
+            let event_id = sub_matches
+                .get_one::<String>("EVENT_ID")
+                .expect("EVENT_ID not provided")
+                .to_string();
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_explain_run_event(run_id, event_id);
+            is_background = true;
+        }
+        // INC-6 Drift Timeline
+        Some(("background-refresh-agent-drift", _)) => {
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_refresh_agent_drift();
+            is_background = true;
+        }
+        Some(("background-agent-drift", _)) => {
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_agent_drift();
+            is_background = true;
+        }
+        Some(("background-agent-drift-timeline", sub_matches)) => {
+            let agent_key = sub_matches
+                .get_one::<String>("AGENT_KEY")
+                .expect("AGENT_KEY not provided")
+                .to_string();
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_agent_drift_timeline(agent_key);
+            is_background = true;
+        }
+        Some(("background-explain-agent-drift", sub_matches)) => {
+            let agent_key = sub_matches
+                .get_one::<String>("AGENT_KEY")
+                .expect("AGENT_KEY not provided")
+                .to_string();
+            let event_id = sub_matches
+                .get_one::<String>("EVENT_ID")
+                .expect("EVENT_ID not provided")
+                .to_string();
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_explain_agent_drift(agent_key, event_id);
+            is_background = true;
+        }
+        // INC-7 Data-Flow Map
+        Some(("background-refresh-dataflow-maps", _)) => {
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_refresh_dataflow_maps();
+            is_background = true;
+        }
+        Some(("background-dataflow-maps", _)) => {
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_dataflow_maps();
+            is_background = true;
+        }
+        Some(("background-dataflow-map", sub_matches)) => {
+            let agent_type = sub_matches
+                .get_one::<String>("AGENT_TYPE")
+                .expect("AGENT_TYPE not provided")
+                .to_string();
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_dataflow_map(agent_type);
+            is_background = true;
+        }
+        // INC-8 Memory & RAG inventory
+        Some(("background-refresh-memory-inventory", _)) => {
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_refresh_memory_inventory();
+            is_background = true;
+        }
+        Some(("background-memory-inventory", _)) => {
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_memory_inventory();
+            is_background = true;
+        }
+        // INC-9 A2A mapping
+        Some(("background-refresh-a2a-graph", _)) => {
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_refresh_a2a_graph();
+            is_background = true;
+        }
+        Some(("background-a2a-graph", _)) => {
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_a2a_graph();
+            is_background = true;
+        }
+        // INC-12 Alignment rollup
+        Some(("background-refresh-alignment-rollup", _)) => {
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_refresh_alignment_rollup();
+            is_background = true;
+        }
+        Some(("background-alignment-rollup", _)) => {
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_alignment_rollup();
+            is_background = true;
+        }
+        // INC-10 Tool-Call Firewall
+        Some(("background-firewall-status", _)) => {
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_firewall_status();
+            is_background = true;
+        }
+        Some(("background-firewall-evaluations", _)) => {
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_firewall_evaluations();
+            is_background = true;
+        }
+        Some(("background-refresh-firewall-evaluations", _)) => {
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_refresh_firewall_evaluations();
+            is_background = true;
+        }
+        Some(("background-set-firewall-mode", sub_matches)) => {
+            let mode = sub_matches
+                .get_one::<String>("MODE")
+                .expect("MODE not provided")
+                .to_string();
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_set_firewall_mode(mode);
+            is_background = true;
+        }
+        // INC-11 ADR Response & Case Export
+        Some(("background-response-action-catalog", _)) => {
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_response_action_catalog();
+            is_background = true;
+        }
+        Some(("background-response-action-history", _)) => {
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_response_action_history();
+            is_background = true;
+        }
+        Some(("background-request-response-action", sub_matches)) => {
+            let kind = sub_matches
+                .get_one::<String>("KIND")
+                .expect("KIND not provided")
+                .to_string();
+            let target_ref = sub_matches
+                .get_one::<String>("TARGET_REF")
+                .expect("TARGET_REF not provided")
+                .to_string();
+            let reason = sub_matches
+                .get_one::<String>("REASON")
+                .expect("REASON not provided")
+                .to_string();
+            let simulated = !sub_matches.get_flag("execute");
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_request_response_action(kind, target_ref, reason, simulated);
+            is_background = true;
+        }
+        Some(("background-undo-response-action", sub_matches)) => {
+            let action_id = sub_matches
+                .get_one::<String>("ACTION_ID")
+                .expect("ACTION_ID not provided")
+                .to_string();
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_undo_response_action(action_id);
+            is_background = true;
+        }
+        Some(("background-export-visibility-case", sub_matches)) => {
+            let run_id = sub_matches
+                .get_one::<String>("RUN_ID")
+                .expect("RUN_ID not provided")
+                .to_string();
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_export_visibility_case(run_id);
+            is_background = true;
+        }
+        // INC-13 Governance (policy packs, attestation, cross-zone)
+        Some(("background-policy-pack", _)) => {
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_policy_pack();
+            is_background = true;
+        }
+        Some(("background-set-policy-pack", sub_matches)) => {
+            let pack = sub_matches
+                .get_one::<String>("PACK")
+                .expect("PACK not provided")
+                .to_string();
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_set_policy_pack(pack);
+            is_background = true;
+        }
+        Some(("background-refresh-policy-evaluation", _)) => {
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_refresh_policy_evaluation();
+            is_background = true;
+        }
+        Some(("background-policy-evaluation", _)) => {
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_policy_evaluation();
+            is_background = true;
+        }
+        Some(("background-attest-policy-evaluation", _)) => {
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_attest_policy_evaluation();
+            is_background = true;
+        }
+        Some(("background-attest-agent-sbom", sub_matches)) => {
+            let agent_type = sub_matches
+                .get_one::<String>("AGENT_TYPE")
+                .expect("AGENT_TYPE not provided")
+                .to_string();
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_attest_agent_sbom(agent_type);
+            is_background = true;
+        }
+        Some(("background-policy-attestations", _)) => {
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_policy_attestations();
+            is_background = true;
+        }
+        Some(("background-zone-promotions", _)) => {
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_zone_promotions();
+            is_background = true;
+        }
+        Some(("background-request-zone-promotion", sub_matches)) => {
+            let agent_type = sub_matches
+                .get_one::<String>("AGENT_TYPE")
+                .expect("AGENT_TYPE not provided")
+                .to_string();
+            let target_zone = sub_matches
+                .get_one::<String>("TARGET_ZONE")
+                .expect("TARGET_ZONE not provided")
+                .to_string();
+            let reason = sub_matches
+                .get_one::<String>("REASON")
+                .expect("REASON not provided")
+                .to_string();
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_request_zone_promotion(agent_type, target_zone, reason);
+            is_background = true;
+        }
+        Some(("background-decide-zone-promotion", sub_matches)) => {
+            let promotion_id = sub_matches
+                .get_one::<String>("PROMOTION_ID")
+                .expect("PROMOTION_ID not provided")
+                .to_string();
+            let decision = sub_matches
+                .get_one::<String>("DECISION")
+                .expect("DECISION not provided")
+                .to_string();
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_decide_zone_promotion(promotion_id, decision);
+            is_background = true;
+        }
+        // Transcript Observer controls
+        Some(("background-observer-status", _)) => {
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_observer_status();
+            is_background = true;
+        }
+        Some(("background-observer-enable", sub_matches)) => {
+            let agent_type = sub_matches
+                .get_one::<String>("AGENT_TYPE")
+                .expect("AGENT_TYPE not provided")
+                .to_string();
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_observer_set_enabled(agent_type, true);
+            is_background = true;
+        }
+        Some(("background-observer-disable", sub_matches)) => {
+            let agent_type = sub_matches
+                .get_one::<String>("AGENT_TYPE")
+                .expect("AGENT_TYPE not provided")
+                .to_string();
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_observer_set_enabled(agent_type, false);
+            is_background = true;
+        }
+        Some(("background-observer-tick", sub_matches)) => {
+            let agent_type = sub_matches
+                .get_one::<String>("AGENT_TYPE")
+                .expect("AGENT_TYPE not provided")
+                .to_string();
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_observer_tick(agent_type);
+            is_background = true;
+        }
         Some(("install-agent-plugin", sub_matches)) => {
             let agent_type = sub_matches
                 .get_one::<String>("TYPE")

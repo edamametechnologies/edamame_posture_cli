@@ -576,6 +576,511 @@ pub fn build_cli() -> Command {
                     .value_parser(clap::value_parser!(String)),
             ),
     )
+    ////////////////
+    // Agent Visibility commands (MCP discovery, agent SBOM, capability graph,
+    // recursive-agent detection). MVP of the agent-visibility platform; see
+    // edamame_core/VISIBILITYIMPROVEMENTS.md. All reads lazily refresh a
+    // structural snapshot daemon-side, so a single-shot CLI call returns data
+    // without a separate refresh step.
+    ////////////////
+    .subcommand(
+        Command::new("background-agent-visibility-refresh")
+            .alias("agent-visibility-refresh")
+            .about("Force a fresh agent-visibility structural snapshot (MCP inventory, SBOMs, capability graph)"),
+    )
+    .subcommand(
+        Command::new("background-visibility-summary")
+            .alias("visibility-summary")
+            .about("Print compact agent-visibility rollup counts (endpoints, findings, SBOMs, graph, recursion)"),
+    )
+    .subcommand(
+        Command::new("background-mcp-inventory")
+            .alias("mcp-inventory")
+            .about("Dump the discovered MCP server inventory (endpoints + findings) as JSON"),
+    )
+    .subcommand(
+        Command::new("background-mcp-findings")
+            .alias("mcp-findings")
+            .about("Dump MCP discovery risk findings as JSON"),
+    )
+    .subcommand(
+        Command::new("background-agent-sboms")
+            .alias("agent-sboms")
+            .about("Dump the per-agent software bill of materials (SBOM) snapshots as JSON"),
+    )
+    .subcommand(
+        Command::new("background-agent-sbom-cyclonedx")
+            .alias("agent-sbom-cyclonedx")
+            .about("Export one agent's SBOM in CycloneDX JSON format")
+            .arg(
+                arg!(<AGENT_TYPE> "Agent type (e.g. cursor, claude_code, claude_desktop, openclaw)")
+                    .required(true)
+                    .value_parser(clap::value_parser!(String)),
+            ),
+    )
+    .subcommand(
+        Command::new("background-agent-sbom-diff")
+            .alias("agent-sbom-diff")
+            .about("Show one agent's SBOM diff against the stored baseline as JSON")
+            .arg(
+                arg!(<AGENT_TYPE> "Agent type to diff against its baseline")
+                    .required(true)
+                    .value_parser(clap::value_parser!(String)),
+            ),
+    )
+    .subcommand(
+        Command::new("background-capability-graph")
+            .alias("capability-graph")
+            .about("Dump the agent capability graph (who-can-reach-what edges) as JSON"),
+    )
+    .subcommand(
+        Command::new("background-recursion-risk")
+            .alias("recursion-risk")
+            .about("Dump recursive-agent / delegation-tree risk findings as JSON"),
+    )
+    ////////////////
+    // Agent inventory + shadow classification + trust-zone queries (INC-10,
+    // Stage C). Reads are operator/MCP-safe; approve/revoke/baseline mutators
+    // are operator-only (no MCP equivalent -- invariant I1).
+    ////////////////
+    .subcommand(
+        Command::new("background-agent-inventory")
+            .alias("agent-inventory")
+            .about("Dump the agent inventory with new/shadow/acknowledged first-seen classification as JSON"),
+    )
+    .subcommand(
+        Command::new("background-graph-reachability")
+            .alias("graph-reachability")
+            .about("Dump per-agent trust-zone reachability (who can cross out to an untrusted surface) as JSON"),
+    )
+    .subcommand(
+        Command::new("background-effective-capabilities")
+            .alias("effective-capabilities")
+            .about("Dump per-agent effective (transitively reachable) capabilities as JSON"),
+    )
+    .subcommand(
+        Command::new("background-approve-agent")
+            .alias("approve-agent")
+            .alias("acknowledge-agent")
+            .about("Operator: acknowledge an agent type (\"yes, this is me\" -- clears its new/shadow first-seen status)")
+            .arg(
+                arg!(<AGENT_TYPE> "Agent type to acknowledge (e.g. cursor, claude_code, claude_desktop, openclaw)")
+                    .required(true)
+                    .value_parser(clap::value_parser!(String)),
+            ),
+    )
+    .subcommand(
+        Command::new("background-revoke-agent-approval")
+            .alias("revoke-agent-approval")
+            .alias("unacknowledge-agent")
+            .about("Operator: revert an agent type to an unacknowledged first-seen footprint")
+            .arg(
+                arg!(<AGENT_TYPE> "Agent type to unacknowledge")
+                    .required(true)
+                    .value_parser(clap::value_parser!(String)),
+            ),
+    )
+    .subcommand(
+        Command::new("background-approve-sbom-baseline")
+            .alias("approve-sbom-baseline")
+            .about("Operator: promote an agent's current SBOM to the new drift baseline (resets the diff)")
+            .arg(
+                arg!(<AGENT_TYPE> "Agent type whose current SBOM becomes the new baseline")
+                    .required(true)
+                    .value_parser(clap::value_parser!(String)),
+            ),
+    )
+    .subcommand(
+        Command::new("background-visibility-roadmap")
+            .alias("visibility-roadmap")
+            .about("List agent-visibility increments (MVP available + v1/v2 planned) and their RPCs"),
+    )
+    .subcommand(
+        Command::new("background-mcp-endpoints")
+            .alias("mcp-endpoints")
+            .about("Dump the discovered MCP endpoint inventory (servers + transports) as JSON"),
+    )
+    .subcommand(
+        Command::new("background-visibility-capture-tier")
+            .alias("visibility-capture-tier")
+            .about("Print the active agent-visibility capture tier (structural / behavioral / forensic)"),
+    )
+    .subcommand(
+        Command::new("background-set-visibility-capture-tier")
+            .alias("set-visibility-capture-tier")
+            .about("Operator: set the agent-visibility capture tier")
+            .arg(
+                arg!(<TIER> "Capture tier: structural | behavioral | forensic")
+                    .required(true)
+                    .value_parser(clap::value_parser!(String)),
+            ),
+    )
+    ////////////////
+    // INC-5 Flight Recorder: hash-chained run provenance + causal projection.
+    // All reads; refresh recomputes the provenance log.
+    ////////////////
+    .subcommand(
+        Command::new("background-refresh-run-provenance")
+            .alias("refresh-run-provenance")
+            .about("Recompute the hash-chained run-provenance log from current telemetry"),
+    )
+    .subcommand(
+        Command::new("background-list-runs")
+            .alias("list-runs")
+            .about("List recent agent runs from the flight recorder as JSON"),
+    )
+    .subcommand(
+        Command::new("background-run-provenance")
+            .alias("run-provenance")
+            .about("Dump the hash-chained provenance event log for one run as JSON")
+            .arg(
+                arg!(<RUN_ID> "Run identifier (see background-list-runs)")
+                    .required(true)
+                    .value_parser(clap::value_parser!(String)),
+            ),
+    )
+    .subcommand(
+        Command::new("background-explain-run-event")
+            .alias("explain-run-event")
+            .about("Explain the causal projection for one provenance event as JSON")
+            .arg(
+                arg!(<RUN_ID> "Run identifier")
+                    .required(true)
+                    .value_parser(clap::value_parser!(String)),
+            )
+            .arg(
+                arg!(<EVENT_ID> "Event identifier within the run")
+                    .required(true)
+                    .value_parser(clap::value_parser!(String)),
+            ),
+    )
+    ////////////////
+    // INC-6 Drift Timeline: goal/delegation drift axes over verdict + window
+    // history. All reads; refresh recomputes the drift snapshot.
+    ////////////////
+    .subcommand(
+        Command::new("background-refresh-agent-drift")
+            .alias("refresh-agent-drift")
+            .about("Recompute the per-agent goal/delegation drift snapshot"),
+    )
+    .subcommand(
+        Command::new("background-agent-drift")
+            .alias("agent-drift")
+            .about("Dump the per-agent goal/delegation drift rollup as JSON"),
+    )
+    .subcommand(
+        Command::new("background-agent-drift-timeline")
+            .alias("agent-drift-timeline")
+            .about("Dump one agent's drift timeline (verdict + window history) as JSON")
+            .arg(
+                arg!(<AGENT_KEY> "Agent key (agent_type:agent_instance_id)")
+                    .required(true)
+                    .value_parser(clap::value_parser!(String)),
+            ),
+    )
+    .subcommand(
+        Command::new("background-explain-agent-drift")
+            .alias("explain-agent-drift")
+            .about("Explain one agent drift timeline event as JSON")
+            .arg(
+                arg!(<AGENT_KEY> "Agent key (agent_type:agent_instance_id)")
+                    .required(true)
+                    .value_parser(clap::value_parser!(String)),
+            )
+            .arg(
+                arg!(<EVENT_ID> "Drift event identifier within the timeline")
+                    .required(true)
+                    .value_parser(clap::value_parser!(String)),
+            ),
+    )
+    ////////////////
+    // INC-7 Data-Flow Map: taint-class -> sink trust-zone edges + cross-boundary
+    // findings. All reads; refresh recomputes the maps.
+    ////////////////
+    .subcommand(
+        Command::new("background-refresh-dataflow-maps")
+            .alias("refresh-dataflow-maps")
+            .about("Recompute the per-agent sensitive data-flow maps"),
+    )
+    .subcommand(
+        Command::new("background-dataflow-maps")
+            .alias("dataflow-maps")
+            .about("Dump all per-agent sensitive data-flow maps as JSON"),
+    )
+    .subcommand(
+        Command::new("background-dataflow-map")
+            .alias("dataflow-map")
+            .about("Dump one agent's sensitive data-flow map as JSON")
+            .arg(
+                arg!(<AGENT_TYPE> "Agent type (e.g. cursor, claude_code, claude_desktop, openclaw)")
+                    .required(true)
+                    .value_parser(clap::value_parser!(String)),
+            ),
+    )
+    ////////////////
+    // INC-8 Memory & RAG inventory: memory-store inventory + chunk-risk
+    // heuristics. All reads; refresh recomputes the inventory.
+    ////////////////
+    .subcommand(
+        Command::new("background-refresh-memory-inventory")
+            .alias("refresh-memory-inventory")
+            .about("Recompute the memory / RAG store inventory"),
+    )
+    .subcommand(
+        Command::new("background-memory-inventory")
+            .alias("memory-inventory")
+            .about("Dump the memory / RAG store inventory with chunk-risk heuristics as JSON"),
+    )
+    ////////////////
+    // INC-9 A2A mapping: agent-to-agent endpoint + comm-edge graph. All reads;
+    // refresh recomputes the graph.
+    ////////////////
+    .subcommand(
+        Command::new("background-refresh-a2a-graph")
+            .alias("refresh-a2a-graph")
+            .about("Recompute the agent-to-agent (A2A) communication graph"),
+    )
+    .subcommand(
+        Command::new("background-a2a-graph")
+            .alias("a2a-graph")
+            .about("Dump the agent-to-agent (A2A) endpoint + comm-edge graph as JSON"),
+    )
+    ////////////////
+    // INC-12 Alignment rollup: composite alignment score decomposed into
+    // per-domain components (I3: no naked score). All reads; refresh recomputes.
+    ////////////////
+    .subcommand(
+        Command::new("background-refresh-alignment-rollup")
+            .alias("refresh-alignment-rollup")
+            .about("Recompute the composite alignment rollup"),
+    )
+    .subcommand(
+        Command::new("background-alignment-rollup")
+            .alias("alignment-rollup")
+            .about("Dump the composite alignment rollup (per-domain components) as JSON"),
+    )
+    ////////////////
+    // INC-10 Tool-Call Firewall: per-call risk + verdict + hash-chained action
+    // receipts. Reads are operator/MCP-safe; set-firewall-mode is operator-only
+    // (no MCP equivalent -- invariant I1) and gates only in confirm/block (I6).
+    ////////////////
+    .subcommand(
+        Command::new("background-firewall-status")
+            .alias("firewall-status")
+            .about("Print the tool-call firewall status (mode + counts) as JSON"),
+    )
+    .subcommand(
+        Command::new("background-firewall-evaluations")
+            .alias("firewall-evaluations")
+            .about("Dump per-call firewall evaluations (risk + verdict + receipt) as JSON"),
+    )
+    .subcommand(
+        Command::new("background-refresh-firewall-evaluations")
+            .alias("refresh-firewall-evaluations")
+            .about("Recompute the tool-call firewall evaluations from current telemetry"),
+    )
+    .subcommand(
+        Command::new("background-set-firewall-mode")
+            .alias("set-firewall-mode")
+            .about("Operator: set the tool-call firewall mode (recommend gates nothing; confirm/block enforce)")
+            .arg(
+                arg!(<MODE> "Firewall mode: recommend | confirm | block")
+                    .required(true)
+                    .value_parser(clap::value_parser!(String)),
+            ),
+    )
+    ////////////////
+    // INC-11 ADR Response & Case Export: reversible-first catalog; irreversible
+    // requires a prior simulate (I6). Reads are operator/MCP-safe; request/undo
+    // mutators are operator-only (no MCP equivalent -- invariant I1).
+    ////////////////
+    .subcommand(
+        Command::new("background-response-action-catalog")
+            .alias("response-action-catalog")
+            .about("Dump the response-action catalog (reversible-first) as JSON"),
+    )
+    .subcommand(
+        Command::new("background-response-action-history")
+            .alias("response-action-history")
+            .about("Dump the response-action execution history as JSON"),
+    )
+    .subcommand(
+        Command::new("background-request-response-action")
+            .alias("request-response-action")
+            .about("Operator: request a response action (simulated by default; pass --execute for live)")
+            .arg(
+                arg!(<KIND> "Response action kind (see background-response-action-catalog)")
+                    .required(true)
+                    .value_parser(clap::value_parser!(String)),
+            )
+            .arg(
+                arg!(<TARGET_REF> "Target reference the action applies to")
+                    .required(true)
+                    .value_parser(clap::value_parser!(String)),
+            )
+            .arg(
+                arg!(<REASON> "Operator-provided reason recorded in the action history")
+                    .required(true)
+                    .value_parser(clap::value_parser!(String)),
+            )
+            .arg(
+                Arg::new("execute")
+                    .long("execute")
+                    .help("Execute live instead of simulating (irreversible kinds require a prior simulate)")
+                    .action(clap::ArgAction::SetTrue),
+            ),
+    )
+    .subcommand(
+        Command::new("background-undo-response-action")
+            .alias("undo-response-action")
+            .about("Operator: undo a previously executed reversible response action")
+            .arg(
+                arg!(<ACTION_ID> "Action identifier (see background-response-action-history)")
+                    .required(true)
+                    .value_parser(clap::value_parser!(String)),
+            ),
+    )
+    .subcommand(
+        Command::new("background-export-visibility-case")
+            .alias("export-visibility-case")
+            .about("Export an OCSF visibility case (cross-domain evidence refs) for one run as JSON")
+            .arg(
+                arg!(<RUN_ID> "Run identifier to export a case for")
+                    .required(true)
+                    .value_parser(clap::value_parser!(String)),
+            ),
+    )
+    ////////////////
+    // INC-13 Governance: declarative policy packs, SHA-256 tamper-evident
+    // attestations, and cross-zone promotion request/decision log. Reads are
+    // operator/MCP-safe; set-pack/attest/decide mutators are operator-only
+    // (no MCP equivalent -- invariant I1).
+    ////////////////
+    .subcommand(
+        Command::new("background-policy-pack")
+            .alias("policy-pack")
+            .about("Print the active policy pack as JSON"),
+    )
+    .subcommand(
+        Command::new("background-set-policy-pack")
+            .alias("set-policy-pack")
+            .about("Operator: set the active policy pack (argument is a JSON file path or inline JSON)")
+            .arg(
+                arg!(<PACK> "Path to a policy-pack JSON file, or inline JSON")
+                    .required(true)
+                    .value_parser(clap::value_parser!(String)),
+            ),
+    )
+    .subcommand(
+        Command::new("background-refresh-policy-evaluation")
+            .alias("refresh-policy-evaluation")
+            .about("Recompute the policy evaluation over current deterministic inputs"),
+    )
+    .subcommand(
+        Command::new("background-policy-evaluation")
+            .alias("policy-evaluation")
+            .about("Print the latest policy evaluation (per-rule pass/fail) as JSON"),
+    )
+    .subcommand(
+        Command::new("background-attest-policy-evaluation")
+            .alias("attest-policy-evaluation")
+            .about("Operator: produce a SHA-256 content-addressed attestation of the current policy evaluation"),
+    )
+    .subcommand(
+        Command::new("background-attest-agent-sbom")
+            .alias("attest-agent-sbom")
+            .about("Operator: produce a SHA-256 content-addressed attestation of one agent's SBOM")
+            .arg(
+                arg!(<AGENT_TYPE> "Agent type whose SBOM is attested")
+                    .required(true)
+                    .value_parser(clap::value_parser!(String)),
+            ),
+    )
+    .subcommand(
+        Command::new("background-policy-attestations")
+            .alias("policy-attestations")
+            .about("Dump the recorded policy / SBOM attestations as JSON"),
+    )
+    .subcommand(
+        Command::new("background-zone-promotions")
+            .alias("zone-promotions")
+            .about("Dump the cross-zone promotion request/decision log as JSON"),
+    )
+    .subcommand(
+        Command::new("background-request-zone-promotion")
+            .alias("request-zone-promotion")
+            .about("Operator: request a cross-zone promotion for an agent")
+            .arg(
+                arg!(<AGENT_TYPE> "Agent type requesting promotion")
+                    .required(true)
+                    .value_parser(clap::value_parser!(String)),
+            )
+            .arg(
+                arg!(<TARGET_ZONE> "Target trust zone to promote into")
+                    .required(true)
+                    .value_parser(clap::value_parser!(String)),
+            )
+            .arg(
+                arg!(<REASON> "Operator-provided justification recorded in the promotion log")
+                    .required(true)
+                    .value_parser(clap::value_parser!(String)),
+            ),
+    )
+    .subcommand(
+        Command::new("background-decide-zone-promotion")
+            .alias("decide-zone-promotion")
+            .about("Operator: approve or reject a pending cross-zone promotion request")
+            .arg(
+                arg!(<PROMOTION_ID> "Promotion request identifier (see background-zone-promotions)")
+                    .required(true)
+                    .value_parser(clap::value_parser!(String)),
+            )
+            .arg(
+                arg!(<DECISION> "Decision: approve | reject")
+                    .required(true)
+                    .value_parser(clap::value_parser!(String)),
+            ),
+    )
+    ////////////////
+    // Transcript Observer controls (per-agent host-side observation). Moved
+    // from app-only control into the CLI so headless/posture deployments can
+    // operate the observer that feeds divergence detection.
+    ////////////////
+    .subcommand(
+        Command::new("background-observer-status")
+            .alias("observer-status")
+            .about("Print per-agent transcript observer status (discovered / enabled / last tick) as JSON"),
+    )
+    .subcommand(
+        Command::new("background-observer-enable")
+            .alias("observer-enable")
+            .about("Enable the transcript observer for one agent type")
+            .arg(
+                arg!(<AGENT_TYPE> "Agent type to enable (e.g. cursor, claude_code, claude_desktop, openclaw)")
+                    .required(true)
+                    .value_parser(clap::value_parser!(String)),
+            ),
+    )
+    .subcommand(
+        Command::new("background-observer-disable")
+            .alias("observer-disable")
+            .about("Disable (pause) the transcript observer for one agent type")
+            .arg(
+                arg!(<AGENT_TYPE> "Agent type to disable")
+                    .required(true)
+                    .value_parser(clap::value_parser!(String)),
+            ),
+    )
+    .subcommand(
+        Command::new("background-observer-tick")
+            .alias("observer-tick")
+            .about("Run a one-shot transcript observer tick for one agent type")
+            .arg(
+                arg!(<AGENT_TYPE> "Agent type to tick")
+                    .required(true)
+                    .value_parser(clap::value_parser!(String)),
+            ),
+    )
     .subcommand(Command::new("background-status").alias("status").about("Get status of reporting background process"))
     .subcommand(Command::new("background-last-report-signature").alias("get-last-report-signature").about("Get last report signature of background process"))
     .subcommand(Command::new("background-get-history").alias("get-history").about("Get history of score modifications"))
