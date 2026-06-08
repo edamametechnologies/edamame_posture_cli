@@ -1808,7 +1808,7 @@ dependencies = [
 [[package]]
 name = "edamame_backend"
 version = "0.3.5"
-source = "git+https://github.com/edamametechnologies/edamame_backend?branch=main#c923ece208abd5359dd3a30527d438c113b10c4b"
+source = "git+https://github.com/edamametechnologies/edamame_backend?branch=main#d6f11f5e35f2ae5fe1302a92b6bb9698d8b2298f"
 dependencies = [
  "anyhow",
  "blake3",
@@ -1821,8 +1821,8 @@ dependencies = [
 
 [[package]]
 name = "edamame_core"
-version = "1.3.24"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#88b6b0da490f4524ea4074367380a15df0879071"
+version = "1.4.0"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#3a3b19f1a53fca8cd60ae9ba00f77aa105611f9a"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -1910,8 +1910,8 @@ dependencies = [
 
 [[package]]
 name = "edamame_foundation"
-version = "1.3.24"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#7b923400ad9ba5f13f76ec2e1d857e0c48d77d1e"
+version = "1.4.0"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#a9258165c4c2fc03a0809eb92a4a3d63bbd3eb47"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -1946,6 +1946,7 @@ dependencies = [
  "rand 0.9.4",
  "regex",
  "reqwest",
+ "rusqlite",
  "sentry",
  "sentry-tracing",
  "serde",
@@ -2265,6 +2266,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "fallible-iterator"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2acce4a10f12dc2fb14a218589d4f1f62ef011b2d0cc4b3cb1bba8e94da14649"
+
+[[package]]
+name = "fallible-streaming-iterator"
+version = "0.1.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7360491ce676a36bf9bb3c56c1aa791658183a54d2744120f27285738d90465a"
+
+[[package]]
 name = "fastrand"
 version = "2.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2357,8 +2370,8 @@ dependencies = [
 
 [[package]]
 name = "flodbadd"
-version = "1.3.24"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#84095d99bc54189de28b9a04c4d1655ec03b63bd"
+version = "1.4.0"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#a4f24b773b0df531e749de85dd589ba5ecdb2610"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -3118,6 +3131,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "hashlink"
+version = "0.11.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "824e001ac4f3012dd16a264bec811403a67ca9deb6c102fc5049b32c4574b35f"
+dependencies = [
+ "hashbrown 0.16.1",
+]
+
+[[package]]
 name = "hdrhistogram"
 version = "7.5.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3441,7 +3463,7 @@ dependencies = [
  "js-sys",
  "log",
  "wasm-bindgen",
- "windows-core 0.62.2",
+ "windows-core 0.58.0",
 ]
 
 [[package]]
@@ -3912,7 +3934,7 @@ dependencies = [
 [[package]]
 name = "l7_ebpf_program"
 version = "0.1.0"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#84095d99bc54189de28b9a04c4d1655ec03b63bd"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#a4f24b773b0df531e749de85dd589ba5ecdb2610"
 
 [[package]]
 name = "lazy_static"
@@ -4301,6 +4323,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f02ab6bace2054fb888a3c16f990117b579d14a3088e472d63c6011fa185c9d3"
 dependencies = [
  "libc",
+]
+
+[[package]]
+name = "libsqlite3-sys"
+version = "0.37.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b1f111c8c41e7c61a49cd34e44c7619462967221a6443b0ec299e0ac30cfb9b1"
+dependencies = [
+ "cc",
+ "pkg-config",
+ "vcpkg",
 ]
 
 [[package]]
@@ -6331,6 +6364,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "rsqlite-vfs"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c51c9ae4df8a7fba42103df5c621fa3c37eccf3a3c650879e90fc48b11cc192c"
+dependencies = [
+ "hashbrown 0.16.1",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "rtnetlink"
 version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6355,6 +6398,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e8f982753d06bafa2d1e5c1bd5be496bcb3cd02919a89f07e7f21c7a6ecb4e1a"
 dependencies = [
  "fsio",
+]
+
+[[package]]
+name = "rusqlite"
+version = "0.39.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a0d2b0146dd9661bf67bb107c0bb2a55064d556eeb3fc314151b957f313bcd4e"
+dependencies = [
+ "bitflags 2.13.0",
+ "fallible-iterator",
+ "fallible-streaming-iterator",
+ "hashlink 0.11.1",
+ "libsqlite3-sys",
+ "smallvec",
+ "sqlite-wasm-rs",
 ]
 
 [[package]]
@@ -6960,6 +7018,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "sqlite-wasm-rs"
+version = "0.5.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dc3efc0da82635d7e1ced0053bbbfa8c7ab9645d0bf36ceb4f7127bb85315d75"
+dependencies = [
+ "cc",
+ "js-sys",
+ "rsqlite-vfs",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "sse-stream"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7283,7 +7353,7 @@ dependencies = [
 [[package]]
 name = "threatmodels_rs"
 version = "0.1.1"
-source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#0d6b224ca1f435e3d3d8251b31eee3433142ae78"
+source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#231b2cb0e2a893ee145fe57d17ccfcb8e74e4e82"
 dependencies = [
  "anyhow",
  "chrono",
@@ -7810,7 +7880,7 @@ checksum = "b6f5e870be6c3b371b77fe0ee0bafb859fa4964b4404c27de1d380043c4dda20"
 [[package]]
 name = "undeadlock"
 version = "1.2.0"
-source = "git+https://github.com/edamametechnologies/undeadlock?branch=main#516fa6822c537be5c7f535438c4ed8289fb610d5"
+source = "git+https://github.com/edamametechnologies/undeadlock?branch=main#b6cc0f93e11ded00244ff4b62e0e7e4184702d10"
 dependencies = [
  "dashmap 6.2.1",
  "tokio",
@@ -7996,6 +8066,12 @@ name = "valuable"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ba73ea9cf16a25df0c8caa16c51acb937d5712a8429db78a3ee29d5dcacd3a65"
+
+[[package]]
+name = "vcpkg"
+version = "0.2.15"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "accd4ea62f7bb7a82fe23066fb0957d48ef677f6eeb8215f372f52e48bb32426"
 
 [[package]]
 name = "vergen"

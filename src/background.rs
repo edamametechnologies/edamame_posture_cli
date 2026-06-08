@@ -9,13 +9,13 @@ use crate::ERROR_CODE_SERVER_ERROR;
 use crate::ERROR_CODE_TIMEOUT;
 use edamame_core::api::api_agentic::*;
 use edamame_core::api::api_core::*;
-use edamame_core::api::api_visibility::*;
 use edamame_core::api::api_fim::*;
 use edamame_core::api::api_flodbadd::*;
 use edamame_core::api::api_score::*;
 use edamame_core::api::api_score_history::*;
 use edamame_core::api::api_score_threats::*;
 use edamame_core::api::api_trust::*;
+use edamame_core::api::api_visibility::*;
 use flodbadd::blacklists::BlacklistsJSON;
 use std::thread::sleep;
 use std::time::Duration;
@@ -3414,10 +3414,7 @@ pub fn background_decide_zone_promotion(promotion_id: String, decision: String) 
         "approve" | "approved" | "accept" | "yes" | "true" => true,
         "reject" | "rejected" | "deny" | "denied" | "no" | "false" => false,
         other => {
-            eprintln!(
-                "Unknown decision '{}' (expected approve | reject)",
-                other
-            );
+            eprintln!("Unknown decision '{}' (expected approve | reject)", other);
             return ERROR_CODE_PARAM;
         }
     };
