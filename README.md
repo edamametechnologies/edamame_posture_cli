@@ -1541,8 +1541,8 @@ The recommended way to install on macOS is via the signed and notarized `.pkg`, 
 
 ```bash
 # Via Homebrew cask (installs the .pkg automatically)
-brew tap edamametechnologies/tap
-brew install --cask edamame-posture
+# Fully-qualified name self-trusts the EDAMAME tap (Homebrew 6.0.0 Tap Trust)
+brew install --cask edamametechnologies/tap/edamame-posture
 
 # Verify installation
 edamame_posture --help
@@ -1556,7 +1556,7 @@ sudo installer -pkg edamame-posture-macos-VERSION.pkg -target /
 To update to the latest version:
 ```bash
 brew update
-brew upgrade --cask edamame-posture
+brew upgrade --cask edamametechnologies/tap/edamame-posture
 ```
 
 #### macOS Manual Binary Installation (Legacy)

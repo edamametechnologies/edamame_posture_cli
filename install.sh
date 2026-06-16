@@ -1476,18 +1476,14 @@ install_macos_via_brew() {
 
     info "Installing via Homebrew cask (.pkg with embedded ES profile)..."
 
-    if ! brew tap | grep -q "edamametechnologies/tap"; then
-        if ! brew tap edamametechnologies/tap >/dev/null 2>&1 < /dev/null; then
-            warn "Failed to tap edamametechnologies/tap"
-            return 1
-        fi
-    fi
-
+    # Homebrew 6.0.0 Tap Trust: use the fully-qualified cask name so the EDAMAME
+    # tap is self-trusted (and auto-tapped). A short name from an untrusted tap is
+    # refused, which is why the explicit `brew tap` + short-name pattern is gone.
     if brew list --cask edamame-posture >/dev/null 2>&1; then
         info "edamame-posture already installed via Homebrew cask, attempting upgrade..."
-        brew upgrade --cask edamame-posture >/dev/null 2>&1 < /dev/null || true
+        brew upgrade --cask edamametechnologies/tap/edamame-posture >/dev/null 2>&1 < /dev/null || true
     else
-        if ! brew install --cask edamame-posture >/dev/null 2>&1 < /dev/null; then
+        if ! brew install --cask edamametechnologies/tap/edamame-posture >/dev/null 2>&1 < /dev/null; then
             warn "Homebrew cask installation failed"
             return 1
         fi

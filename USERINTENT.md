@@ -141,8 +141,7 @@ curl --proto '=https' --tlsv1.2 -sSf \
 #### macOS (Homebrew)
 
 ```bash
-brew tap edamametechnologies/tap
-brew install edamame-cli
+brew install edamametechnologies/tap/edamame-cli
 ```
 
 #### Windows (Chocolatey)

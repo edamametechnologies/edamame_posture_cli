@@ -347,8 +347,8 @@ jobs:
         run: |
           set -euo pipefail
           brew update
-          brew tap edamametechnologies/tap
-          brew install edamame-posture
+          # Fully-qualified name self-trusts the tap (Homebrew 6.0.0 Tap Trust)
+          brew install --cask edamametechnologies/tap/edamame-posture
 
       - name: Verify binary is available
         id: verify
