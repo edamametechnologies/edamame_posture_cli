@@ -1807,7 +1807,7 @@ dependencies = [
 [[package]]
 name = "edamame_backend"
 version = "0.3.5"
-source = "git+https://github.com/edamametechnologies/edamame_backend?branch=main#abeb258472e7e1da8817156106ccda77a24e4a6a"
+source = "git+https://github.com/edamametechnologies/edamame_backend?branch=main#8612d6b6cac004bbf383691de8dc1b1417e6807b"
 dependencies = [
  "anyhow",
  "blake3",
@@ -1820,8 +1820,8 @@ dependencies = [
 
 [[package]]
 name = "edamame_core"
-version = "1.4.4"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#6bc3b3fa5dae8ab1436f74196c200e91175084ee"
+version = "1.4.5"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#07a2757fdb66d231ca4bfd35cafa35ea6b8ba2dc"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -1909,8 +1909,8 @@ dependencies = [
 
 [[package]]
 name = "edamame_foundation"
-version = "1.4.4"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#d078eb1e564a1c0085c0be0d7e2a61f7090f44ba"
+version = "1.4.5"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#e08c5a87944f47d0f8ef0884693653fa2df6041e"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -1977,7 +1977,7 @@ dependencies = [
 
 [[package]]
 name = "edamame_posture"
-version = "1.4.4"
+version = "1.4.5"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -2381,8 +2381,8 @@ dependencies = [
 
 [[package]]
 name = "flodbadd"
-version = "1.4.4"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#470e77773c3dd0fce7f706960e1c1e1c7b0c12d3"
+version = "1.4.5"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#237d0457d1fb5a6b609b26dcc331ca3b7c7bcc8f"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -3924,7 +3924,7 @@ dependencies = [
 [[package]]
 name = "l7_ebpf_program"
 version = "0.1.0"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#470e77773c3dd0fce7f706960e1c1e1c7b0c12d3"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#237d0457d1fb5a6b609b26dcc331ca3b7c7bcc8f"
 
 [[package]]
 name = "lazy_static"
