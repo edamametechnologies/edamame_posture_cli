@@ -11,6 +11,7 @@ use edamame_core::api::api_agentic::*;
 use edamame_core::api::api_core::*;
 use edamame_core::api::api_fim::*;
 use edamame_core::api::api_flodbadd::*;
+use edamame_core::api::api_metrics::*;
 use edamame_core::api::api_score::*;
 use edamame_core::api::api_score_history::*;
 use edamame_core::api::api_score_threats::*;
@@ -2607,6 +2608,40 @@ pub fn background_effective_capabilities() -> i32 {
         Ok(result) => print_visibility_json(&result, "Effective capabilities"),
         Err(e) => {
             eprintln!("Error getting effective capabilities: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn background_metrics_history(family: String, granularity: String, range_minutes: u64) -> i32 {
+    match rpc_get_metrics_history(
+        family,
+        granularity,
+        range_minutes,
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => print_visibility_json(&result, "Metrics history"),
+        Err(e) => {
+            eprintln!("Error getting metrics history: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn background_model_usage_summary(window_minutes: u64) -> i32 {
+    match rpc_get_model_usage_summary(
+        window_minutes,
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => print_visibility_json(&result, "Model usage summary"),
+        Err(e) => {
+            eprintln!("Error getting model usage summary: {}", e);
             ERROR_CODE_SERVER_ERROR
         }
     }

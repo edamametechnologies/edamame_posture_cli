@@ -1360,6 +1360,32 @@ fn run_base() {
             exit_code = background_effective_capabilities();
             is_background = true;
         }
+        Some(("background-metrics-history", sub_matches)) => {
+            let family = sub_matches
+                .get_one::<String>("FAMILY")
+                .cloned()
+                .unwrap_or_default();
+            let granularity = sub_matches
+                .get_one::<String>("granularity")
+                .cloned()
+                .unwrap_or_else(|| "hourly".to_string());
+            let range_minutes = sub_matches
+                .get_one::<u64>("range-minutes")
+                .copied()
+                .unwrap_or(1440);
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_metrics_history(family, granularity, range_minutes);
+            is_background = true;
+        }
+        Some(("background-model-usage-summary", sub_matches)) => {
+            let window_minutes = sub_matches
+                .get_one::<u64>("window-minutes")
+                .copied()
+                .unwrap_or(1440);
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_model_usage_summary(window_minutes);
+            is_background = true;
+        }
         Some(("background-approve-agent", sub_matches)) => {
             let agent_type = sub_matches
                 .get_one::<String>("AGENT_TYPE")

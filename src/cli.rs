@@ -659,6 +659,49 @@ pub fn build_cli() -> Command {
             .about("Dump per-agent effective (transitively reachable) capabilities as JSON"),
     )
     .subcommand(
+        Command::new("background-metrics-history")
+            .alias("metrics-history")
+            .about("Dump the durable metrics-history time-series (agentic token/cost, LLM, network, process, file families) as JSON")
+            .arg(
+                arg!([FAMILY] "Metric family to filter (e.g. tokens_total_by_model, est_cost_usd_by_agent, net_bytes_out_by_domain, files_by_label); omit or 'all' for every family")
+                    .required(false)
+                    .value_parser(clap::value_parser!(String)),
+            )
+            .arg(
+                Arg::new("granularity")
+                    .long("granularity")
+                    .short('g')
+                    .value_name("GRANULARITY")
+                    .help("Bucket granularity: hourly (default) or daily")
+                    .required(false)
+                    .value_parser(clap::value_parser!(String)),
+            )
+            .arg(
+                Arg::new("range-minutes")
+                    .long("range-minutes")
+                    .short('r')
+                    .value_name("MINUTES")
+                    .help("Look-back window in minutes from now (default 1440 = 24h)")
+                    .required(false)
+                    .value_parser(clap::value_parser!(u64)),
+            ),
+    )
+    .subcommand(
+        Command::new("background-model-usage-summary")
+            .alias("model-usage-summary")
+            .alias("model-usage")
+            .about("Dump the global cross-agent model/provider usage summary (calls, outages, availability, responsiveness, token speed) as JSON")
+            .arg(
+                Arg::new("window-minutes")
+                    .long("window-minutes")
+                    .short('w')
+                    .value_name("MINUTES")
+                    .help("Aggregation window in minutes (default 1440 = 24h)")
+                    .required(false)
+                    .value_parser(clap::value_parser!(u64)),
+            ),
+    )
+    .subcommand(
         Command::new("background-approve-agent")
             .alias("approve-agent")
             .alias("acknowledge-agent")

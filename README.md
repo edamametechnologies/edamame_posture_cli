@@ -329,6 +329,34 @@ edamame_posture clear-file-events
 
 The attack pattern detector does **not** require an LLM provider or API key to emit findings. It runs model-independent runtime checks from packet capture, blacklist/anomaly evidence, file integrity events, and host telemetry. For CI/security gates, though, configuring an LLM is strongly recommended: EDAMAME can use it to adjudicate, suppress likely false positives, and produce better alert context. Without an LLM, raw detector findings still appear and `--fail-on-findings` still gates CI.
 
+### Agent History: Metrics & Model Usage (read-only, LLM-free)
+
+These reads project EDAMAME's durable metrics-history database and the
+cross-agent model/provider usage summary. They never call an LLM -- the metrics
+are computed by the core from per-agent transcripts and EDAMAME's own provider
+call telemetry. They back the EDAMAME app's **Agents -> History** subtab.
+
+```bash
+# Durable metrics-history time-series (JSON). FAMILY is optional ('all' = every family).
+# Common families: tokens_total_by_model, est_cost_usd_by_agent, llm_calls_total_by_model,
+#                  mcp_calls_by_server, net_bytes_out_by_domain, files_by_event_type
+edamame_posture background-metrics-history                       # all families, hourly, last 24h
+edamame_posture background-metrics-history tokens_total_by_model --granularity hourly --range-minutes 1440
+edamame_posture background-metrics-history est_cost_usd_by_agent --granularity daily  --range-minutes 43200
+edamame_posture metrics-history net_bytes_out_by_domain -g daily -r 10080   # short alias, last 7 days
+
+# Cross-agent model/provider usage summary (JSON): calls, availability, responsiveness, token speed
+edamame_posture background-model-usage-summary                   # last 24h
+edamame_posture background-model-usage-summary --window-minutes 10080   # last 7 days
+edamame_posture model-usage -w 60                                # short alias, last hour
+```
+
+`background-metrics-history` accepts `--granularity hourly|daily` (default
+`hourly`; daily history is retained ~365 days, hourly ~14 days) and
+`--range-minutes` (default 1440 = 24h). `background-model-usage-summary` accepts
+`--window-minutes` (default 1440). Both emit JSON for piping into `jq` or CI
+dashboards.
+
 
 ### Step 8: Stop the Daemon (When Needed)
 
@@ -1450,20 +1478,20 @@ For Alpine Linux users, install via the APK repository:
 If you prefer not to add a repository, you can install the Debian package manually:
 
 1. **Download** the Debian package for your platform:
-   - **x86_64 (64-bit):** [edamame-posture_1.4.6-1_amd64.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.4.6/edamame-posture_1.4.6-1_amd64.deb)
-   - **i686 (32-bit):** [edamame-posture_1.4.6-1_i386.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.4.6/edamame-posture_1.4.6-1_i386.deb)
-   - **aarch64 (ARM 64-bit):** [edamame-posture_1.4.6-1_arm64.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.4.6/edamame-posture_1.4.6-1_arm64.deb)
+   - **x86_64 (64-bit):** [edamame-posture_1.4.7-1_amd64.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.4.7/edamame-posture_1.4.7-1_amd64.deb)
+   - **i686 (32-bit):** [edamame-posture_1.4.7-1_i386.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.4.7/edamame-posture_1.4.7-1_i386.deb)
+   - **aarch64 (ARM 64-bit):** [edamame-posture_1.4.7-1_arm64.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.4.7/edamame-posture_1.4.7-1_arm64.deb)
      - For Raspberry Pi 3/4/5 running 64-bit OS
-   - **armv7 (ARM 32-bit):** [edamame-posture_1.4.6-1_armhf.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.4.6/edamame-posture_1.4.6-1_armhf.deb)
+   - **armv7 (ARM 32-bit):** [edamame-posture_1.4.7-1_armhf.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.4.7/edamame-posture_1.4.7-1_armhf.deb)
      - For Raspberry Pi 2/3/4/Zero 2 running 32-bit OS (Raspberry Pi OS)
 
    > **Note**: These Debian packages have been tested on Linux Mint 20 and newer, Ubuntu 20.04 and newer, and Raspberry Pi OS (Raspbian).
 
 2. **Install** the package using either method:
    ```bash
-   sudo apt install ./edamame-posture_1.4.6-1_amd64.deb
+   sudo apt install ./edamame-posture_1.4.7-1_amd64.deb
    # or
-   sudo dpkg -i edamame-posture_1.4.6-1_amd64.deb
+   sudo dpkg -i edamame-posture_1.4.7-1_amd64.deb
    ```
 
 3. **Configure** the service by editing the configuration file:
@@ -1521,17 +1549,17 @@ If you prefer not to add a repository, you can install the Debian package manual
 For other Linux distributions or portable installation:
 
 1. **Download Binary**: From the Releases page, download the binary for your architecture:
-   - **x86_64 (64-bit)**: [edamame_posture-1.4.6-x86_64-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.4.6/edamame_posture-1.4.6-x86_64-unknown-linux-gnu)
-   - **i686 (32-bit)**: [edamame_posture-1.4.6-i686-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.4.6/edamame_posture-1.4.6-i686-unknown-linux-gnu)
-   - **aarch64 (ARM 64-bit)**: [edamame_posture-1.4.6-aarch64-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.4.6/edamame_posture-1.4.6-aarch64-unknown-linux-gnu)
-   - **armv7 (ARM 32-bit)**: [edamame_posture-1.4.6-armv7-unknown-linux-gnueabihf](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.4.6/edamame_posture-1.4.6-armv7-unknown-linux-gnueabihf)
-   - **x86_64 (64-bit) for Alpine Linux (musl)**: [edamame_posture-1.4.6-x86_64-unknown-linux-musl](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.4.6/edamame_posture-1.4.6-x86_64-unknown-linux-musl)
-   - **aarch64 (ARM 64-bit) for Alpine Linux (musl)**: [edamame_posture-1.4.6-aarch64-unknown-linux-musl](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.4.6/edamame_posture-1.4.6-aarch64-unknown-linux-musl)
+   - **x86_64 (64-bit)**: [edamame_posture-1.4.7-x86_64-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.4.7/edamame_posture-1.4.7-x86_64-unknown-linux-gnu)
+   - **i686 (32-bit)**: [edamame_posture-1.4.7-i686-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.4.7/edamame_posture-1.4.7-i686-unknown-linux-gnu)
+   - **aarch64 (ARM 64-bit)**: [edamame_posture-1.4.7-aarch64-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.4.7/edamame_posture-1.4.7-aarch64-unknown-linux-gnu)
+   - **armv7 (ARM 32-bit)**: [edamame_posture-1.4.7-armv7-unknown-linux-gnueabihf](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.4.7/edamame_posture-1.4.7-armv7-unknown-linux-gnueabihf)
+   - **x86_64 (64-bit) for Alpine Linux (musl)**: [edamame_posture-1.4.7-x86_64-unknown-linux-musl](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.4.7/edamame_posture-1.4.7-x86_64-unknown-linux-musl)
+   - **aarch64 (ARM 64-bit) for Alpine Linux (musl)**: [edamame_posture-1.4.7-aarch64-unknown-linux-musl](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.4.7/edamame_posture-1.4.7-aarch64-unknown-linux-musl)
 
 2. **Install Binary**: Extract if needed and place the edamame_posture binary into a directory in your PATH (such as `/usr/local/bin`). For example:
 ```bash
-chmod +x edamame_posture-1.4.6-x86_64-unknown-linux-gnu
-sudo mv edamame_posture-1.4.6-x86_64-unknown-linux-gnu /usr/local/bin/edamame_posture
+chmod +x edamame_posture-1.4.7-x86_64-unknown-linux-gnu
+sudo mv edamame_posture-1.4.7-x86_64-unknown-linux-gnu /usr/local/bin/edamame_posture
 ```
 
 ### macOS
@@ -1563,7 +1591,7 @@ brew upgrade --cask edamametechnologies/tap/edamame-posture
 For environments that do not need Endpoint Security features, the bare universal binary is still available:
 
 1. **Download** the macOS universal binary:
-   - [edamame_posture-1.4.6-universal-apple-darwin](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.4.6/edamame_posture-1.4.6-universal-apple-darwin)
+   - [edamame_posture-1.4.7-universal-apple-darwin](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.4.7/edamame_posture-1.4.7-universal-apple-darwin)
 
 2. **Install** by placing the binary in your `PATH` and making it executable:
    ```bash
@@ -1599,7 +1627,7 @@ choco upgrade edamame-posture
 For a manual installation on Windows:
 
 1. **Download** the Windows binary:
-   - [edamame_posture-1.4.6-x86_64-pc-windows-msvc.exe](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.4.6/edamame_posture-1.4.6-x86_64-pc-windows-msvc.exe)
+   - [edamame_posture-1.4.7-x86_64-pc-windows-msvc.exe](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.4.7/edamame_posture-1.4.7-x86_64-pc-windows-msvc.exe)
 
 2. **Install Npcap** (Required for traffic capture feature):
    - Install [Npcap](https://npcap.com/#download), the packet capture library from the Nmap team
@@ -3035,9 +3063,9 @@ jobs:
 
       - name: Install EDAMAME Posture
         run: |
-          curl -LO https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.4.6/edamame_posture-1.4.6-x86_64-unknown-linux-gnu
-          chmod +x edamame_posture-1.4.6-x86_64-unknown-linux-gnu
-          sudo mv edamame_posture-1.4.6-x86_64-unknown-linux-gnu /usr/local/bin/edamame_posture
+          curl -LO https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.4.7/edamame_posture-1.4.7-x86_64-unknown-linux-gnu
+          chmod +x edamame_posture-1.4.7-x86_64-unknown-linux-gnu
+          sudo mv edamame_posture-1.4.7-x86_64-unknown-linux-gnu /usr/local/bin/edamame_posture
 
       - name: Extract and verify signature from last commit
         run: |
