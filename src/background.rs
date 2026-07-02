@@ -2647,6 +2647,24 @@ pub fn background_model_usage_summary(window_minutes: u64) -> i32 {
     }
 }
 
+pub fn background_augmentation_report(window_minutes: u64) -> i32 {
+    match rpc_get_self_augmentation_report(
+        window_minutes,
+        String::new(),
+        String::new(),
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => print_visibility_json(&result, "Self-augmentation report"),
+        Err(e) => {
+            eprintln!("Error getting self-augmentation report: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
 pub fn background_approve_agent(agent_type: String) -> i32 {
     if agent_type.trim().is_empty() {
         eprintln!("Agent type cannot be empty");

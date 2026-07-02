@@ -1386,6 +1386,15 @@ fn run_base() {
             exit_code = background_model_usage_summary(window_minutes);
             is_background = true;
         }
+        Some(("background-augmentation-report", sub_matches)) => {
+            let window_minutes = sub_matches
+                .get_one::<u64>("window-minutes")
+                .copied()
+                .unwrap_or(1440);
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_augmentation_report(window_minutes);
+            is_background = true;
+        }
         Some(("background-approve-agent", sub_matches)) => {
             let agent_type = sub_matches
                 .get_one::<String>("AGENT_TYPE")

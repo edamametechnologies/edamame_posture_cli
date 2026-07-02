@@ -702,6 +702,21 @@ pub fn build_cli() -> Command {
             ),
     )
     .subcommand(
+        Command::new("background-augmentation-report")
+            .alias("augmentation-report")
+            .alias("self-augmentation-report")
+            .about("Dump the LLM-free self-augmentation report (composite score + Coverage/Utilization/Diversity/Leverage/Efficiency/Trend sub-scores, coverage level, per-skill structural quality, per-workspace context tax, and estimate-flagged task economics) as JSON")
+            .arg(
+                Arg::new("window-minutes")
+                    .long("window-minutes")
+                    .short('w')
+                    .value_name("MINUTES")
+                    .help("Usage-classification window in minutes (default 1440 = 24h)")
+                    .required(false)
+                    .value_parser(clap::value_parser!(u64)),
+            ),
+    )
+    .subcommand(
         Command::new("background-approve-agent")
             .alias("approve-agent")
             .alias("acknowledge-agent")
