@@ -1386,7 +1386,8 @@ fn run_base() {
                 .copied()
                 .unwrap_or(0);
             initialize_core("".to_string(), false, false, false, false, false, verbose);
-            exit_code = background_set_agent_budget(agent_type, daily_cost_usd_cap, daily_token_cap);
+            exit_code =
+                background_set_agent_budget(agent_type, daily_cost_usd_cap, daily_token_cap);
             is_background = true;
         }
         Some(("background-agent-inventory", _)) => {
