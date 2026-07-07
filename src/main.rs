@@ -1345,6 +1345,50 @@ fn run_base() {
             exit_code = background_recursion_risk();
             is_background = true;
         }
+        Some(("background-agent-fleet-overview", sub_matches)) => {
+            let window_minutes = sub_matches
+                .get_one::<u64>("WINDOW_MINUTES")
+                .copied()
+                .unwrap_or(1440);
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_agent_fleet_overview(window_minutes);
+            is_background = true;
+        }
+        Some(("background-agent-failure-clusters", sub_matches)) => {
+            let window_minutes = sub_matches
+                .get_one::<u64>("WINDOW_MINUTES")
+                .copied()
+                .unwrap_or(1440);
+            let agent_type = sub_matches
+                .get_one::<String>("agent")
+                .cloned()
+                .unwrap_or_default();
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_agent_failure_clusters(window_minutes, agent_type);
+            is_background = true;
+        }
+        Some(("background-agent-budgets", _)) => {
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_agent_budgets();
+            is_background = true;
+        }
+        Some(("background-set-agent-budget", sub_matches)) => {
+            let agent_type = sub_matches
+                .get_one::<String>("AGENT_TYPE")
+                .cloned()
+                .unwrap_or_default();
+            let daily_cost_usd_cap = sub_matches
+                .get_one::<f64>("DAILY_COST_USD_CAP")
+                .copied()
+                .unwrap_or(0.0);
+            let daily_token_cap = sub_matches
+                .get_one::<u64>("DAILY_TOKEN_CAP")
+                .copied()
+                .unwrap_or(0);
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_set_agent_budget(agent_type, daily_cost_usd_cap, daily_token_cap);
+            is_background = true;
+        }
         Some(("background-agent-inventory", _)) => {
             initialize_core("".to_string(), false, false, false, false, false, verbose);
             exit_code = background_agent_inventory();

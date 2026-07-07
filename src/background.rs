@@ -2414,6 +2414,84 @@ fn print_visibility_envelope(raw: &str, label: &str) -> i32 {
     }
 }
 
+/// Dump the agent fleet overview rollup (spend, sessions, errors, waste,
+/// top agents) as pretty-printed JSON.
+pub fn background_agent_fleet_overview(window_minutes: u64) -> i32 {
+    match rpc_get_agent_fleet_overview(
+        window_minutes,
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => print_visibility_json(&result, "agent fleet overview"),
+        Err(e) => {
+            eprintln!("Error getting agent fleet overview: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+/// Dump deterministic tool-failure clusters (tool x error class) as
+/// pretty-printed JSON. `agent_type` empty means all agents.
+pub fn background_agent_failure_clusters(window_minutes: u64, agent_type: String) -> i32 {
+    match rpc_get_agent_failure_clusters(
+        window_minutes,
+        agent_type,
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => print_visibility_json(&result, "agent failure clusters"),
+        Err(e) => {
+            eprintln!("Error getting agent failure clusters: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+/// Dump operator-set per-agent daily budgets joined with today's actuals
+/// as pretty-printed JSON.
+pub fn background_agent_budgets() -> i32 {
+    match rpc_get_agent_budgets(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => print_visibility_json(&result, "agent budgets"),
+        Err(e) => {
+            eprintln!("Error getting agent budgets: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+/// Set or clear the daily budget for one agent type (operator-only). A cap
+/// of 0 clears that axis; when both axes are cleared the entry is removed.
+pub fn background_set_agent_budget(
+    agent_type: String,
+    daily_cost_usd_cap: f64,
+    daily_token_cap: u64,
+) -> i32 {
+    match rpc_set_agent_budget(
+        agent_type,
+        daily_cost_usd_cap,
+        daily_token_cap,
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => print_visibility_envelope(&result, "Set agent budget"),
+        Err(e) => {
+            eprintln!("Error setting agent budget: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
 pub fn background_agent_visibility_refresh() -> i32 {
     match rpc_refresh_agent_visibility(
         &EDAMAME_CA_PEM,

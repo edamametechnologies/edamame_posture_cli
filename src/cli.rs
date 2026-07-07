@@ -639,6 +639,65 @@ pub fn build_cli() -> Command {
             .about("Dump recursive-agent / delegation-tree risk findings as JSON"),
     )
     ////////////////
+    // Agent command-centre rollups (fleet overview, failure clusters,
+    // budgets). Read-only joins over economics/TSDB/findings the daemon
+    // already computes; budget set is operator-only.
+    ////////////////
+    .subcommand(
+        Command::new("background-agent-fleet-overview")
+            .alias("agent-fleet-overview")
+            .about("Dump the agent fleet overview rollup (spend, sessions, errors, waste, top agents) as JSON")
+            .arg(
+                arg!([WINDOW_MINUTES] "Rollup window in minutes")
+                    .required(false)
+                    .default_value("1440")
+                    .value_parser(clap::value_parser!(u64)),
+            ),
+    )
+    .subcommand(
+        Command::new("background-agent-failure-clusters")
+            .alias("agent-failure-clusters")
+            .about("Dump deterministic tool-failure clusters (tool x error class) as JSON")
+            .arg(
+                arg!([WINDOW_MINUTES] "Clustering window in minutes")
+                    .required(false)
+                    .default_value("1440")
+                    .value_parser(clap::value_parser!(u64)),
+            )
+            .arg(
+                arg!(--agent <AGENT_TYPE> "Optional agent type filter (e.g. cursor, claude_code)")
+                    .required(false)
+                    .value_parser(clap::value_parser!(String)),
+            ),
+    )
+    .subcommand(
+        Command::new("background-agent-budgets")
+            .alias("agent-budgets")
+            .about("Dump operator-set per-agent daily budgets joined with today's actuals as JSON"),
+    )
+    .subcommand(
+        Command::new("background-set-agent-budget")
+            .alias("set-agent-budget")
+            .about("Set or clear the daily budget for one agent type (cap <= 0 clears that axis; both cleared removes the entry)")
+            .arg(
+                arg!(<AGENT_TYPE> "Agent type (e.g. cursor, claude_code, codex)")
+                    .required(true)
+                    .value_parser(clap::value_parser!(String)),
+            )
+            .arg(
+                arg!([DAILY_COST_USD_CAP] "Daily estimated-cost cap in USD (0 clears)")
+                    .required(false)
+                    .default_value("0")
+                    .value_parser(clap::value_parser!(f64)),
+            )
+            .arg(
+                arg!([DAILY_TOKEN_CAP] "Daily total-token cap (0 clears)")
+                    .required(false)
+                    .default_value("0")
+                    .value_parser(clap::value_parser!(u64)),
+            ),
+    )
+    ////////////////
     // Agent inventory + shadow classification + trust-zone queries (INC-10,
     // Stage C). Reads are operator/MCP-safe; approve/revoke/baseline mutators
     // are operator-only (no MCP equivalent -- invariant I1).
