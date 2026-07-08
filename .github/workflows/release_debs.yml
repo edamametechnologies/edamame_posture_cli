@@ -237,6 +237,13 @@ jobs:
         if: (matrix.target == 'armv7-unknown-linux-gnueabihf' || matrix.target == 'i686-unknown-linux-gnu' || matrix.target == 'x86_64-unknown-linux-gnu')
         run: cargo install cross --git https://github.com/cross-rs/cross
 
+      # Register QEMU binfmt handlers so cross's Docker container can execute the
+      # foreign-arch (armhf) post-install scripts during apt install. Only the armhf
+      # leg needs emulation; i386/amd64 run natively on the x86 host and arm64 is native.
+      - name: Set up QEMU for armhf cross build
+        if: matrix.target == 'armv7-unknown-linux-gnueabihf'
+        uses: docker/setup-qemu-action@v3
+
       ############################################################################################
       # Build
       ############################################################################################
