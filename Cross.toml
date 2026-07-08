@@ -1,4 +1,9 @@
+# Pin the cross image to the last Ubuntu 20.04 (glibc 2.31) build. Upstream
+# cross-rs :main rebased onto Ubuntu 24.04 (glibc 2.39) on 2026-07-03, which
+# made the released gnu binaries require GLIBC_2.39 and broke them on Ubuntu
+# 20.04/22.04. Digest verified: org.opencontainers.image.version=20.04.
 [target.x86_64-unknown-linux-gnu]
+image = "ghcr.io/cross-rs/x86_64-unknown-linux-gnu@sha256:52fe95895e48d434c349959ca52c7bb93d7cf5ab8ea2b7d5d9f7e0e655c2e579"
 pre-build = [
     "dpkg --add-architecture $CROSS_DEB_ARCH",
     "apt update -y && apt install -y protobuf-compiler libpcap-dev:$CROSS_DEB_ARCH pkg-config libgtk-3-dev:$CROSS_DEB_ARCH clang llvm libbpf-dev linux-libc-dev"
@@ -11,7 +16,9 @@ pre-build = [
 ]
 
 # No eBPF tools for i686 - aya doesn't support 32-bit
+# Pinned to the last Ubuntu 20.04 (glibc 2.31) cross image (see x86_64 note).
 [target.i686-unknown-linux-gnu]
+image = "ghcr.io/cross-rs/i686-unknown-linux-gnu@sha256:9842a26cc14b91424cc870db559e373337e06377bfe49229dbd11c12be4551e6"
 pre-build = [
     "dpkg --add-architecture $CROSS_DEB_ARCH",
     "apt update -y && apt install -y protobuf-compiler libpcap-dev:$CROSS_DEB_ARCH pkg-config libgtk-3-dev:$CROSS_DEB_ARCH"
@@ -36,7 +43,9 @@ pre-build = [
 ]
 
 # No eBPF tools for armv7 - aya doesn't support 32-bit
+# Pinned to the last Ubuntu 20.04 (glibc 2.31) cross image (see x86_64 note).
 [target.armv7-unknown-linux-gnueabihf]
+image = "ghcr.io/cross-rs/armv7-unknown-linux-gnueabihf@sha256:90b2f146c3056e01dae9da33ac28ee53c08d1e4cc9935c01c8291517d0b6ed47"
 pre-build = [
     "dpkg --add-architecture $CROSS_DEB_ARCH",
     "apt update -y && apt install -y protobuf-compiler libpcap-dev:$CROSS_DEB_ARCH pkg-config libgtk-3-dev:$CROSS_DEB_ARCH"
