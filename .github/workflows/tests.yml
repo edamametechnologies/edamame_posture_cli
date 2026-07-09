@@ -1663,7 +1663,9 @@ jobs:
             trigger_file_events.py
           )
           for f in "${REQUIRED_FILES[@]}"; do
-            curl --retry 3 --retry-delay 2 --retry-connrefused -fsSL "$BASE_URL/$f" -o "$TRIGGERS_DIR/$f"
+            # --retry-all-errors so curl also retries HTTP 429 (raw.githubusercontent.com
+            # rate-limits shared hosted-runner egress IPs); plain --retry does not cover 429.
+            curl --retry 6 --retry-delay 3 --retry-all-errors --retry-connrefused -fsSL "$BASE_URL/$f" -o "$TRIGGERS_DIR/$f"
             test -s "$TRIGGERS_DIR/$f"
           done
           echo "CVE_TRIGGERS_DIR=$TRIGGERS_DIR" >> "$GITHUB_ENV"
