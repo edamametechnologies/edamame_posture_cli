@@ -577,7 +577,7 @@ pub fn build_cli() -> Command {
             ),
     )
     ////////////////
-    // Agent Visibility commands (MCP discovery, agent SBOM, capability graph,
+    // Agent Visibility commands (MCP discovery, agent component inventory, capability graph,
     // recursive-agent detection). MVP of the agent-visibility platform; see
     // edamame_core/VISIBILITYIMPROVEMENTS.md. All reads lazily refresh a
     // structural snapshot daemon-side, so a single-shot CLI call returns data
@@ -586,12 +586,12 @@ pub fn build_cli() -> Command {
     .subcommand(
         Command::new("background-agent-visibility-refresh")
             .alias("agent-visibility-refresh")
-            .about("Force a fresh agent-visibility structural snapshot (MCP inventory, SBOMs, capability graph)"),
+            .about("Force a fresh agent-visibility structural snapshot (MCP inventory, component inventories, capability graph)"),
     )
     .subcommand(
         Command::new("background-visibility-summary")
             .alias("visibility-summary")
-            .about("Print compact agent-visibility rollup counts (endpoints, findings, SBOMs, graph, recursion)"),
+            .about("Print compact agent-visibility rollup counts (endpoints, findings, component inventories, graph, recursion)"),
     )
     .subcommand(
         Command::new("background-mcp-inventory")
@@ -604,29 +604,9 @@ pub fn build_cli() -> Command {
             .about("Dump MCP discovery risk findings as JSON"),
     )
     .subcommand(
-        Command::new("background-agent-sboms")
-            .alias("agent-sboms")
-            .about("Dump the per-agent software bill of materials (SBOM) snapshots as JSON"),
-    )
-    .subcommand(
-        Command::new("background-agent-sbom-cyclonedx")
-            .alias("agent-sbom-cyclonedx")
-            .about("Export one agent's SBOM in CycloneDX JSON format")
-            .arg(
-                arg!(<AGENT_TYPE> "Agent type (e.g. cursor, claude_code, claude_desktop, openclaw)")
-                    .required(true)
-                    .value_parser(clap::value_parser!(String)),
-            ),
-    )
-    .subcommand(
-        Command::new("background-agent-sbom-diff")
-            .alias("agent-sbom-diff")
-            .about("Show one agent's SBOM diff against the stored baseline as JSON")
-            .arg(
-                arg!(<AGENT_TYPE> "Agent type to diff against its baseline")
-                    .required(true)
-                    .value_parser(clap::value_parser!(String)),
-            ),
+        Command::new("background-agent-component-inventories")
+            .alias("agent-component-inventories")
+            .about("Dump the per-agent component inventory snapshots as JSON"),
     )
     .subcommand(
         Command::new("background-capability-graph")
@@ -722,7 +702,7 @@ pub fn build_cli() -> Command {
             .alias("metrics-history")
             .about("Dump the durable metrics-history time-series (agentic token/cost, LLM, network, process, file families) as JSON")
             .arg(
-                arg!([FAMILY] "Metric family to filter (e.g. tokens_total_by_model, est_cost_usd_by_agent, net_bytes_out_by_domain, files_by_label); omit or 'all' for every family")
+                arg!([FAMILY] "Metric family to filter (e.g. tokens_total_by_agent, est_cost_usd_by_agent, net_bytes_out_by_domain, files_by_label); omit or 'all' for every family")
                     .required(false)
                     .value_parser(clap::value_parser!(String)),
             )
@@ -741,21 +721,6 @@ pub fn build_cli() -> Command {
                     .short('r')
                     .value_name("MINUTES")
                     .help("Look-back window in minutes from now (default 1440 = 24h)")
-                    .required(false)
-                    .value_parser(clap::value_parser!(u64)),
-            ),
-    )
-    .subcommand(
-        Command::new("background-model-usage-summary")
-            .alias("model-usage-summary")
-            .alias("model-usage")
-            .about("Dump the global cross-agent model/provider usage summary (calls, outages, availability, responsiveness, token speed) as JSON")
-            .arg(
-                Arg::new("window-minutes")
-                    .long("window-minutes")
-                    .short('w')
-                    .value_name("MINUTES")
-                    .help("Aggregation window in minutes (default 1440 = 24h)")
                     .required(false)
                     .value_parser(clap::value_parser!(u64)),
             ),
@@ -793,16 +758,6 @@ pub fn build_cli() -> Command {
             .about("Operator: revert an agent type to an unacknowledged first-seen footprint")
             .arg(
                 arg!(<AGENT_TYPE> "Agent type to unacknowledge")
-                    .required(true)
-                    .value_parser(clap::value_parser!(String)),
-            ),
-    )
-    .subcommand(
-        Command::new("background-approve-sbom-baseline")
-            .alias("approve-sbom-baseline")
-            .about("Operator: promote an agent's current SBOM to the new drift baseline (resets the diff)")
-            .arg(
-                arg!(<AGENT_TYPE> "Agent type whose current SBOM becomes the new baseline")
                     .required(true)
                     .value_parser(clap::value_parser!(String)),
             ),
@@ -963,20 +918,6 @@ pub fn build_cli() -> Command {
             .about("Dump the agent-to-agent (A2A) endpoint + comm-edge graph as JSON"),
     )
     ////////////////
-    // INC-12 Alignment rollup: composite alignment score decomposed into
-    // per-domain components (I3: no naked score). All reads; refresh recomputes.
-    ////////////////
-    .subcommand(
-        Command::new("background-refresh-alignment-rollup")
-            .alias("refresh-alignment-rollup")
-            .about("Recompute the composite alignment rollup"),
-    )
-    .subcommand(
-        Command::new("background-alignment-rollup")
-            .alias("alignment-rollup")
-            .about("Dump the composite alignment rollup (per-domain components) as JSON"),
-    )
-    ////////////////
     // INC-10 Tool-Call Firewall: per-call risk + verdict + hash-chained action
     // receipts. Reads are operator/MCP-safe; set-firewall-mode is operator-only
     // (no MCP equivalent -- invariant I1) and gates only in confirm/block (I6).
@@ -1104,19 +1045,9 @@ pub fn build_cli() -> Command {
             .about("Operator: produce a SHA-256 content-addressed attestation of the current policy evaluation"),
     )
     .subcommand(
-        Command::new("background-attest-agent-sbom")
-            .alias("attest-agent-sbom")
-            .about("Operator: produce a SHA-256 content-addressed attestation of one agent's SBOM")
-            .arg(
-                arg!(<AGENT_TYPE> "Agent type whose SBOM is attested")
-                    .required(true)
-                    .value_parser(clap::value_parser!(String)),
-            ),
-    )
-    .subcommand(
         Command::new("background-policy-attestations")
             .alias("policy-attestations")
-            .about("Dump the recorded policy / SBOM attestations as JSON"),
+            .about("Dump the recorded policy attestations as JSON"),
     )
     .subcommand(
         Command::new("background-zone-promotions")

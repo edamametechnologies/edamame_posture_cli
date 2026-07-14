@@ -2561,56 +2561,16 @@ pub fn background_mcp_findings() -> i32 {
     }
 }
 
-pub fn background_agent_sboms() -> i32 {
-    match rpc_get_agent_sboms(
+pub fn background_agent_component_inventories() -> i32 {
+    match rpc_get_agent_component_inventories(
         &EDAMAME_CA_PEM,
         &EDAMAME_CLIENT_PEM,
         &EDAMAME_CLIENT_KEY,
         &EDAMAME_TARGET,
     ) {
-        Ok(result) => print_visibility_json(&result, "Agent SBOMs"),
+        Ok(result) => print_visibility_json(&result, "Agent component inventories"),
         Err(e) => {
-            eprintln!("Error getting agent SBOMs: {}", e);
-            ERROR_CODE_SERVER_ERROR
-        }
-    }
-}
-
-pub fn background_agent_sbom_cyclonedx(agent_type: String) -> i32 {
-    if agent_type.trim().is_empty() {
-        eprintln!("Agent type cannot be empty");
-        return ERROR_CODE_PARAM;
-    }
-    match rpc_get_agent_sbom_cyclonedx(
-        agent_type.trim().to_string(),
-        &EDAMAME_CA_PEM,
-        &EDAMAME_CLIENT_PEM,
-        &EDAMAME_CLIENT_KEY,
-        &EDAMAME_TARGET,
-    ) {
-        Ok(result) => print_visibility_json(&result, "CycloneDX SBOM"),
-        Err(e) => {
-            eprintln!("Error exporting CycloneDX SBOM: {}", e);
-            ERROR_CODE_SERVER_ERROR
-        }
-    }
-}
-
-pub fn background_agent_sbom_diff(agent_type: String) -> i32 {
-    if agent_type.trim().is_empty() {
-        eprintln!("Agent type cannot be empty");
-        return ERROR_CODE_PARAM;
-    }
-    match rpc_get_agent_sbom_diff(
-        agent_type.trim().to_string(),
-        &EDAMAME_CA_PEM,
-        &EDAMAME_CLIENT_PEM,
-        &EDAMAME_CLIENT_KEY,
-        &EDAMAME_TARGET,
-    ) {
-        Ok(result) => print_visibility_json(&result, "SBOM diff"),
-        Err(e) => {
-            eprintln!("Error getting SBOM diff: {}", e);
+            eprintln!("Error getting agent component inventories: {}", e);
             ERROR_CODE_SERVER_ERROR
         }
     }
@@ -2709,22 +2669,6 @@ pub fn background_metrics_history(family: String, granularity: String, range_min
     }
 }
 
-pub fn background_model_usage_summary(window_minutes: u64) -> i32 {
-    match rpc_get_model_usage_summary(
-        window_minutes,
-        &EDAMAME_CA_PEM,
-        &EDAMAME_CLIENT_PEM,
-        &EDAMAME_CLIENT_KEY,
-        &EDAMAME_TARGET,
-    ) {
-        Ok(result) => print_visibility_json(&result, "Model usage summary"),
-        Err(e) => {
-            eprintln!("Error getting model usage summary: {}", e);
-            ERROR_CODE_SERVER_ERROR
-        }
-    }
-}
-
 pub fn background_augmentation_report(window_minutes: u64) -> i32 {
     match rpc_get_self_augmentation_report(
         window_minutes,
@@ -2778,26 +2722,6 @@ pub fn background_revoke_agent_approval(agent_type: String) -> i32 {
         Ok(result) => print_visibility_envelope(&result, "Revoke agent approval"),
         Err(e) => {
             eprintln!("Error revoking agent approval: {}", e);
-            ERROR_CODE_SERVER_ERROR
-        }
-    }
-}
-
-pub fn background_approve_sbom_baseline(agent_type: String) -> i32 {
-    if agent_type.trim().is_empty() {
-        eprintln!("Agent type cannot be empty");
-        return ERROR_CODE_PARAM;
-    }
-    match rpc_approve_agent_sbom_baseline(
-        agent_type.trim().to_string(),
-        &EDAMAME_CA_PEM,
-        &EDAMAME_CLIENT_PEM,
-        &EDAMAME_CLIENT_KEY,
-        &EDAMAME_TARGET,
-    ) {
-        Ok(result) => print_visibility_envelope(&result, "Approve SBOM baseline"),
-        Err(e) => {
-            eprintln!("Error approving SBOM baseline: {}", e);
             ERROR_CODE_SERVER_ERROR
         }
     }
@@ -3159,40 +3083,6 @@ pub fn background_a2a_graph() -> i32 {
 }
 
 // ---------------------------------------------------------------------------
-// INC-12 Alignment rollup
-// ---------------------------------------------------------------------------
-
-pub fn background_refresh_alignment_rollup() -> i32 {
-    match rpc_refresh_alignment_rollup(
-        &EDAMAME_CA_PEM,
-        &EDAMAME_CLIENT_PEM,
-        &EDAMAME_CLIENT_KEY,
-        &EDAMAME_TARGET,
-    ) {
-        Ok(result) => print_visibility_envelope(&result, "Refresh alignment rollup"),
-        Err(e) => {
-            eprintln!("Error refreshing alignment rollup: {}", e);
-            ERROR_CODE_SERVER_ERROR
-        }
-    }
-}
-
-pub fn background_alignment_rollup() -> i32 {
-    match rpc_get_alignment_rollup(
-        &EDAMAME_CA_PEM,
-        &EDAMAME_CLIENT_PEM,
-        &EDAMAME_CLIENT_KEY,
-        &EDAMAME_TARGET,
-    ) {
-        Ok(result) => print_visibility_json(&result, "Alignment rollup"),
-        Err(e) => {
-            eprintln!("Error getting alignment rollup: {}", e);
-            ERROR_CODE_SERVER_ERROR
-        }
-    }
-}
-
-// ---------------------------------------------------------------------------
 // INC-10 Tool-Call Firewall
 // ---------------------------------------------------------------------------
 
@@ -3455,26 +3345,6 @@ pub fn background_attest_policy_evaluation() -> i32 {
         Ok(result) => print_visibility_envelope(&result, "Attest policy evaluation"),
         Err(e) => {
             eprintln!("Error attesting policy evaluation: {}", e);
-            ERROR_CODE_SERVER_ERROR
-        }
-    }
-}
-
-pub fn background_attest_agent_sbom(agent_type: String) -> i32 {
-    if agent_type.trim().is_empty() {
-        eprintln!("Agent type cannot be empty");
-        return ERROR_CODE_PARAM;
-    }
-    match rpc_attest_agent_sbom(
-        agent_type.trim().to_string(),
-        &EDAMAME_CA_PEM,
-        &EDAMAME_CLIENT_PEM,
-        &EDAMAME_CLIENT_KEY,
-        &EDAMAME_TARGET,
-    ) {
-        Ok(result) => print_visibility_envelope(&result, "Attest agent SBOM"),
-        Err(e) => {
-            eprintln!("Error attesting agent SBOM: {}", e);
             ERROR_CODE_SERVER_ERROR
         }
     }

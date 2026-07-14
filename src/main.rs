@@ -1291,7 +1291,7 @@ fn run_base() {
             exit_code = background_agentic_remove_dismissal_rule(rule_id);
             is_background = true;
         }
-        // Agent Visibility (MCP discovery / SBOM / capability graph / recursion)
+        // Agent Visibility (MCP discovery / component inventory / capability graph / recursion)
         Some(("background-agent-visibility-refresh", _)) => {
             initialize_core("".to_string(), false, false, false, false, false, verbose);
             exit_code = background_agent_visibility_refresh();
@@ -1312,27 +1312,9 @@ fn run_base() {
             exit_code = background_mcp_findings();
             is_background = true;
         }
-        Some(("background-agent-sboms", _)) => {
+        Some(("background-agent-component-inventories", _)) => {
             initialize_core("".to_string(), false, false, false, false, false, verbose);
-            exit_code = background_agent_sboms();
-            is_background = true;
-        }
-        Some(("background-agent-sbom-cyclonedx", sub_matches)) => {
-            let agent_type = sub_matches
-                .get_one::<String>("AGENT_TYPE")
-                .expect("AGENT_TYPE not provided")
-                .to_string();
-            initialize_core("".to_string(), false, false, false, false, false, verbose);
-            exit_code = background_agent_sbom_cyclonedx(agent_type);
-            is_background = true;
-        }
-        Some(("background-agent-sbom-diff", sub_matches)) => {
-            let agent_type = sub_matches
-                .get_one::<String>("AGENT_TYPE")
-                .expect("AGENT_TYPE not provided")
-                .to_string();
-            initialize_core("".to_string(), false, false, false, false, false, verbose);
-            exit_code = background_agent_sbom_diff(agent_type);
+            exit_code = background_agent_component_inventories();
             is_background = true;
         }
         Some(("background-capability-graph", _)) => {
@@ -1422,15 +1404,6 @@ fn run_base() {
             exit_code = background_metrics_history(family, granularity, range_minutes);
             is_background = true;
         }
-        Some(("background-model-usage-summary", sub_matches)) => {
-            let window_minutes = sub_matches
-                .get_one::<u64>("window-minutes")
-                .copied()
-                .unwrap_or(1440);
-            initialize_core("".to_string(), false, false, false, false, false, verbose);
-            exit_code = background_model_usage_summary(window_minutes);
-            is_background = true;
-        }
         Some(("background-augmentation-report", sub_matches)) => {
             let window_minutes = sub_matches
                 .get_one::<u64>("window-minutes")
@@ -1456,15 +1429,6 @@ fn run_base() {
                 .to_string();
             initialize_core("".to_string(), false, false, false, false, false, verbose);
             exit_code = background_revoke_agent_approval(agent_type);
-            is_background = true;
-        }
-        Some(("background-approve-sbom-baseline", sub_matches)) => {
-            let agent_type = sub_matches
-                .get_one::<String>("AGENT_TYPE")
-                .expect("AGENT_TYPE not provided")
-                .to_string();
-            initialize_core("".to_string(), false, false, false, false, false, verbose);
-            exit_code = background_approve_sbom_baseline(agent_type);
             is_background = true;
         }
         Some(("background-visibility-roadmap", _)) => {
@@ -1599,17 +1563,6 @@ fn run_base() {
             exit_code = background_a2a_graph();
             is_background = true;
         }
-        // INC-12 Alignment rollup
-        Some(("background-refresh-alignment-rollup", _)) => {
-            initialize_core("".to_string(), false, false, false, false, false, verbose);
-            exit_code = background_refresh_alignment_rollup();
-            is_background = true;
-        }
-        Some(("background-alignment-rollup", _)) => {
-            initialize_core("".to_string(), false, false, false, false, false, verbose);
-            exit_code = background_alignment_rollup();
-            is_background = true;
-        }
         // INC-10 Tool-Call Firewall
         Some(("background-firewall-status", _)) => {
             initialize_core("".to_string(), false, false, false, false, false, verbose);
@@ -1710,15 +1663,6 @@ fn run_base() {
         Some(("background-attest-policy-evaluation", _)) => {
             initialize_core("".to_string(), false, false, false, false, false, verbose);
             exit_code = background_attest_policy_evaluation();
-            is_background = true;
-        }
-        Some(("background-attest-agent-sbom", sub_matches)) => {
-            let agent_type = sub_matches
-                .get_one::<String>("AGENT_TYPE")
-                .expect("AGENT_TYPE not provided")
-                .to_string();
-            initialize_core("".to_string(), false, false, false, false, false, verbose);
-            exit_code = background_attest_agent_sbom(agent_type);
             is_background = true;
         }
         Some(("background-policy-attestations", _)) => {
