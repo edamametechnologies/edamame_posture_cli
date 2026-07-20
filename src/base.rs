@@ -465,8 +465,8 @@ pub fn base_check_policy_for_domain_with_signature(
         let error_code = connection_status.backend_error_code.as_str();
 
         if error_code != "None" {
-            let is_history_propagation = error_code == "InvalidSignature"
-                || error_code == "NonExistentDevice";
+            let is_history_propagation =
+                error_code == "InvalidSignature" || error_code == "NonExistentDevice";
 
             if is_history_propagation {
                 if start_time.elapsed() >= timeout_duration {
