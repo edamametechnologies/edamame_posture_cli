@@ -193,14 +193,29 @@ echo "Check policy (with domain):"
 # Domain value from tests.yml: edamame.tech, Context: Github
 # Use explicit exit code capture pattern to avoid issues with & in policy name
 POLICY_NAME='Github & Gitlab'
-check_policy_for_domain_exit=0
-$SUDO_CMD "$BINARY_PATH" $VERBOSE_FLAG check-policy-for-domain "edamame.tech" "$POLICY_NAME" || check_policy_for_domain_exit=$?
-if [[ $check_policy_for_domain_exit -eq 0 ]]; then
-    check_policy_for_domain_result="✅"
-else
+# Hub can briefly return NonExistentDevice after score report succeeds but
+# before policy lookup sees the new CI device. Retry that propagation race
+# (same shape as wait-for-connection in edamame_posture_action).
+check_policy_for_domain_exit=1
+check_policy_for_domain_result="❌"
+max_policy_attempts=8
+policy_delay_seconds=15
+for policy_attempt in $(seq 1 "$max_policy_attempts"); do
+    check_policy_for_domain_exit=0
+    policy_output=$($SUDO_CMD "$BINARY_PATH" $VERBOSE_FLAG check-policy-for-domain "edamame.tech" "$POLICY_NAME" 2>&1) || check_policy_for_domain_exit=$?
+    echo "$policy_output"
+    if [[ $check_policy_for_domain_exit -eq 0 ]]; then
+        check_policy_for_domain_result="✅"
+        break
+    fi
+    if echo "$policy_output" | grep -q "NonExistentDevice" && [[ "$policy_attempt" -lt "$max_policy_attempts" ]]; then
+        echo "[WARN] Transient NonExistentDevice on check-policy-for-domain (attempt $policy_attempt/$max_policy_attempts); retrying in ${policy_delay_seconds}s..."
+        sleep "$policy_delay_seconds"
+        continue
+    fi
     echo "check-policy-for-domain exited with code: $check_policy_for_domain_exit"
-    check_policy_for_domain_result="❌"
-fi
+    break
+done
 
 # Get device info
 echo "Device info:"
