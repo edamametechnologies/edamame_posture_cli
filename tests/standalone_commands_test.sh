@@ -169,7 +169,10 @@ else
     request_signature_result="❌"
 fi
 
-# Test request-report command (using a test email)
+# Test request-report command (using a test email).
+# Hub short-circuits certification for test@example.com -- success here is
+# NOT proof the signature is in HISTORY_DEVICE_REPORTS. See
+# edamame_core/HUB_POLICY_SIGNATURE.md.
 if [[ "$signature" != "signature_error" && ! -z "$signature" ]]; then
     echo "Request report:"
     # Git Bash/MSYS treats argv entries starting with "/" as POSIX paths and
@@ -193,10 +196,12 @@ echo "Check policy (with domain):"
 # Domain value from tests.yml: edamame.tech, Context: Github
 # Use explicit exit code capture pattern to avoid issues with & in policy name
 POLICY_NAME='Github & Gitlab'
-# Hub can return NonExistentDevice for a freshly reported anonymous
-# signature under CI load. Reuse ONE signature (re-reporting on every
-# retry floods Hub) and soft-skip if the race never clears -- local
-# check-policy above remains the hard gate for policy logic.
+# NonExistentDevice on Hub policy = HISTORY_DEVICE_REPORTS miss (async
+# stream after report_score), not "device missing". The CLI already
+# polls ~120s for history lag. Soft-skip only if Hub permanently lost
+# the projection (stream drop / same-second Duplicate) -- local
+# check-policy above remains the hard gate. One signature only;
+# re-reporting each attempt floods Hub. See HUB_POLICY_SIGNATURE.md.
 check_policy_for_domain_exit=1
 check_policy_for_domain_result="❌"
 max_policy_attempts=2
@@ -221,7 +226,7 @@ else
             break
         fi
         if echo "$policy_output" | grep -q "NonExistentDevice" && [[ "$policy_attempt" -lt "$max_policy_attempts" ]]; then
-            echo "[WARN] Transient NonExistentDevice on check-policy-for-domain (attempt $policy_attempt/$max_policy_attempts); retrying in ${policy_delay_seconds}s..."
+            echo "[WARN] Hub history miss (NonExistentDevice) on check-policy-for-domain (attempt $policy_attempt/$max_policy_attempts); retrying in ${policy_delay_seconds}s..."
             sleep "$policy_delay_seconds"
             continue
         fi
@@ -229,7 +234,7 @@ else
         break
     done
     if [[ "$check_policy_for_domain_result" != "✅" ]] && echo "${policy_output:-}" | grep -q "NonExistentDevice"; then
-        echo "[WARN] Hub NonExistentDevice persisted after $max_policy_attempts attempts; soft-skipping check-policy-for-domain (infrastructure flake)"
+        echo "[WARN] Hub history projection never landed for this signature after $max_policy_attempts attempts; soft-skipping check-policy-for-domain (see edamame_core/HUB_POLICY_SIGNATURE.md)"
         check_policy_for_domain_result="⏭️"
     fi
 fi

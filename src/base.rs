@@ -343,6 +343,17 @@ pub fn base_request_signature() -> i32 {
 }
 
 pub fn base_request_report(email: String, signature: String) -> i32 {
+    // Hub short-circuits certification for these addresses (no history
+    // lookup). Success here does NOT prove the signature is queryable
+    // by check-policy-for-domain. See edamame_core/HUB_POLICY_SIGNATURE.md.
+    let email_lower = email.to_lowercase();
+    if email_lower == "test@example.com" || email_lower == "dev@edamame.tech" {
+        eprintln!(
+            "Warning: Hub skips certification for {}; a successful request-report does not prove the signature is in HISTORY_DEVICE_REPORTS",
+            email
+        );
+    }
+
     // Set up timeout variables
     let timeout_duration = Duration::from_secs(20);
     let retry_interval = Duration::from_secs(2);
@@ -418,8 +429,8 @@ pub fn base_check_policy_for_domain(domain: String, policy_name: String) -> i32 
         return exit_code;
     }
 
-    // Sleep for 10 seconds to let the backend process the signature
-    sleep(Duration::from_secs(10));
+    // Brief settle only; with_signature polls for Hub history projection.
+    sleep(Duration::from_secs(2));
 
     base_check_policy_for_domain_with_signature(signature, domain, policy_name)
 }
@@ -434,9 +445,16 @@ pub fn base_check_policy_for_domain_with_signature(
         policy_name, domain
     );
 
-    // Set up timeout variables
-    let timeout_duration = Duration::from_secs(20);
-    let retry_interval = Duration::from_secs(2);
+    // Hub policy looks up HISTORY_DEVICE_REPORTS by signature. That row is
+    // written asynchronously after report_score (DynamoDB stream ->
+    // es-report_score_history). NonExistentDevice here means "history miss",
+    // not "Hub device missing" -- retry while the projection catches up.
+    // See edamame_core/HUB_POLICY_SIGNATURE.md.
+    //
+    // Wall-clock budget must cover core's internal 4x10s retries per call
+    // plus a few outer attempts.
+    let timeout_duration = Duration::from_secs(120);
+    let retry_interval = Duration::from_secs(5);
     let start_time = std::time::Instant::now();
     loop {
         let policy_check_result =
@@ -444,19 +462,33 @@ pub fn base_check_policy_for_domain_with_signature(
 
         // Check potential backend error
         let connection_status = get_connection();
+        let error_code = connection_status.backend_error_code.as_str();
 
-        if connection_status.backend_error_code != "None" {
-            if connection_status.backend_error_code == "InvalidSignature" {
-                // Check if we've exceeded our timeout
+        if error_code != "None" {
+            let is_history_propagation = error_code == "InvalidSignature"
+                || error_code == "NonExistentDevice";
+
+            if is_history_propagation {
                 if start_time.elapsed() >= timeout_duration {
-                    eprintln!("Timeout exceeded waiting for valid signature");
-                    return ERROR_CODE_PARAM;
+                    eprintln!(
+                        "Timeout exceeded waiting for Hub history projection ({}): {}",
+                        error_code, connection_status.backend_error_reason
+                    );
+                    return if error_code == "InvalidSignature" {
+                        ERROR_CODE_PARAM
+                    } else {
+                        ERROR_CODE_SERVER_ERROR
+                    };
                 }
 
-                // Wait before trying again
+                eprintln!(
+                    "[WARN] Hub history not ready yet ({}); retrying in {}s...",
+                    error_code,
+                    retry_interval.as_secs()
+                );
                 sleep(retry_interval);
                 continue;
-            } else if connection_status.backend_error_code == "InvalidPolicy" {
+            } else if error_code == "InvalidPolicy" {
                 eprintln!(
                     "Error checking policy: {}, {}",
                     connection_status.backend_error_code, connection_status.backend_error_reason
