@@ -178,18 +178,6 @@ pub fn initialize_core(
     }
 }
 
-fn validate_agent_plugin_type(agent_type: &str) -> std::result::Result<(), String> {
-    if edamame_foundation::supported_agents::find_supported_agent(agent_type).is_some() {
-        return Ok(());
-    }
-
-    Err(format!(
-        "Unknown agent type '{}'. Valid types: {}",
-        agent_type,
-        edamame_foundation::supported_agents::supported_agent_types_display()
-    ))
-}
-
 fn print_completions<G: Generator>(gen: G, cmd: &mut Command) {
     generate(gen, cmd, cmd.get_name().to_string(), &mut io::stdout());
 }
@@ -1413,22 +1401,22 @@ fn run_base() {
             exit_code = background_augmentation_report(window_minutes);
             is_background = true;
         }
-        Some(("background-approve-agent", sub_matches)) => {
+        Some(("background-acknowledge-agent", sub_matches)) => {
             let agent_type = sub_matches
                 .get_one::<String>("AGENT_TYPE")
                 .expect("AGENT_TYPE not provided")
                 .to_string();
             initialize_core("".to_string(), false, false, false, false, false, verbose);
-            exit_code = background_approve_agent(agent_type);
+            exit_code = background_acknowledge_agent(agent_type);
             is_background = true;
         }
-        Some(("background-revoke-agent-approval", sub_matches)) => {
+        Some(("background-unacknowledge-agent", sub_matches)) => {
             let agent_type = sub_matches
                 .get_one::<String>("AGENT_TYPE")
                 .expect("AGENT_TYPE not provided")
                 .to_string();
             initialize_core("".to_string(), false, false, false, false, false, verbose);
-            exit_code = background_revoke_agent_approval(agent_type);
+            exit_code = background_unacknowledge_agent(agent_type);
             is_background = true;
         }
         Some(("background-mcp-endpoints", _)) => {
@@ -1558,148 +1546,6 @@ fn run_base() {
             exit_code = background_a2a_graph();
             is_background = true;
         }
-        // INC-10 Tool-Call Firewall
-        Some(("background-firewall-status", _)) => {
-            initialize_core("".to_string(), false, false, false, false, false, verbose);
-            exit_code = background_firewall_status();
-            is_background = true;
-        }
-        Some(("background-firewall-evaluations", _)) => {
-            initialize_core("".to_string(), false, false, false, false, false, verbose);
-            exit_code = background_firewall_evaluations();
-            is_background = true;
-        }
-        Some(("background-refresh-firewall-evaluations", _)) => {
-            initialize_core("".to_string(), false, false, false, false, false, verbose);
-            exit_code = background_refresh_firewall_evaluations();
-            is_background = true;
-        }
-        Some(("background-set-firewall-mode", sub_matches)) => {
-            let mode = sub_matches
-                .get_one::<String>("MODE")
-                .expect("MODE not provided")
-                .to_string();
-            initialize_core("".to_string(), false, false, false, false, false, verbose);
-            exit_code = background_set_firewall_mode(mode);
-            is_background = true;
-        }
-        // INC-11 ADR Response & Case Export
-        Some(("background-response-action-catalog", _)) => {
-            initialize_core("".to_string(), false, false, false, false, false, verbose);
-            exit_code = background_response_action_catalog();
-            is_background = true;
-        }
-        Some(("background-response-action-history", _)) => {
-            initialize_core("".to_string(), false, false, false, false, false, verbose);
-            exit_code = background_response_action_history();
-            is_background = true;
-        }
-        Some(("background-request-response-action", sub_matches)) => {
-            let kind = sub_matches
-                .get_one::<String>("KIND")
-                .expect("KIND not provided")
-                .to_string();
-            let target_ref = sub_matches
-                .get_one::<String>("TARGET_REF")
-                .expect("TARGET_REF not provided")
-                .to_string();
-            let reason = sub_matches
-                .get_one::<String>("REASON")
-                .expect("REASON not provided")
-                .to_string();
-            let simulated = !sub_matches.get_flag("execute");
-            initialize_core("".to_string(), false, false, false, false, false, verbose);
-            exit_code = background_request_response_action(kind, target_ref, reason, simulated);
-            is_background = true;
-        }
-        Some(("background-undo-response-action", sub_matches)) => {
-            let action_id = sub_matches
-                .get_one::<String>("ACTION_ID")
-                .expect("ACTION_ID not provided")
-                .to_string();
-            initialize_core("".to_string(), false, false, false, false, false, verbose);
-            exit_code = background_undo_response_action(action_id);
-            is_background = true;
-        }
-        Some(("background-export-visibility-case", sub_matches)) => {
-            let run_id = sub_matches
-                .get_one::<String>("RUN_ID")
-                .expect("RUN_ID not provided")
-                .to_string();
-            initialize_core("".to_string(), false, false, false, false, false, verbose);
-            exit_code = background_export_visibility_case(run_id);
-            is_background = true;
-        }
-        // INC-13 Governance (policy packs, attestation, cross-zone)
-        Some(("background-policy-pack", _)) => {
-            initialize_core("".to_string(), false, false, false, false, false, verbose);
-            exit_code = background_policy_pack();
-            is_background = true;
-        }
-        Some(("background-set-policy-pack", sub_matches)) => {
-            let pack = sub_matches
-                .get_one::<String>("PACK")
-                .expect("PACK not provided")
-                .to_string();
-            initialize_core("".to_string(), false, false, false, false, false, verbose);
-            exit_code = background_set_policy_pack(pack);
-            is_background = true;
-        }
-        Some(("background-refresh-policy-evaluation", _)) => {
-            initialize_core("".to_string(), false, false, false, false, false, verbose);
-            exit_code = background_refresh_policy_evaluation();
-            is_background = true;
-        }
-        Some(("background-policy-evaluation", _)) => {
-            initialize_core("".to_string(), false, false, false, false, false, verbose);
-            exit_code = background_policy_evaluation();
-            is_background = true;
-        }
-        Some(("background-attest-policy-evaluation", _)) => {
-            initialize_core("".to_string(), false, false, false, false, false, verbose);
-            exit_code = background_attest_policy_evaluation();
-            is_background = true;
-        }
-        Some(("background-policy-attestations", _)) => {
-            initialize_core("".to_string(), false, false, false, false, false, verbose);
-            exit_code = background_policy_attestations();
-            is_background = true;
-        }
-        Some(("background-zone-promotions", _)) => {
-            initialize_core("".to_string(), false, false, false, false, false, verbose);
-            exit_code = background_zone_promotions();
-            is_background = true;
-        }
-        Some(("background-request-zone-promotion", sub_matches)) => {
-            let agent_type = sub_matches
-                .get_one::<String>("AGENT_TYPE")
-                .expect("AGENT_TYPE not provided")
-                .to_string();
-            let target_zone = sub_matches
-                .get_one::<String>("TARGET_ZONE")
-                .expect("TARGET_ZONE not provided")
-                .to_string();
-            let reason = sub_matches
-                .get_one::<String>("REASON")
-                .expect("REASON not provided")
-                .to_string();
-            initialize_core("".to_string(), false, false, false, false, false, verbose);
-            exit_code = background_request_zone_promotion(agent_type, target_zone, reason);
-            is_background = true;
-        }
-        Some(("background-decide-zone-promotion", sub_matches)) => {
-            let promotion_id = sub_matches
-                .get_one::<String>("PROMOTION_ID")
-                .expect("PROMOTION_ID not provided")
-                .to_string();
-            let decision = sub_matches
-                .get_one::<String>("DECISION")
-                .expect("DECISION not provided")
-                .to_string();
-            initialize_core("".to_string(), false, false, false, false, false, verbose);
-            exit_code = background_decide_zone_promotion(promotion_id, decision);
-            is_background = true;
-        }
         // Transcript Observer controls
         Some(("background-observer-status", _)) => {
             initialize_core("".to_string(), false, false, false, false, false, verbose);
@@ -1732,62 +1578,6 @@ fn run_base() {
             initialize_core("".to_string(), false, false, false, false, false, verbose);
             exit_code = background_observer_tick(agent_type);
             is_background = true;
-        }
-        Some(("install-agent-plugin", sub_matches)) => {
-            let agent_type = sub_matches
-                .get_one::<String>("TYPE")
-                .expect("TYPE not provided")
-                .to_string();
-            let workspace_root = sub_matches
-                .get_one::<String>("WORKSPACE")
-                .cloned()
-                .unwrap_or_default();
-            match validate_agent_plugin_type(&agent_type) {
-                Ok(()) => {
-                    initialize_core("".to_string(), false, false, false, false, false, verbose);
-                    exit_code = base_install_agent_plugin(agent_type, workspace_root);
-                }
-                Err(message) => {
-                    eprintln!("{}", message);
-                    exit_code = ERROR_CODE_PARAM;
-                }
-            }
-        }
-        Some(("agent-plugin-status", sub_matches)) => {
-            let agent_type = sub_matches
-                .get_one::<String>("TYPE")
-                .expect("TYPE not provided")
-                .to_string();
-            match validate_agent_plugin_type(&agent_type) {
-                Ok(()) => {
-                    initialize_core("".to_string(), false, false, false, false, false, verbose);
-                    exit_code = base_agent_plugin_status(agent_type);
-                }
-                Err(message) => {
-                    eprintln!("{}", message);
-                    exit_code = ERROR_CODE_PARAM;
-                }
-            }
-        }
-        Some(("list-agent-plugins", _)) => {
-            initialize_core("".to_string(), false, false, false, false, false, verbose);
-            exit_code = base_list_agent_plugins();
-        }
-        Some(("uninstall-agent-plugin", sub_matches)) => {
-            let agent_type = sub_matches
-                .get_one::<String>("TYPE")
-                .expect("TYPE not provided")
-                .to_string();
-            match validate_agent_plugin_type(&agent_type) {
-                Ok(()) => {
-                    initialize_core("".to_string(), false, false, false, false, false, verbose);
-                    exit_code = base_uninstall_agent_plugin(agent_type);
-                }
-                Err(message) => {
-                    eprintln!("{}", message);
-                    exit_code = ERROR_CODE_PARAM;
-                }
-            }
         }
         Some(("background-start-file-monitor", sub_matches)) => {
             let paths: Vec<String> = sub_matches

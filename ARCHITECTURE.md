@@ -180,12 +180,13 @@ edamame-posture get-file-events [--fail-on-suspicious]
 edamame-posture clear-file-events
 ```
 
-### Agent Plugin Commands
+### Agent Plugin Commands (retired 1.7.0)
+
+Plugin install/status/uninstall CLI commands were removed. Host-side transcript
+observation is automatic when agents are discovered on disk.
+
 ```bash
-edamame-posture install-agent-plugin <TYPE> [WORKSPACE]
-edamame-posture agent-plugin-status <TYPE>
-edamame-posture list-agent-plugins
-edamame-posture uninstall-agent-plugin <TYPE>
+edamame-posture list-agent-plugins   # read-only registry metadata
 ```
 
 ## Exit Codes

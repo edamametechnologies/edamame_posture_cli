@@ -741,8 +741,7 @@ pub fn build_cli() -> Command {
             ),
     )
     .subcommand(
-        Command::new("background-approve-agent")
-            .alias("approve-agent")
+        Command::new("background-acknowledge-agent")
             .alias("acknowledge-agent")
             .about("Operator: acknowledge an agent type (\"yes, this is me\" -- clears its new/shadow first-seen status)")
             .arg(
@@ -752,8 +751,7 @@ pub fn build_cli() -> Command {
             ),
     )
     .subcommand(
-        Command::new("background-revoke-agent-approval")
-            .alias("revoke-agent-approval")
+        Command::new("background-unacknowledge-agent")
             .alias("unacknowledge-agent")
             .about("Operator: revert an agent type to an unacknowledged first-seen footprint")
             .arg(
@@ -911,178 +909,6 @@ pub fn build_cli() -> Command {
         Command::new("background-a2a-graph")
             .alias("a2a-graph")
             .about("Dump the agent-to-agent (A2A) endpoint + comm-edge graph as JSON"),
-    )
-    ////////////////
-    // INC-10 Tool-Call Firewall: per-call risk + verdict + hash-chained action
-    // receipts. Reads are operator/MCP-safe; set-firewall-mode is operator-only
-    // (no MCP equivalent -- invariant I1) and gates only in confirm/block (I6).
-    ////////////////
-    .subcommand(
-        Command::new("background-firewall-status")
-            .alias("firewall-status")
-            .about("Print the tool-call firewall status (mode + counts) as JSON"),
-    )
-    .subcommand(
-        Command::new("background-firewall-evaluations")
-            .alias("firewall-evaluations")
-            .about("Dump per-call firewall evaluations (risk + verdict + receipt) as JSON"),
-    )
-    .subcommand(
-        Command::new("background-refresh-firewall-evaluations")
-            .alias("refresh-firewall-evaluations")
-            .about("Recompute the tool-call firewall evaluations from current telemetry"),
-    )
-    .subcommand(
-        Command::new("background-set-firewall-mode")
-            .alias("set-firewall-mode")
-            .about("Operator: set the tool-call firewall mode (recommend gates nothing; confirm/block enforce)")
-            .arg(
-                arg!(<MODE> "Firewall mode: recommend | confirm | block")
-                    .required(true)
-                    .value_parser(clap::value_parser!(String)),
-            ),
-    )
-    ////////////////
-    // INC-11 ADR Response & Case Export: reversible-first catalog; irreversible
-    // requires a prior simulate (I6). Reads are operator/MCP-safe; request/undo
-    // mutators are operator-only (no MCP equivalent -- invariant I1).
-    ////////////////
-    .subcommand(
-        Command::new("background-response-action-catalog")
-            .alias("response-action-catalog")
-            .about("Dump the response-action catalog (reversible-first) as JSON"),
-    )
-    .subcommand(
-        Command::new("background-response-action-history")
-            .alias("response-action-history")
-            .about("Dump the response-action execution history as JSON"),
-    )
-    .subcommand(
-        Command::new("background-request-response-action")
-            .alias("request-response-action")
-            .about("Operator: request a response action (simulated by default; pass --execute for live)")
-            .arg(
-                arg!(<KIND> "Response action kind (see background-response-action-catalog)")
-                    .required(true)
-                    .value_parser(clap::value_parser!(String)),
-            )
-            .arg(
-                arg!(<TARGET_REF> "Target reference the action applies to")
-                    .required(true)
-                    .value_parser(clap::value_parser!(String)),
-            )
-            .arg(
-                arg!(<REASON> "Operator-provided reason recorded in the action history")
-                    .required(true)
-                    .value_parser(clap::value_parser!(String)),
-            )
-            .arg(
-                Arg::new("execute")
-                    .long("execute")
-                    .help("Execute live instead of simulating (irreversible kinds require a prior simulate)")
-                    .action(clap::ArgAction::SetTrue),
-            ),
-    )
-    .subcommand(
-        Command::new("background-undo-response-action")
-            .alias("undo-response-action")
-            .about("Operator: undo a previously executed reversible response action")
-            .arg(
-                arg!(<ACTION_ID> "Action identifier (see background-response-action-history)")
-                    .required(true)
-                    .value_parser(clap::value_parser!(String)),
-            ),
-    )
-    .subcommand(
-        Command::new("background-export-visibility-case")
-            .alias("export-visibility-case")
-            .about("Export an OCSF visibility case (cross-domain evidence refs) for one run as JSON")
-            .arg(
-                arg!(<RUN_ID> "Run identifier to export a case for")
-                    .required(true)
-                    .value_parser(clap::value_parser!(String)),
-            ),
-    )
-    ////////////////
-    // INC-13 Governance: declarative policy packs, SHA-256 tamper-evident
-    // attestations, and cross-zone promotion request/decision log. Reads are
-    // operator/MCP-safe; set-pack/attest/decide mutators are operator-only
-    // (no MCP equivalent -- invariant I1).
-    ////////////////
-    .subcommand(
-        Command::new("background-policy-pack")
-            .alias("policy-pack")
-            .about("Print the active policy pack as JSON"),
-    )
-    .subcommand(
-        Command::new("background-set-policy-pack")
-            .alias("set-policy-pack")
-            .about("Operator: set the active policy pack (argument is a JSON file path or inline JSON)")
-            .arg(
-                arg!(<PACK> "Path to a policy-pack JSON file, or inline JSON")
-                    .required(true)
-                    .value_parser(clap::value_parser!(String)),
-            ),
-    )
-    .subcommand(
-        Command::new("background-refresh-policy-evaluation")
-            .alias("refresh-policy-evaluation")
-            .about("Recompute the policy evaluation over current deterministic inputs"),
-    )
-    .subcommand(
-        Command::new("background-policy-evaluation")
-            .alias("policy-evaluation")
-            .about("Print the latest policy evaluation (per-rule pass/fail) as JSON"),
-    )
-    .subcommand(
-        Command::new("background-attest-policy-evaluation")
-            .alias("attest-policy-evaluation")
-            .about("Operator: produce a SHA-256 content-addressed attestation of the current policy evaluation"),
-    )
-    .subcommand(
-        Command::new("background-policy-attestations")
-            .alias("policy-attestations")
-            .about("Dump the recorded policy attestations as JSON"),
-    )
-    .subcommand(
-        Command::new("background-zone-promotions")
-            .alias("zone-promotions")
-            .about("Dump the cross-zone promotion request/decision log as JSON"),
-    )
-    .subcommand(
-        Command::new("background-request-zone-promotion")
-            .alias("request-zone-promotion")
-            .about("Operator: request a cross-zone promotion for an agent")
-            .arg(
-                arg!(<AGENT_TYPE> "Agent type requesting promotion")
-                    .required(true)
-                    .value_parser(clap::value_parser!(String)),
-            )
-            .arg(
-                arg!(<TARGET_ZONE> "Target trust zone to promote into")
-                    .required(true)
-                    .value_parser(clap::value_parser!(String)),
-            )
-            .arg(
-                arg!(<REASON> "Operator-provided justification recorded in the promotion log")
-                    .required(true)
-                    .value_parser(clap::value_parser!(String)),
-            ),
-    )
-    .subcommand(
-        Command::new("background-decide-zone-promotion")
-            .alias("decide-zone-promotion")
-            .about("Operator: approve or reject a pending cross-zone promotion request")
-            .arg(
-                arg!(<PROMOTION_ID> "Promotion request identifier (see background-zone-promotions)")
-                    .required(true)
-                    .value_parser(clap::value_parser!(String)),
-            )
-            .arg(
-                arg!(<DECISION> "Decision: approve | reject")
-                    .required(true)
-                    .value_parser(clap::value_parser!(String)),
-            ),
     )
     ////////////////
     // Transcript Observer controls (per-agent host-side observation). Moved
@@ -1248,42 +1074,6 @@ pub fn build_cli() -> Command {
         .arg(arg!(<WHITELIST_FILE_2> "Second whitelist JSON file path")
             .required(true)
             .value_parser(clap::value_parser!(String))))
-    ////////////////////
-    // Agent plugin provisioning commands
-    ////////////////////
-    .subcommand(
-        Command::new("install-agent-plugin")
-            .about("Install or update a supported EDAMAME agent plugin from GitHub")
-            .arg(
-                arg!(<TYPE> "Agent plugin type (validated against the runtime supported-agent registry)")
-                    .required(true)
-                    .value_parser(clap::value_parser!(String)),
-            )
-            .arg(
-                arg!([WORKSPACE] "Workspace root path (optional, used for Cursor/Claude Code)")
-                    .required(false)
-                    .value_parser(clap::value_parser!(String)),
-            ),
-    )
-    .subcommand(
-        Command::new("agent-plugin-status")
-            .about("Get installation status of an EDAMAME agent plugin")
-            .arg(
-                arg!(<TYPE> "Agent plugin type (validated against the runtime supported-agent registry)")
-                    .required(true)
-                    .value_parser(clap::value_parser!(String)),
-            ),
-    )
-    .subcommand(Command::new("list-agent-plugins").about("List all EDAMAME agent plugins and their installation status"))
-    .subcommand(
-        Command::new("uninstall-agent-plugin")
-            .about("Uninstall an EDAMAME agent plugin (removes all files, config, state, and pairing data)")
-            .arg(
-                arg!(<TYPE> "Agent plugin type (validated against the runtime supported-agent registry)")
-                    .required(true)
-                    .value_parser(clap::value_parser!(String)),
-            ),
-    )
     ////////////////////
     // File Integrity Monitoring commands
     ////////////////////

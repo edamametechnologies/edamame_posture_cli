@@ -2687,41 +2687,41 @@ pub fn background_augmentation_report(window_minutes: u64) -> i32 {
     }
 }
 
-pub fn background_approve_agent(agent_type: String) -> i32 {
+pub fn background_acknowledge_agent(agent_type: String) -> i32 {
     if agent_type.trim().is_empty() {
         eprintln!("Agent type cannot be empty");
         return ERROR_CODE_PARAM;
     }
-    match rpc_approve_agent(
+    match rpc_acknowledge_agent(
         agent_type.trim().to_string(),
         &EDAMAME_CA_PEM,
         &EDAMAME_CLIENT_PEM,
         &EDAMAME_CLIENT_KEY,
         &EDAMAME_TARGET,
     ) {
-        Ok(result) => print_visibility_envelope(&result, "Approve agent"),
+        Ok(result) => print_visibility_envelope(&result, "Acknowledge agent"),
         Err(e) => {
-            eprintln!("Error approving agent: {}", e);
+            eprintln!("Error acknowledging agent: {}", e);
             ERROR_CODE_SERVER_ERROR
         }
     }
 }
 
-pub fn background_revoke_agent_approval(agent_type: String) -> i32 {
+pub fn background_unacknowledge_agent(agent_type: String) -> i32 {
     if agent_type.trim().is_empty() {
         eprintln!("Agent type cannot be empty");
         return ERROR_CODE_PARAM;
     }
-    match rpc_revoke_agent_approval(
+    match rpc_unacknowledge_agent(
         agent_type.trim().to_string(),
         &EDAMAME_CA_PEM,
         &EDAMAME_CLIENT_PEM,
         &EDAMAME_CLIENT_KEY,
         &EDAMAME_TARGET,
     ) {
-        Ok(result) => print_visibility_envelope(&result, "Revoke agent approval"),
+        Ok(result) => print_visibility_envelope(&result, "Unacknowledge agent"),
         Err(e) => {
-            eprintln!("Error revoking agent approval: {}", e);
+            eprintln!("Error unacknowledging agent: {}", e);
             ERROR_CODE_SERVER_ERROR
         }
     }
@@ -3053,359 +3053,6 @@ pub fn background_a2a_graph() -> i32 {
         Ok(result) => print_visibility_json(&result, "A2A graph"),
         Err(e) => {
             eprintln!("Error getting A2A graph: {}", e);
-            ERROR_CODE_SERVER_ERROR
-        }
-    }
-}
-
-// ---------------------------------------------------------------------------
-// INC-10 Tool-Call Firewall
-// ---------------------------------------------------------------------------
-
-pub fn background_firewall_status() -> i32 {
-    match rpc_get_firewall_status(
-        &EDAMAME_CA_PEM,
-        &EDAMAME_CLIENT_PEM,
-        &EDAMAME_CLIENT_KEY,
-        &EDAMAME_TARGET,
-    ) {
-        Ok(result) => print_visibility_json(&result, "Firewall status"),
-        Err(e) => {
-            eprintln!("Error getting firewall status: {}", e);
-            ERROR_CODE_SERVER_ERROR
-        }
-    }
-}
-
-pub fn background_firewall_evaluations() -> i32 {
-    match rpc_get_firewall_evaluations(
-        &EDAMAME_CA_PEM,
-        &EDAMAME_CLIENT_PEM,
-        &EDAMAME_CLIENT_KEY,
-        &EDAMAME_TARGET,
-    ) {
-        Ok(result) => print_visibility_json(&result, "Firewall evaluations"),
-        Err(e) => {
-            eprintln!("Error getting firewall evaluations: {}", e);
-            ERROR_CODE_SERVER_ERROR
-        }
-    }
-}
-
-pub fn background_refresh_firewall_evaluations() -> i32 {
-    match rpc_refresh_firewall_evaluations(
-        &EDAMAME_CA_PEM,
-        &EDAMAME_CLIENT_PEM,
-        &EDAMAME_CLIENT_KEY,
-        &EDAMAME_TARGET,
-    ) {
-        Ok(result) => print_visibility_envelope(&result, "Refresh firewall evaluations"),
-        Err(e) => {
-            eprintln!("Error refreshing firewall evaluations: {}", e);
-            ERROR_CODE_SERVER_ERROR
-        }
-    }
-}
-
-pub fn background_set_firewall_mode(mode: String) -> i32 {
-    if mode.trim().is_empty() {
-        eprintln!("Firewall mode cannot be empty");
-        return ERROR_CODE_PARAM;
-    }
-    match rpc_set_firewall_mode(
-        mode.trim().to_string(),
-        &EDAMAME_CA_PEM,
-        &EDAMAME_CLIENT_PEM,
-        &EDAMAME_CLIENT_KEY,
-        &EDAMAME_TARGET,
-    ) {
-        Ok(result) => print_visibility_envelope(&result, "Set firewall mode"),
-        Err(e) => {
-            eprintln!("Error setting firewall mode: {}", e);
-            ERROR_CODE_SERVER_ERROR
-        }
-    }
-}
-
-// ---------------------------------------------------------------------------
-// INC-11 ADR Response & Case Export
-// ---------------------------------------------------------------------------
-
-pub fn background_response_action_catalog() -> i32 {
-    match rpc_get_response_action_catalog(
-        &EDAMAME_CA_PEM,
-        &EDAMAME_CLIENT_PEM,
-        &EDAMAME_CLIENT_KEY,
-        &EDAMAME_TARGET,
-    ) {
-        Ok(result) => print_visibility_json(&result, "Response action catalog"),
-        Err(e) => {
-            eprintln!("Error getting response action catalog: {}", e);
-            ERROR_CODE_SERVER_ERROR
-        }
-    }
-}
-
-pub fn background_response_action_history() -> i32 {
-    match rpc_get_response_action_history(
-        &EDAMAME_CA_PEM,
-        &EDAMAME_CLIENT_PEM,
-        &EDAMAME_CLIENT_KEY,
-        &EDAMAME_TARGET,
-    ) {
-        Ok(result) => print_visibility_json(&result, "Response action history"),
-        Err(e) => {
-            eprintln!("Error getting response action history: {}", e);
-            ERROR_CODE_SERVER_ERROR
-        }
-    }
-}
-
-pub fn background_request_response_action(
-    kind: String,
-    target_ref: String,
-    reason: String,
-    simulated: bool,
-) -> i32 {
-    if kind.trim().is_empty() || target_ref.trim().is_empty() {
-        eprintln!("Response action kind and target_ref cannot be empty");
-        return ERROR_CODE_PARAM;
-    }
-    match rpc_request_response_action(
-        kind.trim().to_string(),
-        target_ref.trim().to_string(),
-        reason,
-        simulated,
-        &EDAMAME_CA_PEM,
-        &EDAMAME_CLIENT_PEM,
-        &EDAMAME_CLIENT_KEY,
-        &EDAMAME_TARGET,
-    ) {
-        Ok(result) => print_visibility_envelope(&result, "Request response action"),
-        Err(e) => {
-            eprintln!("Error requesting response action: {}", e);
-            ERROR_CODE_SERVER_ERROR
-        }
-    }
-}
-
-pub fn background_undo_response_action(action_id: String) -> i32 {
-    if action_id.trim().is_empty() {
-        eprintln!("Action id cannot be empty");
-        return ERROR_CODE_PARAM;
-    }
-    match rpc_undo_response_action(
-        action_id.trim().to_string(),
-        &EDAMAME_CA_PEM,
-        &EDAMAME_CLIENT_PEM,
-        &EDAMAME_CLIENT_KEY,
-        &EDAMAME_TARGET,
-    ) {
-        Ok(result) => print_visibility_envelope(&result, "Undo response action"),
-        Err(e) => {
-            eprintln!("Error undoing response action: {}", e);
-            ERROR_CODE_SERVER_ERROR
-        }
-    }
-}
-
-pub fn background_export_visibility_case(run_id: String) -> i32 {
-    if run_id.trim().is_empty() {
-        eprintln!("Run id cannot be empty");
-        return ERROR_CODE_PARAM;
-    }
-    match rpc_export_visibility_case(
-        run_id.trim().to_string(),
-        &EDAMAME_CA_PEM,
-        &EDAMAME_CLIENT_PEM,
-        &EDAMAME_CLIENT_KEY,
-        &EDAMAME_TARGET,
-    ) {
-        Ok(result) => print_visibility_json(&result, "Visibility case export"),
-        Err(e) => {
-            eprintln!("Error exporting visibility case: {}", e);
-            ERROR_CODE_SERVER_ERROR
-        }
-    }
-}
-
-// ---------------------------------------------------------------------------
-// INC-13 Governance (policy packs, attestation, cross-zone)
-// ---------------------------------------------------------------------------
-
-pub fn background_policy_pack() -> i32 {
-    match rpc_get_policy_pack(
-        &EDAMAME_CA_PEM,
-        &EDAMAME_CLIENT_PEM,
-        &EDAMAME_CLIENT_KEY,
-        &EDAMAME_TARGET,
-    ) {
-        Ok(result) => print_visibility_json(&result, "Policy pack"),
-        Err(e) => {
-            eprintln!("Error getting policy pack: {}", e);
-            ERROR_CODE_SERVER_ERROR
-        }
-    }
-}
-
-pub fn background_set_policy_pack(pack: String) -> i32 {
-    if pack.trim().is_empty() {
-        eprintln!("Policy pack argument cannot be empty");
-        return ERROR_CODE_PARAM;
-    }
-    // The argument is either a path to a JSON file or inline JSON. If it points
-    // at a readable file, load its contents; otherwise treat it as literal JSON.
-    let pack_json = if std::path::Path::new(pack.trim()).is_file() {
-        match std::fs::read_to_string(pack.trim()) {
-            Ok(contents) => contents,
-            Err(e) => {
-                eprintln!("Error reading policy pack file '{}': {}", pack.trim(), e);
-                return ERROR_CODE_PARAM;
-            }
-        }
-    } else {
-        pack
-    };
-    match rpc_set_policy_pack(
-        pack_json,
-        &EDAMAME_CA_PEM,
-        &EDAMAME_CLIENT_PEM,
-        &EDAMAME_CLIENT_KEY,
-        &EDAMAME_TARGET,
-    ) {
-        Ok(result) => print_visibility_envelope(&result, "Set policy pack"),
-        Err(e) => {
-            eprintln!("Error setting policy pack: {}", e);
-            ERROR_CODE_SERVER_ERROR
-        }
-    }
-}
-
-pub fn background_refresh_policy_evaluation() -> i32 {
-    match rpc_refresh_policy_evaluation(
-        &EDAMAME_CA_PEM,
-        &EDAMAME_CLIENT_PEM,
-        &EDAMAME_CLIENT_KEY,
-        &EDAMAME_TARGET,
-    ) {
-        Ok(result) => print_visibility_envelope(&result, "Refresh policy evaluation"),
-        Err(e) => {
-            eprintln!("Error refreshing policy evaluation: {}", e);
-            ERROR_CODE_SERVER_ERROR
-        }
-    }
-}
-
-pub fn background_policy_evaluation() -> i32 {
-    match rpc_get_policy_evaluation(
-        &EDAMAME_CA_PEM,
-        &EDAMAME_CLIENT_PEM,
-        &EDAMAME_CLIENT_KEY,
-        &EDAMAME_TARGET,
-    ) {
-        Ok(result) => print_visibility_json(&result, "Policy evaluation"),
-        Err(e) => {
-            eprintln!("Error getting policy evaluation: {}", e);
-            ERROR_CODE_SERVER_ERROR
-        }
-    }
-}
-
-pub fn background_attest_policy_evaluation() -> i32 {
-    match rpc_attest_policy_evaluation(
-        &EDAMAME_CA_PEM,
-        &EDAMAME_CLIENT_PEM,
-        &EDAMAME_CLIENT_KEY,
-        &EDAMAME_TARGET,
-    ) {
-        Ok(result) => print_visibility_envelope(&result, "Attest policy evaluation"),
-        Err(e) => {
-            eprintln!("Error attesting policy evaluation: {}", e);
-            ERROR_CODE_SERVER_ERROR
-        }
-    }
-}
-
-pub fn background_policy_attestations() -> i32 {
-    match rpc_get_policy_attestations(
-        &EDAMAME_CA_PEM,
-        &EDAMAME_CLIENT_PEM,
-        &EDAMAME_CLIENT_KEY,
-        &EDAMAME_TARGET,
-    ) {
-        Ok(result) => print_visibility_json(&result, "Policy attestations"),
-        Err(e) => {
-            eprintln!("Error getting policy attestations: {}", e);
-            ERROR_CODE_SERVER_ERROR
-        }
-    }
-}
-
-pub fn background_zone_promotions() -> i32 {
-    match rpc_get_zone_promotions(
-        &EDAMAME_CA_PEM,
-        &EDAMAME_CLIENT_PEM,
-        &EDAMAME_CLIENT_KEY,
-        &EDAMAME_TARGET,
-    ) {
-        Ok(result) => print_visibility_json(&result, "Zone promotions"),
-        Err(e) => {
-            eprintln!("Error getting zone promotions: {}", e);
-            ERROR_CODE_SERVER_ERROR
-        }
-    }
-}
-
-pub fn background_request_zone_promotion(
-    agent_type: String,
-    target_zone: String,
-    reason: String,
-) -> i32 {
-    if agent_type.trim().is_empty() || target_zone.trim().is_empty() {
-        eprintln!("Agent type and target zone cannot be empty");
-        return ERROR_CODE_PARAM;
-    }
-    match rpc_request_zone_promotion(
-        agent_type.trim().to_string(),
-        target_zone.trim().to_string(),
-        reason,
-        &EDAMAME_CA_PEM,
-        &EDAMAME_CLIENT_PEM,
-        &EDAMAME_CLIENT_KEY,
-        &EDAMAME_TARGET,
-    ) {
-        Ok(result) => print_visibility_envelope(&result, "Request zone promotion"),
-        Err(e) => {
-            eprintln!("Error requesting zone promotion: {}", e);
-            ERROR_CODE_SERVER_ERROR
-        }
-    }
-}
-
-pub fn background_decide_zone_promotion(promotion_id: String, decision: String) -> i32 {
-    if promotion_id.trim().is_empty() {
-        eprintln!("Promotion id cannot be empty");
-        return ERROR_CODE_PARAM;
-    }
-    let approve = match decision.trim().to_ascii_lowercase().as_str() {
-        "approve" | "approved" | "accept" | "yes" | "true" => true,
-        "reject" | "rejected" | "deny" | "denied" | "no" | "false" => false,
-        other => {
-            eprintln!("Unknown decision '{}' (expected approve | reject)", other);
-            return ERROR_CODE_PARAM;
-        }
-    };
-    match rpc_decide_zone_promotion(
-        promotion_id.trim().to_string(),
-        approve,
-        &EDAMAME_CA_PEM,
-        &EDAMAME_CLIENT_PEM,
-        &EDAMAME_CLIENT_KEY,
-        &EDAMAME_TARGET,
-    ) {
-        Ok(result) => print_visibility_envelope(&result, "Decide zone promotion"),
-        Err(e) => {
-            eprintln!("Error deciding zone promotion: {}", e);
             ERROR_CODE_SERVER_ERROR
         }
     }

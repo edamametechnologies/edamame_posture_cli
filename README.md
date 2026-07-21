@@ -996,26 +996,29 @@ edamame_posture get-sessions \
 | **Production CI** | Auto | `disabled` | All flags | Yes |
 | **Air-Gapped CI** | Auto | `auto` (Ollama) | `--fail-on-whitelist` | Yes |
 
-## Agent Plugin Provisioning
+## Agent Plugin Registry (retired 1.7.0)
 
-Install and manage EDAMAME agent plugins (Cursor, Claude Code, OpenClaw) from
-the CLI. The provisioner downloads the latest release from GitHub via HTTP
-(no `git`, `bash`, or `python` required) and copies files using native Rust
-file operations. Works on macOS, Linux, and Windows.
+Install/provision/uninstall agent-plugin commands were **removed in 1.7.0**.
+Host-side transcript observation is the default path; no plugin install is
+required. The CLI retains read-only registry listing:
 
 ```bash
-# Install a plugin (downloads from GitHub)
-edamame_posture install-agent-plugin cursor
-edamame_posture install-agent-plugin claude_code
-edamame_posture install-agent-plugin claude_desktop
-edamame_posture install-agent-plugin openclaw
-
-# Check plugin status
-edamame_posture agent-plugin-status cursor
-
-# List all plugins with install status and version
 edamame_posture list-agent-plugins
 ```
+
+## Agent Inventory (first-seen acknowledgment)
+
+Dump discovered agents and acknowledge first-seen footprints ("yes, this is me"):
+
+```bash
+edamame_posture agent-inventory
+edamame_posture acknowledge-agent cursor
+edamame_posture unacknowledge-agent cursor
+```
+
+Retired ADR response-action / policy-pack / zone-promotion CLI surfaces are
+gone with INC-11/INC-13 (1.7.0); do not expect `response-action` or
+`policy-pack` subcommands.
 
 ## CI/CD Integration and Workflow Controls
 EDAMAME Posture offers multiple levels of security controls for CI/CD environments, allowing for gradual adoption and integration:

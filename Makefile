@@ -144,13 +144,8 @@ test_integration_connected: macos_release # Ensure binary is built
 	export CI=true; \
 	bash ./tests/integration_test.sh
 
-# Agent plugin provisioning commands test (no daemon required)
-agent_plugin_test: macos_release
-	export RUNNER_OS=$(shell if [ "$(OS)" = "Windows_NT" ]; then echo "Windows_NT"; else echo "$(shell uname)"; fi); \
-	bash ./tests/agent_plugin_commands_test.sh
-
 # Aggregate target for local testing (excluding connected tests by default)
-all_test: test commands_test test_integration_local agent_plugin_test
+all_test: test commands_test test_integration_local
 	@echo "--- All Local Tests Completed ---"
 	@echo "Note: 'make test_integration_connected' can be run separately if credentials are configured."
 
