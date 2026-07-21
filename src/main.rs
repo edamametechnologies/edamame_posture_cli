@@ -1431,11 +1431,6 @@ fn run_base() {
             exit_code = background_revoke_agent_approval(agent_type);
             is_background = true;
         }
-        Some(("background-visibility-roadmap", _)) => {
-            initialize_core("".to_string(), false, false, false, false, false, verbose);
-            exit_code = background_visibility_roadmap();
-            is_background = true;
-        }
         Some(("background-mcp-endpoints", _)) => {
             initialize_core("".to_string(), false, false, false, false, false, verbose);
             exit_code = background_mcp_endpoints();

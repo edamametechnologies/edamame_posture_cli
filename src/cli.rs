@@ -763,11 +763,6 @@ pub fn build_cli() -> Command {
             ),
     )
     .subcommand(
-        Command::new("background-visibility-roadmap")
-            .alias("visibility-roadmap")
-            .about("List agent-visibility increments (MVP available + v1/v2 planned) and their RPCs"),
-    )
-    .subcommand(
         Command::new("background-mcp-endpoints")
             .alias("mcp-endpoints")
             .about("Dump the discovered MCP endpoint inventory (servers + transports) as JSON"),

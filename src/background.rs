@@ -2727,30 +2727,6 @@ pub fn background_revoke_agent_approval(agent_type: String) -> i32 {
     }
 }
 
-pub fn background_visibility_roadmap() -> i32 {
-    match rpc_get_visibility_roadmap(
-        &EDAMAME_CA_PEM,
-        &EDAMAME_CLIENT_PEM,
-        &EDAMAME_CLIENT_KEY,
-        &EDAMAME_TARGET,
-    ) {
-        Ok(roadmap) => match serde_json::to_string_pretty(&roadmap) {
-            Ok(pretty) => {
-                println!("{}", pretty);
-                0
-            }
-            Err(e) => {
-                eprintln!("Error formatting visibility roadmap: {}", e);
-                ERROR_CODE_SERVER_ERROR
-            }
-        },
-        Err(e) => {
-            eprintln!("Error getting visibility roadmap: {}", e);
-            ERROR_CODE_SERVER_ERROR
-        }
-    }
-}
-
 pub fn background_mcp_endpoints() -> i32 {
     match rpc_get_mcp_endpoints(
         &EDAMAME_CA_PEM,
