@@ -1,4 +1,5 @@
 name: Cross-platform tests
+# Phase-0 push re-trigger marker (do not remove): keep tests.yml in paths filter
 
 # Single workflow that builds edamame_posture once per native platform and
 # fans the produced binary out to:
