@@ -21,6 +21,7 @@ name: Cross-platform tests
 #                   absorb Windows Defender / DNS / mDNS variance on
 #                   GitHub-hosted runners; see gate-summary.md table)
 #   - security    : security-report enforces zero CVE failures (strict)
+# Push-gated (paths filter): workflow_dispatch alone cannot satisfy Phase 0.
 
 on:
   workflow_dispatch:
