@@ -966,7 +966,30 @@ jobs:
             done
             return 1
           }
-          apt_retry update -y || apt_retry update -y --fix-missing
+          # apt-get update often exits 0 even when archive.ubuntu.com
+          # indexes fail to fetch ("Some index files failed to download"),
+          # which then surfaces as "Package 'jq' has no installation
+          # candidate". Treat missing required packages as an update
+          # failure and retry the whole update before install.
+          apt_update_ready() {
+            local max=8 attempt=1
+            while [ $attempt -le $max ]; do
+              echo "apt-get update -y (attempt $attempt/$max)"
+              apt-get update -y || true
+              if apt-cache show jq >/dev/null 2>&1 && apt-cache show bc >/dev/null 2>&1; then
+                echo "apt indexes ready (jq/bc resolvable)"
+                return 0
+              fi
+              local backoff=$(( attempt * 30 ))
+              [ $backoff -gt 300 ] && backoff=300
+              echo "apt indexes incomplete (jq/bc not resolvable); sleeping ${backoff}s before retry..."
+              sleep "$backoff"
+              attempt=$((attempt + 1))
+            done
+            echo "ERROR: apt indexes never became ready for jq/bc"
+            return 1
+          }
+          apt_update_ready
           apt_retry install -y --fix-missing git curl sudo wget jq bc ca-certificates gnupg libgtk-3-0
           git config --global --add safe.directory '*'
 
