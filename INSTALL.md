@@ -369,15 +369,23 @@ All parameters passed to `install.sh` via flags are written to this file, and th
       - Connected user
       - Connected domain
       - Connection status (is connected: true/false)
+      - Device ID (informational; see soft-match below)
     - **Fallback check**: If status query fails (service not running/responding), reads `/etc/edamame_posture.conf` directly and parses:
       - `edamame_user: "..."`
       - `edamame_domain: "..."`
       - This ensures credential verification even when service is temporarily stopped
-    - **Skips restart** if credentials match (via either method)
+    - **Skips restart** if user + domain match and the daemon is connected
+    - **Device-id soft-match**: a differing `--device-id` alone does **not** restart
+      the service when user/domain already match. Shared multi-worker hosts run
+      one `edamame_posture.service`; concurrent CI jobs each pass a unique
+      `edamame_id` (`github.run_id` plus a timestamp suffix from the action).
+      Restarting for that mismatch alone thrashs sibling jobs (Hub device
+      identity steal, org IP allow-list flap, SIGTERM on in-flight builds).
+      The running device ID is kept for the lifetime of the connected unit.
     - **Restarts service** if:
-      - Service is running with different credentials
+      - Service is running with a different user or domain
       - Service is not connected with current credentials
-      - Config file has different credentials than provided
+      - Network flags (`start_lanscan` / `start_capture`) need a config update
       - Service is not running (starts it with provided credentials)
       - Cannot verify credentials through either method (warns and reconfigures as safety measure)
   - This two-tier verification (runtime status + config file fallback) ensures robust idempotency across all service states

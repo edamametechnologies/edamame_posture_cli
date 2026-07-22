@@ -6,7 +6,10 @@
 #   --user USER                    EDAMAME Hub username
 #   --domain DOMAIN                EDAMAME Hub domain
 #   --pin PIN                      EDAMAME Hub PIN
-#   --device-id ID                 Device identifier (e.g., ci-runner-123)
+#   --device-id ID                 Device identifier (e.g., ci-runner-123).
+#                                  On a shared host with one systemd unit,
+#                                  a device-id-only mismatch does not restart
+#                                  an already-connected daemon (user/domain match).
 #
 # Network Monitoring & Enforcement:
 #   --start-lanscan                Pass --network-scan to daemon (LAN device discovery)
@@ -99,6 +102,40 @@ show_daemon_status() {
         echo "$STATUS" | while IFS= read -r line; do
             info "  $line"
         done
+    fi
+}
+
+# Decide whether a running connected daemon can be reused.
+# Sets CREDENTIALS_MATCH to "true"|"false".
+#
+# Matching user + domain is enough. A device-id mismatch alone must NOT
+# force a restart: shared multi-worker hosts (e.g. the Linux Azure runner
+# with four actions-runner* workers) run a single systemd
+# edamame_posture.service, and concurrent CI jobs each pass a distinct
+# --device-id (github.run_id plus a timestamp suffix from the action).
+# Restarting solely for that mismatch steals the Hub device identity from
+# sibling jobs and can SIGTERM in-flight builds that depend on the daemon
+# (org IP allow-list lift, RPC, vulnerability gate).
+credentials_match_for_reuse() {
+    _is_connected="$1"
+    _running_user="$2"
+    _running_domain="$3"
+    _running_device_id="$4"
+    _config_user="$5"
+    _config_domain="$6"
+    _config_device_id="$7"
+
+    CREDENTIALS_MATCH="false"
+    if [ "$_is_connected" = "true" ] && \
+       [ "$_running_user" = "$_config_user" ] && \
+       [ "$_running_domain" = "$_config_domain" ]; then
+        CREDENTIALS_MATCH="true"
+        if [ -n "$_config_device_id" ] && [ -n "$_running_device_id" ] && \
+           [ "$_running_device_id" != "$_config_device_id" ]; then
+            warn "Device ID differs (running=$_running_device_id, requested=$_config_device_id)"
+            warn "Reusing connected daemon (user/domain match); not restarting for device-id-only change"
+            warn "Shared hosts own one Hub device identity while the systemd unit is up"
+        fi
     fi
 }
 
@@ -2046,26 +2083,17 @@ check_existing_installation() {
     RUNNING_DEVICE_ID=$(echo "$STATUS_OUTPUT" | grep "Device ID:" | sed 's/.*Device ID: //' | tr -d ' ')
     IS_CONNECTED=$(echo "$STATUS_OUTPUT" | grep "Is connected:" | sed 's/.*Is connected: //' | tr -d ' ')
     
-    # Check if credentials match (including device ID if both are non-empty)
-    CREDENTIALS_MATCH="false"
-    if [ "$IS_CONNECTED" = "true" ] && [ "$RUNNING_USER" = "$CONFIG_USER" ] && [ "$RUNNING_DOMAIN" = "$CONFIG_DOMAIN" ]; then
-        # User and domain match - now check device ID if applicable
-        if [ -n "$CONFIG_DEVICE_ID" ] && [ -n "$RUNNING_DEVICE_ID" ]; then
-            # Both have device IDs - they must match
-            if [ "$RUNNING_DEVICE_ID" = "$CONFIG_DEVICE_ID" ]; then
-                CREDENTIALS_MATCH="true"
-            else
-                info "Device ID differs: running=$RUNNING_DEVICE_ID, config=$CONFIG_DEVICE_ID"
-            fi
-        else
-            # At least one device ID is empty - ignore device ID in comparison
-            CREDENTIALS_MATCH="true"
-        fi
-    fi
+    credentials_match_for_reuse \
+        "$IS_CONNECTED" "$RUNNING_USER" "$RUNNING_DOMAIN" "$RUNNING_DEVICE_ID" \
+        "$CONFIG_USER" "$CONFIG_DOMAIN" "$CONFIG_DEVICE_ID"
     
     if [ "$CREDENTIALS_MATCH" = "true" ]; then
         info "Existing installation is running with matching credentials (user: $CONFIG_USER, domain: $CONFIG_DOMAIN)"
-        [ -n "$CONFIG_DEVICE_ID" ] && info "  Device ID: $CONFIG_DEVICE_ID"
+        if [ -n "$RUNNING_DEVICE_ID" ]; then
+            info "  Device ID (running): $RUNNING_DEVICE_ID"
+        elif [ -n "$CONFIG_DEVICE_ID" ]; then
+            info "  Device ID (requested): $CONFIG_DEVICE_ID"
+        fi
         
         # Check if we need to update service configuration with new parameters
         # (e.g., network flags were added after initial install)
@@ -2375,22 +2403,9 @@ EOF
                 RUNNING_DEVICE_ID=$(echo "$STATUS_OUTPUT" | grep "Device ID:" | sed 's/.*Device ID: //' | tr -d ' ')
                 IS_CONNECTED=$(echo "$STATUS_OUTPUT" | grep "Is connected:" | sed 's/.*Is connected: //' | tr -d ' ')
                 
-                # Check if credentials match (including device ID if both are non-empty)
-                CREDENTIALS_MATCH="false"
-                if [ "$IS_CONNECTED" = "true" ] && [ "$RUNNING_USER" = "$CONFIG_USER" ] && [ "$RUNNING_DOMAIN" = "$CONFIG_DOMAIN" ]; then
-                    # User and domain match - now check device ID if applicable
-                    if [ -n "$CONFIG_DEVICE_ID" ] && [ -n "$RUNNING_DEVICE_ID" ]; then
-                        # Both have device IDs - they must match
-                        if [ "$RUNNING_DEVICE_ID" = "$CONFIG_DEVICE_ID" ]; then
-                            CREDENTIALS_MATCH="true"
-                        else
-                            info "Device ID differs: running=$RUNNING_DEVICE_ID, config=$CONFIG_DEVICE_ID"
-                        fi
-                    else
-                        # At least one device ID is empty - ignore device ID in comparison
-                        CREDENTIALS_MATCH="true"
-                    fi
-                fi
+                credentials_match_for_reuse \
+                    "$IS_CONNECTED" "$RUNNING_USER" "$RUNNING_DOMAIN" "$RUNNING_DEVICE_ID" \
+                    "$CONFIG_USER" "$CONFIG_DOMAIN" "$CONFIG_DEVICE_ID"
                 
                 if [ "$CREDENTIALS_MATCH" = "true" ]; then
                     # Check if config was just updated (e.g., network flags added)
@@ -2399,7 +2414,11 @@ EOF
                         SHOULD_RESTART="true"
                     else
                         info "Service is running with matching credentials (user: $CONFIG_USER, domain: $CONFIG_DOMAIN), skipping restart"
-                        [ -n "$CONFIG_DEVICE_ID" ] && info "  Device ID: $CONFIG_DEVICE_ID"
+                        if [ -n "$RUNNING_DEVICE_ID" ]; then
+                            info "  Device ID (running): $RUNNING_DEVICE_ID"
+                        elif [ -n "$CONFIG_DEVICE_ID" ]; then
+                            info "  Device ID (requested): $CONFIG_DEVICE_ID"
+                        fi
                         SHOULD_RESTART="false"
                     fi
                 elif [ "$IS_CONNECTED" = "true" ]; then
