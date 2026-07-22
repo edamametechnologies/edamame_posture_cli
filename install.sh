@@ -420,6 +420,15 @@ credentials_provided() {
     [ -n "$CONFIG_USER" ] && [ -n "$CONFIG_DOMAIN" ] && [ -n "$CONFIG_PIN" ]
 }
 
+# Extract a YAML scalar from a posture conf file (quoted or unquoted).
+# Usage: conf_yaml_value <file> <key>
+conf_yaml_value() {
+    _conf_file="$1"
+    _conf_key="$2"
+    grep "^${_conf_key}:" "$_conf_file" 2>/dev/null | head -1 \
+        | sed -e 's/^[^:]*:[[:space:]]*//' -e 's/^"\(.*\)"$/\1/' -e "s/^'\\(.*\\)'$/\\1/"
+}
+
 is_posture_process_running() {
     if [ "$PLATFORM" = "windows" ]; then
         tasklist //FI "IMAGENAME eq edamame_posture.exe" 2>/dev/null | grep -qi "edamame_posture" 2>/dev/null
@@ -1873,14 +1882,23 @@ check_existing_installation() {
     if [ "$PLATFORM" = "linux" ]; then
         if command -v dpkg >/dev/null 2>&1 && dpkg -l edamame-posture 2>/dev/null | grep -q "^ii"; then
             IS_PACKAGE_INSTALL="true"
+            # Existing APT path skips install_linux_via_apt(), which is
+            # otherwise the only place that sets this flag. Without it the
+            # trailing "binary installation" decision kills a healthy
+            # systemd unit and starts a second background daemon.
+            INSTALLED_VIA_PACKAGE_MANAGER="true"
             info "Detected package installation (APT)"
         elif command -v apk >/dev/null 2>&1 && apk info -e edamame-posture 2>/dev/null; then
             IS_PACKAGE_INSTALL="true"
+            INSTALLED_VIA_PACKAGE_MANAGER="true"
             info "Detected package installation (APK)"
         fi
     elif [ "$PLATFORM" = "macos" ] && command -v brew >/dev/null 2>&1; then
         if brew list --cask edamame-posture >/dev/null 2>&1; then
             IS_PACKAGE_INSTALL="true"
+            # Desktop casks have no managed service; leave
+            # INSTALLED_VIA_PACKAGE_MANAGER false so the installer still
+            # starts/restarts the background daemon after reconfigure.
             info "Detected package installation (Homebrew cask)"
         fi
     elif [ "$PLATFORM" = "windows" ] && command -v choco >/dev/null 2>&1; then
@@ -2104,8 +2122,10 @@ check_existing_installation() {
         if [ "$PLATFORM" = "linux" ] && [ -f "/etc/edamame_posture.conf" ]; then
             # Check if network flags are provided but missing from config
             if [ "$CONFIG_START_LANSCAN" = "true" ] || [ "$CONFIG_START_CAPTURE" = "true" ]; then
-                CURRENT_LANSCAN=$(grep "^start_lanscan:" /etc/edamame_posture.conf 2>/dev/null | sed 's/.*: *"\([^"]*\)".*/\1/' || echo "false")
-                CURRENT_CAPTURE=$(grep "^start_capture:" /etc/edamame_posture.conf 2>/dev/null | sed 's/.*: *"\([^"]*\)".*/\1/' || echo "false")
+                CURRENT_LANSCAN=$(conf_yaml_value /etc/edamame_posture.conf start_lanscan)
+                CURRENT_CAPTURE=$(conf_yaml_value /etc/edamame_posture.conf start_capture)
+                [ -n "$CURRENT_LANSCAN" ] || CURRENT_LANSCAN="false"
+                [ -n "$CURRENT_CAPTURE" ] || CURRENT_CAPTURE="false"
                 
                 if [ "$CONFIG_START_LANSCAN" = "true" ] && [ "$CURRENT_LANSCAN" != "true" ]; then
                     info "Network scan flag not in config, will update"
@@ -2123,6 +2143,13 @@ check_existing_installation() {
         FINAL_BINARY_PATH="$EXISTING_BINARY"
         INSTALL_METHOD="existing"
         SKIP_INSTALLATION="true"
+        # Existing APT/APK installs never enter install_linux_via_*, so
+        # re-assert the package-manager flag here for the daemon decision.
+        # Desktop casks/choco must keep this false so the background daemon
+        # still starts after a reconfigure-only pass.
+        if [ "$PLATFORM" = "linux" ] && [ "$IS_PACKAGE_INSTALL" = "true" ]; then
+            INSTALLED_VIA_PACKAGE_MANAGER="true"
+        fi
         
         if [ "$NEED_CONFIG_UPDATE" = "true" ]; then
             info "Configuration update needed for new parameters"
@@ -2157,6 +2184,9 @@ check_existing_installation() {
     FINAL_BINARY_PATH="$EXISTING_BINARY"
     INSTALL_METHOD="existing"
     SKIP_INSTALLATION="true"
+    if [ "$PLATFORM" = "linux" ] && [ "$IS_PACKAGE_INSTALL" = "true" ]; then
+        INSTALLED_VIA_PACKAGE_MANAGER="true"
+    fi
     # Only reconfigure on Linux (only platform with system service)
     if [ "$PLATFORM" = "linux" ]; then
         SKIP_CONFIGURATION="false"
@@ -2287,20 +2317,25 @@ configure_service() {
     PRESERVE_DEVICE_ID=""
     if [ -f "$CONF_FILE" ]; then
         case "$ID" in
-            "ubuntu"|"debian"|"raspbian"|"pop"|"linuxmint"|"elementary"|"zorin")
-                if command -v systemctl >/dev/null 2>&1 && systemd_available; then
+            "ubuntu"|"debian"|"raspbian"|"pop"|"linuxmint"|"elementary"|"zorin"|"alpine")
+                _service_active="false"
+                if [ "$ID" = "alpine" ]; then
+                    if command -v rc-service >/dev/null 2>&1 && \
+                       rc-service edamame_posture status >/dev/null 2>&1; then
+                        _service_active="true"
+                    fi
+                elif command -v systemctl >/dev/null 2>&1 && systemd_available; then
                     if systemctl is-active --quiet edamame_posture.service 2>/dev/null; then
-                        _conf_user=$(grep "^edamame_user:" "$CONF_FILE" 2>/dev/null \
-                            | sed 's/.*: *"\([^"]*\)".*/\1/' | head -1)
-                        _conf_domain=$(grep "^edamame_domain:" "$CONF_FILE" 2>/dev/null \
-                            | sed 's/.*: *"\([^"]*\)".*/\1/' | head -1)
-                        if [ -n "$CONFIG_USER" ] && [ -n "$CONFIG_DOMAIN" ] && \
-                           [ "$_conf_user" = "$CONFIG_USER" ] && \
-                           [ "$_conf_domain" = "$CONFIG_DOMAIN" ]; then
-                            PRESERVE_DEVICE_ID=$(grep "^edamame_device_id:" "$CONF_FILE" 2>/dev/null \
-                                | sed 's/.*: *"\([^"]*\)".*/\1/' \
-                                | head -1)
-                        fi
+                        _service_active="true"
+                    fi
+                fi
+                if [ "$_service_active" = "true" ]; then
+                    _conf_user=$(conf_yaml_value "$CONF_FILE" edamame_user)
+                    _conf_domain=$(conf_yaml_value "$CONF_FILE" edamame_domain)
+                    if [ -n "$CONFIG_USER" ] && [ -n "$CONFIG_DOMAIN" ] && \
+                       [ "$_conf_user" = "$CONFIG_USER" ] && \
+                       [ "$_conf_domain" = "$CONFIG_DOMAIN" ]; then
+                        PRESERVE_DEVICE_ID=$(conf_yaml_value "$CONF_FILE" edamame_device_id)
                     fi
                 fi
                 ;;
@@ -2651,6 +2686,11 @@ if { credentials_provided || [ "$DISCONNECTED_MODE" = "true" ]; } && [ "$SKIP_CO
     if [ "$SHOULD_START_DAEMON" = "true" ]; then
         # Already set to true by service failure fallback
         info "  Decision: Service failure fallback - will start daemon manually"
+    elif [ "$INSTALL_METHOD" = "existing" ] && [ "$INSTALLED_VIA_PACKAGE_MANAGER" = "true" ] && [ "$PLATFORM" = "linux" ]; then
+        # Reconfigure-only path on APT/APK hosts: configure_service already
+        # restarted the managed unit. Never kill it for a background daemon.
+        info "  Decision: Existing Linux package service - daemon managed by service"
+        SHOULD_START_DAEMON="false"
     elif [ "$INSTALLED_VIA_PACKAGE_MANAGER" = "false" ]; then
         # Binary installation - always start daemon
         info "  Decision: Binary installation - will start daemon"
