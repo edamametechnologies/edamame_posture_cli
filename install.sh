@@ -471,7 +471,10 @@ stop_existing_posture() {
                 edamame_posture stop >/dev/null 2>&1 || true
             fi
         fi
-        pkill -f edamame_posture >/dev/null 2>&1 || true
+        # Exact process name only. `pkill -f edamame_posture` matches rustc
+        # command lines with `--out-dir /tmp/edamame_posture/...` and kills
+        # concurrent cargo builds on the shared Linux runner host.
+        pkill -x edamame_posture >/dev/null 2>&1 || true
     fi
 }
 
@@ -2047,9 +2050,9 @@ check_existing_installation() {
                 taskkill //F //IM edamame_posture.exe >/dev/null 2>&1 || true
             else
                 if [ -n "$SUDO" ]; then
-                    $SUDO pkill -9 -f "edamame_posture" 2>/dev/null || true
+                    $SUDO pkill -9 -x edamame_posture 2>/dev/null || true
                 else
-                    pkill -9 -f "edamame_posture" 2>/dev/null || true
+                    pkill -9 -x edamame_posture 2>/dev/null || true
                 fi
             fi
             
