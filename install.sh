@@ -2271,13 +2271,50 @@ configure_service() {
     fi
     
     info "Configuring EDAMAME Posture service..."
+
+    # Preserve the already-running Hub device identity on shared hosts.
+    # Concurrent CI jobs each pass a distinct --device-id (github.run_id
+    # + timestamp). Writing that into /etc/edamame_posture.conf while
+    # leaving the systemd unit up means the next Restart=always (or a
+    # post-job SIGTERM) brings the daemon back under the last job's
+    # device-id and thrash-restarts siblings. When the service is
+    # already active with matching user/domain, keep the on-disk
+    # device-id. A real credential change (different user/domain)
+    # still takes the requested device-id.
+    PRESERVE_DEVICE_ID=""
+    if [ -f "$CONF_FILE" ]; then
+        case "$ID" in
+            "ubuntu"|"debian"|"raspbian"|"pop"|"linuxmint"|"elementary"|"zorin")
+                if command -v systemctl >/dev/null 2>&1 && systemd_available; then
+                    if systemctl is-active --quiet edamame_posture.service 2>/dev/null; then
+                        _conf_user=$(grep "^edamame_user:" "$CONF_FILE" 2>/dev/null \
+                            | sed 's/.*: *"\([^"]*\)".*/\1/' | head -1)
+                        _conf_domain=$(grep "^edamame_domain:" "$CONF_FILE" 2>/dev/null \
+                            | sed 's/.*: *"\([^"]*\)".*/\1/' | head -1)
+                        if [ -n "$CONFIG_USER" ] && [ -n "$CONFIG_DOMAIN" ] && \
+                           [ "$_conf_user" = "$CONFIG_USER" ] && \
+                           [ "$_conf_domain" = "$CONFIG_DOMAIN" ]; then
+                            PRESERVE_DEVICE_ID=$(grep "^edamame_device_id:" "$CONF_FILE" 2>/dev/null \
+                                | sed 's/.*: *"\([^"]*\)".*/\1/' \
+                                | head -1)
+                        fi
+                    fi
+                fi
+                ;;
+        esac
+    fi
+    EFFECTIVE_DEVICE_ID="$CONFIG_DEVICE_ID"
+    if [ -n "$PRESERVE_DEVICE_ID" ]; then
+        info "Preserving running service device-id ($PRESERVE_DEVICE_ID); ignoring requested ($CONFIG_DEVICE_ID)"
+        EFFECTIVE_DEVICE_ID="$PRESERVE_DEVICE_ID"
+    fi
     
     # Create temporary config file
     TMP_CONF=$(mktemp)
     ESC_USER=$(yaml_escape "$CONFIG_USER")
     ESC_DOMAIN=$(yaml_escape "$CONFIG_DOMAIN")
     ESC_PIN=$(yaml_escape "$CONFIG_PIN")
-    ESC_DEVICE_ID=$(yaml_escape "$CONFIG_DEVICE_ID")
+    ESC_DEVICE_ID=$(yaml_escape "$EFFECTIVE_DEVICE_ID")
     ESC_WHITELIST=$(yaml_escape "$CONFIG_WHITELIST")
     ESC_AGENTIC_MODE=$(yaml_escape "$CONFIG_AGENTIC_MODE")
     ESC_AGENTIC_PROVIDER=$(yaml_escape "$CONFIG_AGENTIC_PROVIDER")
