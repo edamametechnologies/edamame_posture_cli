@@ -324,10 +324,23 @@ pub fn background_wait_for_connection(timeout: u64) -> i32 {
         is_online: false,
     };
 
-    // Wait until the daemon reports that it is connected, or until we time out
-    while !connection_status.is_connected && timeout > 0 {
+    // Wait until the daemon reports that it is connected, or until we time out.
+    //
+    // Once connected, the daemon can transiently surface Hub-side errors on the
+    // report_score path that MUST NOT fatally abort the wait:
+    //   - InvalidSignature / NonExistentDevice: the DynamoDB history-stream
+    //     propagation race (report_score writes DEVICE_REPORTS synchronously, but
+    //     the policy/history lookup reads HISTORY_DEVICE_REPORTS which is projected
+    //     asynchronously; see edamame_core/HUB_POLICY_SIGNATURE.md).
+    //   - InputValidationFailed (backend E01): a report HMAC timestamp that fell
+    //     outside the Hub's +/-300s validity window, i.e. CI runner clock drift.
+    //     report_score re-signs each cycle, so a clock resync recovers.
+    // These are the same classes base.rs::check_policy_for_domain already retries.
+    // They are retried within the timeout budget here; every other backend error
+    // code stays fast-fail.
+    while timeout > 0 {
         sleep(Duration::from_secs(5));
-        timeout = timeout - 5;
+        timeout = timeout.saturating_sub(5);
 
         connection_status = match rpc_get_connection(
             &EDAMAME_CA_PEM,
@@ -342,8 +355,29 @@ pub fn background_wait_for_connection(timeout: u64) -> i32 {
             }
         };
 
-        // The backend error code won't reflect an actual error until communication with the backend occur, i.e. the connection is established
-        if connection_status.is_connected && connection_status.backend_error_code != "None" {
+        // The backend error code won't reflect an actual error until communication
+        // with the backend occurs, i.e. the connection is established.
+        if connection_status.is_connected {
+            let error_code = connection_status.backend_error_code.as_str();
+            if error_code == "None" || error_code.is_empty() {
+                // Connected and reporting cleanly.
+                break;
+            }
+
+            let is_transient = matches!(
+                error_code,
+                "InvalidSignature" | "NonExistentDevice" | "InputValidationFailed"
+            );
+            if is_transient {
+                eprintln!(
+                    "[WARN] Transient backend error while reporting (retrying, {}s left): {}, {}",
+                    timeout,
+                    connection_status.backend_error_code,
+                    connection_status.backend_error_reason
+                );
+                continue;
+            }
+
             eprintln!(
                 "Error attempting to connect to domain: {}, {}",
                 connection_status.backend_error_code, connection_status.backend_error_reason
