@@ -427,10 +427,23 @@ credentials_provided() {
 
 # Extract a YAML scalar from a posture conf file (quoted or unquoted).
 # Usage: conf_yaml_value <file> <key>
+#
+# /etc/edamame_posture.conf is chmod 600 root-owned. The installer runs as
+# a non-root CI user with $SUDO, so plain grep fails closed (empty value)
+# and the shared-host reuse fallback never matches -- forcing a restart
+# thrash. Prefer a direct read when permitted; otherwise $SUDO cat.
 conf_yaml_value() {
     _conf_file="$1"
     _conf_key="$2"
-    grep "^${_conf_key}:" "$_conf_file" 2>/dev/null | head -1 \
+    _conf_text=""
+    if [ -r "$_conf_file" ]; then
+        _conf_text=$(cat "$_conf_file" 2>/dev/null || true)
+    elif [ -n "${SUDO:-}" ]; then
+        _conf_text=$($SUDO cat "$_conf_file" 2>/dev/null || true)
+    else
+        _conf_text=$(cat "$_conf_file" 2>/dev/null || true)
+    fi
+    printf '%s\n' "$_conf_text" | grep "^${_conf_key}:" 2>/dev/null | head -1 \
         | sed -e 's/^[^:]*:[[:space:]]*//' -e 's/^"\(.*\)"$/\1/' -e "s/^'\\(.*\\)'$/\\1/"
 }
 
@@ -2520,6 +2533,14 @@ EOF
                        [ "$_conf_user" = "$CONFIG_USER" ] && \
                        [ "$_conf_domain" = "$CONFIG_DOMAIN" ]; then
                         info "Service active; conf user/domain match (status not connected yet), skipping restart"
+                        SHOULD_RESTART="false"
+                    elif credentials_provided && \
+                         { [ -z "$_conf_user" ] || [ -z "$_conf_domain" ]; }; then
+                        # Conf unreadable (chmod 600 without sudo) or empty.
+                        # Prefer reuse over restart thrash on shared hosts;
+                        # wait-for-connection will finish the in-flight Hub
+                        # connect under the daemon's existing credentials.
+                        warn "Service active mid-connect; conf unreadable/empty -- skipping restart (shared-host reuse)"
                         SHOULD_RESTART="false"
                     else
                         info "Service is not connected, will restart"
