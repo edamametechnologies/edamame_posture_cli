@@ -105,17 +105,17 @@ show_daemon_status() {
     fi
 }
 
-# Decide whether a running connected daemon can be reused.
+# Decide whether a running daemon can be reused.
 # Sets CREDENTIALS_MATCH to "true"|"false".
 #
-# Matching user + domain is enough. A device-id mismatch alone must NOT
-# force a restart: shared multi-worker hosts (e.g. the Linux Azure runner
-# with four actions-runner* workers) run a single systemd
-# edamame_posture.service, and concurrent CI jobs each pass a distinct
-# --device-id (github.run_id plus a timestamp suffix from the action).
-# Restarting solely for that mismatch steals the Hub device identity from
-# sibling jobs and can SIGTERM in-flight builds that depend on the daemon
-# (org IP allow-list lift, RPC, vulnerability gate).
+# Matching user + domain is enough -- Hub connection need NOT be true yet.
+# Shared multi-worker hosts (e.g. the Linux Azure runner with four
+# actions-runner* workers) run a single systemd edamame_posture.service.
+# Concurrent CI jobs each pass a distinct --device-id (github.run_id plus
+# a timestamp suffix from the action). Restarting solely because the
+# daemon is still connecting (or for a device-id-only mismatch) steals
+# the Hub device identity from sibling jobs and can leave wait-for-
+# connection stuck for hours while workers thrash the unit.
 credentials_match_for_reuse() {
     _is_connected="$1"
     _running_user="$2"
@@ -126,14 +126,19 @@ credentials_match_for_reuse() {
     _config_device_id="$7"
 
     CREDENTIALS_MATCH="false"
-    if [ "$_is_connected" = "true" ] && \
+    if [ -n "$_running_user" ] && [ -n "$_running_domain" ] && \
+       [ -n "$_config_user" ] && [ -n "$_config_domain" ] && \
        [ "$_running_user" = "$_config_user" ] && \
        [ "$_running_domain" = "$_config_domain" ]; then
         CREDENTIALS_MATCH="true"
+        if [ "$_is_connected" != "true" ]; then
+            warn "Daemon not yet connected to Hub (user/domain match); reusing anyway"
+            warn "Shared hosts must not restart a mid-connect daemon for sibling jobs"
+        fi
         if [ -n "$_config_device_id" ] && [ -n "$_running_device_id" ] && \
            [ "$_running_device_id" != "$_config_device_id" ]; then
             warn "Device ID differs (running=$_running_device_id, requested=$_config_device_id)"
-            warn "Reusing connected daemon (user/domain match); not restarting for device-id-only change"
+            warn "Reusing daemon (user/domain match); not restarting for device-id-only change"
             warn "Shared hosts own one Hub device identity while the systemd unit is up"
         fi
     fi
@@ -2435,8 +2440,9 @@ EOF
     
     info "✓ Service configuration updated at $CONF_FILE"
     
-    # Check if service is already running with proper credentials
-    # Note: If NEED_CONFIG_UPDATE is set, we MUST restart to pick up new config
+    # Check if service is already running with proper credentials.
+    # NEED_CONFIG_UPDATE alone must NOT force a restart when user/domain
+    # match -- shared hosts write conf and keep the unit up.
     SHOULD_RESTART="true"
     if credentials_provided; then
         info "Checking if service is already running with proper credentials..."
@@ -2483,23 +2489,41 @@ EOF
                     "$CONFIG_USER" "$CONFIG_DOMAIN" "$CONFIG_DEVICE_ID"
                 
                 if [ "$CREDENTIALS_MATCH" = "true" ]; then
-                    # Check if config was just updated (e.g., network flags added)
+                    # Conf was rewritten (e.g. lanscan/capture flags) but
+                    # user/domain still match. On shared hosts a restart
+                    # thrash-kills sibling workers waiting on Hub connect;
+                    # keep the unit up and let wait-for-connection finish.
+                    # Network flags take effect on the next natural restart.
                     if [ "${NEED_CONFIG_UPDATE:-false}" = "true" ]; then
-                        info "Service is running with matching credentials but config was updated, will restart"
-                        SHOULD_RESTART="true"
-                    else
-                        info "Service is running with matching credentials (user: $CONFIG_USER, domain: $CONFIG_DOMAIN), skipping restart"
-                        if [ -n "$RUNNING_DEVICE_ID" ]; then
-                            info "  Device ID (running): $RUNNING_DEVICE_ID"
-                        elif [ -n "$CONFIG_DEVICE_ID" ]; then
-                            info "  Device ID (requested): $CONFIG_DEVICE_ID"
-                        fi
-                        SHOULD_RESTART="false"
+                        warn "Service matching credentials; conf updated on disk but skipping restart (shared-host reuse)"
+                        warn "Network flag changes apply on next natural daemon restart"
                     fi
+                    info "Service is running with matching credentials (user: $CONFIG_USER, domain: $CONFIG_DOMAIN), skipping restart"
+                    if [ -n "$RUNNING_DEVICE_ID" ]; then
+                        info "  Device ID (running): $RUNNING_DEVICE_ID"
+                    elif [ -n "$CONFIG_DEVICE_ID" ]; then
+                        info "  Device ID (requested): $CONFIG_DEVICE_ID"
+                    fi
+                    if [ "$IS_CONNECTED" != "true" ]; then
+                        info "  Hub connect still in progress; wait-for-connection will poll"
+                    fi
+                    SHOULD_RESTART="false"
                 elif [ "$IS_CONNECTED" = "true" ]; then
                     info "Service is running with different credentials (user: $RUNNING_USER, domain: $RUNNING_DOMAIN), will restart"
                 else
-                    info "Service is not connected, will restart"
+                    # Status may omit Connected user while mid-connect; fall
+                    # back to on-disk conf so siblings do not thrash restart.
+                    _conf_user=$(conf_yaml_value /etc/edamame_posture.conf edamame_user)
+                    _conf_domain=$(conf_yaml_value /etc/edamame_posture.conf edamame_domain)
+                    if [ -n "$_conf_user" ] && [ -n "$_conf_domain" ] && \
+                       [ -n "$CONFIG_USER" ] && [ -n "$CONFIG_DOMAIN" ] && \
+                       [ "$_conf_user" = "$CONFIG_USER" ] && \
+                       [ "$_conf_domain" = "$CONFIG_DOMAIN" ]; then
+                        info "Service active; conf user/domain match (status not connected yet), skipping restart"
+                        SHOULD_RESTART="false"
+                    else
+                        info "Service is not connected, will restart"
+                    fi
                 fi
             else
                 warn "Unable to get service status (exit code: $status_exit_code), will restart"
