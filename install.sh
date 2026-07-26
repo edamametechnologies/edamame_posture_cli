@@ -144,6 +144,67 @@ credentials_match_for_reuse() {
     fi
 }
 
+# True (0) when the daemon's backend error is one it can never recover from on
+# its own, so reusing it would just burn the wait-for-connection budget.
+#
+# NonExistentUser / NonExistentDevice mean the Hub rejected the identity the
+# daemon is holding. No amount of waiting changes that; only a restart against
+# the credentials we just wrote can. Transient/network errors are deliberately
+# NOT listed -- those do resolve by waiting, and restarting on them would
+# thrash the unit for every sibling job on a shared host.
+backend_error_is_terminal() {
+    case "$1" in
+        NonExistentUser|NonExistentDevice|InvalidCredentials|Unauthorized) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+# Confirm the daemon answering RPC is the one we just configured.
+#
+# `status`, `wait-for-connection` and `edamame_cli rpc` all talk to whichever
+# process owns the local RPC port -- not necessarily the service this script
+# manages. A second edamame_posture (a hand-started foreground daemon, a
+# leftover from a build tree, a container sharing the host netns) that grabbed
+# the port first keeps answering with ITS identity, so the service can be
+# perfectly healthy while every subsequent command reports someone else's
+# credentials and a Hub error that makes no sense for this machine.
+#
+# Diagnose only. Killing the other process is not this installer's call: on a
+# shared host it may belong to a live job, and on a workstation it may be an
+# operator's deliberate foreground run.
+verify_rpc_responder_identity() {
+    [ -n "${CONFIG_USER:-}" ] && [ -n "${CONFIG_DOMAIN:-}" ] || return 0
+    command -v edamame_posture >/dev/null 2>&1 || return 0
+
+    _vri_status=$($SUDO edamame_posture status 2>/dev/null) || return 0
+    _vri_user=$(echo "$_vri_status" | grep "Connected user:" | sed 's/.*Connected user: //' | tr -d ' ')
+    _vri_domain=$(echo "$_vri_status" | grep "Connected domain:" | sed 's/.*Connected domain: //' | tr -d ' ')
+
+    # Empty means still connecting -- that is the normal post-restart state.
+    [ -n "$_vri_user" ] || return 0
+    if [ "$_vri_user" = "$CONFIG_USER" ] && [ "$_vri_domain" = "$CONFIG_DOMAIN" ]; then
+        return 0
+    fi
+
+    warn "RPC is answered by a daemon with a different identity than configured"
+    warn "  configured: user=$CONFIG_USER domain=$CONFIG_DOMAIN"
+    warn "  answering:  user=$_vri_user domain=$_vri_domain"
+
+    _vri_main=""
+    if command -v systemctl >/dev/null 2>&1 && systemd_available; then
+        _vri_main=$(systemctl show edamame_posture.service --property=MainPID 2>/dev/null \
+            | sed 's/^MainPID=//' | tr -d ' ')
+    fi
+    for _vri_pid in $(pgrep -x edamame_posture 2>/dev/null); do
+        [ "$_vri_pid" = "$_vri_main" ] && continue
+        _vri_exe=$($SUDO readlink -f "/proc/$_vri_pid/exe" 2>/dev/null || echo "?")
+        warn "  other daemon running: pid=$_vri_pid exe=$_vri_exe"
+    done
+    [ -n "$_vri_main" ] && [ "$_vri_main" != "0" ] && \
+        warn "  managed service MainPID=$_vri_main"
+    warn "Stop the other daemon so this service owns the RPC port, then re-run."
+}
+
 now_epoch() {
     date +%s 2>/dev/null || echo ""
 }
@@ -2677,12 +2738,20 @@ EOF
                 RUNNING_DOMAIN=$(echo "$STATUS_OUTPUT" | grep "Connected domain:" | sed 's/.*Connected domain: //' | tr -d ' ')
                 RUNNING_DEVICE_ID=$(echo "$STATUS_OUTPUT" | grep "Device ID:" | sed 's/.*Device ID: //' | tr -d ' ')
                 IS_CONNECTED=$(echo "$STATUS_OUTPUT" | grep "Is connected:" | sed 's/.*Is connected: //' | tr -d ' ')
+                RUNNING_BACKEND_ERROR=$(echo "$STATUS_OUTPUT" | grep "Backend error code:" | sed 's/.*Backend error code: //' | tr -d ' ')
                 
                 credentials_match_for_reuse \
                     "$IS_CONNECTED" "$RUNNING_USER" "$RUNNING_DOMAIN" "$RUNNING_DEVICE_ID" \
                     "$CONFIG_USER" "$CONFIG_DOMAIN" "$CONFIG_DEVICE_ID"
                 
-                if [ "$CREDENTIALS_MATCH" = "true" ]; then
+                if backend_error_is_terminal "$RUNNING_BACKEND_ERROR"; then
+                    # Checked ahead of the credential match: a daemon can hold
+                    # the right user/domain and still be rejected by the Hub
+                    # (e.g. a device-id from a run that never deregistered).
+                    # Reuse would then wait out the full connect budget on an
+                    # identity that can never succeed.
+                    info "Service reports terminal backend error ($RUNNING_BACKEND_ERROR), will restart"
+                elif [ "$CREDENTIALS_MATCH" = "true" ]; then
                     # Conf was rewritten (e.g. lanscan/capture flags) but
                     # user/domain still match. On shared hosts a restart
                     # thrash-kills sibling workers waiting on Hub connect;
@@ -2837,6 +2906,8 @@ EOF
                 fi
                 ;;
         esac
+
+        verify_rpc_responder_identity
 
         release_install_lock
 }
