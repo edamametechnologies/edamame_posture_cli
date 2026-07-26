@@ -144,21 +144,6 @@ credentials_match_for_reuse() {
     fi
 }
 
-# True (0) when the daemon's backend error is one it can never recover from on
-# its own, so reusing it would just burn the wait-for-connection budget.
-#
-# NonExistentUser / NonExistentDevice mean the Hub rejected the identity the
-# daemon is holding. No amount of waiting changes that; only a restart against
-# the credentials we just wrote can. Transient/network errors are deliberately
-# NOT listed -- those do resolve by waiting, and restarting on them would
-# thrash the unit for every sibling job on a shared host.
-backend_error_is_terminal() {
-    case "$1" in
-        NonExistentUser|NonExistentDevice|InvalidCredentials|Unauthorized) return 0 ;;
-        *) return 1 ;;
-    esac
-}
-
 # Confirm the daemon answering RPC is the one we just configured.
 #
 # `status`, `wait-for-connection` and `edamame_cli rpc` all talk to whichever
@@ -269,6 +254,40 @@ daemon_start_epoch() {
     else
         echo ""
     fi
+}
+
+# Seconds the running daemon has been up; empty when that cannot be determined.
+daemon_uptime_secs() {
+    _dus_start=$(daemon_start_epoch)
+    _dus_now=$(now_epoch)
+    if [ -n "$_dus_start" ] && [ -n "$_dus_now" ]; then
+        echo $((_dus_now - _dus_start))
+    else
+        echo ""
+    fi
+}
+
+# How long a daemon may sit unconnected before we call it stuck rather than
+# slow. Restarting early is the expensive mistake: on a shared host it steals
+# the Hub device identity from every sibling job mid-connect, and the Hub's own
+# device propagation race (NonExistentDevice) resolves on its own, which is why
+# the action retries it rather than treating it as fatal.
+#
+# The bound therefore sits above the slowest legitimate connect we know of: on
+# Windows the initial blocking LAN scan sweeps ~1020 RFC1918 gateway candidates
+# before connect_domain() runs, which is why the action allows 1800s there.
+midconnect_max_wait() {
+    echo "${EDAMAME_MIDCONNECT_MAX_WAIT:-1800}"
+}
+
+# True (0) when the running daemon has been trying to connect for longer than
+# that bound. Sets REUSE_UPTIME for the caller's message. An unknown uptime
+# means reuse: on a shared host an unnecessary restart is worse than a job
+# that waits.
+reuse_window_exhausted() {
+    REUSE_UPTIME=$(daemon_uptime_secs)
+    [ -n "$REUSE_UPTIME" ] || return 1
+    [ "$REUSE_UPTIME" -gt "$(midconnect_max_wait)" ]
 }
 
 # Decide, without live status credentials, whether the running daemon can
@@ -2744,13 +2763,19 @@ EOF
                     "$IS_CONNECTED" "$RUNNING_USER" "$RUNNING_DOMAIN" "$RUNNING_DEVICE_ID" \
                     "$CONFIG_USER" "$CONFIG_DOMAIN" "$CONFIG_DEVICE_ID"
                 
-                if backend_error_is_terminal "$RUNNING_BACKEND_ERROR"; then
-                    # Checked ahead of the credential match: a daemon can hold
-                    # the right user/domain and still be rejected by the Hub
-                    # (e.g. a device-id from a run that never deregistered).
-                    # Reuse would then wait out the full connect budget on an
-                    # identity that can never succeed.
-                    info "Service reports terminal backend error ($RUNNING_BACKEND_ERROR), will restart"
+                if [ "$CREDENTIALS_MATCH" = "true" ] && \
+                   [ "$IS_CONNECTED" != "true" ] && \
+                   reuse_window_exhausted; then
+                    # Right user/domain, but unconnected for longer than any
+                    # legitimate connect takes: stuck, not slow. Reusing it
+                    # would fail this job exactly the way it failed the last
+                    # one, so trade a sibling's mid-connect for a daemon that
+                    # can actually reach the Hub.
+                    warn "Daemon has been up ${REUSE_UPTIME}s with matching credentials and is still not connected; restarting it"
+                    if [ -n "$RUNNING_BACKEND_ERROR" ] && [ "$RUNNING_BACKEND_ERROR" != "None" ]; then
+                        warn "  Last Hub error: $RUNNING_BACKEND_ERROR"
+                    fi
+                    warn "  (threshold $(midconnect_max_wait)s, override with EDAMAME_MIDCONNECT_MAX_WAIT)"
                 elif [ "$CREDENTIALS_MATCH" = "true" ]; then
                     # Conf was rewritten (e.g. lanscan/capture flags) but
                     # user/domain still match. On shared hosts a restart
@@ -2769,6 +2794,9 @@ EOF
                     fi
                     if [ "$IS_CONNECTED" != "true" ]; then
                         info "  Hub connect still in progress; wait-for-connection will poll"
+                        if [ -n "$RUNNING_BACKEND_ERROR" ] && [ "$RUNNING_BACKEND_ERROR" != "None" ]; then
+                            info "  Last Hub error: $RUNNING_BACKEND_ERROR (retried by wait-for-connection)"
+                        fi
                     fi
                     SHOULD_RESTART="false"
                 elif [ "$IS_CONNECTED" = "true" ]; then
@@ -2780,7 +2808,7 @@ EOF
                     # that will never connect without a restart.
                     daemon_has_requested_credentials
                     if [ "$DAEMON_HAS_CREDENTIALS" = "true" ]; then
-                        _midconnect_max="${EDAMAME_MIDCONNECT_MAX_WAIT:-600}"
+                        _midconnect_max=$(midconnect_max_wait)
                         if [ -n "$DAEMON_UPTIME_WITH_CREDENTIALS" ] && \
                            [ "$DAEMON_UPTIME_WITH_CREDENTIALS" -gt "$_midconnect_max" ]; then
                             warn "Daemon has run ${DAEMON_UPTIME_WITH_CREDENTIALS}s with these credentials without connecting; restarting it"
