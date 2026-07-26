@@ -144,6 +144,162 @@ credentials_match_for_reuse() {
     fi
 }
 
+now_epoch() {
+    date +%s 2>/dev/null || echo ""
+}
+
+# Epoch seconds of a file's last modification; empty when unavailable.
+# The existence guard matters: GNU stat reads `-f` as --file-system, so
+# probing a missing file with the BSD form would report the filesystem
+# instead of failing.
+file_mtime_epoch() {
+    [ -e "$1" ] || { echo ""; return 0; }
+    stat -c %Y "$1" 2>/dev/null && return 0   # GNU coreutils
+    stat -f %m "$1" 2>/dev/null && return 0   # BSD / macOS
+    if [ -n "${SUDO:-}" ]; then
+        $SUDO stat -c %Y "$1" 2>/dev/null && return 0
+    fi
+    echo ""
+}
+
+# Elapsed seconds since a pid started, across procps and BSD ps.
+proc_elapsed_secs() {
+    _pes_val=$(ps -o etimes= -p "$1" 2>/dev/null | tr -d ' ')
+    case "$_pes_val" in
+        ''|*[!0-9]*) ;;
+        *) echo "$_pes_val"; return 0 ;;
+    esac
+    # BSD ps has no etimes; parse etime's [[DD-]HH:]MM:SS form.
+    _pes_val=$(ps -o etime= -p "$1" 2>/dev/null | tr -d ' ')
+    [ -n "$_pes_val" ] || { echo ""; return 0; }
+    echo "$_pes_val" | awk -F'[-:]' '{
+        if (NF == 4)      print (($1*24 + $2)*60 + $3)*60 + $4
+        else if (NF == 3) print ($1*60 + $2)*60 + $3
+        else if (NF == 2) print $1*60 + $2
+        else              print ""
+    }'
+}
+
+# Epoch seconds at which the running daemon process started; empty when no
+# daemon is running or the start time cannot be determined. On Linux the
+# /proc/<pid> directory carries the process start time, which works for
+# systemd-managed and manually launched daemons alike; elsewhere derive it
+# from the process' elapsed time.
+daemon_start_epoch() {
+    _dse_pid=""
+    if command -v systemctl >/dev/null 2>&1 && systemd_available; then
+        _dse_pid=$(systemctl show edamame_posture.service --property=MainPID 2>/dev/null \
+            | sed 's/^MainPID=//' | tr -d ' ')
+    fi
+    if [ -z "$_dse_pid" ] || [ "$_dse_pid" = "0" ]; then
+        _dse_pid=$(pgrep -x edamame_posture 2>/dev/null | head -n 1)
+    fi
+    if [ -z "$_dse_pid" ]; then
+        echo ""
+        return 0
+    fi
+    if [ -d "/proc/$_dse_pid" ]; then
+        stat -c %Y "/proc/$_dse_pid" 2>/dev/null && return 0
+    fi
+    _dse_elapsed=$(proc_elapsed_secs "$_dse_pid")
+    _dse_now=$(now_epoch)
+    if [ -n "$_dse_elapsed" ] && [ -n "$_dse_now" ]; then
+        echo $((_dse_now - _dse_elapsed))
+    else
+        echo ""
+    fi
+}
+
+# Decide, without live status credentials, whether the running daemon can
+# possibly be operating under the requested user/domain.
+#
+# `status` reports empty credentials both when the daemon is mid-connect and
+# when it was started with no credentials at all (the ephemeral-runner case:
+# the package postinst brings the unit up against a default conf before the
+# installer writes any). Those two states are indistinguishable from status
+# alone, so decide on provenance instead: the daemon holds the requested
+# credentials only if they were already on disk BEFORE this installer run
+# touched the conf, AND the process started AFTER that file was written.
+#
+# Reads PRE_CONF_USER / PRE_CONF_DOMAIN / PRE_CONF_MTIME, captured by
+# configure_service() before it rewrites the conf.
+daemon_has_requested_credentials() {
+    DAEMON_HAS_CREDENTIALS="false"
+    DAEMON_CREDENTIALS_REASON=""
+    DAEMON_UPTIME_WITH_CREDENTIALS=""
+
+    if [ -z "${PRE_CONF_USER:-}" ] || [ -z "${PRE_CONF_DOMAIN:-}" ]; then
+        DAEMON_CREDENTIALS_REASON="no credentials were on disk before this run"
+        return 0
+    fi
+    if [ "$PRE_CONF_USER" != "$CONFIG_USER" ] || [ "$PRE_CONF_DOMAIN" != "$CONFIG_DOMAIN" ]; then
+        DAEMON_CREDENTIALS_REASON="on-disk credentials differed (was user=${PRE_CONF_USER} domain=${PRE_CONF_DOMAIN})"
+        return 0
+    fi
+
+    _dhrc_start=$(daemon_start_epoch)
+    if [ -z "$_dhrc_start" ] || [ -z "${PRE_CONF_MTIME:-}" ]; then
+        DAEMON_CREDENTIALS_REASON="daemon start time or conf mtime unavailable"
+        return 0
+    fi
+    if [ "$_dhrc_start" -lt "$PRE_CONF_MTIME" ]; then
+        DAEMON_CREDENTIALS_REASON="daemon started $((PRE_CONF_MTIME - _dhrc_start))s before those credentials were written"
+        return 0
+    fi
+
+    _dhrc_now=$(now_epoch)
+    if [ -n "$_dhrc_now" ]; then
+        DAEMON_UPTIME_WITH_CREDENTIALS=$((_dhrc_now - _dhrc_start))
+    fi
+    DAEMON_HAS_CREDENTIALS="true"
+    DAEMON_CREDENTIALS_REASON="daemon started $((_dhrc_start - PRE_CONF_MTIME))s after the matching credentials were written"
+    return 0
+}
+
+# Serialize the snapshot -> write -> decide -> restart critical section.
+#
+# A shared host (e.g. the Linux Azure runner with four actions-runner*
+# workers) has a single systemd unit but many concurrent installer runs.
+# Without a lock, two workers can each observe a pre-credential daemon and
+# each restart it, thrash-killing the other's Hub connect. With the lock,
+# the first worker restarts and the rest observe a daemon that now postdates
+# the conf, so they reuse it.
+EDAMAME_INSTALL_LOCK="${EDAMAME_INSTALL_LOCK:-/var/lock/edamame_posture_install.lock}"
+INSTALL_LOCK_HELD="false"
+
+acquire_install_lock() {
+    INSTALL_LOCK_HELD="false"
+    command -v flock >/dev/null 2>&1 || return 0
+
+    _lock_dir=$(dirname "$EDAMAME_INSTALL_LOCK")
+    [ -d "$_lock_dir" ] || $SUDO mkdir -p "$_lock_dir" 2>/dev/null || return 0
+    if [ ! -e "$EDAMAME_INSTALL_LOCK" ]; then
+        touch "$EDAMAME_INSTALL_LOCK" 2>/dev/null || {
+            $SUDO touch "$EDAMAME_INSTALL_LOCK" 2>/dev/null || return 0
+            $SUDO chmod 666 "$EDAMAME_INSTALL_LOCK" 2>/dev/null || true
+        }
+    fi
+    # Only redirect once writability is known: a failing `exec` redirection
+    # terminates a non-interactive POSIX shell outright.
+    [ -w "$EDAMAME_INSTALL_LOCK" ] || return 0
+    exec 9>>"$EDAMAME_INSTALL_LOCK"
+
+    if flock -w "${EDAMAME_INSTALL_LOCK_WAIT:-300}" 9 2>/dev/null; then
+        INSTALL_LOCK_HELD="true"
+    else
+        warn "Timed out waiting for $EDAMAME_INSTALL_LOCK; continuing without it"
+        exec 9>&-
+    fi
+    return 0
+}
+
+release_install_lock() {
+    [ "${INSTALL_LOCK_HELD:-false}" = "true" ] || return 0
+    flock -u 9 2>/dev/null || true
+    exec 9>&-
+    INSTALL_LOCK_HELD="false"
+}
+
 # Wait for daemon to be ready (responsive) after service start
 # Returns 0 if daemon is ready, 1 if timeout
 wait_for_daemon_ready() {
@@ -2323,6 +2479,21 @@ configure_service() {
     
     info "Configuring EDAMAME Posture service..."
 
+    # Take the lock before reading the pre-existing conf so that a concurrent
+    # worker cannot rewrite it between the snapshot and the restart decision.
+    acquire_install_lock
+    if [ "$INSTALL_LOCK_HELD" = "true" ]; then
+        info "Holding $EDAMAME_INSTALL_LOCK for the configure/restart section"
+    fi
+
+    # Snapshot the conf as it was BEFORE this run rewrites it. The restart
+    # decision below needs to know whether the credentials predate the
+    # running daemon; comparing the post-write conf against the requested
+    # config is a tautology and always answers "reuse".
+    PRE_CONF_USER=$(conf_yaml_value "$CONF_FILE" edamame_user)
+    PRE_CONF_DOMAIN=$(conf_yaml_value "$CONF_FILE" edamame_domain)
+    PRE_CONF_MTIME=$(file_mtime_epoch "$CONF_FILE")
+
     # Preserve the already-running Hub device identity on shared hosts.
     # Concurrent CI jobs each pass a distinct --device-id (github.run_id
     # + timestamp). Writing that into /etc/edamame_posture.conf while
@@ -2446,12 +2617,22 @@ slack_escalations_channel: "${ESC_SLACK_ESCALATIONS_CHANNEL}"
 agentic_interval: "${ESC_AGENTIC_INTERVAL}"
 EOF
     
-    # Copy to final location
-    $SUDO cp "$TMP_CONF" "$CONF_FILE"
-    $SUDO chmod 600 "$CONF_FILE"  # Protect API keys
+    # Copy to final location, but only when the content actually changes.
+    # A no-op rewrite would bump the conf mtime and make the provenance test
+    # below conclude that every sibling worker's daemon predates its own
+    # credentials, forcing a restart on each concurrent run.
+    CONF_CHANGED="true"
+    if $SUDO cmp -s "$TMP_CONF" "$CONF_FILE" 2>/dev/null; then
+        CONF_CHANGED="false"
+    fi
+    if [ "$CONF_CHANGED" = "true" ]; then
+        $SUDO cp "$TMP_CONF" "$CONF_FILE"
+        $SUDO chmod 600 "$CONF_FILE"  # Protect API keys
+        info "✓ Service configuration updated at $CONF_FILE"
+    else
+        info "✓ Service configuration already matches request at $CONF_FILE (left untouched)"
+    fi
     rm -f "$TMP_CONF"
-    
-    info "✓ Service configuration updated at $CONF_FILE"
     
     # Check if service is already running with proper credentials.
     # NEED_CONFIG_UPDATE alone must NOT force a restart when user/domain
@@ -2524,26 +2705,25 @@ EOF
                 elif [ "$IS_CONNECTED" = "true" ]; then
                     info "Service is running with different credentials (user: $RUNNING_USER, domain: $RUNNING_DOMAIN), will restart"
                 else
-                    # Status may omit Connected user while mid-connect; fall
-                    # back to on-disk conf so siblings do not thrash restart.
-                    _conf_user=$(conf_yaml_value /etc/edamame_posture.conf edamame_user)
-                    _conf_domain=$(conf_yaml_value /etc/edamame_posture.conf edamame_domain)
-                    if [ -n "$_conf_user" ] && [ -n "$_conf_domain" ] && \
-                       [ -n "$CONFIG_USER" ] && [ -n "$CONFIG_DOMAIN" ] && \
-                       [ "$_conf_user" = "$CONFIG_USER" ] && \
-                       [ "$_conf_domain" = "$CONFIG_DOMAIN" ]; then
-                        info "Service active; conf user/domain match (status not connected yet), skipping restart"
-                        SHOULD_RESTART="false"
-                    elif credentials_provided && \
-                         { [ -z "$_conf_user" ] || [ -z "$_conf_domain" ]; }; then
-                        # Conf unreadable (chmod 600 without sudo) or empty.
-                        # Prefer reuse over restart thrash on shared hosts;
-                        # wait-for-connection will finish the in-flight Hub
-                        # connect under the daemon's existing credentials.
-                        warn "Service active mid-connect; conf unreadable/empty -- skipping restart (shared-host reuse)"
-                        SHOULD_RESTART="false"
+                    # Status reports no live credentials. Reuse the daemon
+                    # only when provenance proves it could have read the
+                    # requested ones; otherwise it is a pre-credential daemon
+                    # that will never connect without a restart.
+                    daemon_has_requested_credentials
+                    if [ "$DAEMON_HAS_CREDENTIALS" = "true" ]; then
+                        _midconnect_max="${EDAMAME_MIDCONNECT_MAX_WAIT:-600}"
+                        if [ -n "$DAEMON_UPTIME_WITH_CREDENTIALS" ] && \
+                           [ "$DAEMON_UPTIME_WITH_CREDENTIALS" -gt "$_midconnect_max" ]; then
+                            warn "Daemon has run ${DAEMON_UPTIME_WITH_CREDENTIALS}s with these credentials without connecting; restarting it"
+                            warn "  (threshold ${_midconnect_max}s, override with EDAMAME_MIDCONNECT_MAX_WAIT)"
+                        else
+                            info "Service active mid-connect with the requested credentials, skipping restart"
+                            info "  Evidence: $DAEMON_CREDENTIALS_REASON"
+                            SHOULD_RESTART="false"
+                        fi
                     else
-                        info "Service is not connected, will restart"
+                        info "Service is active but cannot hold the requested credentials, will restart"
+                        info "  Reason: $DAEMON_CREDENTIALS_REASON"
                     fi
                 fi
             else
@@ -2657,6 +2837,8 @@ EOF
                 fi
                 ;;
         esac
+
+        release_install_lock
 }
 
 # Verify installation
