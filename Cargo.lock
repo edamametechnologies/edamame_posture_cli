@@ -1827,7 +1827,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "1.7.0"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#478b930aaec19e63dea08621a05529691af9a493"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#df5ce93a4d4103cf41a5c2e7a3a7610ad487889f"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -1916,7 +1916,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "1.7.0"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#b59bdfab40f722ab899375b8cebd435c64f9446c"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#97d368890f3b14f7b630ede6c6cdacb5cfbb11fa"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -2388,7 +2388,7 @@ dependencies = [
 [[package]]
 name = "flodbadd"
 version = "1.7.0"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#fa21b9a0b1a5ac011ffd4df3e9d299a7bc060db4"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#cdae91485c424112a43b09a8da703356f6521718"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -3468,7 +3468,7 @@ dependencies = [
  "js-sys",
  "log",
  "wasm-bindgen",
- "windows-core 0.58.0",
+ "windows-core 0.62.2",
 ]
 
 [[package]]
@@ -3932,7 +3932,7 @@ dependencies = [
 [[package]]
 name = "l7_ebpf_program"
 version = "0.1.0"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#fa21b9a0b1a5ac011ffd4df3e9d299a7bc060db4"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#cdae91485c424112a43b09a8da703356f6521718"
 
 [[package]]
 name = "lazy_static"
@@ -7450,7 +7450,7 @@ dependencies = [
 [[package]]
 name = "threatmodels_rs"
 version = "0.1.1"
-source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#19f03ee852effa4f15f771fbbf4e39645c9ee19e"
+source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#f0bc303d555da4877166ebadb5695acad3516d92"
 dependencies = [
  "anyhow",
  "chrono",
@@ -7979,7 +7979,7 @@ checksum = "b6f5e870be6c3b371b77fe0ee0bafb859fa4964b4404c27de1d380043c4dda20"
 [[package]]
 name = "undeadlock"
 version = "1.2.0"
-source = "git+https://github.com/edamametechnologies/undeadlock?branch=main#847e57ae0b66282f44d95423a86ba7e65a14198b"
+source = "git+https://github.com/edamametechnologies/undeadlock?branch=main#c41a74038dd53763dfde453f31462f87472ee41e"
 dependencies = [
  "dashmap 6.2.1",
  "tokio",

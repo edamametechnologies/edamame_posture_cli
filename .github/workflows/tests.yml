@@ -276,6 +276,16 @@ jobs:
           echo "Native matrix: $NATIVE_JSON"
           echo "Container matrix: $CONT_JSON"
 
+      - name: Slack alerts
+        if: failure()
+        uses: slackapi/slack-github-action@v1.26.0
+        with:
+          channel-id: 'C072J0U9TH7'
+          slack-message: "Setup job in ${{ github.workflow }} for ${{ github.repository }} on branch ${{ github.ref }} failed (no build, test, perf or security job will run): see https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        continue-on-error: true
+
   # =========================================================================
   # build: cargo build --release + sign + upload artifact (per native platform)
   # =========================================================================
@@ -561,6 +571,16 @@ jobs:
           path: target/release/edamame_posture.exe
           if-no-files-found: error
           retention-days: 7
+
+      - name: Slack alerts
+        if: failure()
+        uses: slackapi/slack-github-action@v1.26.0
+        with:
+          channel-id: 'C072J0U9TH7'
+          slack-message: "Build (${{ matrix.label }}) in ${{ github.workflow }} for ${{ github.repository }} on branch ${{ github.ref }} failed (test, perf and security jobs for this platform will not run): see https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        continue-on-error: true
 
   # =========================================================================
   # test-native: download artifact, run general tests on native platforms
