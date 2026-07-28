@@ -1703,13 +1703,13 @@ dependencies = [
 
 [[package]]
 name = "displaydoc"
-version = "0.2.6"
+version = "0.2.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1ac70aa55017e108007fbaf5aa0f54b021c98f92ff8af59d42eda9da96e3dd4f"
+checksum = "c6232dd377dcc64799954cbd3a9bb882e9cdc1308ccd87b1c098f1fb2eaf82a8"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.119",
+ "syn 3.0.3",
 ]
 
 [[package]]
@@ -1827,7 +1827,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "1.7.1"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#c5e976783b5fb19fb5704202640f8203b98f64c3"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#0b4711f2f5c863ed09124cd7ae35177bed1ff9cd"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -1916,7 +1916,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "1.7.1"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#c04e84334b6f536ea2fa574344d5fdc9bde95acb"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#b99fad71015424dd43abb4f6c5a08555b29772c2"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -2387,7 +2387,7 @@ dependencies = [
 [[package]]
 name = "flodbadd"
 version = "1.7.1"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#06e3f6526f70da1d50cb5d149c004a59e0580772"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#4240a87f129a49165ab8f01d82829ef25bdc7e32"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -3931,7 +3931,7 @@ dependencies = [
 [[package]]
 name = "l7_ebpf_program"
 version = "0.1.0"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#06e3f6526f70da1d50cb5d149c004a59e0580772"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#4240a87f129a49165ab8f01d82829ef25bdc7e32"
 
 [[package]]
 name = "lazy_static"
@@ -7449,7 +7449,7 @@ dependencies = [
 [[package]]
 name = "threatmodels_rs"
 version = "0.1.1"
-source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#1c88c097757bf000b7d2dfc8b3b45ed5cd6e9c0e"
+source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#7c62ab26e25e1bf899f337fd6ba412ef3d91a43a"
 dependencies = [
  "anyhow",
  "chrono",
