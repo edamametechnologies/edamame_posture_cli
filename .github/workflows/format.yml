@@ -44,6 +44,7 @@ jobs:
           edamame_id: ${{ github.run_id }}
           checkout: true
           token: ${{ secrets.DEV_GITHUB_TOKEN }}
+          wait_for_api: true
 
       - name: Configure Git Authentication to import private crates
         run: |
