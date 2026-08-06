@@ -802,6 +802,9 @@ fn run_base() {
                 .get_one::<u64>("agentic_interval")
                 .unwrap_or(&3600);
             let llm_api_key = sub_matches.get_one::<String>("llm_api_key").cloned();
+            if sub_matches.get_flag("export_ai_failure_details") {
+                std::env::set_var("EDAMAME_EXPORT_AI_FAILURE_DETAILS", "force");
+            }
 
             // Initialize the core with all options disabled
             initialize_core("".to_string(), false, false, false, false, false, verbose);
@@ -856,6 +859,9 @@ fn run_base() {
                 .get_one::<u64>("agentic_interval")
                 .unwrap_or(&3600);
             let llm_api_key = sub_matches.get_one::<String>("llm_api_key").cloned();
+            if sub_matches.get_flag("export_ai_failure_details") {
+                std::env::set_var("EDAMAME_EXPORT_AI_FAILURE_DETAILS", "force");
+            }
 
             // Initialize the core with all options disabled
             initialize_core("".to_string(), false, false, false, false, false, verbose);
@@ -926,6 +932,9 @@ fn run_base() {
                 .get_one::<u64>("agentic_interval")
                 .unwrap_or(&3600);
             let llm_api_key = sub_matches.get_one::<String>("llm_api_key").cloned();
+            if sub_matches.get_flag("export_ai_failure_details") {
+                std::env::set_var("EDAMAME_EXPORT_AI_FAILURE_DETAILS", "force");
+            }
 
             // Directly call the background process
             run_background(

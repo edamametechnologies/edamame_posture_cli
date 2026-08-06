@@ -1210,6 +1210,11 @@ fn start_common_args() -> Vec<Arg> {
             .help("Export agentic action history to EDAMAME Portal")
             .env("EDAMAME_EXPORT_TO_PORTAL")
             .action(ArgAction::SetTrue),
+        Arg::new("export_ai_failure_details")
+            .long("export-ai-failure-details")
+            .help("Force export of structured AI check failure details to Hub (Intune/managed fleets)")
+            .env("EDAMAME_EXPORT_AI_FAILURE_DETAILS")
+            .action(ArgAction::SetTrue),
     ]
 }
 
@@ -1282,6 +1287,11 @@ fn disconnected_start_args() -> Vec<Arg> {
             .long("export-to-portal")
             .help("Export agentic action history to EDAMAME Portal")
             .env("EDAMAME_EXPORT_TO_PORTAL")
+            .action(ArgAction::SetTrue),
+        Arg::new("export_ai_failure_details")
+            .long("export-ai-failure-details")
+            .help("Force export of structured AI check failure details to Hub (Intune/managed fleets)")
+            .env("EDAMAME_EXPORT_AI_FAILURE_DETAILS")
             .action(ArgAction::SetTrue),
     ]
 }
