@@ -1605,6 +1605,53 @@ jobs:
           echo "Using released binary at $BIN_PATH"
           echo "BINARY_PATH=$BIN_PATH" >> "$GITHUB_ENV"
 
+      # Download CVE triggers and install Python deps BEFORE packet capture
+      # starts. The trigger scripts contain secret-like strings; curling them
+      # while capture+detector are live produced a dirty idle baseline
+      # (sensitive_material_egress on curl + trigger_npm_rat_beacon.py).
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Download CVE trigger scripts
+        id: triggers
+        shell: bash
+        run: |
+          set -euo pipefail
+          TRIGGERS_DIR="${RUNNER_TEMP:-/tmp}/cve_triggers"
+          mkdir -p "$TRIGGERS_DIR"
+          BASE_URL="https://raw.githubusercontent.com/edamametechnologies/agent_security/main/tests/e2e/triggers"
+          REQUIRED_FILES=(
+            _common.py
+            _native_udp_probe.py
+            _edamame_cli.py
+            cleanup.py
+            trigger_blacklist_comm.py
+            trigger_cve_token_exfil.py
+            trigger_cve_sandbox_escape.py
+            trigger_memory_poisoning.py
+            trigger_credential_sprawl.py
+            trigger_supply_chain_exfil.py
+            trigger_npm_rat_beacon.py
+            trigger_file_events.py
+          )
+          for f in "${REQUIRED_FILES[@]}"; do
+            # --retry-all-errors so curl also retries HTTP 429 (raw.githubusercontent.com
+            # rate-limits shared hosted-runner egress IPs); plain --retry does not cover 429.
+            curl --retry 6 --retry-delay 3 --retry-all-errors --retry-connrefused -fsSL "$BASE_URL/$f" -o "$TRIGGERS_DIR/$f"
+            test -s "$TRIGGERS_DIR/$f"
+          done
+          echo "CVE_TRIGGERS_DIR=$TRIGGERS_DIR" >> "$GITHUB_ENV"
+          echo "Downloaded ${#REQUIRED_FILES[@]} trigger files"
+          ls -la "$TRIGGERS_DIR"
+
+      - name: Install Python deps for triggers
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install requests
+
       - name: Restart daemon with chosen binary (packet-capture, disconnected)
         shell: bash
         env:
@@ -1654,11 +1701,6 @@ jobs:
           sleep 3
           $POSTURE_CMD background-status || true
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
       - name: Install edamame_cli
         id: install_cli
         shell: bash
@@ -1691,44 +1733,9 @@ jobs:
           fi
           echo "EDAMAME_CLI=$EC" >> "$GITHUB_ENV"
           "$EC" --version
-
-      - name: Download CVE trigger scripts
-        id: triggers
-        shell: bash
-        run: |
-          set -euo pipefail
-          TRIGGERS_DIR="${RUNNER_TEMP:-/tmp}/cve_triggers"
-          mkdir -p "$TRIGGERS_DIR"
-          BASE_URL="https://raw.githubusercontent.com/edamametechnologies/agent_security/main/tests/e2e/triggers"
-          REQUIRED_FILES=(
-            _common.py
-            _native_udp_probe.py
-            _edamame_cli.py
-            cleanup.py
-            trigger_blacklist_comm.py
-            trigger_cve_token_exfil.py
-            trigger_cve_sandbox_escape.py
-            trigger_memory_poisoning.py
-            trigger_credential_sprawl.py
-            trigger_supply_chain_exfil.py
-            trigger_npm_rat_beacon.py
-            trigger_file_events.py
-          )
-          for f in "${REQUIRED_FILES[@]}"; do
-            # --retry-all-errors so curl also retries HTTP 429 (raw.githubusercontent.com
-            # rate-limits shared hosted-runner egress IPs); plain --retry does not cover 429.
-            curl --retry 6 --retry-delay 3 --retry-all-errors --retry-connrefused -fsSL "$BASE_URL/$f" -o "$TRIGGERS_DIR/$f"
-            test -s "$TRIGGERS_DIR/$f"
-          done
-          echo "CVE_TRIGGERS_DIR=$TRIGGERS_DIR" >> "$GITHUB_ENV"
-          echo "Downloaded ${#REQUIRED_FILES[@]} trigger files"
-          ls -la "$TRIGGERS_DIR"
-
-      - name: Install Python deps for triggers
-        shell: bash
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install requests
+          # Drop any findings from the install curl itself before the idle baseline.
+          "$EC" rpc clear_vulnerability_history || true
+          "$EC" rpc reset_vulnerability_suppressions || true
 
       - name: Verify daemon and capture readiness
         shell: bash
