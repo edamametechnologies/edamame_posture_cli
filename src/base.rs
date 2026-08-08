@@ -24,17 +24,17 @@ pub fn base_get_score(progress_bar: bool) {
         .expect("failed to set progress style")
         .progress_chars("#>-"));
 
-    let mut score = get_score(false);
+    let mut score = get_score(false, false);
     while score.compute_in_progress {
         if progress_bar {
             pb.set_position(score.compute_progress_percent as u64);
         }
         sleep(Duration::from_millis(100));
-        score = get_score(false);
+        score = get_score(false, false);
     }
 
     // Make sure we have the final score
-    score = get_score(true);
+    score = get_score(true, false);
     let url = get_threats_url().to_string();
     // Pretty print the final score with important details
     println!("Security Score summary:");
@@ -202,7 +202,7 @@ pub fn base_rollback_threat(threat_id: String) -> i32 {
 
 pub fn base_list_threats() {
     // Call the score API without computing
-    let score = get_score(false);
+    let score = get_score(false, false);
 
     println!("Threats:");
     for threat in score.threats.iter() {
@@ -212,7 +212,7 @@ pub fn base_list_threats() {
 
 pub fn base_get_threat_info(threat_id: String) {
     // Call the score API without computing
-    let score = get_score(false);
+    let score = get_score(false, false);
 
     // Find the threat in the score
     let threat_info = match score.threats.iter().find(|t| t.name == threat_id) {
@@ -235,7 +235,7 @@ pub fn base_remediate(remediations_to_skip: &str) {
     base_get_score(false);
 
     // Get the score
-    let score = get_score(true);
+    let score = get_score(true, false);
 
     // Print the threats that can be remediated
     println!("Threats that can be remediated:");
@@ -543,7 +543,7 @@ pub fn base_check_policy(minimum_score: f32, threat_ids: String, tag_prefixes: S
     base_get_score(true);
 
     // Make sure we have the final score
-    let score = get_score(true);
+    let score = get_score(true, false);
 
     println!("Current score: {:.1}", score.stars);
 

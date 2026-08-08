@@ -178,6 +178,7 @@ pub fn background_get_exceptions(zeek_format: bool, local_traffic: bool) -> i32 
 pub fn background_get_threats_info() -> i32 {
     match rpc_get_score(
         false,
+        false,
         &EDAMAME_CA_PEM,
         &EDAMAME_CLIENT_PEM,
         &EDAMAME_CLIENT_KEY,
@@ -407,8 +408,9 @@ pub fn background_wait_for_connection(timeout: u64) -> i32 {
 
         // Print the score results
         let score = match rpc_get_score(
-            false,
-            &EDAMAME_CA_PEM,
+        false,
+        false,
+        &EDAMAME_CA_PEM,
             &EDAMAME_CLIENT_PEM,
             &EDAMAME_CLIENT_KEY,
             &EDAMAME_TARGET,
@@ -591,6 +593,7 @@ pub fn background_create_and_set_custom_whitelists() -> i32 {
 
 pub fn background_get_score() -> i32 {
     match rpc_get_score(
+        false,
         false,
         &EDAMAME_CA_PEM,
         &EDAMAME_CLIENT_PEM,

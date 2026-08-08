@@ -58,7 +58,7 @@ pub fn background_process(
     // We are using the logger as we are in the background process
 
     // Show threats info (call core directly to avoid local RPC chatter)
-    let score = get_score(false);
+    let score = get_score(false, false);
     println!(
         "Threat model name: {}, date: {}, signature: {}",
         score.model_name, score.model_date, score.model_signature
