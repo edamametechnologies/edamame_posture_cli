@@ -408,9 +408,9 @@ pub fn background_wait_for_connection(timeout: u64) -> i32 {
 
         // Print the score results
         let score = match rpc_get_score(
-        false,
-        false,
-        &EDAMAME_CA_PEM,
+            false,
+            false,
+            &EDAMAME_CA_PEM,
             &EDAMAME_CLIENT_PEM,
             &EDAMAME_CLIENT_KEY,
             &EDAMAME_TARGET,
