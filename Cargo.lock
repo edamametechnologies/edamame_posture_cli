@@ -641,6 +641,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
 
 [[package]]
+name = "base64"
+version = "0.23.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ac07cdecf99051d9a5238b80f35af32cdeba5b336e55d957b318b50137e18da5"
+
+[[package]]
 name = "base64ct"
 version = "1.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1813,7 +1819,7 @@ dependencies = [
 [[package]]
 name = "edamame_backend"
 version = "0.3.5"
-source = "git+https://github.com/edamametechnologies/edamame_backend?branch=main#ae990aa0f11c0a4b15969597930d0fb2ef0da892"
+source = "git+https://github.com/edamametechnologies/edamame_backend?branch=main#53b63631bf4d6663704a9f0198bc48a88ce598de"
 dependencies = [
  "anyhow",
  "blake3",
@@ -1827,7 +1833,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "1.7.3"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#1554f842627e163b9ffd327fc41aa00f82a74519"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#62a4ca785cbc015fe198b050f5826bb4bbbdd7e3"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -1916,7 +1922,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "1.7.3"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#951a2af24a7aa8345ed045880cbc130f5148e71a"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#8b6f863ed385443dfff26ea7145d131df110f984"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -2387,7 +2393,7 @@ dependencies = [
 [[package]]
 name = "flodbadd"
 version = "1.7.3"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#f4dc99965568fe478741197c463352205d9fae01"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#24c11ae382c0b5f7659cd18022e888961883065d"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -3467,7 +3473,7 @@ dependencies = [
  "js-sys",
  "log",
  "wasm-bindgen",
- "windows-core 0.62.2",
+ "windows-core 0.58.0",
 ]
 
 [[package]]
@@ -3931,7 +3937,7 @@ dependencies = [
 [[package]]
 name = "l7_ebpf_program"
 version = "0.1.0"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#f4dc99965568fe478741197c463352205d9fae01"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#24c11ae382c0b5f7659cd18022e888961883065d"
 
 [[package]]
 name = "lazy_static"
@@ -7449,7 +7455,7 @@ dependencies = [
 [[package]]
 name = "threatmodels_rs"
 version = "0.1.1"
-source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#cfb0525154b2d16a6d60f4a744b868be006afa1c"
+source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#78ac584935b872f19338ec3523ea40d7f6742279"
 dependencies = [
  "anyhow",
  "chrono",
@@ -8072,11 +8078,11 @@ checksum = "6d49784317cd0d1ee7ec5c716dd598ec5b4483ea832a2dced265471cc0f690ae"
 
 [[package]]
 name = "ureq"
-version = "3.3.0"
+version = "3.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dea7109cdcd5864d4eeb1b58a1648dc9bf520360d7af16ec26d0a9354bafcfc0"
+checksum = "972d7902c8735f2695410b8aed7df6ed12a47394aa1c8d7af49f0497b731a94d"
 dependencies = [
- "base64 0.22.1",
+ "base64 0.23.1",
  "log",
  "percent-encoding",
  "rustls",
@@ -8088,11 +8094,11 @@ dependencies = [
 
 [[package]]
 name = "ureq-proto"
-version = "0.6.0"
+version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e994ba84b0bd1b1b0cf92878b7ef898a5c1760108fe7b6010327e274917a808c"
+checksum = "da5f78b09e6941e1a0f2e30e695e4b120377b54d5e0aec11b594bb57b3971613"
 dependencies = [
- "base64 0.22.1",
+ "base64 0.23.1",
  "http 1.5.0",
  "httparse",
  "log",
