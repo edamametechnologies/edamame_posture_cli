@@ -346,6 +346,9 @@ jobs:
         uses: edamametechnologies/edamame_posture_action@v1
         with:
           dump_vulnerability_findings: true
+          # The action defaults this to true, which would gate the job on the
+          # very findings this run is supposed to produce.
+          exit_on_vulnerability_findings: false
 
       # ── Teardown ───────────────────────────────────────────────────────
       - name: Stop daemon
