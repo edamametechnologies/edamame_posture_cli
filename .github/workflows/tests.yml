@@ -60,7 +60,7 @@ on:
         required: false
         default: "idle,hub_idle,capture,lanscan,llm,all"
       security_trigger_duration:
-        description: "Seconds each CVE attack trigger runs (default 300, matches agent_security harness)."
+        description: "Seconds each CVE attack trigger runs (default 300)."
         required: false
         default: "300"
       security_readiness_wait:
@@ -1605,23 +1605,24 @@ jobs:
           echo "Using released binary at $BIN_PATH"
           echo "BINARY_PATH=$BIN_PATH" >> "$GITHUB_ENV"
 
-      # Download CVE triggers and install Python deps BEFORE packet capture
-      # starts. The trigger scripts contain secret-like strings; curling them
+      # Stage CVE triggers and install Python deps BEFORE packet capture
+      # starts. The trigger scripts contain secret-like strings; touching them
       # while capture+detector are live produced a dirty idle baseline
-      # (sensitive_material_egress on curl + trigger_npm_rat_beacon.py).
+      # (sensitive_material_egress on the staging process + trigger_npm_rat_beacon.py).
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
-      - name: Download CVE trigger scripts
+      - name: Stage CVE trigger scripts
         id: triggers
         shell: bash
         run: |
           set -euo pipefail
           TRIGGERS_DIR="${RUNNER_TEMP:-/tmp}/cve_triggers"
+          rm -rf "$TRIGGERS_DIR"
           mkdir -p "$TRIGGERS_DIR"
-          BASE_URL="https://raw.githubusercontent.com/edamametechnologies/agent_security/main/tests/e2e/triggers"
+          cp -R tests/security/triggers/. "$TRIGGERS_DIR/"
           REQUIRED_FILES=(
             _common.py
             _native_udp_probe.py
@@ -1637,13 +1638,10 @@ jobs:
             trigger_file_events.py
           )
           for f in "${REQUIRED_FILES[@]}"; do
-            # --retry-all-errors so curl also retries HTTP 429 (raw.githubusercontent.com
-            # rate-limits shared hosted-runner egress IPs); plain --retry does not cover 429.
-            curl --retry 6 --retry-delay 3 --retry-all-errors --retry-connrefused -fsSL "$BASE_URL/$f" -o "$TRIGGERS_DIR/$f"
             test -s "$TRIGGERS_DIR/$f"
           done
           echo "CVE_TRIGGERS_DIR=$TRIGGERS_DIR" >> "$GITHUB_ENV"
-          echo "Downloaded ${#REQUIRED_FILES[@]} trigger files"
+          echo "Staged ${#REQUIRED_FILES[@]} required trigger files"
           ls -la "$TRIGGERS_DIR"
 
       - name: Install Python deps for triggers
@@ -1791,9 +1789,6 @@ jobs:
           EDAMAME_CLI: ${{ env.EDAMAME_CLI }}
         run: |
           mkdir -p "results/${{ matrix.label }}"
-          # Timing parameters track the canonical agent_security harness
-          # (tests/e2e/run_e2e_harness.sh) so behavior matches what the
-          # plugin E2E workflows already validate end-to-end.
           bash tests/security/run_cve_detection.sh \
             --triggers-dir "$CVE_TRIGGERS_DIR" \
             --output-dir "results/${{ matrix.label }}" \

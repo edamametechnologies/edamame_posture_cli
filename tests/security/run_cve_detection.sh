@@ -2,10 +2,10 @@
 # Run a suite of CVE detection scenarios against a running edamame_posture
 # daemon and record detection outcomes as JSON.
 #
-# The trigger scripts live in agent_security/tests/e2e/triggers/ and are
-# downloaded at runtime from the agent_security repo (public). This script
-# orchestrates: cleanup, trigger launch, detector tick, detection verification
-# using edamame_cli RPCs, and JSON result recording.
+# The trigger scripts are vendored in tests/security/triggers/ and staged into
+# a scratch directory by the caller. This script orchestrates: cleanup, trigger
+# launch, detector tick, detection verification using edamame_cli RPCs, and
+# JSON result recording.
 #
 # Usage:
 #   run_cve_detection.sh \
@@ -20,9 +20,8 @@
 #     [--agent-type <string>]            # default: openclaw
 #     [--scenarios <comma,separated>]    # default: all nine CVE scenarios
 #
-# Defaults mirror the canonical agent_security E2E harness
-# (tests/e2e/run_e2e_harness.sh) so detection timing matches what the plugin
-# E2E workflows already validate end-to-end.
+# Detection timing defaults are tuned so iForest has enough observation time on
+# the token-exfil scenarios; see the per-flag defaults below.
 #
 # Environment:
 #   EDAMAME_CLI        path to edamame_cli binary (mandatory)
@@ -40,10 +39,9 @@ die() { log "ERROR: $*"; exit 1; }
 
 TRIGGERS_DIR=""
 OUTPUT_DIR=""
-# Defaults mirror the canonical agent_security E2E harness
-# (run_e2e_harness.sh): 120s L7 readiness wait + 5x30s verify loop
-# and a 300s trigger duration so iForest has enough observation
-# time on the token-exfil CVE scenarios.
+# 120s L7 readiness wait + 5x30s verify loop and a 300s trigger
+# duration so iForest has enough observation time on the token-exfil
+# CVE scenarios.
 TRIGGER_DURATION=300
 POST_WAIT=5
 COOLDOWN=8
@@ -186,7 +184,7 @@ clear_vuln_history() {
 
 # Poll until L7 attribution and anomaly detection have enough evidence for the
 # detector to fire. Returns early as soon as signal is visible or the trigger
-# has already produced a finding. Mirrors agent_security's wait_for_detection_readiness.
+# has already produced a finding.
 wait_for_readiness() {
   local scenario="$1"
   local check="$2"

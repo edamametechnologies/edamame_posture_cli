@@ -211,8 +211,7 @@ def main() -> int:
         " `.github/workflows/tests.yml` on every push to `dev`/`main`"
         " (paths-filtered to `src/`, `Cargo.toml`, `Cargo.lock`) and on"
         " manual dispatch. Each scenario runs the matching attack trigger"
-        " from"
-        " [`agent_security/tests/e2e/triggers/`](https://github.com/edamametechnologies/agent_security/tree/main/tests/e2e/triggers)"
+        " from `tests/security/triggers/`"
         " against a live `edamame_posture` daemon (built from the current"
         " checkout with packet capture enabled, or the last released"
         " binary when the dispatch toggle `build_from_source=false` is"
@@ -240,7 +239,7 @@ def main() -> int:
         lines.append(
             f"| {SCENARIO_LABELS.get(key, key)} (`{key}`) |"
             f" `{scenario_checks.get(key, '-')}` |"
-            f" [`trigger_{key}.py`](https://github.com/edamametechnologies/agent_security/blob/main/tests/e2e/triggers/trigger_{key}.py) |"
+            f" [`trigger_{key}.py`](tests/security/triggers/trigger_{key}.py) |"
         )
     lines.append("")
     lines.append("## Detection verification")
@@ -292,24 +291,9 @@ def main() -> int:
     lines.append("## Reproducing locally")
     lines.append("")
     lines.append("```bash")
-    lines.append("# Download trigger scripts")
+    lines.append("# Stage the vendored trigger scripts")
     lines.append("TRIGGERS_DIR=$(mktemp -d)")
-    lines.append(
-        "for f in _common.py _native_udp_probe.py _edamame_cli.py cleanup.py \\"
-    )
-    lines.append(
-        "  trigger_blacklist_comm.py trigger_cve_token_exfil.py trigger_cve_sandbox_escape.py \\"
-    )
-    lines.append(
-        "  trigger_memory_poisoning.py trigger_credential_sprawl.py \\"
-    )
-    lines.append(
-        "  trigger_supply_chain_exfil.py trigger_npm_rat_beacon.py trigger_file_events.py; do"
-    )
-    lines.append(
-        '  curl -sfL "https://raw.githubusercontent.com/edamametechnologies/agent_security/main/tests/e2e/triggers/$f" -o "$TRIGGERS_DIR/$f"'
-    )
-    lines.append("done")
+    lines.append('cp -R tests/security/triggers/. "$TRIGGERS_DIR/"')
     lines.append("")
     lines.append("# Requires an already-running edamame_posture daemon with --packet-capture")
     lines.append("export EDAMAME_CLI=$(which edamame_cli)")

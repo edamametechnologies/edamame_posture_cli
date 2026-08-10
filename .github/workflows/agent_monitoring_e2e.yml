@@ -1,0 +1,337 @@
+name: Agent fleet monitoring E2E
+
+# Consolidated, multi-platform proof that EDAMAME's HOST-SIDE transcript observer
+# (Level 1) monitors the supported agent fleet (Claude Code, Codex, Hermes,
+# OpenClaw, Claude Desktop) using REAL agents and WITHOUT any EDAMAME plugin --
+# NO synthetic transcripts, no seeded observer roots, no hand-crafted models.
+#
+# EDAMAME Level-2 agent plugins are RETIRED as of 1.7.0. This workflow checks out
+# NO plugin repo, installs NO plugin, and starts NO MCP server -- it proves the
+# plugin-free host-resident observer path only. Per-repo plugin test_e2e.yml
+# workflows are retired stubs; this workflow is the sole AGENT_PLUGIN_E2E gate.
+#
+# On each of macOS / Windows / Linux it:
+#   1. installs/drives the real agent products headlessly with real provider keys
+#      (claude, codex via npm; hermes via install.sh on Linux/macOS and install.ps1
+#      on Windows; openclaw via npm), producing genuine on-disk transcripts,
+#   2. verifies EDAMAME's host-side transcript observer DISCOVERS each driven
+#      agent from its real transcripts,
+#   3. verifies pausing a driven agent's observer raises its unsecured_<agent>
+#      threat (soft),
+#   4. builds a REAL behavioral model from a driven agent, then drives a genuine
+#      divergent egress THROUGH that agent and asserts a DIVERGENCE verdict, and
+#   5. asserts the host blast-radius surface.
+#
+# Per-agent gating:
+#   - claude_code / codex / hermes / openclaw : HARD (real drive + detection).
+#     Every HARD agent now has a headless installer on every desktop OS (hermes
+#     install.sh on Linux/macOS + install.ps1 on Windows; the rest run via npm
+#     everywhere), so a HARD agent is SKIPPED (non-gating) only when its provider
+#     key is absent.
+#   - claude_desktop : BEST-EFFORT (GUI app, no headless drive CLI) -- attempted
+#     and reported honestly, never faked, never gating.
+#   - cursor : SKIP (GUI IDE; no headless agent CLI wired in hosted CI).
+#
+# Real-coverage floor (HARD): at least one HARD agent MUST be driven and detected
+# on each leg. A green run made only of skips would be indistinguishable from the
+# old synthetic gate and is rejected.
+#
+# The divergence leg is MULTIPLATFORM. It drives the divergent egress through the
+# agent's persistent shell using bash builtin /dev/udp -- available on Linux
+# /bin/bash and macOS /bin/bash 3.2; on Windows Git Bash (MSYS2) /dev/udp support
+# and OS-level L7 attribution of a bash-opened UDP socket are not yet verified, so
+# the probe still RUNS on Windows but the GATE is best-effort there (a Windows miss
+# is a soft warning, not a hard failure). The probe is a low-volume, agent-accepted
+# UDP egress check: SIX fixed RFC 5737 TEST-NET addresses (192.0.2.x /
+# 198.51.100.x / 203.0.113.x -- IANA documentation/test blocks with NO real host,
+# so the agent does not refuse them as third-party infrastructure) x TWO high,
+# non-standard UDP ports (63169/63170) = 12 UNIQUE unexplained host:port
+# destinations. Each socket is HELD OPEN for the whole ~100s window (so flodbadd's
+# socket-table poll reliably attributes pid=bash -> parent=node/claude; an earlier
+# open-send-close-immediately probe left every session proc=None and was dropped) and
+# re-sent each round so the agent stays alive across flodbadd's lagging L7 parent
+# attribution. A high UDP port to a TEST-NET IP is never
+# benign-infrastructure-exempt deterministically (is_local_or_infrastructure spares
+# only loopback/RFC1918/link-local + DNS/NTP/OCSP), so the engine recognizes
+# DIVERGENCE. The gate asserts on the DETERMINISTIC verdict, so it holds whether the
+# downstream LLM keeps or suppresses the alert. 12 destinations >> the engine's REAL
+# production default threshold (4) -- no lowered-threshold env var, no reliance on
+# incidental egress.
+#
+# This workflow gates the EDAMAME release: edamame_app/release_all.sh lists it in
+# AGENT_PLUGIN_E2E_WORKFLOWS, so a red run blocks the release. Hard failures:
+# attempted-HARD-agent real drive + observer detection, the real-coverage floor,
+# the fleet-wide blast-radius leg (all platforms), and the divergence leg on
+# Linux/macOS. Soft (warn only): the unsecured_<agent> toggle, and a divergence
+# miss on Windows. The trailing attack pattern detector steps publish evidence
+# and never gate -- see the comment at that step for why. All cross-agent
+# orchestration lives in tests/e2e/run_fleet_monitoring.py.
+
+on:
+  push:
+    branches: [ dev, main ]
+    paths:
+      - 'tests/e2e/run_fleet_monitoring.py'
+      - 'tests/e2e/supported_agents.py'
+      - 'tests/security/triggers/**'
+      - '.github/workflows/agent_monitoring_e2e.yml'
+  pull_request:
+    paths:
+      - 'tests/e2e/run_fleet_monitoring.py'
+      - 'tests/e2e/supported_agents.py'
+      - 'tests/security/triggers/**'
+      - '.github/workflows/agent_monitoring_e2e.yml'
+  workflow_dispatch:
+    inputs:
+      agents:
+        description: 'CSV of agent_types to run (empty = all in registry)'
+        required: false
+        default: ''
+      skip_divergence:
+        description: 'Force-skip the divergence leg (it now runs on all 3 OSes by default)'
+        type: boolean
+        required: false
+        default: false
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions: read-all
+
+jobs:
+  fleet:
+    name: Fleet monitoring (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    steps:
+      # ── Checkout this repo only (NO plugin repos: Level-2 plugins are
+      #    retired and this gate is plugin-free) ─────────────────────────
+      - name: Checkout edamame_posture
+        uses: actions/checkout@v4
+
+      # ── EDAMAME Posture daemon (connected + packet capture + LLM) ──────
+      # Connected so the runner IP is lifted and the edamame_cli install
+      # below resolves the current release instead of the 1.2.0 fallback.
+      # agentic_mode/agentic_provider configure the daemon's LLM provider:
+      # the plugin-free host-side observer builds behavioral models via
+      # upsert_behavioral_model_from_raw_sessions, which is a daemon-side LLM
+      # round-trip. Without a configured provider it fails with "No configured
+      # LLM provider available for raw-session ingest" and no model ever
+      # reaches the divergence engine.
+      - name: Setup EDAMAME Posture
+        uses: edamametechnologies/edamame_posture_action@v1
+        with:
+          edamame_user: ${{ vars.EDAMAME_POSTURE_USER }}
+          edamame_domain: ${{ vars.EDAMAME_POSTURE_DOMAIN }}
+          edamame_pin: ${{ secrets.EDAMAME_POSTURE_PIN }}
+          edamame_id: ${{ github.run_id }}
+          packet_capture: true
+          vulnerability_detection: true
+          vulnerability_detection_interval: "60"
+          wait_for_api: true
+          checkout: false
+          agentic_mode: analyze
+          agentic_provider: edamame
+        env:
+          EDAMAME_LLM_API_KEY: ${{ secrets.EDAMAME_LLM_API_KEY }}
+
+      - name: Set EDAMAME_POSTURE env var
+        shell: bash
+        run: echo "EDAMAME_POSTURE=$EDAMAME_BINARY_PATH" >> "$GITHUB_ENV"
+
+      # ── Supported-agent registry ───────────────────────────────────────
+      # edamame_foundation owns supported_agents/index.json (the same registry
+      # the daemon resolves at runtime). Sparse-checkout just that directory and
+      # point the harness at it, so the fleet the gate drives is exactly the
+      # fleet the product supports. Runs after Setup EDAMAME Posture because the
+      # org IP allow list only lifts once the runner has reported posture.
+      - name: Checkout supported-agent registry (edamame_foundation)
+        uses: actions/checkout@v4
+        with:
+          repository: edamametechnologies/edamame_foundation
+          ref: main
+          path: edamame_foundation
+          sparse-checkout: supported_agents
+          sparse-checkout-cone-mode: false
+
+      - name: Point the harness at the registry
+        shell: bash
+        run: |
+          INDEX="$GITHUB_WORKSPACE/edamame_foundation/supported_agents/index.json"
+          test -f "$INDEX"
+          echo "EDAMAME_SUPPORTED_AGENTS_INDEX=$INDEX" >> "$GITHUB_ENV"
+          echo "registry: $INDEX"
+
+      # ── Toolchains ─────────────────────────────────────────────────────
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # ── xz: Hermes' headless install.sh decompresses an .xz tarball ─────
+      - name: Install xz (Hermes prerequisite)
+        shell: bash
+        run: |
+          set -x
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            sudo apt-get update -y && sudo apt-get install -y xz-utils || true
+          elif [ "$RUNNER_OS" = "macOS" ]; then
+            brew install xz || true
+          fi
+          command -v xz >/dev/null 2>&1 && xz --version | head -n1 || echo "xz not on PATH"
+
+      # ── Real agent CLIs (no synthetic transcripts -- these produce them) ─
+      # claude_code, codex and openclaw are npm-installable everywhere; hermes
+      # self-installs from the driver (install.sh on Linux/macOS, install.ps1 on
+      # Windows). Install the npm ones on every OS so the real-coverage floor can
+      # be met on each leg (the driver self-selects whichever it can drive + detect).
+      - name: Install real agent CLIs (claude, codex, openclaw)
+        shell: bash
+        run: |
+          set -x
+          npm install -g @anthropic-ai/claude-code @openai/codex openclaw@latest || true
+          echo "--- versions ---"
+          command -v claude   >/dev/null 2>&1 && claude --version   || echo "claude CLI not on PATH"
+          command -v codex    >/dev/null 2>&1 && codex --version    || echo "codex CLI not on PATH"
+          command -v openclaw >/dev/null 2>&1 && openclaw --version || echo "openclaw CLI not on PATH"
+          # Make the global npm bin resolvable under sudo on Linux (the driver
+          # runs as root with a forwarded PATH; the daemon observer is root too).
+          NPM_BIN="$(npm prefix -g)/bin"
+          echo "npm global bin: $NPM_BIN"
+          [ -d "$NPM_BIN" ] && echo "$NPM_BIN" >> "$GITHUB_PATH" || true
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install C compiler (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          /c/msys64/usr/bin/pacman.exe -S --noconfirm mingw-w64-x86_64-gcc
+          echo "C:\msys64\mingw64\bin" >> "$GITHUB_PATH"
+          /c/msys64/mingw64/bin/gcc.exe --version
+          echo "CC=C:\msys64\mingw64\bin\gcc.exe" >> "$GITHUB_ENV"
+
+      - name: Install edamame_cli
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            curl --proto '=https' --tlsv1.2 -sSf \
+              https://raw.githubusercontent.com/edamametechnologies/edamame_cli/main/install.sh \
+              | sh -s --
+            EC=$(command -v edamame_cli.exe 2>/dev/null || command -v edamame_cli 2>/dev/null || echo "$HOME/edamame_cli.exe")
+          else
+            curl --proto '=https' --tlsv1.2 -sSf \
+              https://raw.githubusercontent.com/edamametechnologies/edamame_cli/main/install.sh \
+              | sudo -E sh -s --
+            EC=$(command -v edamame_cli 2>/dev/null || echo /usr/local/bin/edamame_cli)
+          fi
+          echo "EDAMAME_CLI=$EC" >> "$GITHUB_ENV"
+          "$EC" --version
+
+      # ── Drive the whole fleet ──────────────────────────────────────────
+      - name: Run fleet monitoring driver
+        timeout-minutes: 40
+        shell: bash
+        env:
+          EDAMAME_CLI: ${{ env.EDAMAME_CLI }}
+          EDAMAME_LLM_API_KEY: ${{ secrets.EDAMAME_LLM_API_KEY }}
+          EDAMAME_SUPPORTED_AGENTS_INDEX: ${{ env.EDAMAME_SUPPORTED_AGENTS_INDEX }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          # The divergence leg is multiplatform: it drives a real /dev/udp probe
+          # (small datagrams to 6 fixed public IPs x 2 high UDP ports = 12 unique
+          # unexplained destinations, the agent's own accepted reachability check)
+          # through the agent's persistent bash shell and keeps the agent alive for
+          # ~100s so flodbadd attributes the egress lineage. HARD on Linux/macOS;
+          # best-effort (non-gating) on Windows Git Bash. Only the manual dispatch
+          # toggle can skip it entirely.
+          FLEET_SKIP_DIVERGENCE: ${{ github.event.inputs.skip_divergence == 'true' && '1' || '' }}
+          EDAMAME_AGENTS: ${{ github.event.inputs.agents || '' }}
+        run: |
+          PY=python3
+          command -v python3 >/dev/null 2>&1 || PY=python
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            # The posture daemon runs as root for packet capture, so its
+            # transcript observer resolves agent roots under /root. Run the
+            # driver as root with HOME=/root so the agents it drives/self-installs
+            # land where the daemon looks. PATH is forwarded so the node/python
+            # toolchains (and the npm-global agent CLIs) stay resolvable under
+            # sudo's secure_path.
+            PYBIN=$(command -v "$PY")
+            sudo -E env "PATH=$PATH" "HOME=/root" \
+              "EDAMAME_SUPPORTED_AGENTS_INDEX=$EDAMAME_SUPPORTED_AGENTS_INDEX" \
+              "$PYBIN" tests/e2e/run_fleet_monitoring.py
+          else
+            "$PY" tests/e2e/run_fleet_monitoring.py
+          fi
+
+      # ── Attack pattern detector evidence (dump only, never gates) ──────
+      # The driver deliberately produces adversarial-shaped telemetry: it
+      # installs agent CLIs (hermes unpacks and runs from a temp dir) and
+      # drives 12 unexplained UDP destinations through a driven agent. Those
+      # findings ARE the expected result here, so this run cannot be gated on
+      # their absence, and clearing history first does not make it gateable:
+      # the clear invalidates the detector's input-hash cache, so the next
+      # 60s tick re-derives sandbox_exploitation from the probe session, which
+      # stays in the capture pipeline after the process exits. Whether the
+      # gate saw 0 or 1 came down to which side of a tick it landed on --
+      # Windows tripped while Linux/macOS passed on the same commit. The real
+      # assertion is run_fleet_monitoring.py's own PASS/FAIL above; these
+      # steps only publish the detector evidence for the run.
+      - name: Dump and clear driver-induced vulnerability findings
+        if: always()
+        shell: bash
+        run: |
+          EC="${EDAMAME_CLI:-edamame_cli}"
+          command -v "$EC" >/dev/null 2>&1 || EC=edamame_cli
+          echo "--- findings produced during the fleet run ---"
+          "$EC" rpc get_vulnerability_findings --pretty || true
+          "$EC" rpc clear_vulnerability_history || true
+          "$EC" rpc reset_vulnerability_suppressions || true
+          echo "--- detector state after clear ---"
+          "$EC" rpc get_vulnerability_detector_status --pretty || true
+
+      - name: Dump EDAMAME Posture vulnerability findings
+        if: always()
+        uses: edamametechnologies/edamame_posture_action@v1
+        with:
+          dump_vulnerability_findings: true
+
+      # ── Teardown ───────────────────────────────────────────────────────
+      - name: Stop daemon
+        if: always()
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            "$EDAMAME_POSTURE" stop 2>/dev/null || true
+          else
+            sudo "$EDAMAME_POSTURE" stop 2>/dev/null || true
+          fi
+          echo "Daemon stopped"
+
+      # ── Slack alert ────────────────────────────────────────────────────
+      - name: Slack alert on failure
+        if: failure()
+        uses: slackapi/slack-github-action@v1.26.0
+        with:
+          channel-id: "C072J0U9TH7"
+          slack-message: |
+            *edamame_posture fleet monitoring E2E failed*
+            Repository: ${{ github.repository }}
+            Branch: ${{ github.ref }}
+            OS: ${{ matrix.os }}
+            Run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        continue-on-error: true

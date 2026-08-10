@@ -109,7 +109,7 @@ This guide walks you through the most common use case: running EDAMAME Posture i
 - **AI-powered remediation** that analyzes and fixes security issues automatically
 - **Network visibility** with LAN scanning and traffic capture
 - **Unified notifications** for agentic actions and divergence/vulnerability alerts
-- **CVE and divergence detection** -- see the [EDAMAME Agentic User Guide](https://github.com/edamametechnologies/edamame_security/blob/main/AGENTIC.md) for detection architecture and [E2E tests](https://github.com/edamametechnologies/agent_security/blob/main/tests/e2e/E2E_TESTS.md) for coverage details
+- **CVE and divergence detection** -- see the [EDAMAME Agentic User Guide](https://github.com/edamametechnologies/edamame_security/blob/main/AGENTIC.md) for detection architecture and [E2E tests](tests/e2e/E2E_TESTS.md) for coverage details
 
 ### Prerequisites
 
@@ -3226,10 +3226,16 @@ and notarized on macOS) shared via GitHub Actions artifacts:
   - Harness: [`tests/perf/`](tests/perf/) (`calibrate.py`, `sampler.py`, `run_scenario.sh`, `generate_report.py`)
 
 - **Attack pattern detection** (job `security`) -- runs nine attack scenarios
-  from [`agent_security/tests/e2e/triggers/`](https://github.com/edamametechnologies/agent_security/tree/main/tests/e2e/triggers)
+  from [`tests/security/triggers/`](tests/security/triggers/)
   against a live daemon and verifies detector output via `edamame_cli` RPCs.
   - Report artifact: `security-report` (contains `VULNDETECTION.md` + raw per-platform results)
   - Harness: [`tests/security/`](tests/security/) (`run_cve_detection.sh`, `generate_report.py`)
+
+- **Agent monitoring E2E** (workflow `agent_monitoring_e2e.yml`) -- installs real
+  agents (Claude Code, Codex, OpenClaw), drives them, and asserts EDAMAME's
+  host-side transcript observer produces behavioral models and divergence
+  verdicts for the agents it discovers.
+  - Harness: [`tests/e2e/`](tests/e2e/) (`run_fleet_monitoring.py`, `supported_agents.py`, `E2E_TESTS.md`)
 
 `workflow_dispatch` exposes `run_tests` / `run_perf` / `run_security`
 booleans, a `platforms` filter, and a `build_from_source` toggle so a single
