@@ -219,10 +219,13 @@ jobs:
           /c/msys64/mingw64/bin/gcc.exe --version
           echo "CC=C:\msys64\mingw64\bin\gcc.exe" >> "$GITHUB_ENV"
 
+      # No GITHUB_TOKEN here on purpose. edamame_cli is a public repo, so the
+      # release lookup needs no credential -- and presenting one makes the call
+      # subject to the org IP allow list, which 403s any runner IP not yet
+      # lifted. install.sh treats that empty body as "cannot resolve latest" and
+      # silently drops to its hardcoded fallback.
       - name: Install edamame_cli
         shell: bash
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
         run: |
           if [ "$RUNNER_OS" = "Windows" ]; then
             curl --proto '=https' --tlsv1.2 -sSf \
@@ -237,6 +240,42 @@ jobs:
           fi
           echo "EDAMAME_CLI=$EC" >> "$GITHUB_ENV"
           "$EC" --version
+
+      # The CLI compiles its RPC stub registry in at build time, so a stale
+      # binary cannot dispatch methods added after it was cut -- it answers
+      # "Method not found" for an RPC the daemon serves perfectly well. Left
+      # unchecked that surfaces hundreds of lines downstream as an apparent
+      # daemon fault. Assert up front that the methods this driver depends on
+      # are actually dispatchable, and name the real problem if they are not.
+      - name: Verify edamame_cli can dispatch the driver's RPCs
+        shell: bash
+        run: |
+          EC="${EDAMAME_CLI:-edamame_cli}"
+          METHODS=$("$EC" list-methods 2>/dev/null || echo "")
+          if [ -z "$METHODS" ]; then
+            echo "::error::'$EC list-methods' produced no output; the CLI install is broken."
+            exit 1
+          fi
+          MISSING=""
+          for m in get_transcript_observer_status \
+                   set_transcript_observer_enabled \
+                   run_transcript_observer_tick_for \
+                   get_behavioral_model_contributors \
+                   get_divergence_engine_status \
+                   get_divergence_verdict \
+                   get_host_blast_radius; do
+            case "$METHODS" in
+              *"\"$m\""*) ;;
+              *) MISSING="$MISSING $m" ;;
+            esac
+          done
+          if [ -n "$MISSING" ]; then
+            echo "::error::Installed edamame_cli ($("$EC" --version 2>&1 | head -1)) cannot dispatch:$MISSING"
+            echo "::error::This is a stale-CLI install, not a daemon fault. install.sh could not"
+            echo "::error::resolve the latest release and fell back to a pinned old version."
+            exit 1
+          fi
+          echo "edamame_cli dispatches all RPCs required by the fleet driver."
 
       # ── Drive the whole fleet ──────────────────────────────────────────
       - name: Run fleet monitoring driver
