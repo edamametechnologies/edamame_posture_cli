@@ -251,28 +251,27 @@ jobs:
         shell: bash
         run: |
           EC="${EDAMAME_CLI:-edamame_cli}"
-          METHODS=$("$EC" list-methods 2>/dev/null || echo "")
-          if [ -z "$METHODS" ]; then
-            echo "::error::'$EC list-methods' produced no output; the CLI install is broken."
-            exit 1
-          fi
+          # Dispatch for real rather than reading a listing. `list-methods` and
+          # `get-method-info` both answer from a surface that can disagree with
+          # what `rpc` will accept (and `get-method-info` exits 0 even for a
+          # name it does not know), so only an actual call proves the method is
+          # reachable end to end.
           MISSING=""
           for m in get_transcript_observer_status \
-                   set_transcript_observer_enabled \
-                   run_transcript_observer_tick_for \
                    get_behavioral_model_contributors \
                    get_divergence_engine_status \
-                   get_divergence_verdict \
                    get_host_blast_radius; do
-            case "$METHODS" in
-              *"\"$m\""*) ;;
-              *) MISSING="$MISSING $m" ;;
+            OUT=$("$EC" rpc "$m" 2>&1) || true
+            case "$OUT" in
+              *"Method not found"*|*"Command not found"*) MISSING="$MISSING $m" ;;
             esac
           done
           if [ -n "$MISSING" ]; then
             echo "::error::Installed edamame_cli ($("$EC" --version 2>&1 | head -1)) cannot dispatch:$MISSING"
-            echo "::error::This is a stale-CLI install, not a daemon fault. install.sh could not"
-            echo "::error::resolve the latest release and fell back to a pinned old version."
+            echo "::error::This is a stale-CLI install, not a daemon fault: 'Method not found'"
+            echo "::error::comes from the CLI's compiled-in stub registry, not from the daemon."
+            echo "::error::install.sh could not resolve the latest release and fell back to a"
+            echo "::error::pinned old version."
             exit 1
           fi
           echo "edamame_cli dispatches all RPCs required by the fleet driver."
