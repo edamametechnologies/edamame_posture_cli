@@ -1006,19 +1006,27 @@ required. The CLI retains read-only registry listing:
 edamame_posture list-agent-plugins
 ```
 
-## Agent Inventory (first-seen acknowledgment)
+## Agent Inventory
 
-Dump discovered agents and acknowledge first-seen footprints ("yes, this is me"):
+Dump every supported agent with a footprint on this host, along with its
+`installed` / `installed_on_host` / `discovered` / `observer_enabled` state and
+per-agent MCP endpoint, component, and alertable-finding counts:
 
 ```bash
 edamame_posture agent-inventory
-edamame_posture acknowledge-agent cursor
-edamame_posture unacknowledge-agent cursor
 ```
 
-Retired ADR response-action / policy-pack / zone-promotion CLI surfaces are
-gone with INC-11/INC-13 (1.7.0); do not expect `response-action` or
-`policy-pack` subcommands.
+An agent that is on disk with `observer_enabled: false` is running unobserved;
+the same condition is reported as the `unsecured_<agent>` internal threat. The
+observer is on by default for every agent, so this only happens when it was
+deliberately turned off.
+
+The first-seen acknowledgment subcommands (`acknowledge-agent` /
+`unacknowledge-agent`) were **removed in 1.7.0** along with the
+`acknowledged` / `new` / `shadow` classification they served. Retired ADR
+response-action / policy-pack / zone-promotion CLI surfaces are gone with
+INC-11/INC-13 (1.7.0); do not expect `response-action` or `policy-pack`
+subcommands.
 
 ## CI/CD Integration and Workflow Controls
 EDAMAME Posture offers multiple levels of security controls for CI/CD environments, allowing for gradual adoption and integration:

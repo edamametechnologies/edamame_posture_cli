@@ -1410,24 +1410,6 @@ fn run_base() {
             exit_code = background_augmentation_report(window_minutes);
             is_background = true;
         }
-        Some(("background-acknowledge-agent", sub_matches)) => {
-            let agent_type = sub_matches
-                .get_one::<String>("AGENT_TYPE")
-                .expect("AGENT_TYPE not provided")
-                .to_string();
-            initialize_core("".to_string(), false, false, false, false, false, verbose);
-            exit_code = background_acknowledge_agent(agent_type);
-            is_background = true;
-        }
-        Some(("background-unacknowledge-agent", sub_matches)) => {
-            let agent_type = sub_matches
-                .get_one::<String>("AGENT_TYPE")
-                .expect("AGENT_TYPE not provided")
-                .to_string();
-            initialize_core("".to_string(), false, false, false, false, false, verbose);
-            exit_code = background_unacknowledge_agent(agent_type);
-            is_background = true;
-        }
         Some(("background-mcp-endpoints", _)) => {
             initialize_core("".to_string(), false, false, false, false, false, verbose);
             exit_code = background_mcp_endpoints();

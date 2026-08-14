@@ -2724,46 +2724,6 @@ pub fn background_augmentation_report(window_minutes: u64) -> i32 {
     }
 }
 
-pub fn background_acknowledge_agent(agent_type: String) -> i32 {
-    if agent_type.trim().is_empty() {
-        eprintln!("Agent type cannot be empty");
-        return ERROR_CODE_PARAM;
-    }
-    match rpc_acknowledge_agent(
-        agent_type.trim().to_string(),
-        &EDAMAME_CA_PEM,
-        &EDAMAME_CLIENT_PEM,
-        &EDAMAME_CLIENT_KEY,
-        &EDAMAME_TARGET,
-    ) {
-        Ok(result) => print_visibility_envelope(&result, "Acknowledge agent"),
-        Err(e) => {
-            eprintln!("Error acknowledging agent: {}", e);
-            ERROR_CODE_SERVER_ERROR
-        }
-    }
-}
-
-pub fn background_unacknowledge_agent(agent_type: String) -> i32 {
-    if agent_type.trim().is_empty() {
-        eprintln!("Agent type cannot be empty");
-        return ERROR_CODE_PARAM;
-    }
-    match rpc_unacknowledge_agent(
-        agent_type.trim().to_string(),
-        &EDAMAME_CA_PEM,
-        &EDAMAME_CLIENT_PEM,
-        &EDAMAME_CLIENT_KEY,
-        &EDAMAME_TARGET,
-    ) {
-        Ok(result) => print_visibility_envelope(&result, "Unacknowledge agent"),
-        Err(e) => {
-            eprintln!("Error unacknowledging agent: {}", e);
-            ERROR_CODE_SERVER_ERROR
-        }
-    }
-}
-
 pub fn background_mcp_endpoints() -> i32 {
     match rpc_get_mcp_endpoints(
         &EDAMAME_CA_PEM,

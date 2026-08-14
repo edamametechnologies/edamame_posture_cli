@@ -678,14 +678,14 @@ pub fn build_cli() -> Command {
             ),
     )
     ////////////////
-    // Agent inventory + shadow classification + trust-zone queries (INC-10,
-    // Stage C). Reads are operator/MCP-safe; approve/revoke/baseline mutators
-    // are operator-only (no MCP equivalent -- invariant I1).
+    // Agent inventory + trust-zone queries (INC-10, Stage C). Reads are
+    // operator/MCP-safe; mutators are operator-only (no MCP equivalent --
+    // invariant I1).
     ////////////////
     .subcommand(
         Command::new("background-agent-inventory")
             .alias("agent-inventory")
-            .about("Dump the agent inventory with new/shadow/acknowledged first-seen classification as JSON"),
+            .about("Dump the agent inventory (installed / on-host / discovered / observer_enabled per agent) as JSON"),
     )
     .subcommand(
         Command::new("background-graph-reachability")
@@ -738,26 +738,6 @@ pub fn build_cli() -> Command {
                     .help("Usage-classification window in minutes (default 1440 = 24h)")
                     .required(false)
                     .value_parser(clap::value_parser!(u64)),
-            ),
-    )
-    .subcommand(
-        Command::new("background-acknowledge-agent")
-            .alias("acknowledge-agent")
-            .about("Operator: acknowledge an agent type (\"yes, this is me\" -- clears its new/shadow first-seen status)")
-            .arg(
-                arg!(<AGENT_TYPE> "Agent type to acknowledge (e.g. cursor, claude_code, claude_desktop, openclaw)")
-                    .required(true)
-                    .value_parser(clap::value_parser!(String)),
-            ),
-    )
-    .subcommand(
-        Command::new("background-unacknowledge-agent")
-            .alias("unacknowledge-agent")
-            .about("Operator: revert an agent type to an unacknowledged first-seen footprint")
-            .arg(
-                arg!(<AGENT_TYPE> "Agent type to unacknowledge")
-                    .required(true)
-                    .value_parser(clap::value_parser!(String)),
             ),
     )
     .subcommand(
