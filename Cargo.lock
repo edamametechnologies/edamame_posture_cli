@@ -1850,7 +1850,7 @@ dependencies = [
 [[package]]
 name = "edamame_backend"
 version = "0.3.5"
-source = "git+https://github.com/edamametechnologies/edamame_backend?branch=main#4aab54d02809fc9c5d125809f8a01dd0a5fed18d"
+source = "git+https://github.com/edamametechnologies/edamame_backend?branch=main#8fd03df31a7a0898378fd9cbd9df9f0b365c6a49"
 dependencies = [
  "anyhow",
  "blake3",
@@ -1864,7 +1864,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "1.7.3"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#489961ea06bd81945811ed18029b08699f952458"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#097a08f946fd377c7a6bf1ce02e8b98351f2f031"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -1953,7 +1953,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "1.7.3"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#9fcd18a017ad5f683e20fb984dfc55dd75127fa1"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#483c652752b2bc7885e8d34a51da529d508436b8"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -2424,7 +2424,7 @@ dependencies = [
 [[package]]
 name = "flodbadd"
 version = "1.7.3"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#f3bf5ae1c83246232729290ef7373cb900081cf9"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#a1f4c75662362aae2bf59ea765f3c7059aa0b5aa"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -4022,7 +4022,7 @@ dependencies = [
 [[package]]
 name = "l7_ebpf_program"
 version = "0.1.0"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#f3bf5ae1c83246232729290ef7373cb900081cf9"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#a1f4c75662362aae2bf59ea765f3c7059aa0b5aa"
 
 [[package]]
 name = "lazy_static"
@@ -5565,9 +5565,9 @@ dependencies = [
 
 [[package]]
 name = "pkg-config"
-version = "0.3.33"
+version = "0.3.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "19f132c84eca552bf34cab8ec81f1c1dcc229b811638f9d283dceabe58c5569e"
+checksum = "f6b464fbc74e149a392436b17d523f769e057cb6877f6a5c4618bc6f11800548"
 
 [[package]]
 name = "pnet"
@@ -7550,7 +7550,7 @@ dependencies = [
 [[package]]
 name = "threatmodels_rs"
 version = "0.1.1"
-source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#9f367196319f108896da3f7fa899e3778bb34127"
+source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#846b7270cc860e02fb0b9f1f4ea9e3416527f388"
 dependencies = [
  "anyhow",
  "chrono",
