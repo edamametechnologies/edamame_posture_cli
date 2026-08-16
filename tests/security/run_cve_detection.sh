@@ -500,6 +500,7 @@ count_finding_for_scenario() {
   PORTS_JSON="$(scenario_ports_json "$scenario")" \
   CHECK="$check" \
   TRIGGERS_DIR_ENV="$TRIGGERS_DIR" \
+  EVIDENCE_DUMP="$OUTPUT_DIR_ABS/findings/$scenario.json" \
   "$PYTHON" - <<'PY'
 import json, os, sys
 sys.path.insert(0, os.environ["TRIGGERS_DIR_ENV"])
@@ -543,6 +544,32 @@ except Exception as exc:
 
 matched = current_matched + history_matched
 alertable = sum(1 for f in matched if is_alertable(f))
+
+# Persist the whole matched finding objects, not just the counters. Each
+# finding carries its `evidence` packet (the CRS inputs) and its severity, so
+# this file is what lets a severity regression be diagnosed from the artifact
+# instead of by re-deriving the CRS arithmetic by hand.
+dump_path = os.environ.get("EVIDENCE_DUMP")
+if dump_path:
+    try:
+        os.makedirs(os.path.dirname(dump_path), exist_ok=True)
+        with open(dump_path, "w", encoding="utf-8") as fh:
+            json.dump(
+                {
+                    "check": check,
+                    "markers": markers,
+                    "ports": sorted(ports),
+                    "alertable": alertable,
+                    "current": current_matched,
+                    "history": history_matched,
+                },
+                fh,
+                indent=2,
+                default=str,
+            )
+    except Exception as exc:
+        print(f"__ERR__ evidence dump: {exc}", file=sys.stderr)
+
 print(
     "{}|{}|{}|{}|{}".format(
         len(matched),

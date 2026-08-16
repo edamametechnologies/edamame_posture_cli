@@ -21,6 +21,8 @@ use std::io;
 use std::process::exit;
 use std::thread::sleep;
 use std::time::Duration;
+#[cfg(target_os = "windows")]
+use tracing::{error, info, warn};
 use uuid::Uuid;
 
 const ERROR_CODE_MISMATCH: i32 = 1;
@@ -1637,16 +1639,20 @@ fn initialize_pcap() {
     // On Windows, ensure Npcap is installed before setting DLL directory
     #[cfg(target_os = "windows")]
     {
+        // Log rather than print: in daemon mode stdout/stderr are discarded, so a
+        // failed install here used to surface only as a later, causeless
+        // "Npcap is not installed" from the capture layer.
         if !flodbadd::npcap_utils::is_npcap_installed() {
-            eprintln!(
-                "Npcap required for packet capture functionality. Installing automatically..."
-            );
+            warn!("Npcap required for packet capture; installing automatically");
             match flodbadd::npcap_utils::auto_install_npcap_silent(None) {
-                Ok(_) => println!("Npcap installed successfully"),
-                Err(e) => eprintln!("Error installing Npcap: {:?} - continuing anyway", e),
+                Ok(_) => info!("Npcap installed successfully"),
+                Err(e) => error!(
+                    "Npcap install failed, packet capture will be disabled: {}",
+                    e
+                ),
             }
         } else {
-            println!("Npcap is installed");
+            info!("Npcap is already installed");
         }
     }
 
