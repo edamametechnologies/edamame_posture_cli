@@ -76,9 +76,9 @@ on:
         required: false
         default: "30"
       security_scenarios:
-        description: "Comma-separated CVE scenarios to run."
+        description: "Comma-separated CVE scenarios to run (also the gate's required set)."
         required: false
-        default: "blacklist_comm,cve_token_exfil,cve_sandbox_escape,memory_poisoning,credential_sprawl,supply_chain_exfil,npm_rat_beacon,file_events"
+        default: "blacklist_comm,cve_token_exfil,cve_sandbox_escape,memory_poisoning,credential_sprawl,supply_chain_exfil,npm_rat_beacon,file_events,skill_supply_chain,pgserve_postinstall,temp_modify,nonsensitive_path"
   push:
     branches:
       - 'dev'
@@ -151,7 +151,7 @@ jobs:
           # Defaults match the workflow_dispatch defaults so push events
           # behave identically to an "all defaults" manual run.
           DEFAULT_PERF_SCEN="idle,hub_idle,capture,lanscan,llm,all"
-          DEFAULT_SEC_SCEN="blacklist_comm,cve_token_exfil,cve_sandbox_escape,memory_poisoning,credential_sprawl,supply_chain_exfil,npm_rat_beacon,file_events"
+          DEFAULT_SEC_SCEN="blacklist_comm,cve_token_exfil,cve_sandbox_escape,memory_poisoning,credential_sprawl,supply_chain_exfil,npm_rat_beacon,file_events,skill_supply_chain,pgserve_postinstall,temp_modify,nonsensitive_path"
           DEFAULT_PLATFORMS="ubuntu-x64,ubuntu-arm64,macos-arm64,windows-x64,ubuntu-20.04,ubuntu-18.04,alpine-x64,alpine-arm64"
 
           RT="${IN_RUN_TESTS:-true}"
@@ -1493,7 +1493,8 @@ jobs:
       needs.setup.outputs.run_security == 'true' &&
       needs.setup.outputs.have_native == 'true' &&
       (needs.setup.outputs.build_from_source != 'true' || needs.build.result == 'success' || needs.setup.outputs.reuse_build_run_id != '')
-    timeout-minutes: 120
+    # 10-min idle baseline + up to 110 min of CVE scenarios + install/teardown.
+    timeout-minutes: 165
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.setup.outputs.native_matrix) }}
@@ -1783,7 +1784,13 @@ jobs:
         # detector is already emitting findings with no stimulus, which
         # would taint every subsequent scenario verdict.
         if: steps.baseline.outcome == 'success'
-        timeout-minutes: 60
+        # 12 scenarios x (readiness wait + trigger + verify poll loop +
+        # up to 2-3 fresh attempts). Detections break the poll loop early,
+        # so a green run lands well under this; the budget covers the
+        # all-scenarios-retry worst case without truncating results.json
+        # (a truncated run now hard-fails the gate rather than reading as
+        # a pass, so the timeout must not be the binding constraint).
+        timeout-minutes: 110
         shell: bash
         env:
           EDAMAME_CLI: ${{ env.EDAMAME_CLI }}
@@ -2249,9 +2256,13 @@ jobs:
         if: always()
         shell: bash
         continue-on-error: true
+        env:
+          REQUIRED_SCENARIOS: ${{ needs.setup.outputs.security_scenarios }}
         run: |
           set +e
-          python3 tests/security/check_gate.py --results-dir results | tee gate-summary.md
+          python3 tests/security/check_gate.py \
+            --results-dir results \
+            --required-scenarios "$REQUIRED_SCENARIOS" | tee gate-summary.md
           rc=${PIPESTATUS[0]}
           echo "Gate exit code: $rc"
           exit "$rc"

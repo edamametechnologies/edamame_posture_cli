@@ -49,7 +49,7 @@ POLL_ATTEMPTS=6
 POLL_INTERVAL=30
 READINESS_WAIT=120
 AGENT_TYPE="openclaw"
-SCENARIOS_CSV="blacklist_comm,cve_token_exfil,cve_sandbox_escape,memory_poisoning,credential_sprawl,supply_chain_exfil,npm_rat_beacon,file_events"
+SCENARIOS_CSV="blacklist_comm,cve_token_exfil,cve_sandbox_escape,memory_poisoning,credential_sprawl,supply_chain_exfil,npm_rat_beacon,file_events,skill_supply_chain,pgserve_postinstall,temp_modify,nonsensitive_path"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -101,7 +101,25 @@ expected_check_for() {
     supply_chain_exfil)     echo "credential_harvest" ;;
     npm_rat_beacon)         echo "token_exfiltration" ;;
     file_events)            echo "file_system_tampering" ;;
+    skill_supply_chain)     echo "skill_supply_chain" ;;
+    pgserve_postinstall)    echo "credential_harvest" ;;
+    temp_modify)            echo "file_system_tampering" ;;
+    nonsensitive_path)      echo "sensitive_material_egress" ;;
     *) echo "" ;;
+  esac
+}
+
+# Most scenarios use `trigger_<scenario>.py`. A scenario may reuse another
+# scenario's trigger when the same stimulus is expected to produce two
+# distinct findings: `trigger_blacklist_comm.py` generates sustained egress to
+# a blacklisted sinkhole *while holding a credential file open*, which is both
+# a blacklisted session and the `skill_supply_chain` shape. The two scenarios
+# assert different checks against the same stimulus rather than duplicating
+# the trigger.
+trigger_script_for() {
+  case "$1" in
+    skill_supply_chain)     echo "$TRIGGERS_DIR/trigger_blacklist_comm.py" ;;
+    *)                      echo "$TRIGGERS_DIR/trigger_$1.py" ;;
   esac
 }
 
@@ -111,6 +129,10 @@ scenario_markers_json() {
     memory_poisoning)       echo '["_memory_poison", "memory_poisoned.md"]' ;;
     credential_sprawl)      echo '["_sprawl_key", "_sprawl", "demo_openclaw_sprawl"]' ;;
     file_events)            echo '["_fim_test", "_fim_suspicious"]' ;;
+    skill_supply_chain)     echo '["_blacklist_key"]' ;;
+    pgserve_postinstall)    echo '["_sc_wallet", "_sc_state.ldb", "_pgserve_key", "_pgserve_credentials", "_pgserve_accessTokens.json", "_pgserve_adc.json"]' ;;
+    temp_modify)            echo '["_temp_staged_binary"]' ;;
+    nonsensitive_path)      echo '["_workspace_demo", "project_secrets.env"]' ;;
     *) echo '[]' ;;
   esac
 }
@@ -119,6 +141,7 @@ scenario_ports_json() {
   case "$1" in
     cve_token_exfil)        echo '[63169]' ;;
     credential_sprawl)      echo '[63171]' ;;
+    pgserve_postinstall)    echo '[63174]' ;;
     *) echo '[]' ;;
   esac
 }
@@ -194,9 +217,9 @@ wait_for_readiness() {
   [[ "$max_wait" -le 0 ]] && return 0
 
   while (( waited < max_wait )); do
-    local triple
-    triple="$(TRIGGERS_DIR_ENV="$TRIGGERS_DIR" count_finding_for_scenario "$scenario" "$check" 2>/dev/null)"
-    local total=${triple%%|*}
+    local counts
+    counts="$(TRIGGERS_DIR_ENV="$TRIGGERS_DIR" count_finding_for_scenario "$scenario" "$check" 2>/dev/null)"
+    local total=${counts%%|*}
     if [[ "$total" =~ ^[0-9]+$ ]] && (( total > 0 )); then
       log "  readiness: finding already present after ${waited}s (total=$total)"
       return 0
@@ -215,6 +238,9 @@ wait_for_readiness() {
         ;;
       file_system_tampering)
         status="$(TRIGGERS_DIR_ENV="$TRIGGERS_DIR" fim_readiness_status)"
+        ;;
+      skill_supply_chain|sensitive_material_egress)
+        status="$(TRIGGERS_DIR_ENV="$TRIGGERS_DIR" sensitive_egress_readiness_status)"
         ;;
       *)
         return 0
@@ -298,6 +324,29 @@ for s in active:
         max_labels = len(labels)
 ready = 1 if candidates > 0 else 0
 print(f"{ready}|active={len(active)} candidates={candidates} max_labels={max_labels}")
+PY
+}
+
+# Readiness proxy for the two egress checks that key on sensitive material
+# without needing an iForest anomaly verdict: `skill_supply_chain` (blacklisted
+# destination + open sensitive file) and `sensitive_material_egress` (routine
+# destination + open sensitive file). Both only require that L7 attribution has
+# tied at least one open file to an active session, which is the slow step on
+# non-eBPF platforms (netstat/libproc polling at 30s Linux / 60s macOS /
+# 120s Windows).
+sensitive_egress_readiness_status() {
+  "$PYTHON" - <<'PY' 2>>"$TICK_LOG"
+import os, sys
+sys.path.insert(0, os.environ["TRIGGERS_DIR_ENV"])
+from _edamame_cli import cli_rpc
+try:
+    sessions = cli_rpc('get_current_sessions') or []
+except Exception:
+    sessions = []
+active = [s for s in sessions if isinstance(s, dict) and (s.get('status') or {}).get('active')]
+with_of = [s for s in active if len(((s.get('l7') or {}).get('open_files') or [])) > 0]
+ready = 1 if len(with_of) > 0 else 0
+print(f"{ready}|active={len(active)} with_open_files={len(with_of)}")
 PY
 }
 
@@ -437,6 +486,13 @@ run_cleanup() {
   "$PYTHON" "$cleanup_path" --agent-type "$AGENT_TYPE" >>"$TICK_LOG" 2>&1 || true
 }
 
+# Emit `total|current|history|alertable|severity_histogram` for a scenario.
+#
+# `alertable` counts only the matched findings that would raise an alert in
+# production (HIGH/CRITICAL, not dismissed -- see
+# triggers/_finding_match.py). The gate keys on that field rather than on
+# `total`, so a scenario whose finding was demoted to LOW by the CRS severity
+# path or the LLM adjudicator fails instead of passing on bare presence.
 count_finding_for_scenario() {
   local scenario="$1"
   local check="$2"
@@ -448,58 +504,75 @@ count_finding_for_scenario() {
 import json, os, sys
 sys.path.insert(0, os.environ["TRIGGERS_DIR_ENV"])
 from _edamame_cli import cli_rpc
+from _finding_match import (
+    findings_of,
+    format_histogram,
+    is_alertable,
+    matches,
+    severity_histogram,
+)
 
 check = os.environ["CHECK"]
-markers = [m.lower() for m in json.loads(os.environ.get("MARKERS_JSON", "[]"))]
+markers = json.loads(os.environ.get("MARKERS_JSON", "[]"))
 ports = {int(p) for p in json.loads(os.environ.get("PORTS_JSON", "[]"))}
 
-
-def matches(finding: dict) -> bool:
-    if not isinstance(finding, dict) or finding.get("check") != check:
-        return False
-    if not markers and not ports:
-        return True
-    parts = []
-    parts.extend(str(p) for p in (finding.get("open_files") or []))
-    desc = finding.get("description")
-    if desc:
-        parts.append(str(desc))
-    joined = "\n".join(parts).lower()
-    if markers and any(m in joined for m in markers):
-        return True
-    port = finding.get("destination_port")
-    try:
-        port_int = int(port) if port is not None else None
-    except Exception:
-        port_int = None
-    return port_int in ports
-
-
-def _findings(report):
-    if isinstance(report, dict):
-        return report.get("findings") or []
-    return []
-
-
-current = 0
-history = 0
+matched = []
 
 try:
     report = cli_rpc("get_vulnerability_findings")
-    current = sum(1 for f in _findings(report) if matches(f))
+    current_matched = [f for f in findings_of(report) if matches(f, check, markers, ports)]
 except Exception as exc:
     print(f"__ERR__ current: {exc}", file=sys.stderr)
+    current_matched = []
 
+history_matched = []
 try:
     hist = cli_rpc("get_vulnerability_history", '{"limit": 50}')
     if isinstance(hist, list):
         for entry in hist:
-            history += sum(1 for f in (entry.get("findings") or []) if matches(f))
+            if not isinstance(entry, dict):
+                continue
+            entry_findings = entry.get("findings")
+            if not isinstance(entry_findings, list):
+                continue
+            history_matched.extend(
+                f for f in entry_findings if matches(f, check, markers, ports)
+            )
 except Exception as exc:
     print(f"__ERR__ history: {exc}", file=sys.stderr)
 
-print(f"{current + history}|{current}|{history}")
+matched = current_matched + history_matched
+alertable = sum(1 for f in matched if is_alertable(f))
+print(
+    "{}|{}|{}|{}|{}".format(
+        len(matched),
+        len(current_matched),
+        len(history_matched),
+        alertable,
+        format_histogram(severity_histogram(matched)),
+    )
+)
 PY
+}
+
+# Parse the pipe-delimited counter line into the TOTAL/CURRENT/HISTORY/
+# ALERTABLE/SEVERITIES globals. Uses `IFS` splitting rather than nested
+# `${v%%|*}` / `${v#*|}` expansions so appending a field to the line cannot
+# silently leave a trailing field holding a multi-field string.
+parse_finding_counts() {
+  local line="$1"
+  TOTAL=0; CURRENT=0; HISTORY=0; ALERTABLE=0; SEVERITIES="none"
+  local _t _c _h _a _s
+  IFS='|' read -r _t _c _h _a _s <<<"$line"
+  TOTAL="$(printf '%s' "${_t:-0}" | tr -dc '0-9')"
+  CURRENT="$(printf '%s' "${_c:-0}" | tr -dc '0-9')"
+  HISTORY="$(printf '%s' "${_h:-0}" | tr -dc '0-9')"
+  ALERTABLE="$(printf '%s' "${_a:-0}" | tr -dc '0-9')"
+  [[ -z "$TOTAL" ]] && TOTAL=0
+  [[ -z "$CURRENT" ]] && CURRENT=0
+  [[ -z "$HISTORY" ]] && HISTORY=0
+  [[ -z "$ALERTABLE" ]] && ALERTABLE=0
+  [[ -n "${_s:-}" ]] && SEVERITIES="$_s"
 }
 
 count_blacklisted_sessions() {
@@ -538,6 +611,8 @@ record_scenario_result() {
   local history="$6"
   local elapsed="$7"
   local extra="$8"
+  local alertable="${9:-0}"
+  local severities="${10:-none}"
   "$PYTHON" - <<PY | tee -a "$NDJSON" >/dev/null
 import json, sys, time
 rec = {
@@ -547,6 +622,8 @@ rec = {
     "finding_total": int("$total"),
     "finding_current": int("$current"),
     "finding_history": int("$history"),
+    "finding_alertable": int("$alertable"),
+    "severities": "$severities",
     "elapsed_s": float("$elapsed"),
     "agent_type": "$AGENT_TYPE",
     "trigger_duration_s": int("$TRIGGER_DURATION"),
@@ -558,7 +635,13 @@ PY
 }
 
 # Run a single attempt of a scenario. Sets DETECTED, TOTAL, CURRENT, HISTORY,
-# ELAPSED globals and returns 0 on success, 1 on failure.
+# ALERTABLE, SEVERITIES, DEMOTED_ONLY, ELAPSED globals and returns 0 on
+# success, 1 on failure.
+#
+# Success requires an ALERTABLE finding (HIGH/CRITICAL, not dismissed), not
+# merely a matching finding. DEMOTED_ONLY records the case where the scenario
+# did produce its finding but every instance landed below the alerting
+# threshold -- the shape a CRS-weight or adjudicator regression takes.
 run_one_scenario_attempt() {
   local scenario="$1"
   local check="$2"
@@ -580,6 +663,9 @@ run_one_scenario_attempt() {
   TOTAL=0
   CURRENT=0
   HISTORY=0
+  ALERTABLE=0
+  SEVERITIES="none"
+  DEMOTED_ONLY=0
   ELAPSED=0
 
   clear_vuln_history
@@ -634,22 +720,28 @@ run_one_scenario_attempt() {
       CURRENT=$bl_count
       TOTAL=$bl_count
       HISTORY=0
+      # blacklisted_sessions is a session-list assertion, not a
+      # VulnerabilityFinding, so it carries no severity to demote.
+      ALERTABLE=$bl_count
+      SEVERITIES="n/a"
       if (( bl_count > 0 )); then
         DETECTED=1
         log "  DETECTED: $bl_count active blacklisted sessions"
         break
       fi
     else
-      local triple
-      triple="$(TRIGGERS_DIR_ENV="$TRIGGERS_DIR" count_finding_for_scenario "$scenario" "$check")"
-      TOTAL=${triple%%|*}
-      local rest=${triple#*|}
-      CURRENT=${rest%%|*}
-      HISTORY=${rest#*|}
-      if (( TOTAL > 0 )); then
+      local counts
+      counts="$(TRIGGERS_DIR_ENV="$TRIGGERS_DIR" count_finding_for_scenario "$scenario" "$check")"
+      parse_finding_counts "$counts"
+      if (( ALERTABLE > 0 )); then
         DETECTED=1
-        log "  DETECTED: total=$TOTAL (current=$CURRENT, history=$HISTORY)"
+        DEMOTED_ONLY=0
+        log "  DETECTED: alertable=$ALERTABLE total=$TOTAL (current=$CURRENT, history=$HISTORY, severities=$SEVERITIES)"
         break
+      fi
+      if (( TOTAL > 0 )); then
+        DEMOTED_ONLY=1
+        log "  finding present but NOT alertable: total=$TOTAL severities=$SEVERITIES (need HIGH or CRITICAL)"
       fi
     fi
     if [[ "$trigger_state" == "ended" ]] && (( attempt >= 3 )); then
@@ -668,10 +760,9 @@ run_one_scenario_attempt() {
   wait "$trigger_pid" 2>/dev/null || true
 
   if (( DETECTED == 0 )); then
-    log "  no detection within verify loop; final tick + tail poll"
+    log "  no alertable detection within verify loop; final tick + tail poll"
     force_vuln_tick
     sleep 3
-    local triple
     if [[ "$check" == "blacklisted_sessions" ]]; then
       local bl_count
       bl_count="$(TRIGGERS_DIR_ENV="$TRIGGERS_DIR" count_blacklisted_sessions || echo 0)"
@@ -680,19 +771,23 @@ run_one_scenario_attempt() {
       CURRENT=$bl_count
       TOTAL=$bl_count
       HISTORY=0
+      ALERTABLE=$bl_count
+      SEVERITIES="n/a"
       if (( bl_count > 0 )); then
         DETECTED=1
         log "  DETECTED (tail): $bl_count active blacklisted sessions"
       fi
     else
-      triple="$(TRIGGERS_DIR_ENV="$TRIGGERS_DIR" count_finding_for_scenario "$scenario" "$check")"
-      TOTAL=${triple%%|*}
-      local rest=${triple#*|}
-      CURRENT=${rest%%|*}
-      HISTORY=${rest#*|}
-      if (( TOTAL > 0 )); then
+      local counts
+      counts="$(TRIGGERS_DIR_ENV="$TRIGGERS_DIR" count_finding_for_scenario "$scenario" "$check")"
+      parse_finding_counts "$counts"
+      if (( ALERTABLE > 0 )); then
         DETECTED=1
-        log "  DETECTED (tail): total=$TOTAL (current=$CURRENT, history=$HISTORY)"
+        DEMOTED_ONLY=0
+        log "  DETECTED (tail): alertable=$ALERTABLE total=$TOTAL (current=$CURRENT, history=$HISTORY, severities=$SEVERITIES)"
+      elif (( TOTAL > 0 )); then
+        DEMOTED_ONLY=1
+        log "  finding present but NOT alertable (tail): total=$TOTAL severities=$SEVERITIES"
       fi
     fi
   fi
@@ -720,13 +815,14 @@ run_one_scenario() {
   check="$(expected_check_for "$scenario")"
   if [[ -z "$check" ]]; then
     log "SKIP $scenario (no expected check mapping)"
-    record_scenario_result "$scenario" "unknown" "skip" 0 0 0 0 "no_expected_check"
+    record_scenario_result "$scenario" "unknown" "skip" 0 0 0 0 "no_expected_check" 0 "none"
     return 0
   fi
-  local trigger_script="$TRIGGERS_DIR/trigger_${scenario}.py"
+  local trigger_script
+  trigger_script="$(trigger_script_for "$scenario")"
   if [[ ! -f "$trigger_script" ]]; then
     log "SKIP $scenario (trigger not found: $trigger_script)"
-    record_scenario_result "$scenario" "$check" "skip" 0 0 0 0 "trigger_missing"
+    record_scenario_result "$scenario" "$check" "skip" 0 0 0 0 "trigger_missing" 0 "none"
     return 0
   fi
 
@@ -762,8 +858,20 @@ run_one_scenario() {
     fi
   done
 
-  record_scenario_result "$scenario" "$check" "$final_status" "$TOTAL" "$CURRENT" "$HISTORY" "$total_elapsed" "$extra_note"
-  log "  RESULT: $final_status  total=$TOTAL current=$CURRENT history=$HISTORY  elapsed=${total_elapsed}s attempts=$scen_attempt"
+  # A scenario that produced its finding but never reached HIGH/CRITICAL is
+  # tagged distinctly: the trigger and detection path work, the severity path
+  # regressed. Without this the failure reads identically to "trigger never
+  # fired", which sends triage down the wrong branch.
+  if [[ "$final_status" == "fail" ]] && (( DEMOTED_ONLY == 1 )); then
+    if [[ -n "$extra_note" ]]; then
+      extra_note="${extra_note},demoted_below_alertable"
+    else
+      extra_note="demoted_below_alertable"
+    fi
+  fi
+
+  record_scenario_result "$scenario" "$check" "$final_status" "$TOTAL" "$CURRENT" "$HISTORY" "$total_elapsed" "$extra_note" "$ALERTABLE" "$SEVERITIES"
+  log "  RESULT: $final_status  alertable=$ALERTABLE total=$TOTAL current=$CURRENT history=$HISTORY severities=$SEVERITIES  elapsed=${total_elapsed}s attempts=$scen_attempt"
 
   run_cleanup
   clear_vuln_history
