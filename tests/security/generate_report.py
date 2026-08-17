@@ -35,6 +35,10 @@ SCENARIO_ORDER = [
     "supply_chain_exfil",
     "npm_rat_beacon",
     "file_events",
+    "skill_supply_chain",
+    "pgserve_postinstall",
+    "temp_modify",
+    "nonsensitive_path",
 ]
 
 SCENARIO_LABELS = {
@@ -46,6 +50,34 @@ SCENARIO_LABELS = {
     "supply_chain_exfil": "Supply-chain exfil (credential harvest)",
     "npm_rat_beacon": "npm RAT beacon",
     "file_events": "FIM tampering",
+    "skill_supply_chain": "Skill supply chain",
+    "pgserve_postinstall": "pgserve postinstall (credential harvest)",
+    "temp_modify": "Temp staging tampering",
+    "nonsensitive_path": "Sensitive material in non-canonical path",
+}
+
+# Mirrors expected_check_for() in run_cve_detection.sh. Used only as a
+# fallback: the per-scenario expected_check recorded in results.json wins
+# when present.
+SCENARIO_CHECKS = {
+    "blacklist_comm": "blacklisted_sessions",
+    "cve_token_exfil": "token_exfiltration",
+    "cve_sandbox_escape": "sandbox_exploitation",
+    "memory_poisoning": "token_exfiltration",
+    "credential_sprawl": "token_exfiltration",
+    "supply_chain_exfil": "credential_harvest",
+    "npm_rat_beacon": "token_exfiltration",
+    "file_events": "file_system_tampering",
+    "skill_supply_chain": "skill_supply_chain",
+    "pgserve_postinstall": "credential_harvest",
+    "temp_modify": "file_system_tampering",
+    "nonsensitive_path": "sensitive_material_egress",
+}
+
+# Scenarios whose trigger script name does not follow trigger_<scenario>.py.
+# Mirrors trigger_script_for() in run_cve_detection.sh.
+SCENARIO_TRIGGERS = {
+    "skill_supply_chain": "trigger_blacklist_comm.py",
 }
 
 STATUS_SYMBOLS = {
@@ -68,7 +100,27 @@ def _discover_platforms(results_root: str) -> List[str]:
     return [p for p in entries if os.path.isdir(p)]
 
 
-def _platform_table(platform: str, report: Optional[dict]) -> str:
+def _scenario_order(reports: Dict[str, Optional[dict]]) -> List[str]:
+    """Known order first, then any scenario present in results but unlisted.
+
+    The runner's SCENARIOS_CSV is the source of truth for what actually ran.
+    Deriving the tail from results means adding a scenario there surfaces it
+    in the report even before SCENARIO_ORDER is updated, instead of dropping
+    it from every table while the totals keep counting it.
+    """
+    order = list(SCENARIO_ORDER)
+    known = set(order)
+    extra: List[str] = []
+    for report in reports.values():
+        for scen in (report or {}).get("scenarios") or []:
+            key = scen.get("scenario") or ""
+            if key and key not in known:
+                known.add(key)
+                extra.append(key)
+    return order + sorted(extra)
+
+
+def _platform_table(platform: str, report: Optional[dict], order: List[str]) -> str:
     lines: List[str] = []
     lines.append(f"### {platform}")
     lines.append("")
@@ -98,13 +150,16 @@ def _platform_table(platform: str, report: Optional[dict]) -> str:
     lines.append("")
     scenarios = report.get("scenarios") or []
     by_scen: Dict[str, dict] = {s.get("scenario", ""): s for s in scenarios}
-    lines.append("| Scenario | Expected check | Status | Total | Current | History | Elapsed (s) |")
-    lines.append("|---|---|---|---|---|---|---|")
-    for key in SCENARIO_ORDER:
+    lines.append(
+        "| Scenario | Expected check | Status | Alertable | Severities | Total"
+        " | Current | History | Elapsed (s) | Note |"
+    )
+    lines.append("|---|---|---|---|---|---|---|---|---|---|")
+    for key in order:
         entry = by_scen.get(key)
         label = SCENARIO_LABELS.get(key, key)
         if entry is None:
-            lines.append(f"| {label} (`{key}`) | - | - | - | - | - | - |")
+            lines.append(f"| {label} (`{key}`) | - | - | - | - | - | - | - | - | - |")
             continue
         status = entry.get("status", "?")
         total = entry.get("finding_total", 0)
@@ -112,22 +167,26 @@ def _platform_table(platform: str, report: Optional[dict]) -> str:
         history = entry.get("finding_history", 0)
         elapsed = entry.get("elapsed_s", 0)
         check = entry.get("expected_check", "-")
+        alertable = entry.get("finding_alertable", 0)
+        severities = entry.get("severities") or "none"
+        note = entry.get("extra") or ""
         lines.append(
             f"| {label} (`{key}`) | `{check}` | `{STATUS_SYMBOLS.get(status, status)}`"
-            f" | {total} | {current} | {history} | {elapsed:g} |"
+            f" | {alertable} | `{severities}` | {total} | {current} | {history}"
+            f" | {elapsed:g} | {f'`{note}`' if note else '-'} |"
         )
     lines.append("")
     return "\n".join(lines)
 
 
-def _aggregate_table(reports: Dict[str, dict]) -> str:
+def _aggregate_table(reports: Dict[str, dict], order: List[str]) -> str:
     platforms = list(reports.keys())
     if not platforms:
         return "_No platform data._\n"
     header = "| Scenario | " + " | ".join(platforms) + " |"
     sep = "|" + "|".join(["---"] * (1 + len(platforms))) + "|"
     lines = [header, sep]
-    for key in SCENARIO_ORDER:
+    for key in order:
         label = SCENARIO_LABELS.get(key, key)
         cells = [f"{label} (`{key}`)"]
         for plat in platforms:
@@ -199,6 +258,15 @@ def main() -> int:
         reports[label] = _load_json(os.path.join(d, "results.json"))
         baselines[label] = _load_json(os.path.join(d, "baseline.json"))
 
+    order = _scenario_order(reports)
+    observed_checks: Dict[str, str] = {}
+    for report in reports.values():
+        for scen in (report or {}).get("scenarios") or []:
+            key = scen.get("scenario") or ""
+            check = scen.get("expected_check") or ""
+            if key and check:
+                observed_checks.setdefault(key, check)
+
     lines: List[str] = []
     lines.append("# EDAMAME Posture Vulnerability Detection Report")
     lines.append("")
@@ -225,21 +293,13 @@ def main() -> int:
         "| Scenario | Expected check | Trigger script |"
     )
     lines.append("|---|---|---|")
-    scenario_checks = {
-        "blacklist_comm": "blacklisted_sessions",
-        "cve_token_exfil": "token_exfiltration",
-        "cve_sandbox_escape": "sandbox_exploitation",
-        "memory_poisoning": "token_exfiltration",
-        "credential_sprawl": "token_exfiltration",
-        "supply_chain_exfil": "credential_harvest",
-        "npm_rat_beacon": "token_exfiltration",
-        "file_events": "file_system_tampering",
-    }
-    for key in SCENARIO_ORDER:
+    for key in order:
+        check = observed_checks.get(key) or SCENARIO_CHECKS.get(key) or "-"
+        trigger = SCENARIO_TRIGGERS.get(key, f"trigger_{key}.py")
         lines.append(
             f"| {SCENARIO_LABELS.get(key, key)} (`{key}`) |"
-            f" `{scenario_checks.get(key, '-')}` |"
-            f" [`trigger_{key}.py`](tests/security/triggers/trigger_{key}.py) |"
+            f" `{check}` |"
+            f" [`{trigger}`](tests/security/triggers/{trigger}) |"
         )
     lines.append("")
     lines.append("## Detection verification")
@@ -256,6 +316,15 @@ def main() -> int:
         " `get_vulnerability_history` (last 50) so we catch scenarios that"
         " completed before the poll loop but are still in history, matching the"
         " vulnerability finding persistence invariant."
+    )
+    lines.append("")
+    lines.append(
+        "A scenario passes only when it produces an **alertable** finding --"
+        " non-dismissed HIGH or CRITICAL. A matching finding that the CRS or a"
+        " demotion path graded down to LOW does not satisfy the gate: LOW"
+        " findings never notify anyone. Those cases are recorded with a"
+        " `demoted_below_alertable` note in the per-platform table below and"
+        " hard-fail `check_gate.py`."
     )
     lines.append("")
 
@@ -280,13 +349,13 @@ def main() -> int:
 
     lines.append("## Result matrix")
     lines.append("")
-    lines.append(_aggregate_table(reports))
+    lines.append(_aggregate_table(reports, order))
     lines.append("")
 
     lines.append("## Per-platform detail")
     lines.append("")
     for plat, rep in reports.items():
-        lines.append(_platform_table(plat, rep))
+        lines.append(_platform_table(plat, rep, order))
 
     lines.append("## Reproducing locally")
     lines.append("")
