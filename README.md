@@ -694,7 +694,7 @@ This mode runs persistently (until stopped) and enforces policies in real-time, 
 
 > Tip: combine `--fail-on-whitelist` (and related checks) with `--cancel-on-violation` to automatically cancel CI pipelines whenever policy violations are detected.
 
-> Using EDAMAME Posture inside managed or cloud coding agents (Cursor background agents, Claude Code sandboxes, CI runners) to gate private-repository access and monitor the agent's environment is covered in [AGENTS.md](AGENTS.md).
+> Using EDAMAME Posture inside managed or cloud coding agents (Cursor background agents, Claude Code sandboxes, CI runners) to gate private-repository access and monitor the agent's environment is covered in [CLOUD_AGENTS.md](CLOUD_AGENTS.md).
 
 ## Threat Models and Security Assessment
 EDAMAME Posture's security assessment capabilities are powered by comprehensive threat models that evaluate security across five key dimensions:
