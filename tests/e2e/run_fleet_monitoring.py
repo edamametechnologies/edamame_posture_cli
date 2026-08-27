@@ -262,9 +262,20 @@ def observer_row(agent_type: str) -> dict | None:
     return None
 
 
-def observer_tick(agent_type: str) -> dict | None:
-    row = rpc_quiet("run_transcript_observer_tick_for", json.dumps({"agent_type": agent_type}))
-    return row if isinstance(row, dict) else None
+def observer_tick(agent_type: str) -> None:
+    """Run one observer tick. Returns nothing on purpose.
+
+    `run_transcript_observer_tick_for` is a fallible MUTATOR: it answers with
+    the `{"success": bool, "error": ...}` envelope and carries no payload, so
+    the authoritative state must be re-read via `get_transcript_observer_status`
+    (see `observer_row`). This used to return whatever the RPC produced, and
+    the caller did `observer_tick(...) or observer_row(...)` -- once the RPC
+    started returning the envelope that dict was still truthy, the fallback
+    never ran, and every agent read back `discovered=None`, failing the
+    real-coverage gate on all platforms even though the agents had been driven
+    successfully (`real <agent> drive exit=0`).
+    """
+    rpc_quiet("run_transcript_observer_tick_for", json.dumps({"agent_type": agent_type}))
 
 
 def set_observer_enabled(agent_type: str, enabled: bool) -> None:
@@ -989,7 +1000,8 @@ def verify_detection(agent_type: str, attempts: int = 12, interval: int = 5) -> 
     """Tick the observer and confirm the agent is `discovered`. No seeding."""
     row = None
     for i in range(1, attempts + 1):
-        row = observer_tick(agent_type) or observer_row(agent_type)
+        observer_tick(agent_type)
+        row = observer_row(agent_type)
         if row and bool(row.get("discovered")):
             return True, row
         log(
