@@ -287,7 +287,13 @@ def recompute_score() -> None:
 
 
 def threat_active(name: str) -> bool:
-    score = cli_rpc("get_score", json.dumps({"complete_only": False}))
+    # `get_score` takes BOTH args; the rpc! macro extracts each by name and
+    # fails the whole call with "Missing field 'with_ai_details'" if either is
+    # absent. Keep this in lockstep with rpc!(get_score(...)) in
+    # edamame_core/src/api/api_score.rs.
+    score = cli_rpc(
+        "get_score", json.dumps({"complete_only": False, "with_ai_details": False})
+    )
     if not isinstance(score, dict):
         return False
     active = score.get("active") or []
@@ -736,6 +742,22 @@ def _find_hermes_under_home() -> str | None:
     return str(best)
 
 
+class AgentInstallUnavailable(RuntimeError):
+    """A self-installing agent's OWN installer failed, so the agent is absent.
+
+    This is NOT an EDAMAME detection failure. With no agent on disk,
+    `discovered=False sessions=0` is the correct observation, and asserting
+    detection measures the third party's installer uptime rather than the
+    observer. Hermes hit exactly this on windows-latest: upstream install.ps1
+    failed to build the hermes-agent editable wheel, so nothing was ever
+    installed to discover.
+
+    Raised ONLY when the install itself did not produce a CLI. An agent that
+    installs successfully and is then not discovered stays a hard failure --
+    that is the regression this suite exists to catch.
+    """
+
+
 def ensure_hermes_installed() -> str | None:
     """Headlessly install Hermes into THIS uid's HOME (so the observer, running as
     the same uid, resolves ~/.hermes). Returns the resolved CLI path or None."""
@@ -763,7 +785,9 @@ def ensure_hermes_installed() -> str | None:
 def drive_hermes(workdir: Path, prompt: str, timeout: int, background: bool, log_path: Path | None):
     cli = ensure_hermes_installed()
     if not cli:
-        return None
+        raise AgentInstallUnavailable(
+            "upstream Hermes installer did not produce a CLI (see install output above)"
+        )
     key = os.environ.get("ANTHROPIC_API_KEY", "")
     if not key:
         return None
@@ -861,7 +885,9 @@ def _openclaw_onboard(cli: str, key: str, workdir: Path) -> None:
 def drive_openclaw(workdir: Path, prompt: str, timeout: int, background: bool, log_path: Path | None):
     cli = ensure_openclaw_installed()
     if not cli:
-        return None
+        raise AgentInstallUnavailable(
+            "upstream OpenClaw npm install did not produce a CLI (see install output above)"
+        )
     key = os.environ.get("ANTHROPIC_API_KEY", "")
     if not key:
         return None
@@ -1612,6 +1638,17 @@ def main() -> int:
                 log(f"  OK: unsecured_{agent_type} toggles correctly ({detail})")
             else:
                 log(f"  WARN: unsecured_{agent_type} did not toggle ({detail})")
+        except AgentInstallUnavailable as exc:
+            # The agent's own installer failed, so there is nothing on disk to
+            # discover and detection is unmeasurable. Report it loudly but do
+            # not gate: this measures the third party's installer, not EDAMAME.
+            # The real-coverage floor below still rejects an all-skip run, so
+            # this cannot silently hollow out the suite.
+            res["skip_reason"] = str(exc)
+            res["real"] = None
+            res["notes"].append(f"install unavailable: {exc}")
+            log(f"  SKIP (non-gating): {agent_type} install unavailable: {exc}")
+            continue
         except Exception as exc:  # noqa: BLE001
             # Mark the drive as failed (gates for HARD agents that were attempted)
             # and continue with the rest of the fleet.
