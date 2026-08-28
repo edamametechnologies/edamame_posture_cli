@@ -5,6 +5,18 @@ on:
     # Run every 6 hours
     - cron: '0 */6 * * *'
   workflow_dispatch:
+    inputs:
+      release_context:
+        description: >-
+          Set by release_all.sh Phase 2. Skips the package-manager jobs
+          (Homebrew, Chocolatey) and gates on the GitHub release assets
+          instead. A freshly pushed Chocolatey package sits in MODERATION and
+          a Homebrew tap needs to propagate, so during a release neither
+          serves the version being validated -- the gate would report on the
+          PREVIOUS release. Outside a release these jobs still run on the
+          6-hourly schedule, which is where the real user install path belongs.
+        type: boolean
+        default: false
 
 # Auto cancel previous runs if they were not completed.
 concurrency:
@@ -340,6 +352,7 @@ jobs:
   macos-brew:
     name: macOS (Homebrew)
     runs-on: macos-latest
+    if: ${{ inputs.release_context != true }}
     timeout-minutes: 25
     steps:
       - name: Install via Homebrew
@@ -388,6 +401,7 @@ jobs:
   windows-choco:
     name: Windows (Chocolatey)
     runs-on: windows-latest
+    if: ${{ inputs.release_context != true }}
     timeout-minutes: 25
     steps:
       - name: Install via Chocolatey
@@ -443,4 +457,73 @@ jobs:
         if: ${{ always() && (steps.install.outcome != 'success' || steps.verify.outcome != 'success') }}
         run: |
           echo "Tests for Windows (Chocolatey) did not succeed"
+          exit 1
+
+  # Release-gating path: validate the assets THIS release published, straight
+  # from the GitHub release. Chocolatey moderates before listing and Homebrew
+  # taps propagate, so gating a release on them gates on the PREVIOUS version.
+  github-release:
+    name: GitHub release assets
+    if: ${{ inputs.release_context == true }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            asset: edamame_posture-VERSION-x86_64-unknown-linux-gnu
+          - runner: windows-latest
+            asset: edamame_posture-VERSION-x86_64-pc-windows-msvc.exe
+    steps:
+      - name: Resolve latest release
+        id: rel
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG="$(gh release view --repo "${{ github.repository }}" --json tagName --jq .tagName)"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+          echo "Validating release $TAG"
+
+      - name: Download and verify asset
+        id: verify
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.rel.outputs.version }}"
+          ASSET="${{ matrix.asset }}"
+          ASSET="${ASSET/VERSION/$VERSION}"
+          echo "Downloading $ASSET from ${{ steps.rel.outputs.tag }}"
+          gh release download "${{ steps.rel.outputs.tag }}" \
+            --repo "${{ github.repository }}" \
+            --pattern "$ASSET" --clobber
+          test -s "$ASSET"
+          # A zero-length or HTML error body still "downloads"; require a real
+          # binary that runs, so a corrupt upload cannot pass the gate.
+          chmod +x "$ASSET" || true
+          ./"$ASSET" --version || ./"$ASSET" --help | head -n 5
+          echo "OK: $ASSET is present and executable"
+
+      - name: Slack alerts
+        if: ${{ always() && steps.verify.outcome != 'success' }}
+        uses: slackapi/slack-github-action@v1.26.0
+        with:
+          channel-id: 'C072J0U9TH7'
+          slack-message: |
+            *Posture Release Asset Test (${{ matrix.runner }})*:
+            - Asset verification: ❌ Failed
+            More details: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        continue-on-error: true
+
+      - name: Fail job if tests failed
+        if: ${{ always() && steps.verify.outcome != 'success' }}
+        run: |
+          echo "Release asset test for ${{ matrix.runner }} did not succeed"
           exit 1
