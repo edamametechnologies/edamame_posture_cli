@@ -593,7 +593,17 @@ jobs:
           # Update Chocolatey Package with resolved version
           (Get-Content chocolatey/edamame-posture.nuspec) -replace '<version>.*</version>', "<version>${CHOCO_VERSION}</version>" | Set-Content chocolatey/edamame-posture.nuspec
           (Get-Content chocolatey/tools/chocolateyInstall.ps1) -replace '\$packageVersion = ''.*''', "`$packageVersion = '${CHOCO_VERSION}'" | Set-Content chocolatey/tools/chocolateyInstall.ps1
-          (Get-Content chocolatey/tools/chocolateyInstall.ps1) -replace '\$url64 = ''.*''', "`$url64 = 'https://github.com/${{ github.repository }}/releases/download/v${VERSION}/edamame_posture-${VERSION}-x86_64-pc-windows-msvc.exe'" | Set-Content chocolatey/tools/chocolateyInstall.ps1
+          # Pin the URL to the BASE version, and match EITHER quote style.
+          # The template ships $url64 DOUBLE quoted and interpolating
+          # $packageVersion; anchoring on ''.*'' (single quotes only) never
+          # matched, so this rewrite silently no-opped. Harmless while the
+          # Chocolatey version equals the release version, fatal as soon as the
+          # revision-suffix path bumps it -- the package then points at
+          # v<base>.<rev>/...-<base>.<rev>-...exe, which never exists, and
+          # Chocolatey versions cannot be withdrawn. This is what killed
+          # edamame-cli 1.8.1.1 and 1.8.2.1; edamame-posture has the same latent
+          # defect and is intact only because its revision path never fired.
+          (Get-Content chocolatey/tools/chocolateyInstall.ps1) -replace '\$url64 = .*', "`$url64 = 'https://github.com/${{ github.repository }}/releases/download/v${VERSION}/edamame_posture-${VERSION}-x86_64-pc-windows-msvc.exe'" | Set-Content chocolatey/tools/chocolateyInstall.ps1
           (Get-Content chocolatey/tools/chocolateyInstall.ps1) -replace '\$checksum64 = ''.*''', "`$checksum64 = '${SHA_WIN}'" | Set-Content chocolatey/tools/chocolateyInstall.ps1
           
           # Pack Chocolatey package
