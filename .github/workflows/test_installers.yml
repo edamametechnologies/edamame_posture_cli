@@ -476,14 +476,26 @@ jobs:
           - runner: windows-latest
             asset: edamame_posture-VERSION-x86_64-pc-windows-msvc.exe
     steps:
+      # Resolve + download over PUBLIC endpoints with curl, never the gh API.
+      #
+      # The edamametechnologies org has an IP allow list, and GitHub-hosted
+      # runners draw addresses outside it, so authenticated `gh release view`
+      # intermittently returns "HTTP 403: ... organization has an IP allow
+      # list" -- it failed on all three platforms the first time this job ran.
+      # Public release reads carry no such restriction, which is why the
+      # long-standing linux-apt job resolves versions the same way.
       - name: Resolve latest release
         id: rel
         shell: bash
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          TAG="$(gh release view --repo "${{ github.repository }}" --json tagName --jq .tagName)"
+          REDIRECT="$(curl -sSI "https://github.com/edamametechnologies/edamame_posture_cli/releases/latest" \
+            | grep -i '^location:' | sed 's/location: *//i' | tr -d '\r')"
+          TAG="$(printf '%s' "$REDIRECT" | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' | head -1)"
+          if [[ -z "$TAG" ]]; then
+            echo "Could not resolve latest release tag from: $REDIRECT"
+            exit 1
+          fi
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
           echo "Validating release $TAG"
@@ -491,20 +503,18 @@ jobs:
       - name: Download and verify asset
         id: verify
         shell: bash
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           VERSION="${{ steps.rel.outputs.version }}"
           ASSET="${{ matrix.asset }}"
           ASSET="${ASSET/VERSION/$VERSION}"
-          echo "Downloading $ASSET from ${{ steps.rel.outputs.tag }}"
-          gh release download "${{ steps.rel.outputs.tag }}" \
-            --repo "${{ github.repository }}" \
-            --pattern "$ASSET" --clobber
+          URL="https://github.com/edamametechnologies/edamame_posture_cli/releases/download/${{ steps.rel.outputs.tag }}/$ASSET"
+          echo "Downloading $URL"
+          # -f so a 404 is an error rather than a saved error page.
+          curl -fsSL -o "$ASSET" "$URL"
           test -s "$ASSET"
-          # A zero-length or HTML error body still "downloads"; require a real
-          # binary that runs, so a corrupt upload cannot pass the gate.
+          # Presence is not evidence: a truncated or HTML body still saves to
+          # disk. Require the binary to actually run.
           chmod +x "$ASSET" || true
           ./"$ASSET" --version || ./"$ASSET" --help | head -n 5
           echo "OK: $ASSET is present and executable"
