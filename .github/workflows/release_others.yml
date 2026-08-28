@@ -358,9 +358,37 @@ jobs:
           Write-Host "Resolved Chocolatey version: $CHOCO_VERSION"
           echo "choco_version=$CHOCO_VERSION" >> $env:GITHUB_OUTPUT
 
+      # Published assets are IMMUTABLE for a given version: Rust builds are not
+      # bit-reproducible, so re-uploading a rebuilt binary changes its SHA256 and
+      # invalidates every checksum derived from the first publish (Homebrew
+      # formula, Chocolatey nuspec, install.sh). A retry after a partial run must
+      # ADD what is missing, never replace what is there. Exact-match (grep -qxF)
+      # rather than substring: the bare asset name is a PREFIX of its own -debug
+      # sibling, so a `contains()` test would wrongly skip the bare upload.
+      - name: Determine already-published assets (macOS)
+        id: published_macos
+        if: github.ref == 'refs/heads/main' && matrix.os == 'macos'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG="${{ steps.get_release.outputs.tag }}"
+          V="${{ steps.get_release.outputs.version }}"
+          T="${{ matrix.target }}"
+          NAMES="$(gh release view "$TAG" --repo "${{ github.repository }}" \
+            --json assets --jq '.assets[].name' 2>/dev/null || true)"
+          has() { printf '%s\n' "$NAMES" | grep -qxF "$1" && echo true || echo false; }
+          {
+            echo "bare=$(has "edamame_posture-${V}-${T}")"
+            echo "pkg=$(has "edamame-posture-macos-${V}.pkg")"
+            echo "bare_debug=$(has "edamame_posture-${V}-${T}-debug")"
+            echo "pkg_debug=$(has "edamame-posture-macos-${V}-debug.pkg")"
+          } >> "$GITHUB_OUTPUT"
+
       # Main only - macOS bare binary upload (legacy, no ES entitlement)
       - name: Upload asset to release (macOS)
-        if: github.ref == 'refs/heads/main' && matrix.os == 'macos'
+        if: github.ref == 'refs/heads/main' && matrix.os == 'macos' && steps.published_macos.outputs.bare != 'true'
         uses: shogo82148/actions-upload-release-asset@v1
         with:
           upload_url: ${{ steps.get_release.outputs.exists == 'true' && steps.get_release.outputs.upload_url || steps.create_release.outputs.upload_url }}
@@ -373,7 +401,7 @@ jobs:
 
       # Main only - macOS .pkg upload (includes provisioning profile for ES entitlement)
       - name: Upload pkg to release (macOS)
-        if: github.ref == 'refs/heads/main' && matrix.os == 'macos'
+        if: github.ref == 'refs/heads/main' && matrix.os == 'macos' && steps.published_macos.outputs.pkg != 'true'
         uses: shogo82148/actions-upload-release-asset@v1
         with:
           upload_url: ${{ steps.get_release.outputs.exists == 'true' && steps.get_release.outputs.upload_url || steps.create_release.outputs.upload_url }}
@@ -386,7 +414,7 @@ jobs:
 
       # Main only - macOS debug uploads
       - name: Upload debug asset to release (macOS)
-        if: github.ref == 'refs/heads/main' && matrix.os == 'macos'
+        if: github.ref == 'refs/heads/main' && matrix.os == 'macos' && steps.published_macos.outputs.bare_debug != 'true'
         uses: shogo82148/actions-upload-release-asset@v1
         with:
           upload_url: ${{ steps.get_release.outputs.exists == 'true' && steps.get_release.outputs.upload_url || steps.create_release.outputs.upload_url }}
@@ -398,7 +426,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload debug pkg to release (macOS)
-        if: github.ref == 'refs/heads/main' && matrix.os == 'macos'
+        if: github.ref == 'refs/heads/main' && matrix.os == 'macos' && steps.published_macos.outputs.pkg_debug != 'true'
         uses: shogo82148/actions-upload-release-asset@v1
         with:
           upload_url: ${{ steps.get_release.outputs.exists == 'true' && steps.get_release.outputs.upload_url || steps.create_release.outputs.upload_url }}
@@ -435,11 +463,40 @@ jobs:
           cp "$RELEASE_SRC" "$RELEASE_NAME"
           cp "$DEBUG_SRC" "$DEBUG_NAME"
 
-          gh release upload "$TAG" \
-            "$RELEASE_NAME" \
-            "$DEBUG_NAME" \
-            --repo "${{ github.repository }}" \
-            --clobber
+          # Published assets are IMMUTABLE for a given version.
+          #
+          # Rust builds are not bit-reproducible, so a rebuilt binary has a
+          # different SHA256 than the one already published. `--clobber` would
+          # replace it and silently invalidate every checksum computed from the
+          # first publish (Chocolatey nuspec, Homebrew formula, install.sh).
+          # That is what broke `choco install` on 1.8.0: the package was pushed
+          # against a checksum the re-uploaded asset no longer matched, and
+          # Chocolatey versions are immutable so it could not be corrected.
+          #
+          # A retry after a partial/failed run must therefore ADD what is
+          # missing, never replace what is already there. `gh release upload`
+          # without --clobber fails on an existing asset, so skip those
+          # explicitly and keep the run green -- the retry's job is to close
+          # the gap, not to republish.
+          EXISTING="$(gh release view "$TAG" --repo "${{ github.repository }}" \
+            --json assets --jq '.assets[].name' 2>/dev/null || true)"
+
+          TO_UPLOAD=()
+          for ASSET in "$RELEASE_NAME" "$DEBUG_NAME"; do
+            if printf '%s\n' "$EXISTING" | grep -qxF "$ASSET"; then
+              echo "SKIP (already published, checksum is fixed): $ASSET"
+            else
+              TO_UPLOAD+=("$ASSET")
+            fi
+          done
+
+          if [[ ${#TO_UPLOAD[@]} -gt 0 ]]; then
+            gh release upload "$TAG" \
+              "${TO_UPLOAD[@]}" \
+              --repo "${{ github.repository }}"
+          else
+            echo "All Windows assets for $VERSION already published; nothing to upload."
+          fi
 
           ASSET_NAMES="$(gh release view "$TAG" --repo "${{ github.repository }}" --json assets --jq '.assets[].name')"
           echo "$ASSET_NAMES"

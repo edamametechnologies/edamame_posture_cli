@@ -282,8 +282,31 @@ jobs:
           draft: false
           prerelease: false
 
-      - name: Upload asset to release
+      # Published assets are IMMUTABLE for a given version -- see the same
+      # guard in release_others.yml. A retry after a partial run must ADD the
+      # missing target, never re-upload one that already published with a
+      # checksum consumers have pinned.
+      - name: Determine already-published asset
+        id: published
         if: github.ref == 'refs/heads/main'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG="${{ steps.get_release.outputs.tag }}"
+          ASSET="edamame_posture-${{ steps.get_release.outputs.version }}-${{ matrix.target }}"
+          NAMES="$(gh release view "$TAG" --repo "${{ github.repository }}" \
+            --json assets --jq '.assets[].name' 2>/dev/null || true)"
+          if printf '%s\n' "$NAMES" | grep -qxF "$ASSET"; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "SKIP (already published, checksum is fixed): $ASSET"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload asset to release
+        if: github.ref == 'refs/heads/main' && steps.published.outputs.exists != 'true'
         uses: shogo82148/actions-upload-release-asset@v1
         with:
           upload_url: ${{ steps.get_release.outputs.exists == 'true' && steps.get_release.outputs.upload_url || steps.create_release.outputs.upload_url }}
