@@ -135,8 +135,8 @@ scenario_markers_json() {
     pgserve_postinstall)    echo '["_sc_wallet", "_sc_state.ldb", "_pgserve_key", "_pgserve_credentials", "_pgserve_accessTokens.json", "_pgserve_adc.json"]' ;;
     temp_modify)            echo '["_temp_staged_binary"]' ;;
     nonsensitive_path)      echo '["_workspace_demo", "project_secrets.env"]' ;;
-    agent_config_tamper)    echo '["_agentcfg_settings.json", "_agentcfg_MEMORY.md", "_agentcfg.mdc", "_agentcfg_mcp.json"]' ;;
-    agent_cred_harvest)     echo '["_ach_.credentials.json", "_ach_auth.json", "_ach_mcp.json", "_ach_key", "_ach_credentials"]' ;;
+    agent_config_tamper)    echo '["_cfgtamper_hook.mdc", "_cfgtamper_mcp.mdc", "_cfgtamper_memory.mdc", "_cfgtamper"]' ;;
+    agent_cred_harvest)     echo '["_ach_key", "_ach_secring.key", "_ach.mdc"]' ;;
     *) echo '[]' ;;
   esac
 }
@@ -300,6 +300,10 @@ LABEL_MARKERS = {
     'vault': ['vault-token'],
     'env': ['/.env_', '_supply_chain'],
     'crypto': ['/.bitcoin/', '/.ethereum/', '/solana/'],
+    'gnupg': ['/.gnupg/'],
+    'instruction': ['/.cursor/rules/', '/.cursorrules', '/mcp.json'],
+    'claude': ['/.claude/'],
+    'codex': ['/.codex/'],
 }
 
 def classify(paths):
