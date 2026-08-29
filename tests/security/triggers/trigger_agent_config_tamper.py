@@ -203,16 +203,24 @@ def main() -> int:
     pid_file = state_dir / PID_FILE
     pid_file.write_text(f"{os.getpid()}\n", encoding="utf-8")
 
-    # Distinct, prefixed paths so cleanup.py can find them and so parallel
-    # agent-type runs never collide. All four are catalogued sensitive.
-    settings = Path(f"~/.claude/{pfx}_agentcfg_settings.json")
-    memory = Path(f"~/.claude/projects/{pfx}_agentcfg/memory/{pfx}_agentcfg_MEMORY.md")
-    cursorrules = Path(f"~/.cursor/rules/{pfx}_agentcfg.mdc")
-    mcp = Path(f"~/.cursor/{pfx}_agentcfg_mcp.json")
+    # Targets must match a shipped `is_sensitive_path` pattern so the FIM
+    # watcher KEEPS the event and the detector emits file_system_tampering.
+    # The three `.mdc` files live directly inside the explicitly-watched
+    # `~/.cursor/rules/` root (prefix-safe, sensitive via `/.cursor/rules/`,
+    # depth-1 under an explicit watch root -> maximally robust). The
+    # `.cursorrules` under a prefixed subdir is the home-depth-1 shape
+    # (sensitive via `/.cursorrules`) and doubles as a watch-recursion probe.
+    rule_hook = Path(f"~/.cursor/rules/{pfx}_cfgtamper_hook.mdc")
+    rule_mcp = Path(f"~/.cursor/rules/{pfx}_cfgtamper_mcp.mdc")
+    rule_memory = Path(f"~/.cursor/rules/{pfx}_cfgtamper_memory.mdc")
+    cursorrules = Path(f"~/{pfx}_cfgtamper/.cursorrules")
+
+    targets = [rule_hook, rule_mcp, rule_memory, cursorrules]
+    bodies = [settings_json_body, mcp_json_body, memory_md_body, cursorrules_body]
 
     print(f"trigger_agent_config_tamper.py active  pid={os.getpid()}")
     print("  check=file_system_tampering")
-    for p in (settings, memory, cursorrules, mcp):
+    for p in targets:
         print(f"  target={p.expanduser()}")
     print("  stop_with=Ctrl-C or python3 cleanup.py")
     sys.stdout.flush()
@@ -228,10 +236,8 @@ def main() -> int:
                 break
 
             round_num += 1
-            write_file(settings, settings_json_body(round_num), state_dir)
-            write_file(memory, memory_md_body(round_num), state_dir)
-            write_file(cursorrules, cursorrules_body(round_num), state_dir)
-            write_file(mcp, mcp_json_body(round_num), state_dir)
+            for tgt, body in zip(targets, bodies):
+                write_file(tgt, body(round_num), state_dir)
             print(f"  round={round_num} agent-config hooks written")
             sys.stdout.flush()
 
