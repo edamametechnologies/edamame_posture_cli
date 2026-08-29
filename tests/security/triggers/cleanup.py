@@ -37,6 +37,8 @@ PID_FILES = [
     "file_events.pid",
     "temp_modify.pid",
     "nonsensitive_path.pid",
+    "agent_config_tamper.pid",
+    "agent_cred_harvest.pid",
 ]
 
 CREATED_MARKERS = [
@@ -53,6 +55,8 @@ CREATED_MARKERS = [
     "file_events.created",
     "temp_modify.created",
     "nonsensitive_path.created",
+    "agent_config_tamper.created",
+    "agent_cred_harvest.created",
 ]
 
 

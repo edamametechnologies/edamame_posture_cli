@@ -49,7 +49,7 @@ POLL_ATTEMPTS=6
 POLL_INTERVAL=30
 READINESS_WAIT=120
 AGENT_TYPE="openclaw"
-SCENARIOS_CSV="blacklist_comm,cve_token_exfil,cve_sandbox_escape,memory_poisoning,credential_sprawl,supply_chain_exfil,npm_rat_beacon,file_events,skill_supply_chain,pgserve_postinstall,temp_modify,nonsensitive_path"
+SCENARIOS_CSV="blacklist_comm,cve_token_exfil,cve_sandbox_escape,memory_poisoning,credential_sprawl,supply_chain_exfil,npm_rat_beacon,file_events,skill_supply_chain,pgserve_postinstall,temp_modify,nonsensitive_path,agent_config_tamper,agent_cred_harvest"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -105,6 +105,8 @@ expected_check_for() {
     pgserve_postinstall)    echo "credential_harvest" ;;
     temp_modify)            echo "file_system_tampering" ;;
     nonsensitive_path)      echo "sensitive_material_egress" ;;
+    agent_config_tamper)    echo "file_system_tampering" ;;
+    agent_cred_harvest)     echo "credential_harvest" ;;
     *) echo "" ;;
   esac
 }
@@ -133,6 +135,8 @@ scenario_markers_json() {
     pgserve_postinstall)    echo '["_sc_wallet", "_sc_state.ldb", "_pgserve_key", "_pgserve_credentials", "_pgserve_accessTokens.json", "_pgserve_adc.json"]' ;;
     temp_modify)            echo '["_temp_staged_binary"]' ;;
     nonsensitive_path)      echo '["_workspace_demo", "project_secrets.env"]' ;;
+    agent_config_tamper)    echo '["_agentcfg_settings.json", "_agentcfg_MEMORY.md", "_agentcfg.mdc", "_agentcfg_mcp.json"]' ;;
+    agent_cred_harvest)     echo '["_ach_.credentials.json", "_ach_auth.json", "_ach_mcp.json", "_ach_key", "_ach_credentials"]' ;;
     *) echo '[]' ;;
   esac
 }
@@ -411,6 +415,13 @@ candidates = [
     home / ".gnupg",
     home / ".kube",
     home / ".docker",
+    # AI-agent config dirs -- watched so agent_config_tamper's SessionStart /
+    # MCP / rules writes produce FIM events (labels: claude / instruction).
+    home / ".claude",
+    home / ".claude" / "projects",
+    home / ".cursor",
+    home / ".cursor" / "rules",
+    home / ".codex",
 ]
 for c in candidates:
     try:
