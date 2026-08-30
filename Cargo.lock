@@ -1894,8 +1894,8 @@ dependencies = [
 
 [[package]]
 name = "edamame_core"
-version = "1.8.2"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#4bb427f1b580d3aefda05a355cf204f6311a9a08"
+version = "1.8.3"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#e649614ae049fe4dc805ed89173b949e686b2133"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -1983,8 +1983,8 @@ dependencies = [
 
 [[package]]
 name = "edamame_foundation"
-version = "1.8.2"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#05c5fa3e00584b5a5dbb36cd1d9a9f007fc3ef9d"
+version = "1.8.3"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#6776737493acf9bfddee099a9e2b9167decae01d"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -2455,8 +2455,8 @@ dependencies = [
 
 [[package]]
 name = "flodbadd"
-version = "1.8.2"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#c6376b20129f5def2640751f76ac9828acc84151"
+version = "1.8.3"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#b3fea2a95eefdc181ba15e4c093c6f259f1ace2e"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -3536,7 +3536,7 @@ dependencies = [
  "js-sys",
  "log",
  "wasm-bindgen",
- "windows-core 0.62.2",
+ "windows-core 0.58.0",
 ]
 
 [[package]]
@@ -4054,7 +4054,7 @@ dependencies = [
 [[package]]
 name = "l7_ebpf_program"
 version = "0.1.0"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#c6376b20129f5def2640751f76ac9828acc84151"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#b3fea2a95eefdc181ba15e4c093c6f259f1ace2e"
 
 [[package]]
 name = "lazy_static"
@@ -7602,7 +7602,7 @@ dependencies = [
 [[package]]
 name = "threatmodels_rs"
 version = "0.1.1"
-source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#a102f5a45401a2e538998b28c65f4209b2e745be"
+source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#1d3a6f2f8060a849ad9b6c60b968635f79728b51"
 dependencies = [
  "anyhow",
  "chrono",
