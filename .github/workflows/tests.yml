@@ -1328,16 +1328,40 @@ jobs:
         if: env.BUILD_FROM_SOURCE != 'true'
         shell: bash
         run: |
-          if [[ "$RUNNER_OS" == "Windows" ]]; then
-            BIN_PATH=$(command -v edamame_posture.exe || true)
-          else
+          # Resolution order mirrors edamame_posture_action's own binary
+          # lookup. `EDAMAME_BINARY_PATH` is exported to GITHUB_ENV by the
+          # action after it resolves the install, so it is authoritative and
+          # is tried first. The remaining fallbacks match the action's chain
+          # (`command -v edamame_posture`, then `$HOME/edamame_posture[.exe]`).
+          #
+          # The Windows leg previously probed only `command -v
+          # edamame_posture.exe`. The action installs the Windows binary at
+          # `$HOME/edamame_posture.exe` without necessarily putting that name
+          # on the bash PATH, so this step failed with "binary not found" even
+          # though the daemon was installed and running. That went unnoticed
+          # because `build_from_source` defaults to true and this branch only
+          # runs when it is explicitly set to false.
+          BIN_PATH="${EDAMAME_BINARY_PATH:-}"
+          if [[ -z "$BIN_PATH" ]]; then
             BIN_PATH=$(command -v edamame_posture || true)
-            if [[ -z "$BIN_PATH" && -x /usr/local/bin/edamame_posture ]]; then
-              BIN_PATH=/usr/local/bin/edamame_posture
-            fi
+          fi
+          if [[ -z "$BIN_PATH" && "$RUNNER_OS" == "Windows" ]]; then
+            BIN_PATH=$(command -v edamame_posture.exe || true)
+          fi
+          if [[ -z "$BIN_PATH" && -x /usr/local/bin/edamame_posture ]]; then
+            BIN_PATH=/usr/local/bin/edamame_posture
+          fi
+          if [[ -z "$BIN_PATH" && -f "$HOME/edamame_posture" ]]; then
+            BIN_PATH="$HOME/edamame_posture"
+          fi
+          if [[ -z "$BIN_PATH" && -f "$HOME/edamame_posture.exe" ]]; then
+            BIN_PATH="$HOME/edamame_posture.exe"
           fi
           if [[ -z "$BIN_PATH" ]]; then
             echo "ERROR: action-installed edamame_posture binary not found" >&2
+            echo "  EDAMAME_BINARY_PATH=${EDAMAME_BINARY_PATH:-<unset>}" >&2
+            echo "  PATH=$PATH" >&2
+            ls -la "$HOME" 2>/dev/null | head -20 >&2 || true
             exit 1
           fi
           echo "Using released binary at $BIN_PATH"
@@ -1591,16 +1615,40 @@ jobs:
         if: env.BUILD_FROM_SOURCE != 'true'
         shell: bash
         run: |
-          if [[ "$RUNNER_OS" == "Windows" ]]; then
-            BIN_PATH=$(command -v edamame_posture.exe || true)
-          else
+          # Resolution order mirrors edamame_posture_action's own binary
+          # lookup. `EDAMAME_BINARY_PATH` is exported to GITHUB_ENV by the
+          # action after it resolves the install, so it is authoritative and
+          # is tried first. The remaining fallbacks match the action's chain
+          # (`command -v edamame_posture`, then `$HOME/edamame_posture[.exe]`).
+          #
+          # The Windows leg previously probed only `command -v
+          # edamame_posture.exe`. The action installs the Windows binary at
+          # `$HOME/edamame_posture.exe` without necessarily putting that name
+          # on the bash PATH, so this step failed with "binary not found" even
+          # though the daemon was installed and running. That went unnoticed
+          # because `build_from_source` defaults to true and this branch only
+          # runs when it is explicitly set to false.
+          BIN_PATH="${EDAMAME_BINARY_PATH:-}"
+          if [[ -z "$BIN_PATH" ]]; then
             BIN_PATH=$(command -v edamame_posture || true)
-            if [[ -z "$BIN_PATH" && -x /usr/local/bin/edamame_posture ]]; then
-              BIN_PATH=/usr/local/bin/edamame_posture
-            fi
+          fi
+          if [[ -z "$BIN_PATH" && "$RUNNER_OS" == "Windows" ]]; then
+            BIN_PATH=$(command -v edamame_posture.exe || true)
+          fi
+          if [[ -z "$BIN_PATH" && -x /usr/local/bin/edamame_posture ]]; then
+            BIN_PATH=/usr/local/bin/edamame_posture
+          fi
+          if [[ -z "$BIN_PATH" && -f "$HOME/edamame_posture" ]]; then
+            BIN_PATH="$HOME/edamame_posture"
+          fi
+          if [[ -z "$BIN_PATH" && -f "$HOME/edamame_posture.exe" ]]; then
+            BIN_PATH="$HOME/edamame_posture.exe"
           fi
           if [[ -z "$BIN_PATH" ]]; then
             echo "ERROR: action-installed edamame_posture binary not found" >&2
+            echo "  EDAMAME_BINARY_PATH=${EDAMAME_BINARY_PATH:-<unset>}" >&2
+            echo "  PATH=$PATH" >&2
+            ls -la "$HOME" 2>/dev/null | head -20 >&2 || true
             exit 1
           fi
           echo "Using released binary at $BIN_PATH"
