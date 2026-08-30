@@ -45,10 +45,12 @@ the agent-config dirs (the CVE runner adds them explicitly).
 from __future__ import annotations
 
 import argparse
+import glob
 import os
 import platform
 import shutil
 import signal
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -130,7 +132,7 @@ def provision_temp_writer_interpreter(state_dir: Path, pfx: str) -> Path | None:
     """
     try:
         if platform.system() == "Windows":
-            base = Path(os.environ.get("TEMP") or os.environ.get("TMP") or r"C:\\Windows\\Temp")
+            base = Path(os.environ.get("TEMP") or os.environ.get("TMP") or r"C:\Windows\Temp")
             interp_name = "python.exe"
         else:
             base = Path("/tmp")
@@ -144,6 +146,18 @@ def provision_temp_writer_interpreter(state_dir: Path, pfx: str) -> Path | None:
         except OSError:
             pass
         record_created(state_dir, dst)
+        if platform.system() == "Windows":
+            # A bare python.exe copy cannot start: it resolves pythonXX.dll /
+            # python3.dll / vcruntime*.dll from its own directory first. Copy
+            # every sibling DLL beside the copied exe; the stdlib is located via
+            # PYTHONHOME (set in the child env) pointing back at the real
+            # install, so only the loader DLLs need to travel.
+            srcdir = os.path.dirname(sys.executable)
+            for dll in glob.glob(os.path.join(srcdir, "*.dll")):
+                try:
+                    shutil.copy2(dll, wdir / os.path.basename(dll))
+                except (OSError, shutil.Error):
+                    pass
         return dst
     except (OSError, shutil.Error) as exc:
         print(f"  [WARN] temp-writer provisioning failed ({exc}); "
@@ -152,22 +166,59 @@ def provision_temp_writer_interpreter(state_dir: Path, pfx: str) -> Path | None:
         return None
 
 
-def reexec_via_temp_interpreter(interp: Path) -> None:
-    """Replace this process with the temp-dir interpreter running this same
-    script in writer mode. ``os.execve`` preserves the PID the runner tracks,
-    so kill/cleanup still work, while the writer's ``exe()`` now resolves under
-    the temp directory."""
+def _temp_writer_env() -> dict:
     env = dict(os.environ)
     # Point the copied interpreter at the real stdlib so it starts cleanly.
     env["PYTHONHOME"] = sys.base_prefix
     env["PYTHONPATH"] = os.pathsep.join(p for p in sys.path if p)
     env[WRITER_ENV_FLAG] = "1"
-    if platform.system() == "Windows":
-        # The copied python.exe still needs its pythonXX.dll, which lives beside
-        # the original interpreter -- expose that directory on PATH.
-        env["PATH"] = os.path.dirname(sys.executable) + os.pathsep + env.get("PATH", "")
+    return env
+
+
+def reexec_via_temp_interpreter(interp: Path) -> None:
+    """POSIX: replace this process with the temp-dir interpreter running this
+    same script in writer mode. ``os.execve`` preserves the PID the runner
+    tracks, so kill/cleanup still work, while the writer's ``exe()`` now
+    resolves under the temp directory."""
     argv = [str(interp), os.path.abspath(__file__)] + sys.argv[1:]
-    os.execve(str(interp), argv, env)  # does not return on success
+    os.execve(str(interp), argv, _temp_writer_env())  # does not return on success
+
+
+def run_windows_writer_child(interp: Path, pid_file: Path) -> int:
+    """Windows: os.execve does not replace the process in place, so instead
+    spawn the temp-dir interpreter as a CHILD running this script in writer
+    mode, and supervise it. The child's ``exe()`` resolves under ``%TEMP%``, so
+    FIM's RestartManager attribution (which reports the process HOLDING the
+    file open) tags the config writes with temp-dir lineage. This parent stays
+    the PID the runner tracks; it forwards termination to the child."""
+    argv = [str(interp), os.path.abspath(__file__)] + sys.argv[1:]
+    child = subprocess.Popen(argv, env=_temp_writer_env())
+    pid_file.write_text(f"{os.getpid()}\n", encoding="utf-8")
+
+    def _forward(_signum, _frame):
+        global KEEP_RUNNING
+        KEEP_RUNNING = False
+        try:
+            child.terminate()
+        except OSError:
+            pass
+
+    signal.signal(signal.SIGINT, _forward)
+    signal.signal(signal.SIGTERM, _forward)
+    try:
+        child.wait()
+    except KeyboardInterrupt:
+        try:
+            child.terminate()
+        except OSError:
+            pass
+        child.wait()
+    finally:
+        try:
+            pid_file.unlink()
+        except FileNotFoundError:
+            pass
+    return child.returncode or 0
 
 
 def hook_command() -> str:
@@ -263,34 +314,46 @@ def main() -> int:
 
     pfx = file_prefix_for(agent_type)
     _ = upper_prefix_for(agent_type)
+    pid_file = state_dir / PID_FILE
 
     # Establish suspicious (temp-dir) writer lineage before doing any writes,
-    # unless we are already the re-exec'd writer. os.execve preserves this PID,
-    # so the runner's kill/cleanup is unaffected; on success it does not return.
+    # unless we are already the re-exec'd / spawned writer. Both FIM backends
+    # attribute a file event to the process HOLDING the file open (POSIX lsof /
+    # Windows RestartManager), and the write loop below keeps every target open,
+    # so the writer's exe() -- resolved under a temp dir here -- becomes the
+    # attributed writer path, setting suspicious_lineage_present and pinning the
+    # file_system_tampering finding into the non-demotable EvidenceFloor tier.
     #
-    # POSIX only. On Windows os.execve does NOT replace the process in place --
-    # it spawns a new process and terminates the current one -- and a bare copy
-    # of python.exe cannot start without its pythonXX.dll / stdlib beside it, so
-    # the writer would vanish with no output (observed as a 0-byte trigger log
-    # and 0 findings). Windows therefore runs in direct mode; its
-    # file_system_tampering finding is CRITICAL but tier-dependent, the same as
-    # the existing file_events gated scenario.
-    if os.name == "posix" and os.environ.get(WRITER_ENV_FLAG) != "1":
+    #  * POSIX: os.execve replaces this process in place (same PID the runner
+    #    tracks) with the temp-dir interpreter running this script in writer
+    #    mode; it does not return on success.
+    #  * Windows: os.execve does NOT replace the process in place, so spawn the
+    #    temp-dir interpreter as a supervised child instead. This parent stays
+    #    the tracked PID and forwards termination.
+    if os.environ.get(WRITER_ENV_FLAG) != "1":
         interp = provision_temp_writer_interpreter(state_dir, pfx)
         if interp is not None:
-            try:
-                reexec_via_temp_interpreter(interp)
-            except OSError as exc:
-                print(f"  [WARN] execve of temp interpreter failed ({exc}); "
-                      f"running in direct mode (finding may be demotable)",
-                      file=sys.stderr)
-                sys.stderr.flush()
+            if os.name == "posix":
+                try:
+                    reexec_via_temp_interpreter(interp)
+                except OSError as exc:
+                    print(f"  [WARN] execve of temp interpreter failed ({exc}); "
+                          f"running in direct mode (finding may be demotable)",
+                          file=sys.stderr)
+                    sys.stderr.flush()
+            else:
+                return run_windows_writer_child(interp, pid_file)
 
     signal.signal(signal.SIGINT, handle_signal)
     signal.signal(signal.SIGTERM, handle_signal)
 
-    pid_file = state_dir / PID_FILE
-    pid_file.write_text(f"{os.getpid()}\n", encoding="utf-8")
+    # On Windows the supervising parent already owns pid_file (its PID is the
+    # one the runner tracks); the spawned writer child must not clobber it.
+    is_windows_writer_child = (
+        os.name != "posix" and os.environ.get(WRITER_ENV_FLAG) == "1"
+    )
+    if not is_windows_writer_child:
+        pid_file.write_text(f"{os.getpid()}\n", encoding="utf-8")
 
     # Targets must match a shipped `is_sensitive_path` pattern so the FIM
     # watcher KEEPS the event and the detector emits file_system_tampering.
@@ -323,21 +386,50 @@ def main() -> int:
     interval = max(args.interval, 5.0)
     round_num = 0
 
+    # Keep a live append handle to every target for the writer's whole lifetime.
+    # Both FIM attribution backends report the process HOLDING the file open
+    # (POSIX `lsof`, Windows RestartManager), so an open handle is what ties the
+    # sensitive-file event to THIS (temp-dir) writer executable. Opened with
+    # default sharing so the FIM watcher can still stat the file.
+    held = []
     try:
+        for tgt, body in zip(targets, bodies):
+            p = tgt.expanduser()
+            p.parent.mkdir(parents=True, exist_ok=True)
+            new = not p.exists()
+            p.write_text(body(round_num), encoding="utf-8")
+            try:
+                p.chmod(0o600)
+            except OSError:
+                pass
+            if new:
+                record_created(state_dir, p)
+            held.append((p, open(p, "a", encoding="utf-8")))
+
         while KEEP_RUNNING:
             if duration > 0 and (time.monotonic() - started) >= duration:
                 break
 
             round_num += 1
-            for tgt, body in zip(targets, bodies):
-                write_file(tgt, body(round_num), state_dir)
-            print(f"  round={round_num} agent-config hooks written")
+            for (p, fh), body in zip(held, bodies):
+                try:
+                    fh.write(f"\n# round {round_num}\n{body(round_num)}")
+                    fh.flush()
+                    os.fsync(fh.fileno())
+                except OSError:
+                    pass
+            print(f"  round={round_num} agent-config hooks written (holding {len(held)} open)")
             sys.stdout.flush()
 
             end_sleep = time.monotonic() + interval
             while KEEP_RUNNING and time.monotonic() < end_sleep:
                 time.sleep(min(1.0, interval))
     finally:
+        for _p, fh in held:
+            try:
+                fh.close()
+            except OSError:
+                pass
         try:
             pid_file.unlink()
         except FileNotFoundError:
