@@ -47,6 +47,7 @@ from __future__ import annotations
 import argparse
 import os
 import platform
+import shutil
 import signal
 import sys
 import time
@@ -62,6 +63,10 @@ from _common import (
 
 PID_FILE = "agent_config_tamper.pid"
 CREATED_MARKER = "agent_config_tamper.created"
+
+# Set on the re-exec'd process so it runs the write loop instead of
+# re-provisioning the temp interpreter a second time.
+WRITER_ENV_FLAG = "EDAMAME_CFGTAMPER_WRITER"
 
 KEEP_RUNNING = True
 
@@ -101,6 +106,68 @@ def record_created(state_dir: Path, path: Path) -> None:
         }
     existing.add(str(path))
     marker.write_text("\n".join(sorted(existing)) + "\n", encoding="utf-8")
+
+
+def provision_temp_writer_interpreter(state_dir: Path, pfx: str) -> Path | None:
+    """Copy this interpreter into a suspicious temp directory and return the
+    copy's path, or None if provisioning failed.
+
+    The vulnerability detector grades ``file_system_tampering`` findings whose
+    writer executable lives under a temp path (``/tmp/`` , ``/var/tmp/`` , or a
+    Windows ``\\Temp\\`` / ``\\AppData\\Local\\Temp\\`` directory) into the
+    unbreakable EvidenceFloor tier -- the LLM adjudicator cannot demote them.
+    That is exactly the runtime shape of the 2026 agent-config droppers
+    (keyv/cacheable, the Shai-Hulud waves), which download a Bun runtime into
+    ``/tmp/b-<random>/`` and run the config-tamper payload from there. Writing
+    the hooks from an interpreter under a normal path instead leaves the
+    finding in the CriticalNoCorroboration tier, where a run may see it demoted
+    to LOW and drop below the alertable gate.
+
+    The macOS default temp (``/var/folders/.../T/``) is deliberately NOT used:
+    it is not in the detector's suspicious-parent patterns. ``/tmp`` is used
+    explicitly on Unix (it resolves to ``/private/tmp`` on macOS, which still
+    contains the ``/tmp/`` substring the matcher looks for).
+    """
+    try:
+        if platform.system() == "Windows":
+            base = Path(os.environ.get("TEMP") or os.environ.get("TMP") or r"C:\\Windows\\Temp")
+            interp_name = "python.exe"
+        else:
+            base = Path("/tmp")
+            interp_name = "python3"
+        wdir = base / f"edamame_{pfx}_cfgtamper_writer"
+        wdir.mkdir(parents=True, exist_ok=True)
+        dst = wdir / interp_name
+        shutil.copy2(sys.executable, dst)
+        try:
+            dst.chmod(0o755)
+        except OSError:
+            pass
+        record_created(state_dir, dst)
+        return dst
+    except (OSError, shutil.Error) as exc:
+        print(f"  [WARN] temp-writer provisioning failed ({exc}); "
+              f"running in direct mode (finding may be demotable)", file=sys.stderr)
+        sys.stderr.flush()
+        return None
+
+
+def reexec_via_temp_interpreter(interp: Path) -> None:
+    """Replace this process with the temp-dir interpreter running this same
+    script in writer mode. ``os.execve`` preserves the PID the runner tracks,
+    so kill/cleanup still work, while the writer's ``exe()`` now resolves under
+    the temp directory."""
+    env = dict(os.environ)
+    # Point the copied interpreter at the real stdlib so it starts cleanly.
+    env["PYTHONHOME"] = sys.base_prefix
+    env["PYTHONPATH"] = os.pathsep.join(p for p in sys.path if p)
+    env[WRITER_ENV_FLAG] = "1"
+    if platform.system() == "Windows":
+        # The copied python.exe still needs its pythonXX.dll, which lives beside
+        # the original interpreter -- expose that directory on PATH.
+        env["PATH"] = os.path.dirname(sys.executable) + os.pathsep + env.get("PATH", "")
+    argv = [str(interp), os.path.abspath(__file__)] + sys.argv[1:]
+    os.execve(str(interp), argv, env)  # does not return on success
 
 
 def hook_command() -> str:
@@ -197,6 +264,20 @@ def main() -> int:
     pfx = file_prefix_for(agent_type)
     _ = upper_prefix_for(agent_type)
 
+    # Establish suspicious (temp-dir) writer lineage before doing any writes,
+    # unless we are already the re-exec'd writer. os.execve preserves this PID,
+    # so the runner's kill/cleanup is unaffected; on success it does not return.
+    if os.environ.get(WRITER_ENV_FLAG) != "1":
+        interp = provision_temp_writer_interpreter(state_dir, pfx)
+        if interp is not None:
+            try:
+                reexec_via_temp_interpreter(interp)
+            except OSError as exc:
+                print(f"  [WARN] execve of temp interpreter failed ({exc}); "
+                      f"running in direct mode (finding may be demotable)",
+                      file=sys.stderr)
+                sys.stderr.flush()
+
     signal.signal(signal.SIGINT, handle_signal)
     signal.signal(signal.SIGTERM, handle_signal)
 
@@ -218,8 +299,12 @@ def main() -> int:
     targets = [rule_hook, rule_mcp, rule_memory, cursorrules]
     bodies = [settings_json_body, mcp_json_body, memory_md_body, cursorrules_body]
 
+    writer_lineage = "temp-dir" if "/tmp/" in sys.executable.replace("\\", "/") \
+        or "\\temp\\" in sys.executable.lower() else "direct"
     print(f"trigger_agent_config_tamper.py active  pid={os.getpid()}")
     print("  check=file_system_tampering")
+    print(f"  writer_exe={sys.executable}")
+    print(f"  writer_lineage={writer_lineage} (temp-dir -> EvidenceFloor, non-demotable)")
     for p in targets:
         print(f"  target={p.expanduser()}")
     print("  stop_with=Ctrl-C or python3 cleanup.py")
