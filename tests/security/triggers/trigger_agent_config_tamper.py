@@ -267,7 +267,15 @@ def main() -> int:
     # Establish suspicious (temp-dir) writer lineage before doing any writes,
     # unless we are already the re-exec'd writer. os.execve preserves this PID,
     # so the runner's kill/cleanup is unaffected; on success it does not return.
-    if os.environ.get(WRITER_ENV_FLAG) != "1":
+    #
+    # POSIX only. On Windows os.execve does NOT replace the process in place --
+    # it spawns a new process and terminates the current one -- and a bare copy
+    # of python.exe cannot start without its pythonXX.dll / stdlib beside it, so
+    # the writer would vanish with no output (observed as a 0-byte trigger log
+    # and 0 findings). Windows therefore runs in direct mode; its
+    # file_system_tampering finding is CRITICAL but tier-dependent, the same as
+    # the existing file_events gated scenario.
+    if os.name == "posix" and os.environ.get(WRITER_ENV_FLAG) != "1":
         interp = provision_temp_writer_interpreter(state_dir, pfx)
         if interp is not None:
             try:
