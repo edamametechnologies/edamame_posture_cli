@@ -1832,7 +1832,7 @@ jobs:
         # detector is already emitting findings with no stimulus, which
         # would taint every subsequent scenario verdict.
         if: steps.baseline.outcome == 'success'
-        # 12 scenarios x (readiness wait + trigger + verify poll loop +
+        # 14 scenarios x (readiness wait + trigger + verify poll loop +
         # up to 2-3 fresh attempts). Detections break the poll loop early,
         # so a green run lands well under this; the budget covers the
         # all-scenarios-retry worst case without truncating results.json

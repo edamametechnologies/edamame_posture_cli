@@ -427,13 +427,17 @@ Key tools include:
 - `get_sessions` - All network sessions with deep L7 process attribution
 - `get_anomalous_sessions` - ML-flagged anomalous sessions
 - `get_score` - Full security posture score with sub-scores
-- `add_pwned_email` / `remove_pwned_email` - Manage breach-monitored emails
+- `add_pwned_email` / `get_pwned_emails` - Add and inspect breach-monitored emails
 - `agentic_process_todos` - AI-powered "Do It For Me" workflow
-- `advisor_undo_action` - Roll back automated fixes
+- `get_divergence_verdict` - Read reasoning-plane versus system-plane correlation
+- `get_vulnerability_findings` - Read attack-pattern findings
 
 Security boundary: loop lifecycle controls (`agentic-*`, `vulnerability-*`,
 `divergence-*`, `start-file-monitor`, `stop-file-monitor`) are CLI-only and
-intentionally not exposed through MCP.
+intentionally not exposed through MCP. Changing LAN auto-scan, removing a
+breach-monitored identity, and undoing one or all advisor actions are likewise
+operator-only through the `set_auto_scan`, `remove_pwned_email`,
+`agentic_undo_action`, and `agentic_undo_all_actions` RPCs.
 
 ### Step 1: Start the MCP Server
 
@@ -556,14 +560,14 @@ Refresh cycles: full L7 update every 5 min; sensitive files every 30s (Linux), 6
 
 For the complete field reference, see the [EDAMAME Core API MCP Reference](https://github.com/edamametechnologies/edamame_core_api/blob/main/MCP.md#l7-session-enrichment-fields).
 
-### Identity Management via MCP
+### Identity Monitoring via MCP
 
-EDAMAME supports dynamic email breach monitoring through MCP:
+EDAMAME exposes observation-strengthening identity operations through MCP:
 - `add_pwned_email` - Register an email for HIBP breach monitoring
-- `remove_pwned_email` - Remove an email from monitoring
 - `get_pwned_emails` - List all monitored emails with breach counts
 
-These tools enable AI agents to dynamically manage identity monitoring at runtime.
+Removing an email weakens future observation, so `remove_pwned_email` is available
+only through the operator RPC surface.
 
 ### Security Considerations
 
@@ -2127,7 +2131,7 @@ MCP (Model Context Protocol) is an open standard from Anthropic that enables AI 
 
 - Ask Claude Desktop to analyze your security posture
 - Automate security fixes through conversational AI
-- Access all 9 EDAMAME security automation tools via natural language
+- Access EDAMAME's documented MCP security surface via natural language
 - Process security todos with AI reasoning
 
 ### MCP Server Commands
@@ -2160,7 +2164,7 @@ edamame_posture mcp-start 3000 "your-32-char-psk-here"
 edamame_posture mcp-start 3000 "your-32-char-psk-here" --all-interfaces
 
 # Output:
-# ✅ MCP server started successfully
+# MCP server started successfully
 #    Port: 3000
 #    URL: http://127.0.0.1:3000/mcp/
 #    PSK: RJgYkzfteQGu...
@@ -2191,7 +2195,7 @@ Starts the MCP server on specified port (default: 3000). If no PSK is provided, 
 edamame_posture mcp-stop
 
 # Output:
-# ✅ MCP server stopped
+# MCP server stopped
 ```
 
 Stops the running MCP server.
@@ -2202,34 +2206,30 @@ Stops the running MCP server.
 edamame_posture mcp-status
 
 # Output when running:
-# ✅ MCP server is running
+# MCP server is running
 #    Port: 3000
 #    URL: http://127.0.0.1:3000/mcp/
 
 # Output when stopped:
-# ○ MCP server is not running
+# MCP server is not running
 ```
 
 Displays the current status of the MCP server.
 
 ### Available MCP Tools
 
-When connected via MCP, AI assistants have access to 9 security automation tools:
+The MCP surface includes posture and score inspection, network and identity
+telemetry, read-only observer findings, and bounded advisor workflows. The
+authoritative tool list and input schemas are maintained in the public
+[EDAMAME Core MCP reference](https://github.com/edamametechnologies/edamame_core_api/blob/main/MCP.md).
 
-**Advisor Tools (4):**
-- `advisor_get_todos` - List security action items
-- `advisor_get_action_history` - View AI action history with undo info
-- `advisor_undo_action` - Undo a specific AI action
-- `advisor_undo_all_actions` - Undo all AI actions (panic button)
+Observer-independence deliberately excludes operations that weaken monitoring or
+reverse prior actions. All four are operator-only RPC actions:
 
-**Agentic Tools (3):**
-- `agentic_process_todos` - **"Do It For Me" workflow** - processes all security items
-- `agentic_execute_action` - Execute a pending action
-- `agentic_get_workflow_status` - Get processing status
-
-**Score Tools (2):**
-- `score_get` - Get current security score
-- `score_compute` - Trigger score recomputation
+- LAN auto-scan changes: `set_auto_scan`
+- Breach-monitoring removals: `remove_pwned_email`
+- Single advisor undo: `agentic_undo_action`
+- Undo all advisor actions: `agentic_undo_all_actions`
 
 ### Claude Desktop Integration
 
@@ -2759,23 +2759,23 @@ The action provides clear console output showing the progression to stability:
 ```
 === Iteration 5 ===
 Whitelist difference: 0.00%
-✅ Whitelist is STABLE for this run (diff: 0.00% <= threshold: 0%)
+Whitelist is STABLE for this run (diff: 0.00% <= threshold: 0%)
    Consecutive stable runs: 1 / 3 required
-🔄 Whitelist is stable for this run, but need more consecutive confirmations
+Whitelist is stable for this run, but needs more consecutive confirmations
 
 === Iteration 6 ===
 Whitelist difference: 0.00%
-✅ Whitelist is STABLE for this run (diff: 0.00% <= threshold: 0%)
+Whitelist is STABLE for this run (diff: 0.00% <= threshold: 0%)
    Consecutive stable runs: 2 / 3 required
-🔄 Whitelist is stable for this run, but need more consecutive confirmations
+Whitelist is stable for this run, but needs more consecutive confirmations
 
 === Iteration 7 ===
 Whitelist difference: 0.00%
-✅ Whitelist is STABLE for this run (diff: 0.00% <= threshold: 0%)
+Whitelist is STABLE for this run (diff: 0.00% <= threshold: 0%)
    Consecutive stable runs: 3 / 3 required
-🎉 Whitelist is FULLY STABLE (3 consecutive runs with no changes)
+Whitelist is FULLY STABLE (3 consecutive runs with no changes)
 
-✅ Whitelist has stabilized!
+Whitelist has stabilized.
    Achieved 3 consecutive runs with no changes.
    Future runs will enforce this whitelist and fail on violations.
 ```
@@ -3173,11 +3173,11 @@ On Linux, EDAMAME Posture uses eBPF (extended Berkeley Packet Filter) for high-p
 
 | Environment | eBPF Status | Notes |
 |-------------|-------------|-------|
-| Native Linux (Ubuntu 20.04+) | ✅ Full support | Best performance |
-| Native Linux (Alpine 3.18+) | ✅ Full support | musl libc compatible |
-| GitHub Actions (ubuntu-latest) | ✅ Full support | Works out of the box |
-| Docker containers | ⚠️ Limited | Requires `--privileged` or specific caps |
-| macOS / Windows | ❌ Not available | Falls back to netstat-based resolution |
+| Native Linux (Ubuntu 20.04+) | Full support | Best performance |
+| Native Linux (Alpine 3.18+) | Full support | musl libc compatible |
+| GitHub Actions (ubuntu-latest) | Full support | Works out of the box |
+| Docker containers | Limited | Requires `--privileged` or specific caps |
+| macOS / Windows | Not available | Falls back to netstat-based resolution |
 
 **Automatic Fallback:**
 
