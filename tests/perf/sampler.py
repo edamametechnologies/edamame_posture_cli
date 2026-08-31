@@ -42,7 +42,7 @@ import signal
 import statistics
 import sys
 import time
-from typing import List, Optional
+from typing import Dict, List, Optional, Set, Tuple
 
 import psutil
 
@@ -93,7 +93,55 @@ def _prime_cpu(procs: List[psutil.Process]) -> None:
             continue
 
 
-def _sample(procs: List[psutil.Process]) -> dict:
+def _proc_key(p: psutil.Process) -> Tuple[int, float]:
+    try:
+        return (p.pid, float(p.create_time()))
+    except (psutil.NoSuchProcess, psutil.AccessDenied):
+        return (p.pid, 0.0)
+
+
+def _refresh_tree(
+    root: psutil.Process, tracked: Dict[Tuple[int, float], psutil.Process]
+) -> Tuple[List[psutil.Process], Set[int]]:
+    """Re-walk the process tree, REUSING the psutil.Process instances already
+    tracked.
+
+    psutil keeps the ``cpu_percent(interval=None)`` reference point on the
+    Process *instance*. Rebuilding the tree from fresh instances on every
+    refresh (the previous behaviour) forced a re-prime followed by an
+    immediate read, so one sample in every ``refresh_every`` measured a
+    ~0.2s window instead of the full ``--interval``. A sub-second burst that
+    is 9% of a 1s window reads as 46% of a 0.2s window; ``cpu_percent_max``
+    was dominated by that 5x amplification and tripped the regression gate
+    on same-code runs (windows-x64 idle, 2026-08-31).
+
+    Returns the current tree plus the set of PIDs discovered on THIS refresh.
+    New processes are primed here and must be excluded from the CPU sum of
+    the sample taken right after (their window would be near-zero); from the
+    next sample on they measure over the full interval like everyone else.
+    """
+    current = _collect_tree(root)
+    procs: List[psutil.Process] = []
+    fresh: Set[int] = set()
+    seen: Set[Tuple[int, float]] = set()
+    for p in current:
+        key = _proc_key(p)
+        seen.add(key)
+        existing = tracked.get(key)
+        if existing is None:
+            tracked[key] = p
+            fresh.add(p.pid)
+            procs.append(p)
+        else:
+            procs.append(existing)
+    for key in list(tracked):
+        if key not in seen:
+            del tracked[key]
+    _prime_cpu([tracked[k] for k in tracked if tracked[k].pid in fresh])
+    return procs, fresh
+
+
+def _sample(procs: List[psutil.Process], skip_cpu_pids: Optional[Set[int]] = None) -> dict:
     rss = 0
     vms = 0
     cpu_total = 0.0
@@ -108,7 +156,8 @@ def _sample(procs: List[psutil.Process]) -> dict:
                 mi = p.memory_info()
                 rss += mi.rss
                 vms += mi.vms
-                cpu_total += p.cpu_percent(interval=None)
+                if not skip_cpu_pids or p.pid not in skip_cpu_pids:
+                    cpu_total += p.cpu_percent(interval=None)
                 try:
                     threads += p.num_threads()
                 except (psutil.AccessDenied, psutil.NoSuchProcess):
@@ -294,24 +343,27 @@ def main() -> int:
             pass
         return 1
 
-    procs = _collect_tree(root)
-    _prime_cpu(procs)
-    time.sleep(0.5)
+    # Every CPU reading must cover a full --interval window. Prime the tree
+    # once, then wait one full interval before the first sample; later tree
+    # refreshes reuse the tracked instances (see _refresh_tree) so the
+    # reference point is never reset mid-run.
+    tracked: Dict[Tuple[int, float], psutil.Process] = {}
+    procs, _fresh = _refresh_tree(root, tracked)
+    time.sleep(args.interval)
 
     refresh_every = max(3, int(5.0 / max(0.1, args.interval)))
     with open(args.jsonl_output, "w", encoding="utf-8") as jfh:
         i = 0
         while not _STOP:
+            fresh: Set[int] = set()
             if i % refresh_every == 0:
-                procs = _collect_tree(root)
-                _prime_cpu(procs)
-                time.sleep(min(0.2, args.interval / 2))
+                procs, fresh = _refresh_tree(root, tracked)
             try:
                 if not root.is_running():
                     break
             except (psutil.NoSuchProcess, psutil.AccessDenied):
                 break
-            rec = _sample(procs)
+            rec = _sample(procs, skip_cpu_pids=fresh)
             rec["elapsed_s"] = time.monotonic() - start_mono
             rec["wall_timestamp"] = (
                 datetime.datetime.now(datetime.timezone.utc)
