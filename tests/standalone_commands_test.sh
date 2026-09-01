@@ -314,8 +314,8 @@ if [[ "$mcp_generate_psk_result" == "✅" ]]; then
             echo "✅ MCP server is running"
             mcp_status_result="✅"
         else
-            echo "⚠️ MCP status check inconclusive (may already be stopped)"
-            mcp_status_result="⚠️"
+            echo "❌ MCP status check failed: $MCP_STATUS_OUTPUT"
+            mcp_status_result="❌"
         fi
         
         echo "MCP: Stop server:"
@@ -324,20 +324,22 @@ if [[ "$mcp_generate_psk_result" == "✅" ]]; then
             echo "✅ MCP server stopped"
             mcp_stop_result="✅"
         else
-            echo "⚠️ MCP stop command inconclusive"
-            mcp_stop_result="⚠️"
+            echo "❌ MCP stop command failed: $MCP_STOP_OUTPUT"
+            mcp_stop_result="❌"
         fi
     else
-        echo "⚠️ MCP server start failed or inconclusive: $MCP_START_OUTPUT"
-        mcp_start_result="⚠️"
+        echo "❌ MCP server start failed: $MCP_START_OUTPUT"
+        mcp_start_result="❌"
         mcp_status_result="⏭️"
         mcp_stop_result="⏭️"
     fi
 else
-    echo "⏭️ Skipping MCP server tests (PSK generation failed)"
-    mcp_start_result="⏭️"
-    mcp_status_result="⏭️"
-    mcp_stop_result="⏭️"
+    # PSK generation failed: MCP cannot be exercised at all, and that is a failure
+    # of the MCP surface, not a skip (TESTAUDIT-2026-09 T-L3-6).
+    echo "❌ MCP server tests not run (PSK generation failed)"
+    mcp_start_result="❌"
+    mcp_status_result="❌"
+    mcp_stop_result="❌"
 fi
 
 # Check for any failed tests (❌) and exit with error if found
