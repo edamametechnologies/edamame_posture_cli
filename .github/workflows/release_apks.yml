@@ -81,7 +81,11 @@ jobs:
       # mirror. Fetch apk.static ourselves with retries and, if GitLab stays
       # unreachable, fall back to the apk-tools-static package on dl-cdn
       # (the mirror the action already depends on for every package). The
-      # action then verifies the sha256 we pass alongside the file:// URL.
+      # setup-alpine downloads into $RUNNER_TEMP/apk and SKIPS the download
+      # when that file already exists with the sha256 named in the URL
+      # fragment, so we place the binary there and pass an https URL (the
+      # action rejects any other scheme) carrying the sha256 of what we
+      # placed; the action verifies it and never contacts GitLab.
       # (Observed 2026-09-01: 3 consecutive aarch64 release_apks failures.)
       - name: Fetch apk.static (retry + dl-cdn fallback)
         id: apk_static
@@ -94,7 +98,7 @@ jobs:
           else
             PIN_SHA=27a975638ddc95a411c9f17c63383e335da9edf6bb7de2281d950c291a11f878
           fi
-          OUT="$RUNNER_TEMP/apk.static"; rm -f "$OUT"
+          OUT="$RUNNER_TEMP/apk"; rm -f "$OUT"
           URL="https://gitlab.alpinelinux.org/api/v4/projects/5/packages/generic/v2.14.7/${ARCH}/apk.static"
           for i in 1 2 3 4; do
             if curl --connect-timeout 25 --max-time 180 -fsSL -o "$OUT" "$URL"; then break; fi
@@ -115,7 +119,7 @@ jobs:
             SHA=$(sha256sum "$OUT" | cut -d' ' -f1); echo "apk.static from $PKG sha256=$SHA"
           fi
           chmod +x "$OUT"
-          echo "url=file://${OUT}#!sha256!${SHA}" >> "$GITHUB_OUTPUT"
+          echo "url=${URL}#!sha256!${SHA}" >> "$GITHUB_OUTPUT"
 
       # Setup Alpine Linux
       - name: Setup Alpine Linux
