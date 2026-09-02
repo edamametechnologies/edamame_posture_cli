@@ -2401,7 +2401,6 @@ pub fn background_agentic_remove_dismissal_rule(rule_id: String) -> i32 {
 //
 // Reads return JSON strings (same convention as vulnerability findings); we
 // parse + pretty-print. Mutators return a {"success": bool, ...} envelope.
-// See edamame_core/VISIBILITYIMPROVEMENTS.md.
 // ===========================================================================
 
 /// Pretty-print a JSON string returned by a visibility/observer read RPC.

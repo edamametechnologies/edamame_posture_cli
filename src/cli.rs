@@ -578,8 +578,7 @@ pub fn build_cli() -> Command {
     )
     ////////////////
     // Agent Visibility commands (MCP discovery, agent component inventory, capability graph,
-    // recursive-agent detection). MVP of the agent-visibility platform; see
-    // edamame_core/VISIBILITYIMPROVEMENTS.md. All reads lazily refresh a
+    // recursive-agent detection). All reads lazily refresh a
     // structural snapshot daemon-side, so a single-shot CLI call returns data
     // without a separate refresh step.
     ////////////////
