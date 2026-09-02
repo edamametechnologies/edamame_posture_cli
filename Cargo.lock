@@ -285,9 +285,9 @@ dependencies = [
 
 [[package]]
 name = "async-compression"
-version = "0.4.43"
+version = "0.4.44"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3976abdc8fe7d1133d43d304afd42abdf5bc3e1319d263d223bde07b5efc4be8"
+checksum = "515a1f282e33d55983c499d7e9e87082e81cbc32974825bf9032f928392d5844"
 dependencies = [
  "compression-codecs",
  "compression-core",
@@ -875,9 +875,9 @@ dependencies = [
 
 [[package]]
 name = "cargo-deb"
-version = "3.7.0"
+version = "3.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a40a401a79fd1bd9d2cb41fd783d0c80f3504f657002bfae49dfd55049dce8f8"
+checksum = "201780f7056812fe4d8078b2772c1a222c56fa924cd2aafa1aaf74ff2777e188"
 dependencies = [
  "anstream",
  "anstyle",
@@ -887,7 +887,7 @@ dependencies = [
  "elf",
  "env_logger",
  "glob",
- "itertools 0.14.0",
+ "itertools 0.15.0",
  "log",
  "quick-error 2.0.1",
  "rayon",
@@ -896,19 +896,20 @@ dependencies = [
  "serde_json",
  "tar",
  "tempfile",
- "toml 1.1.4+spec-1.1.0",
+ "toml 1.1.5+spec-1.1.0",
  "xz2",
  "zopfli",
 ]
 
 [[package]]
 name = "cargo_toml"
-version = "0.22.3"
+version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "374b7c592d9c00c1f4972ea58390ac6b18cbb6ab79011f3bdc90a0b82ca06b77"
+checksum = "82f4b26e751e711a5302649417f2da046dce6391b2ea30a4820f37462314f0b9"
 dependencies = [
+ "semver",
  "serde",
- "toml 0.9.12+spec-1.1.0",
+ "toml 1.1.5+spec-1.1.0",
 ]
 
 [[package]]
@@ -1093,9 +1094,9 @@ dependencies = [
 
 [[package]]
 name = "compression-codecs"
-version = "0.4.38"
+version = "0.4.39"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ce2548391e9c1929c21bf6aa2680af86fe4c1b33e6cea9ac1cfeec0bd11218cf"
+checksum = "2fe67f2944eef52fc7b106b8c9450d243a88701a0c065f7f57235e76abaed7df"
 dependencies = [
  "compression-core",
  "flate2",
@@ -1104,9 +1105,9 @@ dependencies = [
 
 [[package]]
 name = "compression-core"
-version = "0.4.32"
+version = "0.4.33"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cc14f565cf027a105f7a44ccf9e5b424348421a1d8952a8fc9d499d313107789"
+checksum = "6e8ccc4ea9f6acc32d102c0f6d471d11d913ad15f20c04de743374861fa1d414"
 
 [[package]]
 name = "concurrent-queue"
@@ -1881,7 +1882,7 @@ dependencies = [
 [[package]]
 name = "edamame_backend"
 version = "0.3.5"
-source = "git+https://github.com/edamametechnologies/edamame_backend?branch=main#cc810964d57a974fcfdf60089ec0e41476b88b68"
+source = "git+https://github.com/edamametechnologies/edamame_backend?branch=main#2c193fc26522209c3fc33bb25b8223bca1f5f16e"
 dependencies = [
  "anyhow",
  "blake3",
@@ -1895,7 +1896,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "1.8.4"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#0260ecc1638f91b0e71b5ae713ad0bd99e8ddfcd"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#452745f7eae4e18e0a5aec364af6cbc03776a985"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -1984,7 +1985,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "1.8.4"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#db2f0e44ee4e1af13293e94d7bb7c1df907e2f27"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#db59b5da886ef8d9bb2e5d951f72d3ffb999d369"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -2456,7 +2457,7 @@ dependencies = [
 [[package]]
 name = "flodbadd"
 version = "1.8.4"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#25e1a5e308f4f05105e909c4bcadffc5415e457a"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#5f1531ba5d1c5f3f56c0ff99b869af2354092018"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -3864,6 +3865,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "itertools"
+version = "0.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8b4baf93f58d4425749ca49a51c50ebab072c5df6994d08fed93541c331481dc"
+dependencies = [
+ "either",
+]
+
+[[package]]
 name = "itoa"
 version = "1.0.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4054,7 +4064,7 @@ dependencies = [
 [[package]]
 name = "l7_ebpf_program"
 version = "0.1.0"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#25e1a5e308f4f05105e909c4bcadffc5415e457a"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#5f1531ba5d1c5f3f56c0ff99b869af2354092018"
 
 [[package]]
 name = "lazy_static"
@@ -4433,9 +4443,9 @@ dependencies = [
 
 [[package]]
 name = "libredox"
-version = "0.1.21"
+version = "0.1.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d7955dfc218a8afb29dfeffd540e3a6e96baeb94fe7138228dd7cc6937fbbf96"
+checksum = "8d8f1ea3f21fd3405dcaf6c9b5c1630af9afc422d9073ea39c5f6d6c772e08ed"
 dependencies = [
  "libc",
 ]
@@ -4652,9 +4662,9 @@ dependencies = [
 
 [[package]]
 name = "mio"
-version = "1.2.2"
+version = "1.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "30d65c71f1ce40ab09135ce117d742b9f8a19ff91a41a8b57ed50bc2de59c427"
+checksum = "4b18443e9c262bfe8fa82f51666e2642c53393f7e5c27b3e1aeab922cff5b9d8"
 dependencies = [
  "libc",
  "log",
@@ -6825,6 +6835,10 @@ name = "semver"
 version = "1.0.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8a7852d02fc848982e0c167ef163aaff9cd91dc640ba85e263cb1ce46fae51cd"
+dependencies = [
+ "serde",
+ "serde_core",
+]
 
 [[package]]
 name = "sentry"
@@ -7155,9 +7169,9 @@ checksum = "0c790de23124f9ab44544d7ac05d60440adc586479ce501c1d6d7da3cd8c9cf5"
 
 [[package]]
 name = "smallvec"
-version = "1.15.2"
+version = "1.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8ed6a63f02c8539c91a8685a86f4099661ba3da017932f6ebbea6de3f0fa7c90"
+checksum = "b9be42f50aa861c555654aa3a37f52f4b1074bacf4e48fe0ef7fa584e80f1f0f"
 
 [[package]]
 name = "smol"
@@ -7496,7 +7510,7 @@ dependencies = [
  "cfg-expr 0.20.9",
  "heck 0.5.0",
  "pkg-config",
- "toml 1.1.4+spec-1.1.0",
+ "toml 1.1.5+spec-1.1.0",
  "version-compare",
 ]
 
@@ -7602,7 +7616,7 @@ dependencies = [
 [[package]]
 name = "threatmodels_rs"
 version = "0.1.1"
-source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#b3919a6ee1d0b22eb1cf3d23f09afabc5f05b558"
+source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#7231916018b852b6b52b030a1331648364490109"
 dependencies = [
  "anyhow",
  "chrono",
@@ -7750,24 +7764,9 @@ dependencies = [
 
 [[package]]
 name = "toml"
-version = "0.9.12+spec-1.1.0"
+version = "1.1.5+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cf92845e79fc2e2def6a5d828f0801e29a2f8acc037becc5ab08595c7d5e9863"
-dependencies = [
- "indexmap 2.14.1",
- "serde_core",
- "serde_spanned 1.1.1",
- "toml_datetime 0.7.5+spec-1.1.0",
- "toml_parser",
- "toml_writer",
- "winnow 0.7.15",
-]
-
-[[package]]
-name = "toml"
-version = "1.1.4+spec-1.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3aace63f4bbcdfc2c965b059de67119c89c4017a70d633be6c104910f67056f5"
+checksum = "12c0ba9680044b4ce98d391a62094047eada0d64860b80166c39f4a6b5640785"
 dependencies = [
  "indexmap 2.14.1",
  "serde_core",
@@ -7785,15 +7784,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7cda73e2f1397b1262d6dfdcef8aafae14d1de7748d66822d3bfeeb6d03e5e4b"
 dependencies = [
  "serde",
-]
-
-[[package]]
-name = "toml_datetime"
-version = "0.7.5+spec-1.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "92e1cfed4a3038bc5a127e35a2d360f145e1f4b971b551a2ba5fd7aedf7e1347"
-dependencies = [
- "serde_core",
 ]
 
 [[package]]
@@ -9163,12 +9153,6 @@ checksum = "f593a95398737aeed53e489c785df13f3618e41dbcd6718c6addbf1395aa6876"
 dependencies = [
  "memchr",
 ]
-
-[[package]]
-name = "winnow"
-version = "0.7.15"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "df79d97927682d2fd8adb29682d1140b343be4ac0f08fd68b7765d9c059d3945"
 
 [[package]]
 name = "winnow"
