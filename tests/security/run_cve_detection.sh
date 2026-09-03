@@ -398,9 +398,18 @@ import os, sys
 sys.path.insert(0, os.environ["TRIGGERS_DIR_ENV"])
 from _edamame_cli import cli_rpc
 try:
-    events = cli_rpc('get_file_events', '{"sensitive_only": false}') or []
+    snapshot = cli_rpc('get_file_events', '{"sensitive_only": false}') or []
 except Exception:
-    events = []
+    snapshot = []
+# get_file_events returns a FimSnapshotAPI object ({"events": [...],
+# "sensitive_events": [...], ...}), not a bare list. Reading the object as a
+# list made this probe report total=0 on every platform, so FIM scenarios
+# always burned the full readiness budget instead of starting to verify as
+# soon as the first sensitive write was visible.
+if isinstance(snapshot, dict):
+    events = snapshot.get('events') or []
+else:
+    events = snapshot if isinstance(snapshot, list) else []
 sensitive = sum(1 for e in events if isinstance(e, dict) and e.get('is_sensitive'))
 ready = 1 if sensitive > 0 else 0
 print(f"{ready}|total={len(events) if isinstance(events, list) else 0} sensitive={sensitive}")
