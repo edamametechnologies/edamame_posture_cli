@@ -194,7 +194,18 @@ jobs:
         shell: bash
         run: |
           set -x
-          npm install -g @anthropic-ai/claude-code @openai/codex openclaw@latest || true
+          # OpenClaw 2026.8.2 cannot start its CLI on Windows ("SQLite read-only
+          # worker: Unable to create private Windows SQLite directory" under
+          # %LOCALAPPDATA%\openclaw), which turns the openclaw real-drive leg
+          # into a hard failure that is an upstream regression, not an EDAMAME
+          # one. 2026.8.1 drove fine on windows-latest (2026-09-01 run), so pin
+          # it there; macOS/Linux keep tracking latest so the gate still
+          # exercises the current release where it works.
+          OPENCLAW_SPEC="openclaw@latest"
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            OPENCLAW_SPEC="openclaw@2026.8.1"
+          fi
+          npm install -g @anthropic-ai/claude-code @openai/codex "$OPENCLAW_SPEC" || true
           echo "--- versions ---"
           command -v claude   >/dev/null 2>&1 && claude --version   || echo "claude CLI not on PATH"
           command -v codex    >/dev/null 2>&1 && codex --version    || echo "codex CLI not on PATH"
