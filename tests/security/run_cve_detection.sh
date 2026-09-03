@@ -49,7 +49,7 @@ POLL_ATTEMPTS=6
 POLL_INTERVAL=30
 READINESS_WAIT=120
 AGENT_TYPE="openclaw"
-SCENARIOS_CSV="blacklist_comm,cve_token_exfil,cve_sandbox_escape,memory_poisoning,credential_sprawl,supply_chain_exfil,npm_rat_beacon,file_events,skill_supply_chain,pgserve_postinstall,temp_modify,nonsensitive_path,agent_config_tamper,agent_cred_harvest"
+SCENARIOS_CSV="blacklist_comm,cve_token_exfil,cve_sandbox_escape,memory_poisoning,credential_sprawl,supply_chain_exfil,npm_rat_beacon,file_events,skill_supply_chain,pgserve_postinstall,temp_modify,nonsensitive_path,agent_config_tamper,agent_cred_harvest,agent_denylist_bypass"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -107,6 +107,7 @@ expected_check_for() {
     nonsensitive_path)      echo "sensitive_material_egress" ;;
     agent_config_tamper)    echo "file_system_tampering" ;;
     agent_cred_harvest)     echo "credential_harvest" ;;
+    agent_denylist_bypass)  echo "agent_denylist_bypass" ;;
     *) echo "" ;;
   esac
 }
@@ -137,6 +138,7 @@ scenario_markers_json() {
     nonsensitive_path)      echo '["_workspace_demo", "project_secrets.env"]' ;;
     agent_config_tamper)    echo '["_cfgtamper_hook.mdc", "_cfgtamper_mcp.mdc", "_cfgtamper_memory.mdc", "_cfgtamper"]' ;;
     agent_cred_harvest)     echo '["_ach_key", "_ach_secring.key", "_ach.mdc"]' ;;
+    agent_denylist_bypass)  echo '["denylist-bypass-probe.edamame.test"]' ;;
     *) echo '[]' ;;
   esac
 }

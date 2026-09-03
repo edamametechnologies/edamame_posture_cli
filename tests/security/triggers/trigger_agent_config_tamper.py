@@ -21,10 +21,16 @@ The observable shapes, all reproduced safely here:
   4. ``~/.cursor/mcp.json`` -- a rogue MCP server entry pointing the agent at
      an attacker command (the SANDWORM_MODE / Mitiga shape).
 
-All four target paths are catalogued sensitive material in
-``threatmodels/sensitive-paths-db.json`` (labels ``claude`` / ``instruction``),
-so the FIM watcher tags the events ``is_sensitive`` and the vulnerability
-detector emits ``file_system_tampering``. The hook bodies additionally contain
+The numbered list above names the real-world THREAT locations. What this test
+actually WRITES, to stay portable and avoid touching a developer's live agent
+config, is the same hostile content placed into catalogued-sensitive Cursor
+paths: ``~/.cursor/rules/*.mdc`` and ``~/.cursorrules`` (labels ``instruction``
+in ``threatmodels/sensitive-paths-db.json``). Those actual write targets are
+catalogued sensitive, so the FIM watcher tags the events ``is_sensitive`` and
+the detector emits ``file_system_tampering``. Note that ``~/.claude/settings.json``
+and ``~/.claude/projects/.../MEMORY.md`` are NOT themselves in the sensitive
+catalog -- an agent WEAKENING settings.json is caught semantically by the
+separate ``agent_control_tampering`` check, not by path sensitivity here. The hook bodies additionally contain
 ``curl ... | bash`` / ``nc`` shapes so the secret-content scanner classifies
 them ``script_like`` + ``network_command_like``, which supplies the
 corroboration that keeps the finding in the alertable (HIGH) band rather than

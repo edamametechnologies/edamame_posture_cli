@@ -151,7 +151,7 @@ jobs:
           # Defaults match the workflow_dispatch defaults so push events
           # behave identically to an "all defaults" manual run.
           DEFAULT_PERF_SCEN="idle,hub_idle,capture,lanscan,llm,all"
-          DEFAULT_SEC_SCEN="blacklist_comm,cve_token_exfil,cve_sandbox_escape,memory_poisoning,credential_sprawl,supply_chain_exfil,npm_rat_beacon,file_events,skill_supply_chain,pgserve_postinstall,temp_modify,nonsensitive_path,agent_config_tamper,agent_cred_harvest"
+          DEFAULT_SEC_SCEN="blacklist_comm,cve_token_exfil,cve_sandbox_escape,memory_poisoning,credential_sprawl,supply_chain_exfil,npm_rat_beacon,file_events,skill_supply_chain,pgserve_postinstall,temp_modify,nonsensitive_path,agent_config_tamper,agent_cred_harvest,agent_denylist_bypass"
           DEFAULT_PLATFORMS="ubuntu-x64,ubuntu-arm64,macos-arm64,windows-x64,ubuntu-20.04,ubuntu-18.04,alpine-x64,alpine-arm64"
 
           RT="${IN_RUN_TESTS:-true}"

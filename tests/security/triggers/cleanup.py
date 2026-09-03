@@ -39,6 +39,7 @@ PID_FILES = [
     "nonsensitive_path.pid",
     "agent_config_tamper.pid",
     "agent_cred_harvest.pid",
+    "agent_denylist_bypass.pid",
 ]
 
 CREATED_MARKERS = [
@@ -57,6 +58,7 @@ CREATED_MARKERS = [
     "nonsensitive_path.created",
     "agent_config_tamper.created",
     "agent_cred_harvest.created",
+    "agent_denylist_bypass.created",
 ]
 
 
