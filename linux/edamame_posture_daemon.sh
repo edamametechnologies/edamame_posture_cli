@@ -250,5 +250,18 @@ fi
 
 echo "Starting edamame_posture service..."
 
+# Never run the daemon with / as its working directory. In CI mode the
+# file-integrity monitor falls back to the current directory as a recursive
+# watch root when no workspace variable is set; a recursive watch of / walks
+# /proc and /sys forever and grows the process without bound (17-24 GB RSS in
+# 6-8 h on the Azure runners, 2026-09-03). The systemd unit sets
+# WorkingDirectory as well; this covers OpenRC and manual launches.
+state_dir="/var/lib/edamame_posture"
+if mkdir -p "$state_dir" 2>/dev/null && cd "$state_dir" 2>/dev/null; then
+  :
+elif cd /var/tmp 2>/dev/null; then
+  :
+fi
+
 # Execute the main binary in foreground mode (systemd manages daemonization)
 exec /usr/bin/edamame_posture "$@"

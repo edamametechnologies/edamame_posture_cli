@@ -6,6 +6,13 @@ After=network.target
 Type=simple
 # Launch wrapper script that reads the configuration and starts the binary in foreground
 ExecStart=/usr/bin/edamame_posture_daemon.sh
+# The daemon's cwd must never be / : in CI mode the file-integrity monitor
+# falls back to the current directory as a recursive watch root when no
+# workspace variable is set, and a recursive watch of / walks /proc and /sys
+# forever while its bookkeeping grows without bound (17-24 GB RSS in 6-8 h on
+# the Azure runners, 2026-09-03). Give it a small private state directory.
+StateDirectory=edamame_posture
+WorkingDirectory=/var/lib/edamame_posture
 # No ExecStop in favor of systemd handling graceful shutdown via signals.
 Restart=always
 RestartSec=5
