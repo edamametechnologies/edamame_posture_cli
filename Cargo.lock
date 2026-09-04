@@ -1896,7 +1896,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "1.8.5"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#2bea6fff57d8b5fc11c2962d22781e52b5d9a109"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#7ca0dc926ab9c748b204ab1fc678bd9fb5e21c54"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -1985,7 +1985,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "1.8.5"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#a868f32ac49a87cefccb1aa5560a8e8d84795119"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#e2acd1541a4dd47f742257638b964f09fa2f5bb0"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -2457,7 +2457,7 @@ dependencies = [
 [[package]]
 name = "flodbadd"
 version = "1.8.5"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#0d31efddff0ed0abc49e6f700caa5ed8d5349714"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#b02e5ec43eb147cad2cf34c58dad23d710614587"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -4064,7 +4064,7 @@ dependencies = [
 [[package]]
 name = "l7_ebpf_program"
 version = "0.1.0"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#0d31efddff0ed0abc49e6f700caa5ed8d5349714"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#b02e5ec43eb147cad2cf34c58dad23d710614587"
 
 [[package]]
 name = "lazy_static"
@@ -7282,9 +7282,9 @@ dependencies = [
 
 [[package]]
 name = "sse-stream"
-version = "0.2.5"
+version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c123f296ade4ec4b8b0f6162116e6629f5146922ca5ab40ca9d3c2e73ab4761e"
+checksum = "c25ac7aff0abd1dbc474536e40416e1102c7dd9bfba0b9861c6d357f835dcfb4"
 dependencies = [
  "bytes",
  "futures-util",
@@ -7616,7 +7616,7 @@ dependencies = [
 [[package]]
 name = "threatmodels_rs"
 version = "0.1.1"
-source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#f843f4902ec03ca96f52edb550e125f8b436c313"
+source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#f13a5644dcd06a96dc8ee4f71859688db9b94194"
 dependencies = [
  "anyhow",
  "chrono",
@@ -7673,9 +7673,9 @@ dependencies = [
 
 [[package]]
 name = "tinyvec"
-version = "1.12.0"
+version = "1.13.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bb4ebadaa0af04fab11ae01eb5f9fdb5f9c5b875506e210e71c07873528baa7f"
+checksum = "4cf0ded5c4e56918d8f8a339e1bb67d038d3bc6d144ac407904015ba2e4cde9b"
 dependencies = [
  "tinyvec_macros",
 ]
@@ -7717,9 +7717,9 @@ dependencies = [
 
 [[package]]
 name = "tokio-rustls"
-version = "0.26.4"
+version = "0.26.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1729aa945f29d91ba541258c8df89027d5792d85a8841fb65e8bf0f4ede4ef61"
+checksum = "b0c85f2c3ef0b1cd58b36682f4b17aaa995f0e5db534d85692b4903abce21f67"
 dependencies = [
  "rustls",
  "tokio",
