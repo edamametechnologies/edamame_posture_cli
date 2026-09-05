@@ -40,6 +40,7 @@ PID_FILES = [
     "agent_config_tamper.pid",
     "agent_cred_harvest.pid",
     "agent_denylist_bypass.pid",
+    "dns_tunnel.pid",
 ]
 
 CREATED_MARKERS = [
@@ -59,6 +60,7 @@ CREATED_MARKERS = [
     "agent_config_tamper.created",
     "agent_cred_harvest.created",
     "agent_denylist_bypass.created",
+    "dns_tunnel.created",
 ]
 
 
