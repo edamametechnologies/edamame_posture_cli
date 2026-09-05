@@ -258,16 +258,51 @@ def write_stage2(state_dir: Path) -> Path:
 
 
 def create_launcher(stage2_path: Path, state_dir: Path) -> Path:
-    """Create a shell wrapper in /tmp that runs the stage-2, so the beacon
-    process has /tmp parent lineage in flodbadd's L7 attribution."""
-    launcher = state_dir / "npm_rat_launcher.sh"
-    launcher.write_text(
-        f'#!/bin/sh\npython3 "{stage2_path}" "$@"\n',
-        encoding="utf-8",
-    )
+    """Create a wrapper script in the temp dir that runs the stage-2, so the
+    beacon process has temp-dir parent lineage in flodbadd's L7 attribution.
+
+    Platform matrix: the POSIX arm (macOS, Linux) writes the `/bin/sh`
+    wrapper it always has. Windows CANNOT CreateProcess a shell script --
+    `Popen(["...\\npm_rat_launcher.sh", ...])` raises
+    `OSError: [WinError 193] %1 is not a valid Win32 application` -- which
+    crashed the trigger right after phase 1, so the stage-2 beacon (the
+    actual token_exfiltration vector) never ran on Windows at all. The
+    scenario only appeared to pass there because the gate matched any
+    token_exfiltration finding, including residue from a neighbouring
+    scenario. The Windows arm writes a `.cmd` batch wrapper instead and
+    `launcher_argv()` invokes it through the command interpreter, keeping
+    the same shape on every platform: a script living in the temp dir is
+    the parent of the beacon.
+    """
+    if sys.platform == "win32":
+        launcher = state_dir / "npm_rat_launcher.cmd"
+        # Batch files need CRLF, and the interpreter is spelled `python` (not
+        # `python3`) on Windows -- embed the running interpreter's own path so
+        # the wrapper cannot pick a different or absent one.
+        launcher.write_text(
+            f'@echo off\r\n"{sys.executable}" "{stage2_path}" %*\r\n',
+            encoding="utf-8",
+        )
+    else:
+        launcher = state_dir / "npm_rat_launcher.sh"
+        launcher.write_text(
+            f'#!/bin/sh\npython3 "{stage2_path}" "$@"\n',
+            encoding="utf-8",
+        )
     launcher.chmod(0o755)
     record_created(state_dir, launcher)
     return launcher
+
+
+def launcher_argv(launcher: Path) -> list[str]:
+    """Argv prefix that executes `launcher`.
+
+    Windows batch files are not executable images, so they must go through
+    the command interpreter; POSIX wrappers execute directly via shebang.
+    """
+    if sys.platform == "win32":
+        return [os.environ.get("COMSPEC") or "cmd.exe", "/c", str(launcher)]
+    return [str(launcher)]
 
 
 def main() -> int:
@@ -326,8 +361,7 @@ def main() -> int:
 
     # Phase 2: launch the beacon child from /tmp
     pid_file = state_dir / PID_FILE
-    child_args = [
-        str(launcher),
+    child_args = launcher_argv(launcher) + [
         target_ip,
         str(args.target_port),
         str(interval),
