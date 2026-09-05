@@ -49,7 +49,7 @@ POLL_ATTEMPTS=6
 POLL_INTERVAL=30
 READINESS_WAIT=120
 AGENT_TYPE="openclaw"
-SCENARIOS_CSV="blacklist_comm,cve_token_exfil,cve_sandbox_escape,memory_poisoning,credential_sprawl,supply_chain_exfil,npm_rat_beacon,file_events,skill_supply_chain,pgserve_postinstall,temp_modify,nonsensitive_path,agent_config_tamper,agent_cred_harvest,agent_denylist_bypass"
+SCENARIOS_CSV="blacklist_comm,cve_token_exfil,cve_sandbox_escape,memory_poisoning,credential_sprawl,supply_chain_exfil,npm_rat_beacon,file_events,skill_supply_chain,pgserve_postinstall,temp_modify,nonsensitive_path,agent_config_tamper,agent_cred_harvest,agent_denylist_bypass,dns_tunnel"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -108,6 +108,12 @@ expected_check_for() {
     agent_config_tamper)    echo "file_system_tampering" ;;
     agent_cred_harvest)     echo "credential_harvest" ;;
     agent_denylist_bypass)  echo "agent_denylist_bypass" ;;
+    # BS-6 tunnel shape: sustained high-volume udp/53 with credential
+    # files open. Fires token_exfiltration via the deterministic
+    # sustained-sensitive-egress path once the CloudModel gate
+    # `treat_high_volume_dns_ntp_as_non_routine` is on (no anomaly flag
+    # required).
+    dns_tunnel)             echo "token_exfiltration" ;;
     *) echo "" ;;
   esac
 }
