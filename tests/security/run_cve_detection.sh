@@ -145,6 +145,17 @@ scenario_markers_json() {
     agent_config_tamper)    echo '["_cfgtamper_hook.mdc", "_cfgtamper_mcp.mdc", "_cfgtamper_memory.mdc", "_cfgtamper"]' ;;
     agent_cred_harvest)     echo '["_ach_key", "_ach_secring.key", "_ach.mdc"]' ;;
     agent_denylist_bypass)  echo '["denylist-bypass-probe.edamame.test"]' ;;
+    # Scenarios below share an expected_check with other scenarios, so an
+    # unattributed match ("any finding of this check type") lets residue from
+    # a neighbouring scenario satisfy them. `clear_vuln_history` resets the
+    # history at the start of every attempt, but the underlying sessions stay
+    # in the capture pipeline and the detector re-emits them from live
+    # telemetry inside the next scenario's window. Keying on this scenario's
+    # own fixtures (and its unique destination port, below) makes the pass
+    # provably its own.
+    npm_rat_beacon)         echo '["_npm_rat_key", "_npm_rat"]' ;;
+    supply_chain_exfil)     echo '["_supply_chain", "_sc_credentials", "_sc_adc.json", "_sc_config", "_vault-token", "_git-credentials"]' ;;
+    dns_tunnel)             echo '["_dns_tunnel_key", "_dns_tunnel"]' ;;
     *) echo '[]' ;;
   esac
 }
@@ -154,6 +165,13 @@ scenario_ports_json() {
     cve_token_exfil)        echo '[63169]' ;;
     credential_sprawl)      echo '[63171]' ;;
     pgserve_postinstall)    echo '[63174]' ;;
+    npm_rat_beacon)         echo '[63173]' ;;
+    supply_chain_exfil)     echo '[44380]' ;;
+    # udp/53 is unique to the DNS-tunnel scenario across the whole suite, so
+    # destination-port attribution alone proves the finding came from the
+    # high-volume DNS flow rather than from another token_exfiltration
+    # scenario's residue.
+    dns_tunnel)             echo '[53]' ;;
     *) echo '[]' ;;
   esac
 }

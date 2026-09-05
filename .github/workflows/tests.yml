@@ -2306,11 +2306,19 @@ jobs:
         continue-on-error: true
         env:
           REQUIRED_SCENARIOS: ${{ needs.setup.outputs.security_scenarios }}
+          NATIVE_MATRIX: ${{ needs.setup.outputs.native_matrix }}
         run: |
           set +e
+          # Every native matrix leg MUST have produced a results directory.
+          # Without this the gate only inspects the directories that happen to
+          # exist, so a leg that was cancelled or timed out before its
+          # artifact upload would drop out of the gate silently.
+          EXPECTED_PLATFORMS=$(python3 -c 'import json, os; m = json.loads(os.environ["NATIVE_MATRIX"] or "{}"); print(",".join(e["label"] for e in m.get("include", []) if e.get("label")))')
+          echo "Expected platforms: $EXPECTED_PLATFORMS"
           python3 tests/security/check_gate.py \
             --results-dir results \
-            --required-scenarios "$REQUIRED_SCENARIOS" | tee gate-summary.md
+            --required-scenarios "$REQUIRED_SCENARIOS" \
+            --expected-platforms "$EXPECTED_PLATFORMS" | tee gate-summary.md
           rc=${PIPESTATUS[0]}
           echo "Gate exit code: $rc"
           exit "$rc"

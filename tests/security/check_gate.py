@@ -25,7 +25,10 @@ Gate policy:
     platform's ``results.json``, or present with ``status=skip``, OR
   * a scenario reports ``status=pass`` while recording zero **alertable**
     (HIGH/CRITICAL, non-dismissed) findings -- the shape a CRS-weight or
-    LLM-adjudicator regression takes, OR
+    LLM-adjudicator regression takes -- or while recording no
+    ``finding_alertable`` field at all, OR
+  * a platform named in ``--expected-platforms`` produced no results
+    directory at all, OR
   * a platform ran a clean baseline but produced no readable
     ``results.json`` (CVE step crashed, timed out, or was never
     reached), OR
@@ -35,9 +38,21 @@ Gate policy:
     with ``status=fail`` or ``finding_total > 0``).
   The matrix of failures is printed to stdout so the caller can forward
   it to ``$GITHUB_STEP_SUMMARY`` and trigger a rollback.
-- **PASS** (exit 0): every required scenario reported ``status=pass``
-  with at least one alertable finding on every platform that ran, no
-  scenario failed, and every platform's idle baseline was clean.
+- **PASS** (exit 0): every expected platform produced results, every
+  required scenario reported ``status=pass`` with at least one alertable
+  finding on every platform, no scenario failed, and every platform's
+  idle baseline was clean.
+
+Why a missing platform is not a pass
+------------------------------------
+
+The gate reads whichever per-platform directories exist under
+``--results-dir``, and the native matrix is built dynamically by the
+``setup`` job. Without ``--expected-platforms`` a matrix leg that was
+cancelled, timed out before its ``if: always()`` artifact upload, or was
+dropped from the matrix entirely simply has no directory -- and the gate
+would pass on the platforms that did report. Naming the expected labels
+turns that silent shortfall into a hard failure.
 
 Why "skip" is not a pass
 ------------------------
@@ -155,11 +170,28 @@ def main() -> int:
             " failure. Empty (default) keeps the legacy permissive behaviour."
         ),
     )
+    ap.add_argument(
+        "--expected-platforms",
+        default="",
+        help=(
+            "Comma-separated platform labels that MUST each have produced a"
+            " results directory. A platform that never appears under"
+            " --results-dir is a hard failure. Without this, the gate only"
+            " inspects the directories that happen to exist, so a matrix leg"
+            " that was cancelled, timed out, or was dropped from the matrix"
+            " passes silently."
+        ),
+    )
     args = ap.parse_args()
 
     required = [s.strip() for s in args.required_scenarios.split(",") if s.strip()]
+    expected_platforms = [
+        s.strip() for s in args.expected_platforms.split(",") if s.strip()
+    ]
 
     platform_dirs = _platform_dirs(args.results_dir)
+    found_platforms = {os.path.basename(p) for p in platform_dirs}
+    missing_platforms = [p for p in expected_platforms if p not in found_platforms]
     if not platform_dirs:
         print(
             f"[gate] ERROR: no per-platform subdirectories found under"
@@ -175,6 +207,17 @@ def main() -> int:
     # (platform, artifact, reason)
     artifact_fails: List[Tuple[str, str, str]] = []
     baseline_fails: List[Tuple[str, int, int, int, str]] = []
+
+    for plat in missing_platforms:
+        artifact_fails.append(
+            (
+                plat,
+                "results.json + baseline.json",
+                "expected platform produced no results directory at all"
+                " (matrix leg cancelled, timed out, lost its artifact upload,"
+                " or was dropped from the matrix)",
+            )
+        )
 
     total_scenarios = 0
     passed_scenarios = 0
@@ -258,10 +301,25 @@ def main() -> int:
             if status == "pass":
                 # A scenario cannot pass without an alertable finding: the
                 # gate mirrors production alerting, where only HIGH and
-                # CRITICAL non-dismissed findings notify anyone. `alertable`
-                # is None only for results produced before the harness
-                # started recording it.
-                if alertable is not None and alertable <= 0:
+                # CRITICAL non-dismissed findings notify anyone.
+                # `run_cve_detection.sh` records `finding_alertable` on every
+                # result path, and the gate only ever reads artifacts produced
+                # by the same run, so an absent field means a malformed or
+                # hand-edited artifact -- absent evidence, which this gate
+                # fails closed on rather than accepting as a pass.
+                if alertable is None:
+                    scenario_fails[name].append(
+                        (
+                            platform,
+                            check,
+                            findings,
+                            0,
+                            severities or "-",
+                            "pass without a finding_alertable field"
+                            " (malformed results.json)",
+                        )
+                    )
+                elif alertable <= 0:
                     scenario_fails[name].append(
                         (
                             platform,

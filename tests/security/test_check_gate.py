@@ -7,6 +7,8 @@ fail-closed contract:
 
 - a skipped *required* scenario blocks,
 - a scenario that "passed" with zero alertable findings blocks,
+- a scenario that "passed" with no ``finding_alertable`` field blocks,
+- an expected platform that produced no directory at all blocks,
 - a missing ``results.json`` after a clean baseline blocks,
 - an unreadable artifact blocks,
 - a dirty idle baseline blocks,
@@ -88,7 +90,9 @@ def results(*scenarios: dict) -> dict:
 class GateTestCase(unittest.TestCase):
     """Drives check_gate.py as a subprocess against synthetic artifacts."""
 
-    def run_gate(self, platforms: dict, required: str = "") -> tuple[int, str]:
+    def run_gate(
+        self, platforms: dict, required: str = "", expected: str = ""
+    ) -> tuple[int, str]:
         """Materialize ``platforms`` on disk and return ``(exit_code, stdout)``.
 
         ``platforms`` maps a platform label to a dict of artifact name ->
@@ -116,6 +120,8 @@ class GateTestCase(unittest.TestCase):
                     tmp,
                     "--required-scenarios",
                     required,
+                    "--expected-platforms",
+                    expected,
                 ],
                 capture_output=True,
                 text=True,
@@ -144,21 +150,6 @@ class TestGatePasses(GateTestCase):
         )
         self.assertEqual(rc, 0, out)
         self.assertIn("PASS", out)
-
-    def test_legacy_results_without_alertable_field_passes(self):
-        """Artifacts predating finding_alertable must not spuriously fail."""
-        rc, out = self.run_gate(
-            {
-                "macos-arm64": {
-                    "baseline.json": CLEAN_BASELINE,
-                    "results.json": results(
-                        scenario("cve_token_exfil", alertable=None)
-                    ),
-                }
-            },
-            required="cve_token_exfil",
-        )
-        self.assertEqual(rc, 0, out)
 
     def test_non_required_skip_is_tolerated(self):
         rc, out = self.run_gate(
@@ -210,6 +201,66 @@ class TestGateFailsClosed(GateTestCase):
         )
         self.assertEqual(rc, 1, out)
         self.assertIn("nonsensitive_path", out)
+
+    def test_pass_without_alertable_field_blocks(self):
+        """A results.json missing finding_alertable is absent evidence.
+
+        run_cve_detection.sh records the field on every result path and the
+        gate only ever reads same-run artifacts, so an absent field means a
+        malformed or hand-edited artifact -- which must not read as a pass.
+        """
+        rc, out = self.run_gate(
+            {
+                "macos-arm64": {
+                    "baseline.json": CLEAN_BASELINE,
+                    "results.json": results(
+                        scenario("cve_token_exfil", alertable=None)
+                    ),
+                }
+            },
+            required="cve_token_exfil",
+        )
+        self.assertEqual(rc, 1, out)
+        self.assertIn("finding_alertable", out)
+
+    def test_expected_platform_with_no_directory_blocks(self):
+        """A matrix leg that produced no directory at all must block.
+
+        The gate enumerates the directories that exist, so without the
+        expected-platform list a cancelled or timed-out leg silently drops
+        out of the gate and the run passes on the platforms that reported.
+        """
+        rc, out = self.run_gate(
+            {
+                "macos-arm64": {
+                    "baseline.json": CLEAN_BASELINE,
+                    "results.json": results(scenario("cve_token_exfil")),
+                }
+            },
+            required="cve_token_exfil",
+            expected="macos-arm64,windows-x64",
+        )
+        self.assertEqual(rc, 1, out)
+        self.assertIn("windows-x64", out)
+        self.assertIn("no results directory", out)
+
+    def test_all_expected_platforms_present_passes(self):
+        rc, out = self.run_gate(
+            {
+                "macos-arm64": {
+                    "baseline.json": CLEAN_BASELINE,
+                    "results.json": results(scenario("cve_token_exfil")),
+                },
+                "windows-x64": {
+                    "baseline.json": CLEAN_BASELINE,
+                    "results.json": results(scenario("cve_token_exfil")),
+                },
+            },
+            required="cve_token_exfil",
+            expected="macos-arm64,windows-x64",
+        )
+        self.assertEqual(rc, 0, out)
+        self.assertIn("PASS", out)
 
     def test_pass_without_alertable_finding_blocks(self):
         """A CRS/LLM demotion to LOW must not read as a detection."""
