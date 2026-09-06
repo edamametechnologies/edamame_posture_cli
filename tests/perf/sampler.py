@@ -352,9 +352,26 @@ def main() -> int:
     time.sleep(args.interval)
 
     refresh_every = max(3, int(5.0 / max(0.1, args.interval)))
+    # Sample on a fixed deadline schedule. The previous form slept
+    # `interval - (elapsed % interval)`: when the OS timer returned a hair
+    # early (Windows does, by ~1 ms at 15.6 ms granularity), the next
+    # remainder was ~0.015 s, that sleep returned immediately, and the loop
+    # emitted a dozen back-to-back samples per second boundary --
+    # `cpu_percent(interval=None)` reads 0 over a 1 ms window, so the
+    # per-scenario average collapsed (posture run 34019482048 windows-x64
+    # `all`: 3,320 samples / 300 s, 2,968 zeros, 9.8% avg vs the 33-43%
+    # every neighbouring run measured). Sleep until the deadline actually
+    # passes, and never take two readings within half an interval.
+    next_due = time.monotonic()
+    last_sample_mono: Optional[float] = None
     with open(args.jsonl_output, "w", encoding="utf-8") as jfh:
         i = 0
         while not _STOP:
+            now = time.monotonic()
+            if last_sample_mono is not None and now - last_sample_mono < 0.5 * args.interval:
+                time.sleep(max(0.0, next_due - now))
+                continue
+            last_sample_mono = now
             fresh: Set[int] = set()
             if i % refresh_every == 0:
                 procs, fresh = _refresh_tree(root, tracked)
@@ -380,10 +397,17 @@ def main() -> int:
             i += 1
             if end_mono is not None and time.monotonic() >= end_mono:
                 break
-            sleep_for = args.interval - ((time.monotonic() - start_mono) % args.interval)
-            if sleep_for <= 0:
-                sleep_for = args.interval
-            time.sleep(min(sleep_for, args.interval))
+            next_due += args.interval
+            if next_due < time.monotonic() - args.interval:
+                # Fell more than a full interval behind (suspended VM,
+                # very slow tree walk): resynchronise instead of bursting
+                # to catch up.
+                next_due = time.monotonic() + args.interval
+            while not _STOP:
+                remaining = next_due - time.monotonic()
+                if remaining <= 0:
+                    break
+                time.sleep(min(remaining, args.interval))
 
     duration = time.monotonic() - start_mono
     summary = _summarize(samples, duration)

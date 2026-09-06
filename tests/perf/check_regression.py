@@ -199,6 +199,46 @@ SCENARIO_MULTIPLIER_NOTES: Dict[str, str] = {
 }
 
 
+# Sampler integrity. A summary whose sample count does not match its own
+# duration / interval was not produced by a healthy 1 Hz sampler: the
+# windows-x64 `all` baseline of posture run 34019482048 carried 3,320
+# samples for 300 s (an early-returning OS sleep made the loop burst a
+# dozen readings per second boundary; `cpu_percent(interval=None)` over a
+# 1 ms window reads 0) and reported 9.8% CPU where every neighbouring run
+# measured 33-43%. Comparing against it flagged healthy runs as +343%
+# regressions -- and because the picker only considers successful runs,
+# the broken baseline would have been reused indefinitely. A current run
+# with the same defect under-reports CPU, which would MASK a regression,
+# so it fails the gate; a baseline with it cannot be compared, so the
+# scenario is skipped with a warning.
+SAMPLER_INTEGRITY_TOLERANCE = 0.25
+
+
+def _sampler_integrity(summary: dict) -> Optional[str]:
+    """Return a human-readable defect description, or None when the summary
+    is consistent with its own duration and interval."""
+    try:
+        samples = int(summary.get("samples"))
+        duration = float(summary.get("duration_s"))
+        interval = float(summary.get("interval_s") or 1.0)
+    except Exception:
+        return None
+    if duration < 5.0 or interval <= 0:
+        return None
+    expected = duration / interval
+    if samples > expected * (1.0 + SAMPLER_INTEGRITY_TOLERANCE):
+        return (
+            f"{samples} samples for {duration:.0f}s at {interval:g}s interval"
+            f" (expected ~{expected:.0f}): sampler burst, CPU under-reported"
+        )
+    if samples < expected * (1.0 - SAMPLER_INTEGRITY_TOLERANCE):
+        return (
+            f"{samples} samples for {duration:.0f}s at {interval:g}s interval"
+            f" (expected ~{expected:.0f}): sampler stalled"
+        )
+    return None
+
+
 def _load_summary(path: str) -> Optional[dict]:
     if not os.path.isfile(path):
         return None
@@ -290,11 +330,21 @@ def main() -> int:
         return 0
 
     regressions: List[Tuple[str, str, str, float, float, float, float, float]] = []
+    integrity_failures: List[Tuple[str, str, str]] = []
+    skipped_baselines: List[Tuple[str, str, str]] = []
     comparisons = 0
     for plat, scen_map in sorted(cur.items()):
         for scen, cur_summary in sorted(scen_map.items()):
+            cur_defect = _sampler_integrity(cur_summary)
+            if cur_defect:
+                integrity_failures.append((plat, scen, cur_defect))
+                continue
             base_summary = base.get(plat, {}).get(scen)
             if not base_summary:
+                continue
+            base_defect = _sampler_integrity(base_summary)
+            if base_defect:
+                skipped_baselines.append((plat, scen, base_defect))
                 continue
 
             rss_avg_ratio: Optional[float] = None
@@ -357,7 +407,33 @@ def main() -> int:
                         (plat, scen, label, bv, cv, ratio, floor, effective_threshold)
                     )
 
+    if skipped_baselines:
+        print(
+            f"WARN - {len(skipped_baselines)} (platform, scenario) baseline(s) failed"
+            " sampler integrity and were not compared (the current run's values"
+            " become the next baseline for them):"
+        )
+        print()
+        print("| Platform | Scenario | Baseline defect |")
+        print("|---|---|---|")
+        for plat, scen, defect in skipped_baselines:
+            print(f"| {plat} | {scen} | {defect} |")
+        print()
+    if integrity_failures:
+        print(
+            f"FAIL - {len(integrity_failures)} (platform, scenario) result(s) of the"
+            " CURRENT run failed sampler integrity; their CPU figures are not"
+            " trustworthy and could mask a regression."
+        )
+        print()
+        print("| Platform | Scenario | Current-run defect |")
+        print("|---|---|---|")
+        for plat, scen, defect in integrity_failures:
+            print(f"| {plat} | {scen} | {defect} |")
+        print()
     if not regressions:
+        if integrity_failures:
+            return 1
         print(
             f"PASS - compared {comparisons} metric(s) across"
             f" {sum(len(v) for v in cur.values())} (platform, scenario) tuples."
