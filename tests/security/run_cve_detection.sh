@@ -595,6 +595,63 @@ except Exception as exc:
 matched = current_matched + history_matched
 alertable = sum(1 for f in matched if is_alertable(f))
 
+# Session-side evidence for the same scenario: every current session that
+# targets one of the scenario ports or whose L7 open files carry a marker.
+# A miss with zero findings is otherwise undiagnosable from the artifact --
+# the detector cannot say WHY it stayed silent, but the session record can
+# (no `l7` at all = attribution lost; `l7` without the credential files =
+# open-file scan gap; small `outbound_bytes` = accounting / session split).
+def _session_snapshot(sess):
+    l7 = sess.get("l7") or {}
+    files = []
+    for key in ("open_files", "live_open_files", "sensitive_open_files"):
+        vals = l7.get(key) or []
+        files.extend(str(v) for v in vals)
+    return {
+        "session_uid": sess.get("session_uid"),
+        "protocol": sess.get("protocol"),
+        "dst_ip": sess.get("dst_ip"),
+        "dst_port": sess.get("dst_port"),
+        "dst_domain": sess.get("dst_domain"),
+        "last_modified": sess.get("last_modified"),
+        "status": sess.get("status"),
+        "stats": sess.get("stats"),
+        "is_anomalous": sess.get("is_anomalous"),
+        "criticality": sess.get("criticality"),
+        "is_whitelisted": sess.get("is_whitelisted"),
+        "l7_present": bool(l7),
+        "l7": {
+            "pid": l7.get("pid"),
+            "process_name": l7.get("process_name"),
+            "process_path": l7.get("process_path"),
+            "parent_process_name": l7.get("parent_process_name"),
+            "parent_process_path": l7.get("parent_process_path"),
+            "run_time": l7.get("run_time"),
+            "open_files": l7.get("open_files"),
+            "live_open_files": l7.get("live_open_files"),
+            "sensitive_open_files": l7.get("sensitive_open_files"),
+        } if l7 else None,
+        "marker_files": [f for f in files if any(m in f for m in markers)],
+    }
+
+sessions_snapshot = []
+try:
+    sessions = cli_rpc("get_current_sessions") or []
+    for sess in sessions:
+        if not isinstance(sess, dict):
+            continue
+        l7 = sess.get("l7") or {}
+        files = []
+        for key in ("open_files", "live_open_files", "sensitive_open_files"):
+            files.extend(str(v) for v in (l7.get(key) or []))
+        port_hit = ports and sess.get("dst_port") in ports
+        marker_hit = markers and any(m in f for f in files for m in markers)
+        if port_hit or marker_hit:
+            sessions_snapshot.append(_session_snapshot(sess))
+    sessions_snapshot = sessions_snapshot[:25]
+except Exception as exc:
+    print(f"__ERR__ sessions snapshot: {exc}", file=sys.stderr)
+
 # Persist the whole matched finding objects, not just the counters. Each
 # finding carries its `evidence` packet (the CRS inputs) and its severity, so
 # this file is what lets a severity regression be diagnosed from the artifact
@@ -612,6 +669,7 @@ if dump_path:
                     "alertable": alertable,
                     "current": current_matched,
                     "history": history_matched,
+                    "sessions_snapshot": sessions_snapshot,
                 },
                 fh,
                 indent=2,
