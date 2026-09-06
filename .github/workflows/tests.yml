@@ -79,6 +79,11 @@ on:
         description: "Comma-separated CVE scenarios to run (also the gate's required set)."
         required: false
         default: "blacklist_comm,cve_token_exfil,cve_sandbox_escape,memory_poisoning,credential_sprawl,supply_chain_exfil,npm_rat_beacon,file_events,skill_supply_chain,pgserve_postinstall,temp_modify,nonsensitive_path"
+      security_log_level:
+        description: "EDAMAME_LOG_LEVEL for the security-suite daemon (tracing EnvFilter spec, e.g. info,vdiag=debug,edamame_core::agentic=debug). Default: info."
+        required: false
+        type: string
+        default: "info"
   push:
     branches:
       - 'dev'
@@ -1703,6 +1708,12 @@ jobs:
         shell: bash
         env:
           EDAMAME_LLM_API_KEY: ${{ secrets.EDAMAME_LLM_API_KEY }}
+          # Daemon log filter. Push-triggered runs keep the daemon default
+          # (info); a workflow_dispatch can raise per-target levels so a
+          # miss leaves the detector's per-PID `vdiag` diagnostics in the
+          # daemon-logs artifact. The daemon is started through `sudo -E`,
+          # so the variable reaches it.
+          EDAMAME_LOG_LEVEL: ${{ inputs.security_log_level || 'info' }}
         run: |
           set -euo pipefail
           if [[ ! -e "$BINARY_PATH" ]]; then
