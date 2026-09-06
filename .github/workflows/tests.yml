@@ -78,7 +78,7 @@ on:
       security_scenarios:
         description: "Comma-separated CVE scenarios to run (also the gate's required set)."
         required: false
-        default: "blacklist_comm,cve_token_exfil,cve_sandbox_escape,memory_poisoning,credential_sprawl,supply_chain_exfil,npm_rat_beacon,file_events,skill_supply_chain,pgserve_postinstall,temp_modify,nonsensitive_path"
+        default: "blacklist_comm,cve_token_exfil,cve_sandbox_escape,memory_poisoning,credential_sprawl,supply_chain_exfil,npm_rat_beacon,file_events,skill_supply_chain,pgserve_postinstall,temp_modify,nonsensitive_path,agent_config_tamper,agent_cred_harvest,agent_denylist_bypass,dns_tunnel"
       security_log_level:
         description: "EDAMAME_LOG_LEVEL for the security-suite daemon (tracing EnvFilter spec, e.g. info,vdiag=debug,edamame_core::agentic=debug). Default: info."
         required: false
