@@ -601,23 +601,34 @@ alertable = sum(1 for f in matched if is_alertable(f))
 # the detector cannot say WHY it stayed silent, but the session record can
 # (no `l7` at all = attribution lost; `l7` without the credential files =
 # open-file scan gap; small `outbound_bytes` = accounting / session split).
+# `get_current_sessions` returns SessionInfoAPI records: the 5-tuple is
+# nested under `session`, the anomaly verdict is encoded in the
+# `criticality` tag string (`anomaly:suspicious` / `anomaly:abnormal`), and
+# the identifier is `uid`.
+def _session_tuple(sess):
+    return sess.get("session") or {}
+
 def _session_snapshot(sess):
     l7 = sess.get("l7") or {}
+    tup = _session_tuple(sess)
     files = []
     for key in ("open_files", "live_open_files", "sensitive_open_files"):
         vals = l7.get(key) or []
         files.extend(str(v) for v in vals)
+    criticality = str(sess.get("criticality") or "")
     return {
-        "session_uid": sess.get("session_uid"),
-        "protocol": sess.get("protocol"),
-        "dst_ip": sess.get("dst_ip"),
-        "dst_port": sess.get("dst_port"),
+        "uid": sess.get("uid"),
+        "protocol": tup.get("protocol"),
+        "src_port": tup.get("src_port"),
+        "dst_ip": tup.get("dst_ip"),
+        "dst_port": tup.get("dst_port"),
         "dst_domain": sess.get("dst_domain"),
+        "dst_service": sess.get("dst_service"),
         "last_modified": sess.get("last_modified"),
         "status": sess.get("status"),
         "stats": sess.get("stats"),
-        "is_anomalous": sess.get("is_anomalous"),
-        "criticality": sess.get("criticality"),
+        "is_anomalous": "anomaly:" in criticality,
+        "criticality": criticality,
         "is_whitelisted": sess.get("is_whitelisted"),
         "l7_present": bool(l7),
         "l7": {
@@ -644,7 +655,7 @@ try:
         files = []
         for key in ("open_files", "live_open_files", "sensitive_open_files"):
             files.extend(str(v) for v in (l7.get(key) or []))
-        port_hit = ports and sess.get("dst_port") in ports
+        port_hit = ports and _session_tuple(sess).get("dst_port") in ports
         marker_hit = markers and any(m in f for f in files for m in markers)
         if port_hit or marker_hit:
             sessions_snapshot.append(_session_snapshot(sess))
@@ -987,6 +998,13 @@ run_one_scenario() {
     total_elapsed=$((total_elapsed + ELAPSED))
     if (( scen_attempt < max_attempts )); then
       log "  $scenario: attempt $scen_attempt did not detect; resetting state and retrying after cooldown"
+      # Keep the failed attempt's evidence file: the next count overwrites
+      # findings/<scenario>.json, and a miss that the retry then covers
+      # would otherwise leave no session-side evidence in the artifact.
+      if [ -f "$OUTPUT_DIR_ABS/findings/$scenario.json" ]; then
+        cp "$OUTPUT_DIR_ABS/findings/$scenario.json" \
+          "$OUTPUT_DIR_ABS/findings/$scenario.attempt$scen_attempt.json" || true
+      fi
       run_cleanup
       clear_vuln_history
       sleep "$COOLDOWN"
