@@ -12,6 +12,7 @@ import argparse
 import os
 import platform
 import signal
+import subprocess
 import sys
 from pathlib import Path
 
@@ -80,16 +81,37 @@ def kill_from_pid_file(pid_file: Path) -> None:
         pid_file.unlink(missing_ok=True)
         return
 
+    # One trigger that cannot be killed must never abort the rest of cleanup:
+    # every pid file and every created-file marker after it would be left in
+    # place. On Windows `os.kill` is OpenProcess+TerminateProcess on that one
+    # PID (no tree semantics) and reports a stale/foreign PID as a bare
+    # OSError (WinError 87), which escaped the two handlers below and stopped
+    # cleanup mid-run on the security gate's Windows leg; eight earlier
+    # triggers were still alive an hour later (posture run 34033187381).
+    # `taskkill /T /F` ends the whole tree and fails softly, matching what
+    # run_scenario.sh already uses on Windows.
     try:
         if platform.system() == "Windows":
-            os.kill(pid, signal.SIGTERM)
+            result = subprocess.run(
+                ["taskkill", "/PID", str(pid), "/T", "/F"],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if result.returncode == 0:
+                print(f"  killed pid={pid} tree ({pid_file.name})")
+            else:
+                detail = (result.stderr or result.stdout or "").strip().replace("\n", " ")
+                print(f"  could not kill pid={pid} ({pid_file.name}): {detail}")
         else:
             os.kill(pid, signal.SIGTERM)
-        print(f"  killed pid={pid} ({pid_file.name})")
+            print(f"  killed pid={pid} ({pid_file.name})")
     except ProcessLookupError:
         pass
     except PermissionError:
         print(f"  cannot kill pid={pid} (permission denied)")
+    except OSError as exc:
+        print(f"  could not kill pid={pid} ({pid_file.name}): {exc}")
 
     pid_file.unlink(missing_ok=True)
 
