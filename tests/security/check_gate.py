@@ -105,6 +105,23 @@ from typing import Dict, List, Optional, Tuple
 
 VALID_STATUSES = ("pass", "skip", "fail")
 
+# Scenarios that cannot produce a verdict on a platform because the
+# platform has no sensor for the shape (not a flake, not a gap in the
+# suite). They are not required there: a ``skip`` with a recorded reason
+# or an absent row is accepted; a ``fail`` still fails. Mirrors
+# PLATFORM_EXCLUDED_SCENARIOS in run_cve_detection.sh.
+PLATFORM_EXCLUDED_SCENARIOS = {
+    # BS-9 task-port / procfs memory access: macOS has ES GET_TASK, Linux
+    # has the ptrace_may_access kprobe + procfs; Windows has no driverless
+    # OpenProcess source.
+    "windows-x64": {"process_memory_scrape"},
+}
+
+
+def required_on(platform: str, required: List[str]) -> List[str]:
+    excluded = PLATFORM_EXCLUDED_SCENARIOS.get(platform, set())
+    return [name for name in required if name not in excluded]
+
 
 def _read_json(path: str) -> Tuple[Optional[dict], Optional[str]]:
     """Load a JSON artifact.
@@ -334,7 +351,7 @@ def main() -> int:
                     passed_scenarios += 1
             elif status == "skip":
                 skipped_scenarios += 1
-                if name in required:
+                if name in required_on(platform, required):
                     scenario_fails[name].append(
                         (
                             platform,
@@ -361,7 +378,7 @@ def main() -> int:
                     )
                 )
 
-        for name in required:
+        for name in required_on(platform, required):
             if name not in seen:
                 scenario_fails[name].append(
                     (

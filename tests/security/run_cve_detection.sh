@@ -114,6 +114,12 @@ expected_check_for() {
     # `treat_high_volume_dns_ntp_as_non_routine` is on (no anomaly flag
     # required).
     dns_tunnel)             echo "token_exfiltration" ;;
+    # BS-9: a non-platform process obtains another process's task port /
+    # reads /proc/<pid>/mem. Kernel route (macOS ES GET_TASK, Linux
+    # ptrace_may_access kprobe) plus the procfs open-file route; no
+    # driverless source on Windows, so the scenario is platform-excluded
+    # there (see PLATFORM_EXCLUDED_SCENARIOS).
+    process_memory_scrape)  echo "process_memory_scrape" ;;
     *) echo "" ;;
   esac
 }
@@ -125,6 +131,21 @@ expected_check_for() {
 # a blacklisted session and the `skill_supply_chain` shape. The two scenarios
 # assert different checks against the same stimulus rather than duplicating
 # the trigger.
+# Scenarios with no sensor on a platform. Mirrors PLATFORM_EXCLUDED_SCENARIOS
+# in check_gate.py, which accepts the recorded `unsupported_platform` skip
+# for exactly these pairs and nothing else.
+scenario_excluded_on_this_platform() {
+  local scenario="$1"
+  case "$(uname -s 2>/dev/null || true)" in
+    MINGW*|MSYS*|CYGWIN*)
+      case "$scenario" in
+        process_memory_scrape) return 0 ;;
+      esac
+      ;;
+  esac
+  return 1
+}
+
 trigger_script_for() {
   case "$1" in
     skill_supply_chain)     echo "$TRIGGERS_DIR/trigger_blacklist_comm.py" ;;
@@ -969,6 +990,11 @@ run_one_scenario() {
   if [[ ! -f "$trigger_script" ]]; then
     log "SKIP $scenario (trigger not found: $trigger_script)"
     record_scenario_result "$scenario" "$check" "skip" 0 0 0 0 "trigger_missing" 0 "none"
+    return 0
+  fi
+  if scenario_excluded_on_this_platform "$scenario"; then
+    log "SKIP $scenario (no sensor for this shape on $(uname -s); platform-excluded)"
+    record_scenario_result "$scenario" "$check" "skip" 0 0 0 0 "unsupported_platform" 0 "none"
     return 0
   fi
 
