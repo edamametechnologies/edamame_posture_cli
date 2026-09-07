@@ -32,9 +32,11 @@ Detection path (procfs route, Linux only): the reader holds
 ``/proc/<other pid>/maps`` open while a session of its own is live, so the
 live-open-file enrichment also sees ``/proc/<pid>/{maps,mem}``.
 
-Windows has no driverless source for this signal (``OpenProcess`` auditing
-needs a kernel provider), so the scenario is platform-excluded there; this
-script exits 0 with a clear message rather than pretending.
+On Windows the driverless source for this signal -- the kernel's
+``Microsoft-Windows-Kernel-Audit-API-Calls`` ETW provider (PsOpenProcess with
+target PID and desired-access mask) -- is not wired into flodbadd yet, so the
+scenario is platform-excluded there; this script exits 0 with a clear message
+rather than pretending.
 
 Cross-platform: macOS, Linux (Windows: no-op by design).
 """
@@ -202,7 +204,7 @@ def main() -> int:
 
     system = platform.system()
     if system == "Windows":
-        print("trigger_process_memory_scrape.py: no driverless source on Windows; "
+        print("trigger_process_memory_scrape.py: Windows task-access source (Kernel-Audit-API-Calls ETW) not wired yet; "
               "scenario is platform-excluded (nothing to do)")
         return 0
 

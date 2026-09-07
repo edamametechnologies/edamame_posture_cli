@@ -117,7 +117,8 @@ expected_check_for() {
     # BS-9: a non-platform process obtains another process's task port /
     # reads /proc/<pid>/mem. Kernel route (macOS ES GET_TASK, Linux
     # ptrace_may_access kprobe) plus the procfs open-file route; no
-    # driverless source on Windows, so the scenario is platform-excluded
+    # Windows consumer yet (the driverless source, the Kernel-Audit-API-Calls
+    # ETW provider, is not wired into flodbadd), so the scenario is platform-excluded
     # there (see PLATFORM_EXCLUDED_SCENARIOS).
     process_memory_scrape)  echo "process_memory_scrape" ;;
     *) echo "" ;;

@@ -112,8 +112,9 @@ VALID_STATUSES = ("pass", "skip", "fail")
 # PLATFORM_EXCLUDED_SCENARIOS in run_cve_detection.sh.
 PLATFORM_EXCLUDED_SCENARIOS = {
     # BS-9 task-port / procfs memory access: macOS has ES GET_TASK, Linux
-    # has the ptrace_may_access kprobe + procfs; Windows has no driverless
-    # OpenProcess source.
+    # has the ptrace_may_access kprobe + procfs; on Windows the driverless
+    # source (the Microsoft-Windows-Kernel-Audit-API-Calls ETW provider,
+    # PsOpenProcess events) is not wired into flodbadd yet.
     "windows-x64": {"process_memory_scrape"},
 }
 
