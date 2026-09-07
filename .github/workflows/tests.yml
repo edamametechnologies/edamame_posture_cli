@@ -2313,6 +2313,13 @@ jobs:
           for d in security_artifacts/security-*; do
             [[ -d "$d" ]] || continue
             label=$(basename "$d" | sed 's/^security-//')
+            # On a re-run the `security-*` glob also matches the previous
+            # attempt's `security-report` artifact; it is not a platform and
+            # would be graded as one with missing results (run 34123644372).
+            if [[ "$label" == "report" ]]; then
+              echo "skipping non-platform artifact $(basename "$d")"
+              continue
+            fi
             cp -R "$d" "results/$label"
           done
           ls -la results
