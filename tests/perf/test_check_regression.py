@@ -104,6 +104,29 @@ class SamplerIntegrityTests(unittest.TestCase):
         self.assertEqual(rc, 1, out)
         self.assertIn("regressed beyond", out)
 
+    def test_median_of_several_baselines_ignores_a_lucky_outlier(self) -> None:
+        # Run 34066664217: the macos lanscan window missed the LAN-scan burst
+        # (CPU max 20.8) while every other green run read ~155. As the sole
+        # baseline it failed healthy runs; as one of three it is outvoted.
+        _write_summary(self.cur, "macos-arm64", "lanscan", cpu_percent_max=150.7)
+        b1 = os.path.join(self.tmp.name, "b1")
+        b2 = os.path.join(self.tmp.name, "b2")
+        b3 = os.path.join(self.tmp.name, "b3")
+        _write_summary(b1, "macos-arm64", "lanscan", cpu_percent_max=20.8)
+        _write_summary(b2, "macos-arm64", "lanscan", cpu_percent_max=159.7)
+        _write_summary(b3, "macos-arm64", "lanscan", cpu_percent_max=153.9)
+        rc_single, out_single = _run_gate(self.cur, b1)
+        self.assertEqual(rc_single, 1, out_single)
+        proc = subprocess.run(
+            [sys.executable, SCRIPT, "--current", self.cur,
+             "--baseline", b1, "--baseline", b2, "--baseline", b3,
+             "--baseline", os.path.join(self.tmp.name, "missing"),
+             "--threshold", "1.00"],
+            capture_output=True, text=True, check=False,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stdout)
+        self.assertIn("median of 3 baseline", proc.stdout)
+
     def test_hub_idle_360s_window_is_healthy(self) -> None:
         # run_scenario.sh bumps hub_idle to 360 s; 360 samples is the
         # expected count, not a burst.

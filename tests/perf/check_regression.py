@@ -250,6 +250,32 @@ def _load_summary(path: str) -> Optional[dict]:
         return None
 
 
+def _median_summary(summaries: List[dict]) -> dict:
+    """Per-key median across baseline summaries (numeric keys only; a key is
+    taken from the summaries that carry it). With one summary this is the
+    summary itself."""
+    if len(summaries) == 1:
+        return dict(summaries[0])
+    keys = set()
+    for s in summaries:
+        keys.update(s.keys())
+    out: dict = {}
+    for key in keys:
+        values = []
+        for s in summaries:
+            v = s.get(key)
+            if isinstance(v, bool) or not isinstance(v, (int, float)):
+                continue
+            values.append(float(v))
+        if not values:
+            out[key] = summaries[0].get(key)
+            continue
+        values.sort()
+        mid = len(values) // 2
+        out[key] = values[mid] if len(values) % 2 else (values[mid - 1] + values[mid]) / 2.0
+    return out
+
+
 def _discover(root: str) -> Dict[str, Dict[str, dict]]:
     out: Dict[str, Dict[str, dict]] = {}
     for plat_dir in sorted(glob.glob(os.path.join(root, "*"))):
@@ -274,7 +300,15 @@ def main() -> int:
     ap.add_argument(
         "--baseline",
         required=True,
-        help="Baseline results directory (may be missing on first run)",
+        action="append",
+        help=(
+            "Baseline results directory (may be missing on first run). Repeatable:"
+            " with several baselines every metric is compared against the"
+            " per-(platform, scenario, metric) MEDIAN across the baselines that"
+            " carry it, so one lucky or unlucky green run (a lanscan window that"
+            " happened to miss the scan burst, a runner-noise spike) cannot"
+            " become the sole reference."
+        ),
     )
     ap.add_argument(
         "--threshold",
@@ -314,20 +348,28 @@ def main() -> int:
             print(f"| `{scen}` | x{mult:g} ({note}) |")
         print()
 
-    if not os.path.isdir(args.baseline):
+    baseline_dirs = [d for d in args.baseline if os.path.isdir(d)]
+    if not baseline_dirs:
         print(
-            f"_No baseline available at `{args.baseline}` - first run, accepting"
-            " current results as the new baseline._"
-        )
-        return 0
-
-    base = _discover(args.baseline)
-    if not base:
-        print(
-            f"_Baseline directory `{args.baseline}` contained no summaries -"
+            f"_No baseline available at `{', '.join(args.baseline)}` - first run,"
             " accepting current results as the new baseline._"
         )
         return 0
+
+    bases = [b for b in (_discover(d) for d in baseline_dirs) if b]
+    if not bases:
+        print(
+            f"_Baseline directories `{', '.join(baseline_dirs)}` contained no"
+            " summaries - accepting current results as the new baseline._"
+        )
+        return 0
+    if len(bases) > 1:
+        print(
+            f"_Comparing against the per-metric median of {len(bases)} baseline"
+            " runs (a single run is not a reference: e.g. a lanscan sampling window"
+            " that missed the scan burst reads 20% where every other run reads 150%)._"
+        )
+        print()
 
     regressions: List[Tuple[str, str, str, float, float, float, float, float]] = []
     integrity_failures: List[Tuple[str, str, str]] = []
@@ -339,13 +381,20 @@ def main() -> int:
             if cur_defect:
                 integrity_failures.append((plat, scen, cur_defect))
                 continue
-            base_summary = base.get(plat, {}).get(scen)
-            if not base_summary:
+            candidates = [b.get(plat, {}).get(scen) for b in bases]
+            candidates = [b for b in candidates if b]
+            if not candidates:
                 continue
-            base_defect = _sampler_integrity(base_summary)
-            if base_defect:
-                skipped_baselines.append((plat, scen, base_defect))
+            healthy = []
+            for cand in candidates:
+                base_defect = _sampler_integrity(cand)
+                if base_defect:
+                    skipped_baselines.append((plat, scen, base_defect))
+                else:
+                    healthy.append(cand)
+            if not healthy:
                 continue
+            base_summary = _median_summary(healthy)
 
             rss_avg_ratio: Optional[float] = None
             rss_avg_threshold: Optional[float] = None

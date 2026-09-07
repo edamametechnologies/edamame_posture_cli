@@ -2084,8 +2084,14 @@ jobs:
           # artifact. Partial smoke-test runs only upload the
           # performance-report and are skipped here so they don't
           # overwrite a real baseline.
-          echo "Looking for the most recent successful run with a performance-baseline artifact..."
-          PREV_RUN=""
+          # The gate compares against the per-metric MEDIAN of the last
+          # BASELINE_RUNS successful runs, not the single latest one: run
+          # 34066664217's macos lanscan window happened to miss the LAN-scan
+          # burst (CPU max 20.8% where every other green run reads 150-170%)
+          # and, as the sole reference, failed three healthy runs in a row.
+          BASELINE_RUNS=3
+          echo "Looking for the $BASELINE_RUNS most recent successful runs with a performance-baseline artifact..."
+          FOUND=()
           RUNS=$(gh run list \
             --workflow tests.yml \
             --repo "${{ github.repository }}" \
@@ -2100,31 +2106,38 @@ jobs:
             fi
             if gh api "repos/${{ github.repository }}/actions/runs/$rid/artifacts" \
                 --jq '.artifacts[].name' 2>/dev/null | grep -q '^performance-baseline$'; then
-              PREV_RUN="$rid"
-              break
+              FOUND+=("$rid")
+              if [[ ${#FOUND[@]} -ge $BASELINE_RUNS ]]; then
+                break
+              fi
             fi
           done
 
-          if [[ -z "$PREV_RUN" ]]; then
+          if [[ ${#FOUND[@]} -eq 0 ]]; then
             echo "No previous successful run with performance-baseline found."
             echo "Gate will run in soft no-op mode."
             exit 0
           fi
 
-          echo "Downloading performance-baseline from run $PREV_RUN..."
-          gh run download "$PREV_RUN" \
-            --repo "${{ github.repository }}" \
-            --name performance-baseline \
-            --dir baseline
-          echo "baseline_run=$PREV_RUN" >> "$GITHUB_OUTPUT"
+          i=0
+          for rid in "${FOUND[@]}"; do
+            i=$((i + 1))
+            echo "Downloading performance-baseline from run $rid into baseline/$i..."
+            gh run download "$rid" \
+              --repo "${{ github.repository }}" \
+              --name performance-baseline \
+              --dir "baseline/$i" || echo "  (download failed for $rid; skipped)"
+          done
+          echo "baseline_run=${FOUND[0]}" >> "$GITHUB_OUTPUT"
+          echo "baseline_runs=${FOUND[*]}" >> "$GITHUB_OUTPUT"
 
       - name: Inspect baseline
         if: always()
         shell: bash
         run: |
-          if [ -d baseline/results ]; then
-            echo "Baseline present (from run ${{ steps.baseline.outputs.baseline_run }}):"
-            ls -la baseline/results
+          if ls -d baseline/*/results >/dev/null 2>&1; then
+            echo "Baselines present (from runs ${{ steps.baseline.outputs.baseline_runs }}):"
+            ls -la baseline/*/results
           else
             echo "No baseline available - gate will run in soft no-op mode."
           fi
@@ -2167,9 +2180,13 @@ jobs:
           REGRESSION_THRESHOLD: "1.00"
         run: |
           set +e
+          BASELINE_ARGS=()
+          for d in baseline/1/results baseline/2/results baseline/3/results; do
+            BASELINE_ARGS+=(--baseline "$d")
+          done
           python3 tests/perf/check_regression.py \
             --current results \
-            --baseline baseline/results \
+            "${BASELINE_ARGS[@]}" \
             --threshold "$REGRESSION_THRESHOLD" \
             | tee gate-summary.md
           rc=${PIPESTATUS[0]}
