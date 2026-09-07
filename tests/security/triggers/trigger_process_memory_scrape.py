@@ -32,13 +32,13 @@ Detection path (procfs route, Linux only): the reader holds
 ``/proc/<other pid>/maps`` open while a session of its own is live, so the
 live-open-file enrichment also sees ``/proc/<pid>/{maps,mem}``.
 
-On Windows the driverless source for this signal -- the kernel's
-``Microsoft-Windows-Kernel-Audit-API-Calls`` ETW provider (PsOpenProcess with
-target PID and desired-access mask) -- is not wired into flodbadd yet, so the
-scenario is platform-excluded there; this script exits 0 with a clear message
-rather than pretending.
+Detection path (Windows): ``OpenProcess(PROCESS_VM_READ)`` on the sibling ->
+the kernel's ``Microsoft-Windows-Kernel-Audit-API-Calls`` ETW provider
+(PsOpenProcess with target PID and desired-access mask, consumed by flodbadd's
+audit session) -> same task-access edge. The scenario stays platform-excluded
+on Windows until that consumer ships in the posture build under test.
 
-Cross-platform: macOS, Linux (Windows: no-op by design).
+Cross-platform: macOS, Linux, Windows.
 """
 from __future__ import annotations
 
@@ -165,6 +165,34 @@ def linux_read_memory(pid: int) -> str:
 
 
 # --------------------------------------------------------------------------
+# Windows: OpenProcess(PROCESS_VM_READ) + ReadProcessMemory (ETW
+# Microsoft-Windows-Kernel-Audit-API-Calls PsOpenProcess, desired-access mask)
+# --------------------------------------------------------------------------
+def windows_read_memory(pid: int) -> str:
+    k32 = ctypes.WinDLL("kernel32", use_last_error=True)  # type: ignore[attr-defined]
+    PROCESS_QUERY_INFORMATION = 0x0400
+    PROCESS_VM_READ = 0x0010
+    k32.OpenProcess.restype = ctypes.c_void_p
+    k32.OpenProcess.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_uint32]
+    handle = k32.OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, 0, pid)
+    if not handle:
+        return f"OpenProcess failed err={ctypes.get_last_error()}"
+    try:
+        buf = ctypes.create_string_buffer(64)
+        read = ctypes.c_size_t(0)
+        k32.ReadProcessMemory.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p,
+                                          ctypes.c_size_t, ctypes.POINTER(ctypes.c_size_t)]
+        # The image base of a 64-bit process is a plausible readable page;
+        # a failed read is still an OpenProcess with VM_READ, which is the
+        # kernel-audited fact.
+        ok = k32.ReadProcessMemory(handle, ctypes.c_void_p(0x7FF600000000), buf, 64, ctypes.byref(read))
+        return f"OpenProcess ok, ReadProcessMemory={'ok' if ok else 'err'} bytes={read.value}"
+    finally:
+        k32.CloseHandle.argtypes = [ctypes.c_void_p]
+        k32.CloseHandle(handle)
+
+
+# --------------------------------------------------------------------------
 # macOS: task_for_pid (Endpoint Security GET_TASK)
 # --------------------------------------------------------------------------
 def macos_task_for_pid(pid: int) -> str:
@@ -203,10 +231,6 @@ def main() -> int:
         return 0
 
     system = platform.system()
-    if system == "Windows":
-        print("trigger_process_memory_scrape.py: Windows task-access source (Kernel-Audit-API-Calls ETW) not wired yet; "
-              "scenario is platform-excluded (nothing to do)")
-        return 0
 
     agent_type = resolve_agent_type(args.agent_type)
     state_dir = args.state_dir or state_dir_for(agent_type)
@@ -222,7 +246,8 @@ def main() -> int:
     print("  check=process_memory_scrape")
     print(f"  requester={sys.executable} pid={os.getpid()}")
     print(f"  target={target.args[0] if isinstance(target.args, list) else target.args} pid={target.pid}")
-    print(f"  route={'procfs+kprobe' if system == 'Linux' else 'endpoint_security_get_task'}")
+    route = {"Linux": "procfs+kprobe", "Windows": "etw_kernel_audit_api_calls"}.get(system, "endpoint_security_get_task")
+    print(f"  route={route}")
     sys.stdout.flush()
 
     started = time.monotonic()
@@ -238,6 +263,8 @@ def main() -> int:
                 time.sleep(0.5)
             if system == "Linux":
                 note = linux_read_memory(target.pid)
+            elif system == "Windows":
+                note = windows_read_memory(target.pid)
             else:
                 note = macos_read_step(target.pid)
             reads += 1

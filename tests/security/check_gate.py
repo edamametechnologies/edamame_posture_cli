@@ -110,12 +110,11 @@ VALID_STATUSES = ("pass", "skip", "fail")
 # suite). They are not required there: a ``skip`` with a recorded reason
 # or an absent row is accepted; a ``fail`` still fails. Mirrors
 # PLATFORM_EXCLUDED_SCENARIOS in run_cve_detection.sh.
-PLATFORM_EXCLUDED_SCENARIOS = {
-    # BS-9 task-port / procfs memory access: macOS has ES GET_TASK, Linux
-    # has the ptrace_may_access kprobe + procfs; on Windows the driverless
-    # source (the Microsoft-Windows-Kernel-Audit-API-Calls ETW provider,
-    # PsOpenProcess events) is not wired into flodbadd yet.
-    "windows-x64": {"process_memory_scrape"},
+PLATFORM_EXCLUDED_SCENARIOS: dict = {
+    # Empty since 2026-09-07: process_memory_scrape gained its Windows
+    # source (flodbadd's Kernel-Audit-API-Calls ETW session). The mechanism
+    # stays for the next platform gap; mirror any entry in
+    # scenario_excluded_on_this_platform() in run_cve_detection.sh.
 }
 
 

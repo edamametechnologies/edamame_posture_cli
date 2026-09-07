@@ -137,10 +137,13 @@ expected_check_for() {
 # for exactly these pairs and nothing else.
 scenario_excluded_on_this_platform() {
   local scenario="$1"
+  # No exclusions today: process_memory_scrape gained its Windows source
+  # (flodbadd Kernel-Audit-API-Calls ETW session) on 2026-09-07. Keep the
+  # hook; the next platform gap goes here and in check_gate.py together.
   case "$(uname -s 2>/dev/null || true)" in
     MINGW*|MSYS*|CYGWIN*)
       case "$scenario" in
-        process_memory_scrape) return 0 ;;
+        __none__) return 0 ;;
       esac
       ;;
   esac
