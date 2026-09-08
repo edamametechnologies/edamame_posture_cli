@@ -1465,4 +1465,28 @@ echo "--- Additional Tests Completed ---"
 
 # --- Final Cleanup --- #
 # Trap handles cleanup on exit (success or failure)
-rm -rf "$TEST_DIR" # Remove the temp directory
+#
+# The last background test's `stop` returns before the daemon has exited,
+# and on Windows the running exe keeps its file locked: `rm -rf` of the
+# temp directory then fails with "Device or resource busy" and, under
+# `set -e`, turns a fully green run into "Integration Tests Failed"
+# (windows-x64 native lane, 2026-09-08). Stop, wait for the binary to be
+# released, then remove -- and fail loudly if it never is.
+echo "Stopping any remaining posture process before final cleanup..."
+if [ -f "$BINARY_DEST" ]; then
+    $SUDO_CMD "$BINARY_DEST" stop >/dev/null 2>&1 || "$BINARY_DEST" stop >/dev/null 2>&1 || true
+fi
+eval $KILL_CMD
+final_cleanup_ok=false
+for _attempt in $(seq 1 15); do
+    if rm -rf "$TEST_DIR" 2>/dev/null; then
+        final_cleanup_ok=true
+        break
+    fi
+    echo "  temp directory still busy (attempt $_attempt/15), waiting..."
+    sleep 2
+done
+if [ "$final_cleanup_ok" != "true" ]; then
+    echo "❌ Could not remove $TEST_DIR: a posture process is still holding the test binary"
+    exit 1
+fi
