@@ -32,11 +32,19 @@ Detection path (procfs route, Linux only): the reader holds
 ``/proc/<other pid>/maps`` open while a session of its own is live, so the
 live-open-file enrichment also sees ``/proc/<pid>/{maps,mem}``.
 
-Detection path (Windows): ``OpenProcess(PROCESS_VM_READ)`` on the sibling ->
-the kernel's ``Microsoft-Windows-Kernel-Audit-API-Calls`` ETW provider
-(PsOpenProcess with target PID and desired-access mask, consumed by flodbadd's
-audit session) -> same task-access edge. The scenario stays platform-excluded
-on Windows until that consumer ships in the posture build under test.
+Detection path (Windows): ``OpenProcess`` with a debugger-grade mask
+(``VM_READ | VM_WRITE | VM_OPERATION``, the analogue of ``task_for_pid`` /
+ptrace attach) on the target -> the kernel's
+``Microsoft-Windows-Kernel-Audit-API-Calls`` ETW provider (PsOpenProcess with
+target PID and desired-access mask, consumed by flodbadd's audit session) ->
+same task-access edge. A ``VM_READ``-only open is the read-only task-port
+shape (graded READ, alertable only with corroboration such as an agent or
+credential-holder target), which is what real scrapers of ``lsass`` get
+caught by.
+
+The target is started detached (re-parented away from this interpreter) and
+runs a different executable: the detector drops a process reading its own
+child or another instance of its own image unless that target is sensitive.
 
 Cross-platform: macOS, Linux, Windows.
 """
@@ -107,25 +115,104 @@ def build_plain_sleeper(state_dir: Path) -> Path | None:
         return None
 
 
-def spawn_target(state_dir: Path) -> subprocess.Popen:
-    """A sibling process that sleeps: a non-platform, non-sensitive target
-    whose memory we own and may read. macOS prefers a plain compiled
-    sleeper (see build_plain_sleeper); elsewhere a second interpreter."""
-    if platform.system() == "Darwin":
+class DetachedTarget:
+    """A sleeping target that is neither our child nor our image.
+
+    A scraper reads memory it does not own: the detector drops a process
+    reading its own child (the parent already holds a full handle from
+    CreateProcess / fork) or another instance of its own image (a browser
+    and its renderers, an updater and the updater it launched) unless the
+    target is an agent or a credential holder. So the target is started
+    through an intermediate shell that exits, which re-parents it away from
+    us, and runs a different executable: the ad-hoc compiled sleeper on
+    macOS, ``sleep`` on Linux, ``ping`` on Windows.
+    """
+
+    def __init__(self, label: str, pid: int) -> None:
+        self.label = label
+        self.pid = pid
+
+    def alive(self) -> bool:
+        if platform.system() == "Windows":
+            k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+            k32.OpenProcess.restype = ctypes.c_void_p
+            k32.OpenProcess.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_uint32]
+            handle = k32.OpenProcess(0x1000, 0, self.pid)  # PROCESS_QUERY_LIMITED_INFORMATION
+            if not handle:
+                return False
+            try:
+                code = ctypes.c_uint32(0)
+                k32.GetExitCodeProcess.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_uint32)]
+                if not k32.GetExitCodeProcess(handle, ctypes.byref(code)):
+                    return False
+                return code.value == 259  # STILL_ACTIVE
+            finally:
+                k32.CloseHandle.argtypes = [ctypes.c_void_p]
+                k32.CloseHandle(handle)
+        try:
+            os.kill(self.pid, 0)
+            return True
+        except OSError:
+            return False
+
+    def terminate(self) -> None:
+        try:
+            if platform.system() == "Windows":
+                subprocess.run(["taskkill", "/PID", str(self.pid), "/F"],
+                               capture_output=True, check=False, timeout=15)
+            else:
+                os.kill(self.pid, signal.SIGTERM)
+        except (OSError, subprocess.SubprocessError):
+            pass
+
+
+def _posix_detached(argv: list[str]) -> int | None:
+    """Start ``argv`` from a throwaway shell that prints the pid and exits."""
+    quoted = " ".join(f"'{a}'" for a in argv)
+    res = subprocess.run(
+        ["sh", "-c", f"{quoted} </dev/null >/dev/null 2>&1 & echo $!"],
+        capture_output=True, text=True, timeout=30, check=False,
+    )
+    try:
+        return int(res.stdout.strip().splitlines()[-1])
+    except (ValueError, IndexError):
+        return None
+
+
+def spawn_target(state_dir: Path) -> DetachedTarget:
+    system = platform.system()
+    if system == "Windows":
+        res = subprocess.run(
+            ["powershell", "-NoProfile", "-Command",
+             "(Start-Process ping -ArgumentList '-n 3600 127.0.0.1' "
+             "-WindowStyle Hidden -PassThru).Id"],
+            capture_output=True, text=True, timeout=60, check=False,
+        )
+        try:
+            pid = int(res.stdout.strip().splitlines()[-1])
+        except (ValueError, IndexError):
+            pid = None
+        if pid:
+            return DetachedTarget("ping.exe", pid)
+    elif system == "Darwin":
         sleeper = build_plain_sleeper(state_dir)
         if sleeper is not None:
-            return subprocess.Popen(
-                [str(sleeper)],
-                stdin=subprocess.DEVNULL,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
-    return subprocess.Popen(
+            pid = _posix_detached([str(sleeper)])
+            if pid:
+                return DetachedTarget(str(sleeper), pid)
+    else:
+        pid = _posix_detached(["sleep", "3600"])
+        if pid:
+            return DetachedTarget("sleep", pid)
+    # Last resort (no shell / compiler): a second interpreter as a direct
+    # child. Same image and our child -- the detector will not grade it.
+    child = subprocess.Popen(
         [sys.executable, "-c", "import time\nwhile True:\n    time.sleep(1)"],
-        stdin=subprocess.DEVNULL,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
+        stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
     )
+    print("  WARNING: detached target unavailable; falling back to a child interpreter",
+          flush=True)
+    return DetachedTarget(sys.executable, child.pid)
 
 
 # --------------------------------------------------------------------------
@@ -171,10 +258,20 @@ def linux_read_memory(pid: int) -> str:
 def windows_read_memory(pid: int) -> str:
     k32 = ctypes.WinDLL("kernel32", use_last_error=True)  # type: ignore[attr-defined]
     PROCESS_QUERY_INFORMATION = 0x0400
+    PROCESS_VM_OPERATION = 0x0008
     PROCESS_VM_READ = 0x0010
+    PROCESS_VM_WRITE = 0x0020
     k32.OpenProcess.restype = ctypes.c_void_p
     k32.OpenProcess.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_uint32]
-    handle = k32.OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, 0, pid)
+    # Debugger-grade mask: the Windows analogue of task_for_pid / ptrace
+    # attach (VM_WRITE | VM_OPERATION alongside VM_READ). A VM_READ-only open
+    # is the read-only task-port shape every updater and crash handler
+    # takes, graded READ by the sensor and alertable only with corroboration.
+    handle = k32.OpenProcess(
+        PROCESS_QUERY_INFORMATION | PROCESS_VM_READ | PROCESS_VM_WRITE | PROCESS_VM_OPERATION,
+        0,
+        pid,
+    )
     if not handle:
         return f"OpenProcess failed err={ctypes.get_last_error()}"
     try:
@@ -245,7 +342,7 @@ def main() -> int:
     print("trigger_process_memory_scrape.py active")
     print("  check=process_memory_scrape")
     print(f"  requester={sys.executable} pid={os.getpid()}")
-    print(f"  target={target.args[0] if isinstance(target.args, list) else target.args} pid={target.pid}")
+    print(f"  target={target.label} pid={target.pid}")
     route = {"Linux": "procfs+kprobe", "Windows": "etw_kernel_audit_api_calls"}.get(system, "endpoint_security_get_task")
     print(f"  route={route}")
     sys.stdout.flush()
@@ -258,7 +355,7 @@ def main() -> int:
         while KEEP_RUNNING:
             if duration > 0 and (time.monotonic() - started) >= duration:
                 break
-            if target.poll() is not None:
+            if not target.alive():
                 target = spawn_target(state_dir)
                 time.sleep(0.5)
             if system == "Linux":
@@ -272,11 +369,7 @@ def main() -> int:
                 print(f"  read #{reads}: {note}", flush=True)
             time.sleep(interval)
     finally:
-        try:
-            target.terminate()
-            target.wait(timeout=5)
-        except (OSError, subprocess.SubprocessError):
-            pass
+        target.terminate()
         try:
             pid_file.unlink()
         except FileNotFoundError:
