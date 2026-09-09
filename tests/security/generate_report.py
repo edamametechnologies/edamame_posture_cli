@@ -39,7 +39,9 @@ SCENARIO_ORDER = [
     "pgserve_postinstall",
     "temp_modify",
     "nonsensitive_path",
+    "package_install_lifecycle",
     "process_memory_scrape",
+    "agent_memory_scrape",
 ]
 
 SCENARIO_LABELS = {
@@ -55,7 +57,9 @@ SCENARIO_LABELS = {
     "pgserve_postinstall": "pgserve postinstall (credential harvest)",
     "temp_modify": "Temp staging tampering",
     "nonsensitive_path": "Sensitive material in non-canonical path",
+    "package_install_lifecycle": "Package install lifecycle (INC-21 install-time persistence)",
     "process_memory_scrape": "Process memory scrape (BS-9 task-port / procfs)",
+    "agent_memory_scrape": "Agent / credential-daemon memory scrape (BS-9 CRITICAL)",
 }
 
 # Mirrors expected_check_for() in run_cve_detection.sh. Used only as a
@@ -74,7 +78,9 @@ SCENARIO_CHECKS = {
     "pgserve_postinstall": "credential_harvest",
     "temp_modify": "file_system_tampering",
     "nonsensitive_path": "sensitive_material_egress",
+    "package_install_lifecycle": "package_install_lifecycle",
     "process_memory_scrape": "process_memory_scrape",
+    "agent_memory_scrape": "process_memory_scrape",
 }
 
 # Scenarios whose trigger script name does not follow trigger_<scenario>.py.

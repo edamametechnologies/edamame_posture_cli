@@ -81,6 +81,9 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--interval", type=float, default=3.0)
     p.add_argument("--agent-type", default=None, help=AGENT_TYPE_ARG_HELP)
     p.add_argument("--state-dir", type=Path, default=None)
+    p.add_argument("--sensitive-target", action="store_true",
+                   help="name the target after a credential daemon / agent so the "
+                        "access grades CRITICAL (EvidenceFloor).")
     # Internal: the privileged macOS read step re-executes this script.
     p.add_argument("--task-for-pid", type=int, default=None, help=argparse.SUPPRESS)
     return p.parse_args()
@@ -89,7 +92,7 @@ def parse_args() -> argparse.Namespace:
 _TARGET_BIN: Path | None = None
 
 
-def build_plain_sleeper(state_dir: Path) -> Path | None:
+def build_plain_sleeper(state_dir: Path, name: str = "edamame_bs9_sleeper") -> Path | None:
     """macOS: ``task_for_pid`` on a hardened-runtime process (python.org
     builds are) is refused even to root without the debugger entitlement,
     and Endpoint Security only reports a task port that was actually
@@ -97,10 +100,10 @@ def build_plain_sleeper(state_dir: Path) -> Path | None:
     with the system compiler is a target root may open. Returns ``None``
     when no compiler is available (the python child is used instead)."""
     global _TARGET_BIN
-    if _TARGET_BIN is not None and _TARGET_BIN.exists():
+    if _TARGET_BIN is not None and _TARGET_BIN.exists() and _TARGET_BIN.name == name:
         return _TARGET_BIN
     src = state_dir / "edamame_bs9_sleeper.c"
-    out = state_dir / "edamame_bs9_sleeper"
+    out = state_dir / name
     try:
         src.write_text("#include <unistd.h>\nint main(void){for(;;)sleep(1);return 0;}\n",
                        encoding="utf-8")
@@ -179,12 +182,37 @@ def _posix_detached(argv: list[str]) -> int | None:
         return None
 
 
-def spawn_target(state_dir: Path) -> DetachedTarget:
+# Credential daemons / agents whose memory is a secret store; a scrape of
+# one of these is CRITICAL (EvidenceFloor) rather than HIGH. Kept in sync
+# with SENSITIVE_TARGET_BASENAMES in the core detector.
+_SENSITIVE_BASENAME = {"Windows": "vault.exe", "Darwin": "ssh-agent"}
+
+
+def _copy_executable(src: Path, dst: Path) -> Path | None:
+    try:
+        import shutil
+        shutil.copy2(src, dst)
+        if platform.system() != "Windows":
+            dst.chmod(0o755)
+        return dst
+    except (OSError, ImportError):
+        return None
+
+
+def spawn_target(state_dir: Path, sensitive: bool = False) -> DetachedTarget:
     system = platform.system()
     if system == "Windows":
+        image = "ping"
+        image_arg = "'-n 3600 127.0.0.1'"
+        if sensitive:
+            src = Path(os.environ.get("WINDIR", "C:\\Windows")) / "System32" / "PING.EXE"
+            dst = _copy_executable(src, state_dir / _SENSITIVE_BASENAME["Windows"])
+            if dst is not None:
+                image = str(dst)
+                image_arg = "'-n 3600 127.0.0.1'"
         res = subprocess.run(
             ["powershell", "-NoProfile", "-Command",
-             "(Start-Process ping -ArgumentList '-n 3600 127.0.0.1' "
+             f"(Start-Process '{image}' -ArgumentList {image_arg} "
              "-WindowStyle Hidden -PassThru).Id"],
             capture_output=True, text=True, timeout=60, check=False,
         )
@@ -193,14 +221,23 @@ def spawn_target(state_dir: Path) -> DetachedTarget:
         except (ValueError, IndexError):
             pid = None
         if pid:
-            return DetachedTarget("ping.exe", pid)
+            return DetachedTarget(image, pid)
     elif system == "Darwin":
-        sleeper = build_plain_sleeper(state_dir)
+        sleeper = build_plain_sleeper(state_dir, name="ssh-agent" if sensitive else "edamame_bs9_sleeper")
         if sleeper is not None:
             pid = _posix_detached([str(sleeper)])
             if pid:
                 return DetachedTarget(str(sleeper), pid)
     else:
+        if sensitive:
+            src = Path("/bin/sleep")
+            if not src.exists():
+                src = Path("/usr/bin/sleep")
+            dst = _copy_executable(src, state_dir / "ssh-agent")
+            if dst is not None:
+                pid = _posix_detached([str(dst), "3600"])
+                if pid:
+                    return DetachedTarget("ssh-agent", pid)
         pid = _posix_detached(["sleep", "3600"])
         if pid:
             return DetachedTarget("sleep", pid)
@@ -337,7 +374,7 @@ def main() -> int:
     pid_file = state_dir / PID_FILE
     pid_file.write_text(f"{os.getpid()}\n", encoding="utf-8")
 
-    target = spawn_target(state_dir)
+    target = spawn_target(state_dir, sensitive=args.sensitive_target)
     time.sleep(1.0)
     print("trigger_process_memory_scrape.py active")
     print("  check=process_memory_scrape")
@@ -356,7 +393,7 @@ def main() -> int:
             if duration > 0 and (time.monotonic() - started) >= duration:
                 break
             if not target.alive():
-                target = spawn_target(state_dir)
+                target = spawn_target(state_dir, sensitive=args.sensitive_target)
                 time.sleep(0.5)
             if system == "Linux":
                 note = linux_read_memory(target.pid)

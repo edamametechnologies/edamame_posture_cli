@@ -49,7 +49,7 @@ POLL_ATTEMPTS=6
 POLL_INTERVAL=30
 READINESS_WAIT=120
 AGENT_TYPE="openclaw"
-SCENARIOS_CSV="blacklist_comm,cve_token_exfil,cve_sandbox_escape,memory_poisoning,credential_sprawl,supply_chain_exfil,npm_rat_beacon,file_events,skill_supply_chain,pgserve_postinstall,temp_modify,nonsensitive_path,agent_config_tamper,agent_cred_harvest,agent_denylist_bypass,dns_tunnel"
+SCENARIOS_CSV="blacklist_comm,cve_token_exfil,cve_sandbox_escape,memory_poisoning,credential_sprawl,supply_chain_exfil,npm_rat_beacon,file_events,skill_supply_chain,pgserve_postinstall,package_install_lifecycle,temp_modify,nonsensitive_path,agent_config_tamper,agent_cred_harvest,agent_denylist_bypass,dns_tunnel,process_memory_scrape,agent_memory_scrape"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -121,6 +121,15 @@ expected_check_for() {
     # ETW provider, is not wired into flodbadd), so the scenario is platform-excluded
     # there (see PLATFORM_EXCLUDED_SCENARIOS).
     process_memory_scrape)  echo "process_memory_scrape" ;;
+    # BS-9 CRITICAL path: the target is a credential daemon / agent, so the
+    # access is EvidenceFloor CRITICAL rather than HIGH. Same sensor as
+    # process_memory_scrape; the trigger names the target after ssh-agent /
+    # a credential store.
+    agent_memory_scrape)    echo "process_memory_scrape" ;;
+    # INC-21 Check 7: install-time lifecycle-script execution that persists
+    # outside its dependency tree (Shai-Hulud). FIM writer attribution +
+    # INC-19 lineage; no new sensor.
+    package_install_lifecycle) echo "package_install_lifecycle" ;;
     *) echo "" ;;
   esac
 }
@@ -153,6 +162,7 @@ scenario_excluded_on_this_platform() {
 trigger_script_for() {
   case "$1" in
     skill_supply_chain)     echo "$TRIGGERS_DIR/trigger_blacklist_comm.py" ;;
+    agent_memory_scrape)    echo "$TRIGGERS_DIR/trigger_process_memory_scrape.py" ;;
     *)                      echo "$TRIGGERS_DIR/trigger_$1.py" ;;
   esac
 }
@@ -181,6 +191,8 @@ scenario_markers_json() {
     npm_rat_beacon)         echo '["_npm_rat_key", "_npm_rat"]' ;;
     supply_chain_exfil)     echo '["_supply_chain", "_sc_credentials", "_sc_adc.json", "_sc_config", "_vault-token", "_git-credentials"]' ;;
     dns_tunnel)             echo '["_dns_tunnel_key", "_dns_tunnel"]' ;;
+    agent_memory_scrape)    echo '["ssh-agent", "vault.exe"]' ;;
+    package_install_lifecycle) echo '["demo_openclaw_pil_persist"]' ;;
     *) echo '[]' ;;
   esac
 }
@@ -536,6 +548,12 @@ prepare_scenario_state() {
 trigger_extra_args() {
   local scenario="$1"
   case "$scenario" in
+    agent_memory_scrape)
+      # Same sensor as process_memory_scrape, credential-daemon target ->
+      # CRITICAL. A faster read cadence keeps the kernel task-access edge
+      # inside the live-open-file sample window.
+      echo "--sensitive-target --interval 2"
+      ;;
     npm_rat_beacon)
       # The npm RAT scenario detects through the anomaly-token path:
       # active anomalous session + sensitive open file attribution.
