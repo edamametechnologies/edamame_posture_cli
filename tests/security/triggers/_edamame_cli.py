@@ -88,19 +88,47 @@ def cli_rpc(
     genuinely crashed daemon (which stays unreachable across all retries).
     """
     cli = find_cli_binary()
-    cmd = [cli, "rpc", method]
-    if args:
-        cmd.append(args)
+    # Large argument blobs (raw-session payloads for the behavioral-model
+    # rebuild run to tens of KB) exceed the Windows command-line limit
+    # (WinError 206 "The filename or extension is too long"; observed on the
+    # Gate 2 windows-latest leg, 2026-09-09). The released CLI's interactive
+    # mode reads `<method> <json>` lines from stdin with no such limit, so
+    # anything above the threshold is routed through it on every platform.
+    use_stdin = bool(args) and len(args) > STDIN_ARGS_THRESHOLD
+    if use_stdin:
+        cmd = [cli, "interactive"]
+        stdin_payload = f"{method} {args}\nexit\n"
+    else:
+        cmd = [cli, "rpc", method]
+        stdin_payload = None
+        if args:
+            cmd.append(args)
 
     attempt = 0
     last_error: RuntimeError | None = None
     while attempt <= retries:
         result = subprocess.run(
             cmd,
+            input=stdin_payload,
             capture_output=True,
             text=True,
             timeout=timeout,
         )
+        if use_stdin:
+            interactive_error = _interactive_error(result.stderr)
+            if result.returncode == 0 and interactive_error is None:
+                return _parse_interactive_output(result.stdout)
+            stderr = (interactive_error or result.stderr).strip()
+            last_error = RuntimeError(
+                f"edamame_cli interactive {method} failed (rc={result.returncode}): "
+                f"{stderr}"
+            )
+            if attempt >= retries or not _is_transient_error(stderr):
+                raise last_error
+            wait = retry_backoff ** attempt
+            time.sleep(wait)
+            attempt += 1
+            continue
         if result.returncode == 0:
             return _parse_cli_output(result.stdout)
 
@@ -123,6 +151,34 @@ def cli_rpc(
 
     assert last_error is not None
     raise last_error
+
+
+# Above this many characters the JSON args go through interactive-mode stdin
+# (see `cli_rpc`). Well under the ~8 KB where Windows shells start failing.
+STDIN_ARGS_THRESHOLD = 6000
+
+
+def _interactive_error(stderr: str) -> str | None:
+    """Interactive mode reports RPC / parse errors on stderr with a `>>>>`
+    prefix and keeps its exit code 0; surface them as failures."""
+    for line in (stderr or "").splitlines():
+        if line.lstrip().startswith(">>>>"):
+            return line.strip()
+    return None
+
+
+def _parse_interactive_output(raw: str) -> object:
+    """Interactive mode echoes a `> ` prompt and prints `Result: <json>` on
+    one line per call; take the last result line."""
+    marker = "Result: "
+    idx = raw.rfind(marker)
+    if idx < 0:
+        raise RuntimeError(
+            "edamame_cli interactive produced no Result line: " + raw.strip()[-400:]
+        )
+    line = raw[idx + len(marker):]
+    line = line.split("\n", 1)[0]
+    return _parse_cli_output(line)
 
 
 def _parse_cli_output(raw: str) -> object:
