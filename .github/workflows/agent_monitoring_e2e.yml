@@ -24,24 +24,35 @@ name: Agent fleet monitoring E2E
 #
 # Per-agent gating:
 #   - claude_code / codex / hermes / openclaw : HARD (real drive + detection).
-#     Every HARD agent now has a headless installer on every desktop OS (hermes
+#     Every HARD agent has a headless installer on every desktop OS (hermes
 #     install.sh on Linux/macOS + install.ps1 on Windows; the rest run via npm
-#     everywhere), so a HARD agent is SKIPPED (non-gating) only when its provider
-#     key is absent.
+#     everywhere). A HARD agent is SKIPPED (non-gating, reason in the summary)
+#     ONLY when its provider key is absent. When the key IS present and the CLI
+#     is missing or its installer fails, that is a HARD failure reported with
+#     the install output tail -- never a silent skip.
 #   - claude_desktop : BEST-EFFORT (GUI app, no headless drive CLI) -- attempted
 #     and reported honestly, never faked, never gating.
 #   - cursor : SKIP (GUI IDE; no headless agent CLI wired in hosted CI).
 #
-# Real-coverage floor (HARD): at least one HARD agent MUST be driven and detected
-# on each leg. A green run made only of skips would be indistinguishable from the
-# old synthetic gate and is rejected.
+# Per-agent real-coverage floor (HARD): claude_code AND codex MUST EACH be driven
+# and detected on EVERY leg. hermes/openclaw are HARD when attempted but are not
+# floor members, so a run whose only driven agent is hermes (run 34325890128,
+# 2026-09-09: one atomic `npm install -g claude codex openclaw` was killed by
+# openclaw's Node>=24 requirement and the old "any one HARD agent" floor passed
+# on hermes alone) can no longer be green. A required agent that is skipped,
+# filtered out, not installed, not driven or not discovered fails the floor with
+# its reason in the summary. FLEET_REQUIRED_AGENTS overrides the set for manual
+# subset dispatches.
 #
-# The divergence leg is MULTIPLATFORM. It drives the divergent egress through the
-# agent's persistent shell using bash builtin /dev/udp -- available on Linux
-# /bin/bash and macOS /bin/bash 3.2; on Windows Git Bash (MSYS2) /dev/udp support
-# and OS-level L7 attribution of a bash-opened UDP socket are not yet verified, so
-# the probe still RUNS on Windows but the GATE is best-effort there (a Windows miss
-# is a soft warning, not a hard failure). The probe is a low-volume, agent-accepted
+# The divergence leg is MULTIPLATFORM and HARD on all three OSes. It drives the
+# divergent egress through the agent's persistent shell using bash builtin
+# /dev/udp -- Linux /bin/bash, macOS /bin/bash 3.2 and Windows Git Bash (MSYS2).
+# On Windows the egressing bash is the agent's GRANDCHILD (Git Bash double-exec),
+# which the engine matches through the any-lineage scope shipped in
+# edamame_foundation 34be49f; every posture release this workflow deploys
+# (1.8.5 pins foundation 53aff403, a descendant) carries it and the Windows leg
+# fires a deterministic DIVERGENCE, so the former best-effort Windows exemption
+# is retired. The probe is a low-volume, agent-accepted
 # UDP egress check: SIX fixed RFC 5737 TEST-NET addresses (192.0.2.x /
 # 198.51.100.x / 203.0.113.x -- IANA documentation/test blocks with NO real host,
 # so the agent does not refuse them as third-party infrastructure) x TWO high,
@@ -60,10 +71,18 @@ name: Agent fleet monitoring E2E
 #
 # This workflow gates the EDAMAME release: edamame_app/release_all.sh lists it in
 # AGENT_PLUGIN_E2E_WORKFLOWS, so a red run blocks the release. Hard failures:
-# attempted-HARD-agent real drive + observer detection, the real-coverage floor,
-# the fleet-wide blast-radius leg (all platforms), and the divergence leg on
-# Linux/macOS. Soft (warn only): the unsecured_<agent> toggle, and a divergence
-# miss on Windows. The trailing attack pattern detector steps publish evidence
+# attempted-HARD-agent real drive + observer detection (including an install
+# failure with the provider key present), the per-agent real-coverage floor,
+# the fleet-wide blast-radius leg and the divergence leg (all platforms). Soft
+# (warn only): the unsecured_<agent> toggle, and the deterministic lineage-floor
+# leg (Inc 5 / step 5.6 -- copies the system interpreter into a fresh OS-temp
+# dir, execs the copy through the driven agent's shell to egress to a TEST-NET
+# host, and asserts a DIVERGENCE carrying correlation:untrusted_lineage_floor).
+# The lineage-floor leg is SOFT for the first release AND depends on the daemon
+# being armed with EDAMAME_DIVERGENCE_LINEAGE_FLOOR=1 -- which the
+# edamame_posture_action-managed service daemon may not inherit from the step
+# env, so a miss is reported SKIP, never a failure. The trailing attack pattern
+# detector steps publish evidence
 # and never gate -- see the comment at that step for why. All cross-agent
 # orchestration lives in tests/e2e/run_fleet_monitoring.py.
 
@@ -139,6 +158,15 @@ jobs:
           agentic_provider: edamame
         env:
           EDAMAME_LLM_API_KEY: ${{ secrets.EDAMAME_LLM_API_KEY }}
+          # Arm the deterministic divergence lineage floor (Inc 5 / step 5.6) for
+          # the SOFT lineage-floor leg. The CloudModel switch
+          # `divergence_lineage_floor_enabled` is off by default; this env override
+          # turns it on. NOTE: this is best-effort -- edamame_posture_action starts
+          # the daemon as a system service (systemd/launchd/Windows service) that
+          # does not reliably inherit a step env var (the same reason the driver
+          # reconfigures the LLM provider over RPC). When it does not propagate the
+          # floor stays off and the leg reports SKIP, which is non-gating.
+          EDAMAME_DIVERGENCE_LINEAGE_FLOOR: "1"
 
       - name: Set EDAMAME_POSTURE env var
         shell: bash
@@ -168,10 +196,12 @@ jobs:
           echo "registry: $INDEX"
 
       # ── Toolchains ─────────────────────────────────────────────────────
+      # Node 24: openclaw@latest refuses Node <24.16 at preinstall (run
+      # 34325890128), and claude/codex support 18+.
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
 
       # ── xz: Hermes' headless install.sh decompresses an .xz tarball ─────
       - name: Install xz (Hermes prerequisite)
@@ -188,12 +218,20 @@ jobs:
       # ── Real agent CLIs (no synthetic transcripts -- these produce them) ─
       # claude_code, codex and openclaw are npm-installable everywhere; hermes
       # self-installs from the driver (install.sh on Linux/macOS, install.ps1 on
-      # Windows). Install the npm ones on every OS so the real-coverage floor can
-      # be met on each leg (the driver self-selects whichever it can drive + detect).
+      # Windows). Install the npm ones on every OS: claude and codex are the
+      # per-agent floor and MUST come up on each leg. Each package is installed
+      # on its own so one package's failure cannot take the others down (the
+      # 2026-09-09 atomic install lost claude + codex to an openclaw preinstall
+      # check). The step never fails: the combined output is written to
+      # FLEET_AGENT_INSTALL_LOG and the driver turns a missing floor CLI into a
+      # HARD failure that quotes this log's tail in its summary.
       - name: Install real agent CLIs (claude, codex, openclaw)
         shell: bash
         run: |
           set -x
+          INSTALL_LOG="$RUNNER_TEMP/agent_cli_install.log"
+          : > "$INSTALL_LOG"
+          echo "FLEET_AGENT_INSTALL_LOG=$INSTALL_LOG" >> "$GITHUB_ENV"
           # OpenClaw 2026.8.2 cannot start its CLI on Windows ("SQLite read-only
           # worker: Unable to create private Windows SQLite directory" under
           # %LOCALAPPDATA%\openclaw), which turns the openclaw real-drive leg
@@ -205,7 +243,11 @@ jobs:
           if [ "$RUNNER_OS" = "Windows" ]; then
             OPENCLAW_SPEC="openclaw@2026.8.1"
           fi
-          npm install -g @anthropic-ai/claude-code @openai/codex "$OPENCLAW_SPEC" || true
+          for PKG in @anthropic-ai/claude-code @openai/codex "$OPENCLAW_SPEC"; do
+            echo "=== npm install -g $PKG ===" | tee -a "$INSTALL_LOG"
+            npm install -g "$PKG" 2>&1 | tee -a "$INSTALL_LOG" \
+              || echo "=== $PKG: install FAILED (exit ${PIPESTATUS[0]}) ===" | tee -a "$INSTALL_LOG"
+          done
           echo "--- versions ---"
           command -v claude   >/dev/null 2>&1 && claude --version   || echo "claude CLI not on PATH"
           command -v codex    >/dev/null 2>&1 && codex --version    || echo "codex CLI not on PATH"
@@ -295,6 +337,11 @@ jobs:
           EDAMAME_CLI: ${{ env.EDAMAME_CLI }}
           EDAMAME_LLM_API_KEY: ${{ secrets.EDAMAME_LLM_API_KEY }}
           EDAMAME_SUPPORTED_AGENTS_INDEX: ${{ env.EDAMAME_SUPPORTED_AGENTS_INDEX }}
+          FLEET_AGENT_INSTALL_LOG: ${{ env.FLEET_AGENT_INSTALL_LOG }}
+          # Also expose the flag to the driver process (harmless; the daemon is the
+          # consumer). The lineage-floor leg itself is SOFT and reports SKIP if the
+          # daemon was not armed.
+          EDAMAME_DIVERGENCE_LINEAGE_FLOOR: "1"
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           GITHUB_RUN_ID: ${{ github.run_id }}
@@ -302,9 +349,9 @@ jobs:
           # (small datagrams to 6 fixed public IPs x 2 high UDP ports = 12 unique
           # unexplained destinations, the agent's own accepted reachability check)
           # through the agent's persistent bash shell and keeps the agent alive for
-          # ~100s so flodbadd attributes the egress lineage. HARD on Linux/macOS;
-          # best-effort (non-gating) on Windows Git Bash. Only the manual dispatch
-          # toggle can skip it entirely.
+          # ~100s so flodbadd attributes the egress lineage. HARD on all three
+          # OSes (Windows via the engine's any-lineage scope). Only the manual
+          # dispatch toggle can skip it entirely.
           FLEET_SKIP_DIVERGENCE: ${{ github.event.inputs.skip_divergence == 'true' && '1' || '' }}
           EDAMAME_AGENTS: ${{ github.event.inputs.agents || '' }}
         run: |
@@ -320,6 +367,7 @@ jobs:
             PYBIN=$(command -v "$PY")
             sudo -E env "PATH=$PATH" "HOME=/root" \
               "EDAMAME_SUPPORTED_AGENTS_INDEX=$EDAMAME_SUPPORTED_AGENTS_INDEX" \
+              "FLEET_AGENT_INSTALL_LOG=$FLEET_AGENT_INSTALL_LOG" \
               "$PYBIN" tests/e2e/run_fleet_monitoring.py
           else
             "$PY" tests/e2e/run_fleet_monitoring.py

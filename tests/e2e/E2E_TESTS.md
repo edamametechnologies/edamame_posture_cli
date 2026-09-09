@@ -55,19 +55,25 @@ script paths, and per-agent timeouts. Current fleet: `cursor`, `claude_code`,
 
 | Leg | Scope | Severity | What it asserts |
 |---|---|---|---|
-| real agent drive | per-agent | HARD (when the provider key is present) | the real product runs headlessly and writes its own transcripts |
+| real agent drive | per-agent | HARD (when the provider key is present; an install failure with the key present is a HARD failure quoting the install output tail) | the real product runs headlessly and writes its own transcripts |
 | observer detection | per-agent | HARD | `run_transcript_observer_tick_for` -> the agent becomes `discovered` |
 | unsecured toggle | per-agent | SOFT | `set_transcript_observer_enabled(false)` raises `unsecured_<agent>`; re-enabling clears it |
-| divergence verdict | fleet-wide | HARD on Linux/macOS, best-effort on Windows | a real behavioral model plus a genuine divergent egress through the agent -> `get_divergence_verdict` returns `DIVERGENCE` |
+| divergence verdict | fleet-wide | HARD on Linux/macOS/Windows | a real behavioral model plus a genuine divergent egress through the agent -> `get_divergence_verdict` returns `DIVERGENCE` |
+| lineage floor | fleet-wide | SOFT (non-gating, first release) | copies the system interpreter into a fresh OS-temp dir and execs the copy through the driven agent's persistent shell; the copy egresses UDP to RFC 5737 TEST-NET sinks -> a deterministic `DIVERGENCE` carrying `correlation:untrusted_lineage_floor`. Requires the daemon armed with `EDAMAME_DIVERGENCE_LINEAGE_FLOOR=1` (CloudModel switch off); reported SKIP when the action-managed service daemon did not inherit that env (no runtime RPC toggle) or on Windows (ETW exec path not yet validated) |
 | host blast radius | fleet-wide | HARD | `get_host_blast_radius` returns `host_privilege.assessed=true`, a non-empty `agent_sandboxes`, and list-typed `blast_radius_agents` / `harnesses` |
-| real-coverage floor | per-leg | HARD | at least one HARD agent was actually driven and detected -- an all-skips run is rejected |
+| real-coverage floor | per-leg | HARD | `claude_code` AND `codex` were each driven and detected on this leg (`FLEET_REQUIRED_AGENTS` overrides); a run that only drove hermes/openclaw, or where a required agent was skipped, filtered, not installed or not discovered, is rejected with the reason |
 
 Per-agent gating:
 
 - `claude_code` / `codex` / `hermes` / `openclaw`: HARD. Each has a headless
   installer on every desktop OS (hermes via `install.sh` on Linux/macOS and
   `install.ps1` on Windows; the rest via npm), so a HARD agent is SKIPPED
-  (non-gating) only when its provider key is absent.
+  (non-gating) only when its provider key is absent. With the key present, a
+  missing CLI or a failed installer is a HARD failure ("install failed") and
+  the summary quotes the install output tail (`FLEET_AGENT_INSTALL_LOG` for the
+  workflow-installed claude/codex, the installer's own output for
+  hermes/openclaw). `claude_code` and `codex` are additionally the per-leg
+  floor: both must be driven and detected on every OS.
 - `claude_desktop`: BEST-EFFORT. GUI app with no headless drive CLI -- attempted
   and reported honestly, never faked, never gating.
 - `cursor`: SKIP. GUI IDE with no headless agent CLI wired in hosted CI.
@@ -93,9 +99,11 @@ loopback/RFC1918/link-local plus DNS/NTP/OCSP), so the engine recognizes
 divergence. The gate asserts the **deterministic** verdict, so it holds whether
 the downstream LLM keeps or suppresses the alert.
 
-`/dev/udp` works on Linux `/bin/bash` and macOS `/bin/bash` 3.2. On Windows Git
-Bash (MSYS2), `/dev/udp` support and OS-level L7 attribution of a bash-opened UDP
-socket are unverified, so the probe still runs but a miss is a warning.
+`/dev/udp` works on Linux `/bin/bash`, macOS `/bin/bash` 3.2 and Windows Git
+Bash (MSYS2). On Windows the egressing bash is the agent's grandchild (Git Bash
+double-exec); the engine matches it through the any-lineage scope shipped in
+`edamame_foundation` 34be49f, present in every posture release the workflow
+deploys (1.8.5 onward), so the leg is HARD on Windows too.
 
 ## Local invocation
 
@@ -195,7 +203,7 @@ helper, `tests/security/triggers/**`, and the workflow file.
   as root, drive the agents as root with `HOME=/root` so the transcripts land
   where the observer looks.
 - **Windows**: packet capture needs Npcap and an elevated session. The
-  divergence leg is best-effort (see above).
+  divergence leg is HARD (see above).
 - Agent install paths resolve through `supported_agents.py resolve-paths`, which
   mirrors each agent's own installer for Darwin, Linux (XDG), and Windows
   (`APPDATA`/`LOCALAPPDATA`).

@@ -18,7 +18,7 @@
 #     [--poll-interval <seconds>]        # default: 30
 #     [--readiness-wait <seconds>]       # default: 120
 #     [--agent-type <string>]            # default: openclaw
-#     [--scenarios <comma,separated>]    # default: all nine CVE scenarios
+#     [--scenarios <comma,separated>]    # default: the full CVE scenario set
 #
 # Detection timing defaults are tuned so iForest has enough observation time on
 # the token-exfil scenarios; see the per-flag defaults below.
@@ -49,7 +49,7 @@ POLL_ATTEMPTS=6
 POLL_INTERVAL=30
 READINESS_WAIT=120
 AGENT_TYPE="openclaw"
-SCENARIOS_CSV="blacklist_comm,cve_token_exfil,cve_sandbox_escape,memory_poisoning,credential_sprawl,supply_chain_exfil,npm_rat_beacon,file_events,skill_supply_chain,pgserve_postinstall,package_install_lifecycle,temp_modify,nonsensitive_path,agent_config_tamper,agent_cred_harvest,agent_denylist_bypass,dns_tunnel,process_memory_scrape,agent_memory_scrape"
+SCENARIOS_CSV="blacklist_comm,cve_token_exfil,cve_sandbox_escape,memory_poisoning,credential_sprawl,supply_chain_exfil,npm_rat_beacon,file_events,skill_supply_chain,pgserve_postinstall,package_install_lifecycle,temp_modify,nonsensitive_path,agent_config_tamper,agent_cred_harvest,agent_denylist_bypass,dns_tunnel,dns_tunnel_reconnect,ntp_tunnel,loopback_relay,process_memory_scrape,agent_memory_scrape"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -114,6 +114,23 @@ expected_check_for() {
     # `treat_high_volume_dns_ntp_as_non_routine` is on (no anomaly flag
     # required).
     dns_tunnel)             echo "token_exfiltration" ;;
+    # N-04 (BS-6 reconnect variant): a DNS-tunnel client that opens a NEW
+    # UDP socket per query, so every query is a distinct 5-tuple and no
+    # single session accumulates the volume. Fires token_exfiltration once
+    # the CloudModel gate sums outbound per (process, dst_ip, dst_port, udp)
+    # across the reconnecting sessions (content.rs::dns_ntp_volume_key) and
+    # the aggregate crosses dns_ntp_non_routine_min_outbound_bytes.
+    dns_tunnel_reconnect)   echo "token_exfiltration" ;;
+    # N-04 (BS-6 NTP half): the same non-routine-volume gate covers udp/123.
+    # Sustained high-volume NTP-shaped egress with a credential file open
+    # fires token_exfiltration via the deterministic sustained-sensitive-
+    # egress path.
+    ntp_tunnel)             echo "token_exfiltration" ;;
+    # N-05 (BS-7): split-process loopback relay. One process holds credentials
+    # and talks to 127.0.0.1; a sibling reads the loopback relay and egresses
+    # externally. Relay correlation groups them by kernel ancestry (else the
+    # coarse lineage key) and emits sensitive_material_egress.
+    loopback_relay)         echo "sensitive_material_egress" ;;
     # BS-9: a non-platform process obtains another process's task port /
     # reads /proc/<pid>/mem. Kernel route (macOS ES GET_TASK, Linux
     # ptrace_may_access kprobe) plus the procfs open-file route; no
@@ -191,6 +208,13 @@ scenario_markers_json() {
     npm_rat_beacon)         echo '["_npm_rat_key", "_npm_rat"]' ;;
     supply_chain_exfil)     echo '["_supply_chain", "_sc_credentials", "_sc_adc.json", "_sc_config", "_vault-token", "_git-credentials"]' ;;
     dns_tunnel)             echo '["_dns_tunnel_key", "_dns_tunnel"]' ;;
+    # Own credential-file marker (and a distinct resolver IP, 8.8.8.8 vs the
+    # dns_tunnel scenario's 1.1.1.1) so the reconnect finding is provably its
+    # own even though it shares udp/53.
+    dns_tunnel_reconnect)   echo '["_dns_reconnect_key", "_dns_reconnect"]' ;;
+    ntp_tunnel)             echo '["_ntp_tunnel_key", "_ntp_tunnel"]' ;;
+    # The lineage finding attributes Process A's held credential files.
+    loopback_relay)         echo '["demo_relay_ssh_key", "demo_relay_aws_credentials"]' ;;
     agent_memory_scrape)    echo '["ssh-agent", "vault.exe"]' ;;
     package_install_lifecycle) echo '["demo_openclaw_pil_persist"]' ;;
     *) echo '[]' ;;
@@ -209,7 +233,31 @@ scenario_ports_json() {
     # high-volume DNS flow rather than from another token_exfiltration
     # scenario's residue.
     dns_tunnel)             echo '[53]' ;;
+    # udp/123 is unique to the NTP scenario across the whole suite, so
+    # destination-port attribution alone proves the finding came from the
+    # NTP flow. (dns_tunnel_reconnect deliberately does NOT claim udp/53 --
+    # it shares the port with dns_tunnel and attributes by marker only.)
+    ntp_tunnel)             echo '[123]' ;;
+    # Process B's external exfil port, unique across the suite.
+    loopback_relay)         echo '[63180]' ;;
     *) echo '[]' ;;
+  esac
+}
+
+# Per-scenario expected alertable severity TIER. When set, the scenario is
+# not merely required to produce an ALERTABLE (HIGH/CRITICAL) finding -- it
+# must produce one at exactly this tier. This catches a severity regression
+# that keeps a finding alertable but drops it below its evidence-graded tier
+# (e.g. a credential-daemon memory scrape falling from CRITICAL EvidenceFloor
+# to a bare HIGH). Empty (the default) asserts only alertability.
+expected_severity_for() {
+  case "$1" in
+    # BS-9 CRITICAL path: agent_memory_scrape targets a credential daemon /
+    # agent (ssh-agent / vault.exe), which is EvidenceFloor CRITICAL. The
+    # plain process_memory_scrape target grades HIGH, so asserting the tier
+    # here pins the credential-target escalation, not just "some alert".
+    agent_memory_scrape)    echo "CRITICAL" ;;
+    *) echo "" ;;
   esac
 }
 
@@ -592,6 +640,7 @@ count_finding_for_scenario() {
   MARKERS_JSON="$(scenario_markers_json "$scenario")" \
   PORTS_JSON="$(scenario_ports_json "$scenario")" \
   CHECK="$check" \
+  EXPECTED_SEVERITY="$(expected_severity_for "$scenario")" \
   TRIGGERS_DIR_ENV="$TRIGGERS_DIR" \
   EVIDENCE_DUMP="$OUTPUT_DIR_ABS/findings/$scenario.json" \
   "$PYTHON" - <<'PY'
@@ -603,12 +652,14 @@ from _finding_match import (
     format_histogram,
     is_alertable,
     matches,
+    normalize_severity,
     severity_histogram,
 )
 
 check = os.environ["CHECK"]
 markers = json.loads(os.environ.get("MARKERS_JSON", "[]"))
 ports = {int(p) for p in json.loads(os.environ.get("PORTS_JSON", "[]"))}
+expected_severity = os.environ.get("EXPECTED_SEVERITY", "").strip().upper()
 
 matched = []
 
@@ -637,6 +688,18 @@ except Exception as exc:
 
 matched = current_matched + history_matched
 alertable = sum(1 for f in matched if is_alertable(f))
+
+# Tier gate: when a scenario declares an expected severity tier, at least one
+# ALERTABLE matched finding must be at exactly that tier. A finding that is
+# alertable but below its expected tier (e.g. a credential-daemon scrape that
+# fell from CRITICAL to HIGH) fails the tier gate even though `alertable > 0`.
+if expected_severity:
+    tier_ok = 1 if any(
+        is_alertable(f) and normalize_severity(f) == expected_severity
+        for f in matched
+    ) else 0
+else:
+    tier_ok = 1
 
 # Session-side evidence for the same scenario: every current session that
 # targets one of the scenario ports or whose L7 open files carry a marker.
@@ -733,12 +796,13 @@ if dump_path:
         print(f"__ERR__ evidence dump: {exc}", file=sys.stderr)
 
 print(
-    "{}|{}|{}|{}|{}".format(
+    "{}|{}|{}|{}|{}|{}".format(
         len(matched),
         len(current_matched),
         len(history_matched),
         alertable,
         format_histogram(severity_histogram(matched)),
+        tier_ok,
     )
 )
 PY
@@ -750,9 +814,9 @@ PY
 # silently leave a trailing field holding a multi-field string.
 parse_finding_counts() {
   local line="$1"
-  TOTAL=0; CURRENT=0; HISTORY=0; ALERTABLE=0; SEVERITIES="none"
-  local _t _c _h _a _s
-  IFS='|' read -r _t _c _h _a _s <<<"$line"
+  TOTAL=0; CURRENT=0; HISTORY=0; ALERTABLE=0; SEVERITIES="none"; TIER_OK=1
+  local _t _c _h _a _s _tier
+  IFS='|' read -r _t _c _h _a _s _tier <<<"$line"
   TOTAL="$(printf '%s' "${_t:-0}" | tr -dc '0-9')"
   CURRENT="$(printf '%s' "${_c:-0}" | tr -dc '0-9')"
   HISTORY="$(printf '%s' "${_h:-0}" | tr -dc '0-9')"
@@ -762,6 +826,11 @@ parse_finding_counts() {
   [[ -z "$HISTORY" ]] && HISTORY=0
   [[ -z "$ALERTABLE" ]] && ALERTABLE=0
   [[ -n "${_s:-}" ]] && SEVERITIES="$_s"
+  # Tier gate: default to 1 (pass) when the field is absent (scenarios that
+  # declare no expected tier), so only an explicit `0` from the counter --
+  # an alertable finding below its expected severity tier -- fails it.
+  TIER_OK="$(printf '%s' "${_tier:-1}" | tr -dc '0-9')"
+  [[ -z "$TIER_OK" ]] && TIER_OK=1
 }
 
 count_blacklisted_sessions() {
@@ -854,8 +923,13 @@ run_one_scenario_attempt() {
   HISTORY=0
   ALERTABLE=0
   SEVERITIES="none"
+  TIER_OK=1
   DEMOTED_ONLY=0
+  TIER_MISMATCH=0
   ELAPSED=0
+
+  local expected_severity
+  expected_severity="$(expected_severity_for "$scenario")"
 
   clear_vuln_history
   run_cleanup
@@ -922,13 +996,17 @@ run_one_scenario_attempt() {
       local counts
       counts="$(TRIGGERS_DIR_ENV="$TRIGGERS_DIR" count_finding_for_scenario "$scenario" "$check")"
       parse_finding_counts "$counts"
-      if (( ALERTABLE > 0 )); then
+      if (( ALERTABLE > 0 )) && (( TIER_OK == 1 )); then
         DETECTED=1
         DEMOTED_ONLY=0
+        TIER_MISMATCH=0
         log "  DETECTED: alertable=$ALERTABLE total=$TOTAL (current=$CURRENT, history=$HISTORY, severities=$SEVERITIES)"
         break
       fi
-      if (( TOTAL > 0 )); then
+      if (( ALERTABLE > 0 )) && (( TIER_OK == 0 )); then
+        TIER_MISMATCH=1
+        log "  finding alertable but BELOW expected tier ${expected_severity}: severities=$SEVERITIES"
+      elif (( TOTAL > 0 )); then
         DEMOTED_ONLY=1
         log "  finding present but NOT alertable: total=$TOTAL severities=$SEVERITIES (need HIGH or CRITICAL)"
       fi
@@ -970,10 +1048,14 @@ run_one_scenario_attempt() {
       local counts
       counts="$(TRIGGERS_DIR_ENV="$TRIGGERS_DIR" count_finding_for_scenario "$scenario" "$check")"
       parse_finding_counts "$counts"
-      if (( ALERTABLE > 0 )); then
+      if (( ALERTABLE > 0 )) && (( TIER_OK == 1 )); then
         DETECTED=1
         DEMOTED_ONLY=0
+        TIER_MISMATCH=0
         log "  DETECTED (tail): alertable=$ALERTABLE total=$TOTAL (current=$CURRENT, history=$HISTORY, severities=$SEVERITIES)"
+      elif (( ALERTABLE > 0 )) && (( TIER_OK == 0 )); then
+        TIER_MISMATCH=1
+        log "  finding alertable but BELOW expected tier ${expected_severity} (tail): severities=$SEVERITIES"
       elif (( TOTAL > 0 )); then
         DEMOTED_ONLY=1
         log "  finding present but NOT alertable (tail): total=$TOTAL severities=$SEVERITIES"
@@ -1068,6 +1150,19 @@ run_one_scenario() {
       extra_note="${extra_note},demoted_below_alertable"
     else
       extra_note="demoted_below_alertable"
+    fi
+  fi
+
+  # A scenario that produced an ALERTABLE finding but below its declared
+  # severity tier (e.g. CRITICAL expected, only HIGH observed) is a distinct
+  # regression from "never alertable": the detect + alert path work, the
+  # evidence-graded escalation did not. Tag it so triage lands on the tier
+  # classifier rather than the trigger or the CRS alertable threshold.
+  if [[ "$final_status" == "fail" ]] && (( TIER_MISMATCH == 1 )); then
+    if [[ -n "$extra_note" ]]; then
+      extra_note="${extra_note},below_expected_severity_tier"
+    else
+      extra_note="below_expected_severity_tier"
     fi
   fi
 

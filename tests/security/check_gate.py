@@ -170,6 +170,65 @@ def _as_int(value: object) -> Optional[int]:
         return None
 
 
+def _warm_baseline_lines(warm_dir: str) -> List[str]:
+    """Render the ADVISORY warm-host baseline section (step 7.1 / D-4).
+
+    Reads per-platform ``baseline.json`` files produced by the 60-minute idle
+    window on the self-hosted ``vm-runner-*`` legs. This section is purely
+    informational for the first release: it is printed as its own row in the
+    security report but NEVER changes the gate's exit code. A dirty warm baseline
+    here is surfaced for triage, not blocked on.
+    """
+    lines: List[str] = ["### Warm-host baseline (advisory, non-gating)", ""]
+    if not warm_dir:
+        lines.append(
+            "_Not collected in this run (no `--warm-baseline-dir`)._"
+        )
+        lines.append("")
+        return lines
+    platform_dirs = _platform_dirs(warm_dir)
+    if not platform_dirs:
+        lines.append(
+            "_No warm-host baseline artifacts were produced by the"
+            " `warm-baseline` job (self-hosted `vm-runner-*` legs). Advisory"
+            " only -- the strict gate is unaffected._"
+        )
+        lines.append("")
+        return lines
+    lines.append(
+        "A 60-minute idle window on the self-hosted warm runners (persistent"
+        " state, unlike the ephemeral GitHub-hosted matrix). Advisory for the"
+        " first release: findings here are surfaced for triage but do NOT block"
+        " the release. See the `warm-baseline` job in"
+        " `.github/workflows/tests.yml`."
+    )
+    lines.append("")
+    lines.append(
+        "| Platform | Status | Duration (s) | Total findings | Current | History | First dirty sample |"
+    )
+    lines.append("|---|---|---|---|---|---|---|")
+    for path in platform_dirs:
+        platform = os.path.basename(path)
+        data, err = _read_json(os.path.join(path, "baseline.json"))
+        if err:
+            lines.append(f"| {platform} | `UNREADABLE` | - | - | - | - | `{err}` |")
+            continue
+        if data is None:
+            lines.append(f"| {platform} | `MISSING` | - | - | - | - | - |")
+            continue
+        status = "DIRTY" if _baseline_is_dirty(data) else "CLEAN"
+        total = _as_int(data.get("finding_total")) or 0
+        cur = _as_int(data.get("finding_current")) or 0
+        hist = _as_int(data.get("finding_history")) or 0
+        duration = data.get("duration_s", "?")
+        first = str(data.get("first_finding_sample") or "-")
+        lines.append(
+            f"| {platform} | `{status}` | {duration} | {total} | {cur} | {hist} | `{first}` |"
+        )
+    lines.append("")
+    return lines
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument(
@@ -197,6 +256,16 @@ def main() -> int:
             " inspects the directories that happen to exist, so a matrix leg"
             " that was cancelled, timed out, or was dropped from the matrix"
             " passes silently."
+        ),
+    )
+    ap.add_argument(
+        "--warm-baseline-dir",
+        default="",
+        help=(
+            "Optional directory containing per-platform subdirectories with a"
+            " warm-host baseline.json (the 60-minute idle window on the"
+            " self-hosted vm-runner-* legs, step 7.1). Rendered as an ADVISORY"
+            " section in the report; it never changes the gate's exit code."
         ),
     )
     args = ap.parse_args()
@@ -430,6 +499,12 @@ def main() -> int:
             " under artifact failures below."
         )
         print()
+
+    # Advisory warm-host baseline section (step 7.1 / D-4). Printed in BOTH the
+    # pass and fail branches (it sits before the decision) and NEVER affects the
+    # exit code -- it is informational for the first release.
+    for line in _warm_baseline_lines(args.warm_baseline_dir):
+        print(line)
 
     if not scenario_fails and not baseline_fails and not artifact_fails:
         print(

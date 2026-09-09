@@ -42,6 +42,13 @@ PID_FILES = [
     "agent_cred_harvest.pid",
     "agent_denylist_bypass.pid",
     "dns_tunnel.pid",
+    "dns_tunnel_reconnect.pid",
+    "ntp_tunnel.pid",
+    # loopback_relay spawns two siblings from a shared interpreter; kill the
+    # orchestrator last so it does not respawn a child mid-cleanup.
+    "loopback_relay_b.pid",
+    "loopback_relay_a.pid",
+    "loopback_relay.pid",
 ]
 
 CREATED_MARKERS = [
@@ -62,6 +69,9 @@ CREATED_MARKERS = [
     "agent_cred_harvest.created",
     "agent_denylist_bypass.created",
     "dns_tunnel.created",
+    "dns_tunnel_reconnect.created",
+    "ntp_tunnel.created",
+    "loopback_relay.created",
 ]
 
 

@@ -78,7 +78,7 @@ on:
       security_scenarios:
         description: "Comma-separated CVE scenarios to run (also the gate's required set)."
         required: false
-        default: "blacklist_comm,cve_token_exfil,cve_sandbox_escape,memory_poisoning,credential_sprawl,supply_chain_exfil,npm_rat_beacon,file_events,skill_supply_chain,pgserve_postinstall,package_install_lifecycle,temp_modify,nonsensitive_path,agent_config_tamper,agent_cred_harvest,agent_denylist_bypass,dns_tunnel,process_memory_scrape,agent_memory_scrape"
+        default: "blacklist_comm,cve_token_exfil,cve_sandbox_escape,memory_poisoning,credential_sprawl,supply_chain_exfil,npm_rat_beacon,file_events,skill_supply_chain,pgserve_postinstall,package_install_lifecycle,temp_modify,nonsensitive_path,agent_config_tamper,agent_cred_harvest,agent_denylist_bypass,dns_tunnel,dns_tunnel_reconnect,ntp_tunnel,loopback_relay,process_memory_scrape,agent_memory_scrape"
       security_log_level:
         description: "EDAMAME_LOG_LEVEL for the security-suite daemon (tracing EnvFilter spec, e.g. info,vdiag=debug,edamame_core::agentic=debug). Default: info."
         required: false
@@ -156,7 +156,7 @@ jobs:
           # Defaults match the workflow_dispatch defaults so push events
           # behave identically to an "all defaults" manual run.
           DEFAULT_PERF_SCEN="idle,hub_idle,capture,lanscan,llm,all"
-          DEFAULT_SEC_SCEN="blacklist_comm,cve_token_exfil,cve_sandbox_escape,memory_poisoning,credential_sprawl,supply_chain_exfil,npm_rat_beacon,file_events,skill_supply_chain,pgserve_postinstall,package_install_lifecycle,temp_modify,nonsensitive_path,agent_config_tamper,agent_cred_harvest,agent_denylist_bypass,dns_tunnel,process_memory_scrape,agent_memory_scrape"
+          DEFAULT_SEC_SCEN="blacklist_comm,cve_token_exfil,cve_sandbox_escape,memory_poisoning,credential_sprawl,supply_chain_exfil,npm_rat_beacon,file_events,skill_supply_chain,pgserve_postinstall,package_install_lifecycle,temp_modify,nonsensitive_path,agent_config_tamper,agent_cred_harvest,agent_denylist_bypass,dns_tunnel,dns_tunnel_reconnect,ntp_tunnel,loopback_relay,process_memory_scrape,agent_memory_scrape"
           DEFAULT_PLATFORMS="ubuntu-x64,ubuntu-arm64,macos-arm64,windows-x64,ubuntu-20.04,ubuntu-18.04,alpine-x64,alpine-arm64"
 
           RT="${IN_RUN_TESTS:-true}"
@@ -1522,8 +1522,10 @@ jobs:
       needs.setup.outputs.run_security == 'true' &&
       needs.setup.outputs.have_native == 'true' &&
       (needs.setup.outputs.build_from_source != 'true' || needs.build.result == 'success' || needs.setup.outputs.reuse_build_run_id != '')
-    # 10-min idle baseline + up to 110 min of CVE scenarios + install/teardown.
-    timeout-minutes: 165
+    # 10-min idle baseline + up to 150 min of CVE scenarios + install/teardown.
+    # Bumped 165 -> 205 alongside the detection step (110 -> 150) when Inc 6.9
+    # added dns_tunnel_reconnect, ntp_tunnel and loopback_relay to the gate.
+    timeout-minutes: 205
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.setup.outputs.native_matrix) }}
@@ -1843,13 +1845,15 @@ jobs:
         # detector is already emitting findings with no stimulus, which
         # would taint every subsequent scenario verdict.
         if: steps.baseline.outcome == 'success'
-        # 14 scenarios x (readiness wait + trigger + verify poll loop +
+        # 22 scenarios x (readiness wait + trigger + verify poll loop +
         # up to 2-3 fresh attempts). Detections break the poll loop early,
         # so a green run lands well under this; the budget covers the
         # all-scenarios-retry worst case without truncating results.json
         # (a truncated run now hard-fails the gate rather than reading as
-        # a pass, so the timeout must not be the binding constraint).
-        timeout-minutes: 110
+        # a pass, so the timeout must not be the binding constraint). Bumped
+        # from 110 -> 150 when Inc 6.9 added dns_tunnel_reconnect, ntp_tunnel
+        # and loopback_relay to the required set.
+        timeout-minutes: 150
         shell: bash
         env:
           EDAMAME_CLI: ${{ env.EDAMAME_CLI }}
@@ -2008,6 +2012,244 @@ jobs:
           echo ""
           echo "Forcing security job to fail because tests did not succeed."
           exit 1
+
+  # =========================================================================
+  # warm-baseline: 60-minute idle false-positive window on the self-hosted
+  # warm runners (step 7.1 / D-4). NON-BLOCKING for the first release: it runs
+  # the SAME idle baseline harness the `security` job uses (no CVE suite) on the
+  # persistent-state `vm-runner-*` legs, uploads its baseline.json, and is
+  # surfaced by check_gate.py as an ADVISORY row that never changes the strict
+  # gate outcome. The job has NO "fail job" step and its baseline step is
+  # continue-on-error, so it concludes green regardless of what it observes --
+  # the warm-host FPs are for triage, not for blocking, until it is promoted to
+  # gating in a later release. Gated on a canonical full-default source build so
+  # the pre-built ubuntu-x64 / windows-x64 binaries it reuses exist.
+  # =========================================================================
+  warm-baseline:
+    name: Warm-host baseline (${{ matrix.label }})
+    needs: [setup, build]
+    if: |
+      always() && needs.setup.result == 'success' &&
+      needs.setup.outputs.run_security == 'true' &&
+      needs.setup.outputs.full_default_run == 'true' &&
+      needs.build.result == 'success'
+    # 60-minute idle window + install/teardown headroom.
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: warm-linux
+            os: ubuntu
+            runs_on: vm-runner-linux
+            binary_label: ubuntu-x64
+          - label: warm-windows
+            os: windows
+            runs_on: vm-runner-windows
+            binary_label: windows-x64
+    runs-on: ${{ matrix.runs_on }}
+
+    env:
+      EDAMAME_APP_SENTRY: ${{ secrets.EDAMAME_APP_SENTRY }}
+      PWNED_API_KEY: ${{ secrets.PWNED_API_KEY }}
+      EDAMAME_TARGET: ${{ secrets.EDAMAME_TARGET }}
+      EDAMAME_CORE_TARGET: ${{ secrets.EDAMAME_CORE_TARGET }}
+      EDAMAME_CORE_SERVER: ${{ secrets.EDAMAME_CORE_SERVER }}
+      EDAMAME_CA_PEM: ${{ secrets.EDAMAME_CA_PEM }}
+      EDAMAME_CLIENT_PEM: ${{ secrets.EDAMAME_CLIENT_PEM }}
+      EDAMAME_CLIENT_KEY: ${{ secrets.EDAMAME_CLIENT_KEY }}
+      EDAMAME_SERVER_PEM: ${{ secrets.EDAMAME_SERVER_PEM }}
+      EDAMAME_SERVER_KEY: ${{ secrets.EDAMAME_SERVER_KEY }}
+      EDAMAME_CLIENT_CA_PEM: ${{ secrets.EDAMAME_CLIENT_CA_PEM }}
+      LAMBDA_SIGNATURE: ${{ secrets.LAMBDA_SIGNATURE }}
+      MIXPANEL_TOKEN: ${{ secrets.MIXPANEL_TOKEN }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      EDAMAME_LLM_API_KEY: ${{ secrets.EDAMAME_LLM_API_KEY }}
+      EDAMAME_POSTURE_USER: ${{ vars.EDAMAME_POSTURE_USER }}
+      EDAMAME_POSTURE_DOMAIN: ${{ vars.EDAMAME_POSTURE_DOMAIN }}
+      EDAMAME_POSTURE_PIN: ${{ secrets.EDAMAME_POSTURE_PIN }}
+
+    steps:
+
+      - name: Setup EDAMAME Posture (whitelist runner IP, checkout source)
+        uses: edamametechnologies/edamame_posture_action@v1
+        with:
+          edamame_user: ${{ vars.EDAMAME_POSTURE_USER }}
+          edamame_domain: ${{ vars.EDAMAME_POSTURE_DOMAIN }}
+          edamame_pin: ${{ secrets.EDAMAME_POSTURE_PIN }}
+          edamame_id: ${{ github.run_id }}-warm-${{ matrix.label }}
+          checkout: true
+          token: ${{ secrets.DEV_GITHUB_TOKEN }}
+          wait_for_api: true
+          wait_for_https: true
+
+      - name: Configure Git Authentication to import private crates
+        run: |
+          git config --global user.email "dev@edamame.tech"
+          git config --global user.name "EDAMAME Dev"
+          git config --global url."https://edamamedev:${{ secrets.DEV_GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
+
+      - name: Download pre-built binary artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: posture-binary-${{ matrix.binary_label }}
+          path: posture-artifact
+          run-id: ${{ needs.setup.outputs.reuse_build_run_id != '' && needs.setup.outputs.reuse_build_run_id || github.run_id }}
+          github-token: ${{ github.token }}
+
+      - name: Install pre-built binary (Linux)
+        if: matrix.os == 'ubuntu'
+        shell: bash
+        run: |
+          mkdir -p target/release
+          cp posture-artifact/edamame_posture target/release/edamame_posture
+          chmod +x target/release/edamame_posture
+          echo "BINARY_PATH=$(pwd)/target/release/edamame_posture" >> "$GITHUB_ENV"
+
+      - name: Install pre-built binary (Windows, signed exe)
+        if: matrix.os == 'windows'
+        shell: bash
+        run: |
+          mkdir -p target/release
+          cp posture-artifact/edamame_posture.exe target/release/edamame_posture.exe
+          echo "BINARY_PATH=$(pwd)/target/release/edamame_posture.exe" >> "$GITHUB_ENV"
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Stage CVE trigger scripts (baseline needs the triggers dir)
+        shell: bash
+        run: |
+          set -euo pipefail
+          TRIGGERS_DIR="${RUNNER_TEMP:-/tmp}/cve_triggers"
+          rm -rf "$TRIGGERS_DIR"
+          mkdir -p "$TRIGGERS_DIR"
+          cp -R tests/security/triggers/. "$TRIGGERS_DIR/"
+          echo "CVE_TRIGGERS_DIR=$TRIGGERS_DIR" >> "$GITHUB_ENV"
+
+      - name: Install Python deps for triggers
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install requests
+
+      - name: Restart daemon with pre-built binary (packet-capture, disconnected)
+        shell: bash
+        env:
+          EDAMAME_LLM_API_KEY: ${{ secrets.EDAMAME_LLM_API_KEY }}
+        run: |
+          set -euo pipefail
+          if [[ ! -e "$BINARY_PATH" ]]; then
+            echo "ERROR: $BINARY_PATH not found" >&2
+            exit 1
+          fi
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            POSTURE_CMD="$BINARY_PATH"
+          else
+            if [[ $(id -u) -eq 0 ]]; then
+              POSTURE_CMD="$BINARY_PATH"
+            elif command -v sudo >/dev/null 2>&1; then
+              POSTURE_CMD="sudo -E $BINARY_PATH"
+            else
+              POSTURE_CMD="$BINARY_PATH"
+            fi
+          fi
+          echo "EDAMAME_BINARY_PATH=$BINARY_PATH" >> "$GITHUB_ENV"
+          echo "EDAMAME_POSTURE=$BINARY_PATH" >> "$GITHUB_ENV"
+          echo "EDAMAME_POSTURE_CMD=$POSTURE_CMD" >> "$GITHUB_ENV"
+          $POSTURE_CMD stop >/dev/null 2>&1 || true
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            taskkill //F //IM edamame_posture.exe 2>/dev/null || true
+          else
+            sudo pkill -9 edamame_posture 2>/dev/null || true
+            if [[ "$RUNNER_OS" == "Linux" ]] && command -v systemctl >/dev/null 2>&1; then
+              sudo systemctl stop edamame_posture.service >/dev/null 2>&1 || true
+            fi
+          fi
+          sleep 2
+          $POSTURE_CMD background-start-disconnected --packet-capture
+          sleep 3
+          $POSTURE_CMD background-status || true
+
+      - name: Install edamame_cli
+        id: install_cli
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          install_cli() {
+            if [ "$RUNNER_OS" = "Windows" ]; then
+              curl --proto '=https' --tlsv1.2 -sSf \
+                https://raw.githubusercontent.com/edamametechnologies/edamame_cli/main/install.sh \
+                | sh -s -- --force-binary
+            else
+              curl --proto '=https' --tlsv1.2 -sSf \
+                https://raw.githubusercontent.com/edamametechnologies/edamame_cli/main/install.sh \
+                | sudo -E sh -s --
+            fi
+          }
+          for attempt in 1 2 3; do
+            if install_cli; then break; fi
+            sleep $((attempt * 10))
+          done
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            EC=$(command -v edamame_cli.exe 2>/dev/null || command -v edamame_cli 2>/dev/null || echo "$HOME/edamame_cli.exe")
+          else
+            EC=$(command -v edamame_cli 2>/dev/null || echo /usr/local/bin/edamame_cli)
+          fi
+          echo "EDAMAME_CLI=$EC" >> "$GITHUB_ENV"
+          "$EC" --version
+          "$EC" rpc clear_vulnerability_history || true
+          "$EC" rpc reset_vulnerability_suppressions || true
+
+      - name: Run warm-host false-positive baseline (60 min idle)
+        id: baseline
+        # NON-BLOCKING: a dirty warm baseline is advisory for the first release.
+        timeout-minutes: 75
+        continue-on-error: true
+        shell: bash
+        env:
+          EDAMAME_CLI: ${{ env.EDAMAME_CLI }}
+        run: |
+          mkdir -p "results/${{ matrix.label }}"
+          bash tests/security/run_false_positive_baseline.sh \
+            --triggers-dir "$CVE_TRIGGERS_DIR" \
+            --output-dir "results/${{ matrix.label }}" \
+            --duration 3600 \
+            --tick-interval 60 \
+            --abort-on-first-finding 0
+
+      - name: Sanitize logs
+        if: always()
+        shell: bash
+        run: |
+          find "results/${{ matrix.label }}" -type f \( -name '*.log' -o -name '*.json' -o -name '*.ndjson' \) -print0 \
+            | xargs -0 python3 tests/common/sanitize_logs.py || true
+
+      - name: Clear runtime vulnerability state (self-hosted hygiene)
+        if: always()
+        shell: bash
+        env:
+          EDAMAME_CLI: ${{ env.EDAMAME_CLI }}
+        run: |
+          if [[ -z "${EDAMAME_CLI:-}" ]] || ! command -v "$EDAMAME_CLI" >/dev/null 2>&1; then
+            echo "edamame_cli not available; skipping runtime cleanup."
+            exit 0
+          fi
+          "$EDAMAME_CLI" rpc clear_vulnerability_history || true
+          "$EDAMAME_CLI" rpc reset_vulnerability_suppressions || true
+
+      - name: Upload warm-baseline results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: warm-baseline-${{ matrix.label }}
+          path: results/${{ matrix.label }}
+          if-no-files-found: warn
+          retention-days: 30
 
   # =========================================================================
   # perf-report: consolidate per-platform perf results, enforce regression gate
@@ -2282,7 +2524,10 @@ jobs:
   # =========================================================================
   security-report:
     name: Security report (consolidate + strict gate)
-    needs: [setup, security]
+    # warm-baseline is included so its advisory artifacts are ready to consume;
+    # it never gates (always() + the gate never reads it as blocking), and a
+    # skipped/failed warm-baseline does not stop this report.
+    needs: [setup, security, warm-baseline]
     if: |
       always() && needs.setup.result == 'success' &&
       needs.setup.outputs.run_security == 'true' &&
@@ -2306,10 +2551,17 @@ jobs:
           pattern: security-*
           path: security_artifacts
 
+      - name: Download warm-host baseline results (advisory)
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          pattern: warm-baseline-*
+          path: warm_artifacts
+
       - name: Stage consolidated results
         shell: bash
         run: |
-          mkdir -p results
+          mkdir -p results warm_baseline
           for d in security_artifacts/security-*; do
             [[ -d "$d" ]] || continue
             label=$(basename "$d" | sed 's/^security-//')
@@ -2322,7 +2574,18 @@ jobs:
             fi
             cp -R "$d" "results/$label"
           done
+          # Warm-host baseline is ADVISORY: staged into a separate dir so it is
+          # rendered as its own report row without ever entering the strict gate.
+          if [[ -d warm_artifacts ]]; then
+            for d in warm_artifacts/warm-baseline-*; do
+              [[ -d "$d" ]] || continue
+              label=$(basename "$d" | sed 's/^warm-baseline-//')
+              cp -R "$d" "warm_baseline/$label"
+            done
+          fi
           ls -la results
+          echo "--- warm_baseline ---"
+          ls -la warm_baseline || true
 
       - name: Generate VULNDETECTION.md
         id: report
@@ -2353,7 +2616,8 @@ jobs:
           python3 tests/security/check_gate.py \
             --results-dir results \
             --required-scenarios "$REQUIRED_SCENARIOS" \
-            --expected-platforms "$EXPECTED_PLATFORMS" | tee gate-summary.md
+            --expected-platforms "$EXPECTED_PLATFORMS" \
+            --warm-baseline-dir warm_baseline | tee gate-summary.md
           rc=${PIPESTATUS[0]}
           echo "Gate exit code: $rc"
           exit "$rc"
@@ -2385,6 +2649,7 @@ jobs:
             VULNDETECTION.md
             gate-summary.md
             results/
+            warm_baseline/
           if-no-files-found: warn
           retention-days: 90
 

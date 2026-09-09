@@ -423,6 +423,62 @@ class TestGateFailsClosed(GateTestCase):
         self.assertIn("windows-x64", out)
 
 
+class TestWarmBaselineAdvisory(unittest.TestCase):
+    """The warm-host baseline (step 7.1) is advisory: it renders its own row in
+    the report but NEVER changes the gate's exit code."""
+
+    def _run_with_warm(
+        self, warm: dict | None
+    ) -> tuple[int, str]:
+        # results-dir and warm-baseline-dir are SEPARATE sibling trees (as staged
+        # by the security-report job), so the warm platforms never enter the
+        # strict per-platform scan.
+        with tempfile.TemporaryDirectory() as results_root, \
+                tempfile.TemporaryDirectory() as warm_root:
+            # One clean, complete platform so the strict gate would pass on its own.
+            pdir = os.path.join(results_root, "ubuntu-x64")
+            os.makedirs(pdir)
+            with open(os.path.join(pdir, "baseline.json"), "w", encoding="utf-8") as fh:
+                json.dump(CLEAN_BASELINE, fh)
+            with open(os.path.join(pdir, "results.json"), "w", encoding="utf-8") as fh:
+                json.dump(results(scenario("cve_token_exfil")), fh)
+
+            args = [
+                sys.executable,
+                GATE,
+                "--results-dir",
+                results_root,
+                "--required-scenarios",
+                "cve_token_exfil",
+                "--expected-platforms",
+                "ubuntu-x64",
+            ]
+            if warm is not None:
+                for label, baseline in warm.items():
+                    wdir = os.path.join(warm_root, label)
+                    os.makedirs(wdir)
+                    with open(os.path.join(wdir, "baseline.json"), "w", encoding="utf-8") as fh:
+                        json.dump(baseline, fh)
+                args += ["--warm-baseline-dir", warm_root]
+            proc = subprocess.run(args, capture_output=True, text=True)
+        return proc.returncode, proc.stdout + proc.stderr
+
+    def test_dirty_warm_baseline_is_advisory_not_blocking(self):
+        # A DIRTY warm baseline must NOT block: the strict gate still passes and
+        # the advisory section marks the warm platform DIRTY.
+        rc, out = self._run_with_warm(
+            {"warm-linux": DIRTY_BASELINE, "warm-windows": CLEAN_BASELINE}
+        )
+        self.assertEqual(rc, 0, out)
+        self.assertIn("Warm-host baseline (advisory, non-gating)", out)
+        self.assertIn("DIRTY", out)
+
+    def test_absent_warm_dir_still_passes(self):
+        rc, out = self._run_with_warm(None)
+        self.assertEqual(rc, 0, out)
+        self.assertIn("Warm-host baseline (advisory, non-gating)", out)
+
+
 class TestGateInputErrors(GateTestCase):
     def test_empty_results_dir_is_an_error_not_a_pass(self):
         rc, out = self.run_gate({}, required="cve_token_exfil")
