@@ -1185,6 +1185,12 @@ def assert_blast_radius() -> tuple[bool, str]:
     return True, detail
 
 
+# Maximum model age at which the divergence probe may start. The engine
+# treats a model older than 1200 s as Stale; the probe itself runs for up to
+# ~6 min (24 attempts), so anything older than this is rebuilt first.
+MODEL_FRESH_MAX_SECS = 600
+
+
 def _divergence_status() -> tuple[bool, int, int]:
     s = cli_rpc("get_divergence_engine_status")
     if not isinstance(s, dict):
@@ -1390,9 +1396,17 @@ def run_real_divergence(agent_type: str, drive_timeout: int) -> tuple[bool, str]
     last_detail = ""
     while waited <= 180:
         running, contrib, age = _divergence_status()
-        if running and contrib > 0:
+        # A model that already exists but is close to the engine's 1200 s
+        # staleness threshold is NOT ready: the probe below takes several
+        # minutes, and a Stale tick keeps only prohibitions / blacklist /
+        # lineage-floor evidence -- the unexplained TEST-NET egress this leg
+        # asserts is prediction-dependent and is withheld (Windows leg,
+        # 2026-09-09: age=1391s at probe time, verdict STALE). Rebuild first.
+        if running and contrib > 0 and age < MODEL_FRESH_MAX_SECS:
             log(f"  model ready: running={running} contributors={contrib} age={age}s")
             break
+        if running and contrib > 0:
+            log(f"  model too old for the probe window (age={age}s >= {MODEL_FRESH_MAX_SECS}s); rebuilding")
         ok, last_detail = _force_model_build(agent_type)
         log(
             f"  model warming: running={running} contributors={contrib} age={age}s "
