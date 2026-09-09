@@ -39,6 +39,10 @@ on:
         description: "Run CVE detection suite (false-positive baseline + CVE scenarios + strict gate)."
         type: boolean
         default: true
+      warm_baseline:
+        description: "Also run the 60-minute ADVISORY warm-host idle baseline on the self-hosted vm-runner-* legs. Dispatch-only: it occupies the shared runners' posture daemon for an hour, which breaks the app's Linux integration tests (demo-mode daemon) when it runs on every push."
+        type: boolean
+        default: false
       platforms:
         description: "Comma-separated platform labels (default: all). Native: ubuntu-x64, ubuntu-arm64, macos-arm64, windows-x64. Containers (general tests only): ubuntu-20.04, ubuntu-18.04, alpine-x64, alpine-arm64."
         required: false
@@ -2028,10 +2032,16 @@ jobs:
   warm-baseline:
     name: Warm-host baseline (${{ matrix.label }})
     needs: [setup, build]
+    # Dispatch-only (`warm_baseline: true`). On 2026-09-09 the push-triggered
+    # variant squatted vm-runner-linux-1's posture daemon for an hour and the
+    # app's Linux integration tests (which expect that daemon in demo mode)
+    # failed 10 breach / deep-link cases. Run it from release_all.sh Phase 0
+    # or by hand; the security-report consumes its artifacts when present.
     if: |
       always() && needs.setup.result == 'success' &&
+      github.event_name == 'workflow_dispatch' &&
+      github.event.inputs.warm_baseline == 'true' &&
       needs.setup.outputs.run_security == 'true' &&
-      needs.setup.outputs.full_default_run == 'true' &&
       needs.build.result == 'success'
     # 60-minute idle window + install/teardown headroom.
     timeout-minutes: 90
