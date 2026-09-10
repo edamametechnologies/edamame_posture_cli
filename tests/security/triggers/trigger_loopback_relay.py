@@ -12,36 +12,38 @@ exfiltrates to an external destination. Neither process, viewed alone, is a
 never touches an external destination, and the exfiltrator never opens a
 credential file.
 
-Detector side (edamame_core, N-05 / increment 6.5): ``detect_sensitive_material_egress``
-correlates sessions by **kernel ancestor** (the nearest AI-agent ancestor
-pid, else the kernel parent pid, from ``l7.kernel_exec``), falling back to the
-coarse token-based ``lineage_key`` when no kernel exec record is present. Two
-sibling processes sharing a parent land in one lineage group. When that group
-holds (a) a session carrying sensitive material, (b) a *loopback* session, and
-(c) a recent external session from a DIFFERENT runtime process that carries no
-material, the detector emits a correlated ``sensitive_material_egress`` finding
-(basis: lineage_correlation, loopback_correlation).
+Closure (edamame_core, BS-7 process-tree correlation, 2026-09-10).
 
-STATUS 2026-09-10 -- NOT IN THE DEFAULT GATE SET (dispatch-only). The
-correlation above was proven only with synthesized sessions: in the live
-pipeline legs (a) and (b) are the same object, child A's 127.0.0.1 session,
-and ``flodbadd`` excludes loopback interfaces from capture on every platform
-(``interface.rs`` ``validate_interfaces`` drops ``lo`` / 127.x, ``capture.rs``
-``device_is_usable`` drops the Npcap loopback adapter). The first gate run
-that carried the detector (posture ``92205b3``, run 34413252136) produced
-zero findings on all four platforms across three attempts each; the
-``sessions_snapshot`` holds only child B's external sessions. BS-7 therefore
-stays OPEN. Closing it needs one of: loopback capture in flodbadd (every
-platform, with the local-service noise that implies), or process-tree
-open-file enrichment so an egressing process is joined with the credential
-files its siblings hold. Until then run this scenario on purpose via the
-``security_scenarios`` dispatch input / ``--scenarios``; it will read as a
-miss and that is the truthful result.
+The first attempt at this (N-05 / increment 6.5) grouped sessions by kernel
+ancestor and required the group to hold a *loopback* session. That works only
+against synthesized input: in the live pipeline the sensitive-material leg and
+the loopback leg are the same object -- child A's 127.0.0.1 session -- and
+``flodbadd`` excludes loopback interfaces from capture on every platform
+(``interface.rs`` ``validate_interfaces`` drops ``lo`` and 127.0.0.0/8,
+``capture.rs`` ``device_is_usable`` drops the Npcap loopback adapter). The
+first gate run carrying that detector (posture ``92205b3``, run 34413252136)
+produced zero findings on all four platforms across three attempts each.
+
+The detector no longer needs the loopback session. ``vulnerability_enrich``
+attaches ``l7.tree_sensitive_open_files`` -- the sensitive files held by the
+LIVE siblings sharing the session process's relay-correlation group root, read
+from the ``sysinfo`` process table, so it works without Endpoint Security /
+eBPF / ETW and for ``fork``-without-``exec`` children, which is what Python
+multiprocessing produces on Linux and macOS. ``detect_sensitive_material_egress``
+then correlates child B's external session with the credential files child A
+holds (basis: ``process_tree_correlation``).
+
+That branch fires ONLY on a flagged flow -- ``is_anomalous`` or
+``is_blacklisted`` -- and emits nothing at all otherwise. Co-residency in a
+process tree is ambient (a developer shell holds ``~/.aws`` open next to any
+HTTPS client), and the gate's idle baseline is dirty on any finding at any
+severity, so an uncorroborated LOW would break every platform's baseline. All
+four platforms flagged this scenario's external session as anomalous in run
+34413252136, which is what makes the scenario gateable.
 
 This trigger reproduces that shape as **two sibling children of one coordinator
-process** so both the kernel-ancestor path (shared parent pid) and the
-token-lineage fallback (both children are the same interpreter under the same
-interpreter parent) group them together:
+process**, so the group root the detector computes (nearest AI-agent ancestor,
+else the immediate parent) is the coordinator for both children:
 
   coordinator (this process)
     |-- child A  credential holder + loopback writer
@@ -52,10 +54,13 @@ interpreter parent) group them together:
                   (NO credential file open)
 
 Detection path:
-  child A loopback session  -> sensitive material + is_loopback
-  child B external session  -> recent external egress, no material, sibling
-  lineage correlation       -> sensitive_material_egress
-                               (CRITICAL when correlated+loopback score >= 4,
+  child A                   -> no session at all (loopback is never captured);
+                               holds ~/.ssh + ~/.aws open
+  child B external session  -> recent external egress, anomalous, holds nothing
+  process-tree correlation  -> child A's files reach child B's session as
+                               l7.tree_sensitive_open_files
+                            -> sensitive_material_egress
+                               (CRITICAL when the correlated score >= 4,
                                 HIGH floor otherwise -- either way alertable)
 
 Reference: process relay / split exfiltration (MITRE ATT&CK T1055).
