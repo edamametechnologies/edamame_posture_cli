@@ -160,7 +160,10 @@ expected_check_for() {
 # the trigger.
 # Scenarios with no sensor on a platform. Mirrors PLATFORM_EXCLUDED_SCENARIOS
 # in check_gate.py, which accepts the recorded `unsupported_platform` skip
-# for exactly these pairs and nothing else.
+# for exactly these pairs and nothing else. Note that check_gate.py covers
+# BOTH runners: its `windows-x64` entry for `daemon_lineage_egress` belongs to
+# run_divergence_detection.sh's own copy of this hook, not to this list, so it
+# is deliberately absent here rather than duplicated as dead code.
 scenario_excluded_on_this_platform() {
   local scenario="$1"
   # No exclusions today: process_memory_scrape gained its Windows source

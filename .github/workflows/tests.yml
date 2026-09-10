@@ -83,6 +83,10 @@ on:
         description: "Comma-separated CVE scenarios to run (also the gate's required set)."
         required: false
         default: "blacklist_comm,cve_token_exfil,cve_sandbox_escape,memory_poisoning,credential_sprawl,supply_chain_exfil,npm_rat_beacon,file_events,skill_supply_chain,pgserve_postinstall,package_install_lifecycle,temp_modify,nonsensitive_path,agent_config_tamper,agent_cred_harvest,agent_denylist_bypass,dns_tunnel,dns_tunnel_reconnect,ntp_tunnel,loopback_relay,process_memory_scrape,agent_memory_scrape"
+      security_divergence_scenarios:
+        description: "Comma-separated divergence scenarios to run (run_divergence_detection.sh). Not yet part of the gate's required set; a `fail` still blocks, an absent row does not."
+        required: false
+        default: "daemon_lineage_egress"
       security_log_level:
         description: "EDAMAME_LOG_LEVEL for the security-suite daemon (tracing EnvFilter spec, e.g. info,vdiag=debug,edamame_core::agentic=debug). Default: info."
         required: false
@@ -133,6 +137,7 @@ jobs:
       security_poll_attempts: ${{ steps.flags.outputs.security_poll_attempts }}
       security_poll_interval: ${{ steps.flags.outputs.security_poll_interval }}
       security_scenarios: ${{ steps.flags.outputs.security_scenarios }}
+      security_divergence_scenarios: ${{ steps.flags.outputs.security_divergence_scenarios }}
       native_matrix: ${{ steps.matrix.outputs.native }}
       container_matrix: ${{ steps.matrix.outputs.container }}
       have_native: ${{ steps.matrix.outputs.have_native }}
@@ -155,6 +160,7 @@ jobs:
           IN_SEC_POLL_A: ${{ github.event.inputs.security_poll_attempts }}
           IN_SEC_POLL_I: ${{ github.event.inputs.security_poll_interval }}
           IN_SEC_SCEN: ${{ github.event.inputs.security_scenarios }}
+          IN_SEC_DIV_SCEN: ${{ github.event.inputs.security_divergence_scenarios }}
         run: |
           set -euo pipefail
           # Defaults match the workflow_dispatch defaults so push events
@@ -168,6 +174,12 @@ jobs:
           # from the live process tree (edamame_core BS-7 process-tree
           # correlation), which needs no loopback capture.
           DEFAULT_SEC_SCEN="blacklist_comm,cve_token_exfil,cve_sandbox_escape,memory_poisoning,credential_sprawl,supply_chain_exfil,npm_rat_beacon,file_events,skill_supply_chain,pgserve_postinstall,package_install_lifecycle,temp_modify,nonsensitive_path,agent_config_tamper,agent_cred_harvest,agent_denylist_bypass,dns_tunnel,dns_tunnel_reconnect,ntp_tunnel,loopback_relay,process_memory_scrape,agent_memory_scrape"
+          # Divergence-plane scenarios, asserted by run_divergence_detection.sh
+          # against `get_divergence_verdict` rather than by the CVE runner
+          # against `get_vulnerability_findings`. Kept as its own list because
+          # `security_scenarios` is passed verbatim to run_cve_detection.sh,
+          # which would record an unknown name as a `skip`.
+          DEFAULT_SEC_DIV_SCEN="daemon_lineage_egress"
           DEFAULT_PLATFORMS="ubuntu-x64,ubuntu-arm64,macos-arm64,windows-x64,ubuntu-20.04,ubuntu-18.04,alpine-x64,alpine-arm64"
 
           RT="${IN_RUN_TESTS:-true}"
@@ -182,6 +194,7 @@ jobs:
           SPA="${IN_SEC_POLL_A:-6}"
           SPI="${IN_SEC_POLL_I:-30}"
           SS="${IN_SEC_SCEN:-$DEFAULT_SEC_SCEN}"
+          SDS="${IN_SEC_DIV_SCEN:-$DEFAULT_SEC_DIV_SCEN}"
           PLATS="${IN_PLATFORMS:-$DEFAULT_PLATFORMS}"
 
           # full_default_run: true when this run covers the full default
@@ -222,6 +235,7 @@ jobs:
             echo "security_poll_attempts=$SPA"
             echo "security_poll_interval=$SPI"
             echo "security_scenarios=$SS"
+            echo "security_divergence_scenarios=$SDS"
           } >> "$GITHUB_OUTPUT"
 
           echo "Effective flags:"
@@ -1567,6 +1581,7 @@ jobs:
       POLL_ATTEMPTS: ${{ needs.setup.outputs.security_poll_attempts }}
       POLL_INTERVAL: ${{ needs.setup.outputs.security_poll_interval }}
       SCENARIOS: ${{ needs.setup.outputs.security_scenarios }}
+      DIVERGENCE_SCENARIOS: ${{ needs.setup.outputs.security_divergence_scenarios }}
       BUILD_FROM_SOURCE: ${{ needs.setup.outputs.build_from_source }}
 
     steps:
@@ -1703,6 +1718,7 @@ jobs:
             trigger_supply_chain_exfil.py
             trigger_npm_rat_beacon.py
             trigger_file_events.py
+            trigger_daemon_lineage_egress.py
           )
           for f in "${REQUIRED_FILES[@]}"; do
             test -s "$TRIGGERS_DIR/$f"
@@ -1884,6 +1900,44 @@ jobs:
           cat "results/${{ matrix.label }}/results.json" | python3 -c "import json,sys; d=json.load(sys.stdin); print(json.dumps(d['totals'], indent=2))"
         continue-on-error: true
 
+      # Divergence-plane scenarios. Asserted against `get_divergence_verdict`
+      # after planting a behavioral model, which is a different RPC and a
+      # different precondition from the CVE suite's vulnerability findings --
+      # hence a sibling runner. `--append` merges the rows into the CVE suite's
+      # results.ndjson and rewrites results.json from the union, so the gate and
+      # the report need no new parser. MUST run after the CVE step, which
+      # truncates results.ndjson on start.
+      - name: Run divergence detection suite
+        id: divergence
+        # Same precondition as the CVE suite: a dirty idle baseline means the
+        # host is already producing findings with no stimulus.
+        if: steps.baseline.outcome == 'success' && runner.os != 'Windows'
+        # One scenario x (post-wait + 240s trigger + 12x15s verify poll).
+        timeout-minutes: 20
+        shell: bash
+        env:
+          EDAMAME_CLI: ${{ env.EDAMAME_CLI }}
+        run: |
+          mkdir -p "results/${{ matrix.label }}"
+          # The stand-in daemon installs into /usr/sbin, which needs root; the
+          # runner itself only shells out to the trigger and edamame_cli.
+          SUDO=""
+          if [[ $(id -u) -ne 0 ]] && command -v sudo >/dev/null 2>&1; then
+            SUDO="sudo -E"
+          fi
+          $SUDO env \
+            EDAMAME_CLI="$EDAMAME_CLI" \
+            PYTHON="$(command -v python3)" \
+            bash tests/security/run_divergence_detection.sh \
+              --triggers-dir "$CVE_TRIGGERS_DIR" \
+              --output-dir "results/${{ matrix.label }}" \
+              --agent-type "openclaw" \
+              --scenarios "${DIVERGENCE_SCENARIOS}" \
+              --append
+          echo "--- results summary (CVE + divergence) ---"
+          cat "results/${{ matrix.label }}/results.json" | python3 -c "import json,sys; d=json.load(sys.stdin); print(json.dumps(d['totals'], indent=2))"
+        continue-on-error: true
+
       - name: Collect edamame_posture daemon log
         if: always()
         shell: bash
@@ -1968,7 +2022,7 @@ jobs:
           retention-days: 30
 
       - name: Slack alerts
-        if: steps.install_cli.outcome == 'failure' || steps.triggers.outcome == 'failure' || steps.baseline.outcome == 'failure' || steps.detection.outcome == 'failure'
+        if: steps.install_cli.outcome == 'failure' || steps.triggers.outcome == 'failure' || steps.baseline.outcome == 'failure' || steps.detection.outcome == 'failure' || steps.divergence.outcome == 'failure'
         uses: slackapi/slack-github-action@v1.26.0
         with:
           channel-id: 'C072J0U9TH7'
@@ -1978,6 +2032,7 @@ jobs:
             - Trigger fetch: ${{ steps.triggers.outcome != 'failure' && '✅ Success' || '❌ Failed' }}
             - False-positive baseline (10 min idle): ${{ steps.baseline.outcome == 'success' && '✅ Clean' || '❌ Findings during idle window (release blocked)' }}
             - CVE Detection Suite: ${{ steps.detection.outcome == 'success' && '✅ Success' || (steps.detection.outcome == 'skipped' && '⏭️ Skipped (baseline dirty)' || '❌ Failed') }}
+            - Divergence Detection Suite: ${{ steps.divergence.outcome == 'success' && '✅ Success' || (steps.divergence.outcome == 'skipped' && '⏭️ Skipped (baseline dirty or Windows)' || '❌ Failed') }}
             Branch: ${{ github.ref }}
             More details: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
         env:
