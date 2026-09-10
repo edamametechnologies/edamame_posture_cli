@@ -1,0 +1,78 @@
+{
+  "_comment": [
+    "Behavioral model for the daemon_lineage_egress divergence scenario",
+    "(XZ Utils / CVE-2024-3094 exploitation-time shape).",
+    "",
+    "run_divergence_detection.sh rewrites three things at runtime before the",
+    "upsert: window_start / ingested_at to now, window_end to now + 20m, and",
+    "every 'demo_openclaw' token to the prefix of the --agent-type in use",
+    "(_common.file_prefix_for). Do not hand-edit the timestamps here.",
+    "",
+    "Every expected_* / not_expected_* / scope_* array must be present even",
+    "when empty: SessionPrediction in edamame_core/src/agentic/divergence.rs",
+    "carries #[serde(default)] on only expected_operations, human_scope,",
+    "agent_scope and raw_input, so a missing array fails the upsert outright",
+    "with 'Invalid behavioral window JSON'. The window-level agent_type and",
+    "agent_instance_id are likewise required and non-empty: BehavioralWindow",
+    "::validate_and_normalize_slice rejects the model without them, and",
+    "copies them down over the per-prediction values.",
+    "",
+    "scope_process_paths deliberately keys on the CHILD's own process path, so",
+    "scope membership and the forbidden-parent match stay independent facts.",
+    "correlate() aborts entirely on empty scope rules, so at least one scope_*",
+    "array must be non-empty or no verdict is possible at all."
+  ],
+  "version": "3.0",
+  "window_start": "1970-01-01T00:00:00Z",
+  "window_end": "1970-01-01T00:20:00Z",
+  "ingested_at": "1970-01-01T00:00:00Z",
+  "agent_type": "openclaw",
+  "agent_instance_id": "xz-daemon-lineage",
+  "hash": "",
+  "contributors": [],
+  "predictions": [
+    {
+      "agent_type": "openclaw",
+      "agent_instance_id": "xz-daemon-lineage",
+      "session_key": "xz-daemon-lineage-001",
+      "action": "Routine posture checks",
+      "tools_called": ["get_score", "get_sessions"],
+
+      "scope_process_paths": ["*/demo_openclaw_xz_egress"],
+      "scope_parent_paths": [],
+      "scope_grandparent_paths": [],
+      "scope_any_lineage_paths": [],
+
+      "expected_traffic": ["api.openai.com:443"],
+      "expected_sensitive_files": [],
+      "expected_lan_devices": [],
+      "expected_local_open_ports": [],
+      "expected_process_paths": [],
+      "expected_parent_paths": [],
+      "expected_grandparent_paths": [],
+      "expected_open_files": [],
+      "expected_l7_protocols": [],
+      "expected_system_config": [],
+
+      "not_expected_traffic": [],
+      "not_expected_sensitive_files": [],
+      "not_expected_lan_devices": [],
+      "not_expected_local_open_ports": [],
+      "not_expected_process_paths": [],
+      "not_expected_parent_paths": [
+        "/usr/sbin/*_xz_sshd_standin",
+        "/usr/local/bin/*_xz_sshd_standin",
+        "/usr/sbin/sshd"
+      ],
+      "not_expected_grandparent_paths": [
+        "/usr/sbin/*_xz_sshd_standin",
+        "/usr/local/bin/*_xz_sshd_standin"
+      ],
+      "not_expected_open_files": [],
+      "not_expected_l7_protocols": [],
+      "not_expected_system_config": [],
+
+      "raw_input": null
+    }
+  ]
+}

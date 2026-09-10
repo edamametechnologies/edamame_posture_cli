@@ -49,6 +49,9 @@ PID_FILES = [
     "loopback_relay_b.pid",
     "loopback_relay_a.pid",
     "loopback_relay.pid",
+    # The stand-in daemon forwards SIGTERM to its egress child, so killing
+    # this one pid stops both halves of the lineage.
+    "daemon_lineage_egress.pid",
 ]
 
 CREATED_MARKERS = [
@@ -72,7 +75,32 @@ CREATED_MARKERS = [
     "dns_tunnel_reconnect.created",
     "ntp_tunnel.created",
     "loopback_relay.created",
+    # Records a path OUTSIDE the state dir (the stand-in daemon installed into
+    # /usr/sbin), which is why _PROTECTED_PARENTS below exists.
+    "daemon_lineage_egress.created",
 ]
+
+# Directories that must never be rmdir'd even when a marker records a file
+# inside them. `remove_created_files` prunes the parent of every removed file
+# so triggers that stage nested scratch layouts leave nothing behind, but
+# daemon_lineage_egress installs into a real system directory. `rmdir` only
+# succeeds on an empty directory so this is belt-and-braces, not a live bug --
+# and a cleanup script running as root should not be one empty directory away
+# from removing /usr/sbin.
+_PROTECTED_PARENTS = {
+    Path(p)
+    for p in (
+        "/usr/sbin",
+        "/usr/bin",
+        "/usr/local/bin",
+        "/usr/local/sbin",
+        "/sbin",
+        "/bin",
+        "/opt/homebrew/bin",
+        "/tmp",
+        "/var/tmp",
+    )
+}
 
 
 def parse_args():
@@ -146,7 +174,7 @@ def remove_created_files(marker: Path) -> None:
         # top-level state dir is pruned once at the end of main(); do not add
         # it here or one marker can remove it while later markers are still
         # being processed.
-        if target.parent != marker.parent:
+        if target.parent != marker.parent and target.parent not in _PROTECTED_PARENTS:
             removed_parents.add(target.parent)
     marker.unlink(missing_ok=True)
     # Attempt a bottom-up rmdir on every recorded parent.  ``rmdir`` only
