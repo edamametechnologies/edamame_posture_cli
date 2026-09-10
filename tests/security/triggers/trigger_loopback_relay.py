@@ -12,8 +12,8 @@ exfiltrates to an external destination. Neither process, viewed alone, is a
 never touches an external destination, and the exfiltrator never opens a
 credential file.
 
-Closure (edamame_core, N-05 / increment 6.5): ``detect_sensitive_material_egress``
-now correlates sessions by **kernel ancestor** (the nearest AI-agent ancestor
+Detector side (edamame_core, N-05 / increment 6.5): ``detect_sensitive_material_egress``
+correlates sessions by **kernel ancestor** (the nearest AI-agent ancestor
 pid, else the kernel parent pid, from ``l7.kernel_exec``), falling back to the
 coarse token-based ``lineage_key`` when no kernel exec record is present. Two
 sibling processes sharing a parent land in one lineage group. When that group
@@ -21,6 +21,22 @@ holds (a) a session carrying sensitive material, (b) a *loopback* session, and
 (c) a recent external session from a DIFFERENT runtime process that carries no
 material, the detector emits a correlated ``sensitive_material_egress`` finding
 (basis: lineage_correlation, loopback_correlation).
+
+STATUS 2026-09-10 -- NOT IN THE DEFAULT GATE SET (dispatch-only). The
+correlation above was proven only with synthesized sessions: in the live
+pipeline legs (a) and (b) are the same object, child A's 127.0.0.1 session,
+and ``flodbadd`` excludes loopback interfaces from capture on every platform
+(``interface.rs`` ``validate_interfaces`` drops ``lo`` / 127.x, ``capture.rs``
+``device_is_usable`` drops the Npcap loopback adapter). The first gate run
+that carried the detector (posture ``92205b3``, run 34413252136) produced
+zero findings on all four platforms across three attempts each; the
+``sessions_snapshot`` holds only child B's external sessions. BS-7 therefore
+stays OPEN. Closing it needs one of: loopback capture in flodbadd (every
+platform, with the local-service noise that implies), or process-tree
+open-file enrichment so an egressing process is joined with the credential
+files its siblings hold. Until then run this scenario on purpose via the
+``security_scenarios`` dispatch input / ``--scenarios``; it will read as a
+miss and that is the truthful result.
 
 This trigger reproduces that shape as **two sibling children of one coordinator
 process** so both the kernel-ancestor path (shared parent pid) and the

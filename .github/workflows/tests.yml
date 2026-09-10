@@ -82,7 +82,7 @@ on:
       security_scenarios:
         description: "Comma-separated CVE scenarios to run (also the gate's required set)."
         required: false
-        default: "blacklist_comm,cve_token_exfil,cve_sandbox_escape,memory_poisoning,credential_sprawl,supply_chain_exfil,npm_rat_beacon,file_events,skill_supply_chain,pgserve_postinstall,package_install_lifecycle,temp_modify,nonsensitive_path,agent_config_tamper,agent_cred_harvest,agent_denylist_bypass,dns_tunnel,dns_tunnel_reconnect,ntp_tunnel,loopback_relay,process_memory_scrape,agent_memory_scrape"
+        default: "blacklist_comm,cve_token_exfil,cve_sandbox_escape,memory_poisoning,credential_sprawl,supply_chain_exfil,npm_rat_beacon,file_events,skill_supply_chain,pgserve_postinstall,package_install_lifecycle,temp_modify,nonsensitive_path,agent_config_tamper,agent_cred_harvest,agent_denylist_bypass,dns_tunnel,dns_tunnel_reconnect,ntp_tunnel,process_memory_scrape,agent_memory_scrape"
       security_log_level:
         description: "EDAMAME_LOG_LEVEL for the security-suite daemon (tracing EnvFilter spec, e.g. info,vdiag=debug,edamame_core::agentic=debug). Default: info."
         required: false
@@ -160,7 +160,14 @@ jobs:
           # Defaults match the workflow_dispatch defaults so push events
           # behave identically to an "all defaults" manual run.
           DEFAULT_PERF_SCEN="idle,hub_idle,capture,lanscan,llm,all"
-          DEFAULT_SEC_SCEN="blacklist_comm,cve_token_exfil,cve_sandbox_escape,memory_poisoning,credential_sprawl,supply_chain_exfil,npm_rat_beacon,file_events,skill_supply_chain,pgserve_postinstall,package_install_lifecycle,temp_modify,nonsensitive_path,agent_config_tamper,agent_cred_harvest,agent_denylist_bypass,dns_tunnel,dns_tunnel_reconnect,ntp_tunnel,loopback_relay,process_memory_scrape,agent_memory_scrape"
+          # loopback_relay (BS-7) is deliberately NOT in the default set: the
+          # relay correlation needs the 127.0.0.1 session, and flodbadd never
+          # captures loopback interfaces on any platform, so the scenario is
+          # undetectable by construction (run 34413252136: 0 findings on all
+          # four platforms, three attempts each). Dispatch it explicitly via
+          # security_scenarios once loopback capture or process-tree open-file
+          # enrichment lands. See edamame_core/DETECTIONGAPS-2026-09.md BS-7.
+          DEFAULT_SEC_SCEN="blacklist_comm,cve_token_exfil,cve_sandbox_escape,memory_poisoning,credential_sprawl,supply_chain_exfil,npm_rat_beacon,file_events,skill_supply_chain,pgserve_postinstall,package_install_lifecycle,temp_modify,nonsensitive_path,agent_config_tamper,agent_cred_harvest,agent_denylist_bypass,dns_tunnel,dns_tunnel_reconnect,ntp_tunnel,process_memory_scrape,agent_memory_scrape"
           DEFAULT_PLATFORMS="ubuntu-x64,ubuntu-arm64,macos-arm64,windows-x64,ubuntu-20.04,ubuntu-18.04,alpine-x64,alpine-arm64"
 
           RT="${IN_RUN_TESTS:-true}"
@@ -1528,7 +1535,9 @@ jobs:
       (needs.setup.outputs.build_from_source != 'true' || needs.build.result == 'success' || needs.setup.outputs.reuse_build_run_id != '')
     # 10-min idle baseline + up to 150 min of CVE scenarios + install/teardown.
     # Bumped 165 -> 205 alongside the detection step (110 -> 150) when Inc 6.9
-    # added dns_tunnel_reconnect, ntp_tunnel and loopback_relay to the gate.
+    # added dns_tunnel_reconnect and ntp_tunnel to the gate (loopback_relay
+    # was withdrawn from the default set on 2026-09-10; budget kept so a
+    # dispatched run that adds it back still fits).
     timeout-minutes: 205
     strategy:
       fail-fast: false
@@ -1849,14 +1858,15 @@ jobs:
         # detector is already emitting findings with no stimulus, which
         # would taint every subsequent scenario verdict.
         if: steps.baseline.outcome == 'success'
-        # 22 scenarios x (readiness wait + trigger + verify poll loop +
+        # 21 scenarios x (readiness wait + trigger + verify poll loop +
         # up to 2-3 fresh attempts). Detections break the poll loop early,
         # so a green run lands well under this; the budget covers the
         # all-scenarios-retry worst case without truncating results.json
         # (a truncated run now hard-fails the gate rather than reading as
         # a pass, so the timeout must not be the binding constraint). Bumped
-        # from 110 -> 150 when Inc 6.9 added dns_tunnel_reconnect, ntp_tunnel
-        # and loopback_relay to the required set.
+        # from 110 -> 150 when Inc 6.9 added dns_tunnel_reconnect and
+        # ntp_tunnel to the required set (loopback_relay is dispatch-only,
+        # see DEFAULT_SEC_SCEN in the setup job).
         timeout-minutes: 150
         shell: bash
         env:
