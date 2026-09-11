@@ -3,6 +3,19 @@ set -eo pipefail
 
 # Scripted integration test for 4 executive demo divergence scenarios.
 # This intentionally avoids MCP and drives everything through edamame_posture CLI.
+#
+# This is a DEMO script, not a gate: nothing in .github/workflows/tests.yml runs
+# it. The gated divergence coverage is tests/security/run_divergence_detection.sh,
+# which plants a per-scenario model from tests/security/models/ and asserts a
+# deterministic verdict. Port scenarios here into that harness rather than
+# growing this file.
+#
+# The planted model below must satisfy the same validator as the models in
+# tests/security/models/: every expected_* / not_expected_* / scope_* array has
+# to be present (SessionPrediction carries #[serde(default)] on almost none of
+# them), the window-level agent_type / agent_instance_id have to be non-empty,
+# and at least one scope_* array has to be non-empty -- correlate() aborts on an
+# empty scope, so a model that upserts but scopes nothing produces no verdict.
 
 scenario1_result="PENDING"
 scenario2_result="PENDING"
@@ -299,17 +312,32 @@ end = now + datetime.timedelta(minutes=20)
 model = {
     "window_start": now.isoformat().replace("+00:00", "Z"),
     "window_end": end.isoformat().replace("+00:00", "Z"),
+    "agent_type": "openclaw",
+    "agent_instance_id": "divergence-demo",
     "predictions": [
         {
+            "agent_type": "openclaw",
+            "agent_instance_id": "divergence-demo",
             "session_key": "demo-baseline-001",
             "action": "Routine posture checks",
             "tools_called": ["get_score", "get_sessions"],
+            # Scope: the interpreters and clients the four injections run as.
+            # Without a non-empty scope_* array correlate() returns before it
+            # evaluates a single rule, so every scenario below would report
+            # NO_DIVERGENCE no matter what the injections did.
+            "scope_process_paths": [
+                "*/curl", "*/bash", "*/python3", "*/python3.*", "*/python"
+            ],
+            "scope_parent_paths": [],
+            "scope_grandparent_paths": [],
+            "scope_any_lineage_paths": [],
             "expected_traffic": ["api.openai.com:443"],
             "expected_sensitive_files": [],
             "expected_lan_devices": [],
             "expected_local_open_ports": [],
             "expected_process_paths": [],
             "expected_parent_paths": [],
+            "expected_grandparent_paths": [],
             "expected_open_files": [],
             "expected_l7_protocols": [],
             "expected_system_config": [],
@@ -319,13 +347,16 @@ model = {
             "not_expected_local_open_ports": [18789],
             "not_expected_process_paths": ["/tmp/", "/var/tmp/", "/dev/shm/"],
             "not_expected_parent_paths": ["/tmp/", "/var/tmp/", "/dev/shm/"],
+            "not_expected_grandparent_paths": [],
             "not_expected_open_files": ["~/.ssh/", "~/.edamame_psk"],
             "not_expected_l7_protocols": [],
-            "not_expected_system_config": []
+            "not_expected_system_config": [],
+            "raw_input": None
         }
     ],
     "version": "3.0",
     "hash": "",
+    "contributors": [],
     "ingested_at": now.isoformat().replace("+00:00", "Z")
 }
 

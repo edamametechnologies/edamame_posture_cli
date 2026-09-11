@@ -49,7 +49,7 @@ POLL_ATTEMPTS=6
 POLL_INTERVAL=30
 READINESS_WAIT=120
 AGENT_TYPE="openclaw"
-SCENARIOS_CSV="blacklist_comm,cve_token_exfil,cve_sandbox_escape,memory_poisoning,credential_sprawl,supply_chain_exfil,npm_rat_beacon,file_events,skill_supply_chain,pgserve_postinstall,package_install_lifecycle,temp_modify,nonsensitive_path,agent_config_tamper,agent_cred_harvest,agent_denylist_bypass,dns_tunnel,dns_tunnel_reconnect,ntp_tunnel,loopback_relay,process_memory_scrape,agent_memory_scrape"
+SCENARIOS_CSV="blacklist_comm,cve_token_exfil,cve_sandbox_escape,memory_poisoning,credential_sprawl,supply_chain_exfil,npm_rat_beacon,file_events,skill_supply_chain,pgserve_postinstall,package_install_lifecycle,temp_modify,nonsensitive_path,agent_config_tamper,agent_rules_backdoor,agent_cred_harvest,agent_denylist_bypass,dns_tunnel,dns_tunnel_reconnect,ntp_tunnel,loopback_relay,process_memory_scrape,agent_memory_scrape"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -106,6 +106,7 @@ expected_check_for() {
     temp_modify)            echo "file_system_tampering" ;;
     nonsensitive_path)      echo "sensitive_material_egress" ;;
     agent_config_tamper)    echo "file_system_tampering" ;;
+    agent_rules_backdoor)   echo "file_system_tampering" ;;
     agent_cred_harvest)     echo "credential_harvest" ;;
     agent_denylist_bypass)  echo "agent_denylist_bypass" ;;
     # BS-6 tunnel shape: sustained high-volume udp/53 with credential
@@ -197,7 +198,8 @@ scenario_markers_json() {
     pgserve_postinstall)    echo '["_sc_wallet", "_sc_state.ldb", "_pgserve_key", "_pgserve_credentials", "_pgserve_accessTokens.json", "_pgserve_adc.json"]' ;;
     temp_modify)            echo '["_temp_staged_binary"]' ;;
     nonsensitive_path)      echo '["_workspace_demo", "project_secrets.env"]' ;;
-    agent_config_tamper)    echo '["_cfgtamper_hook.mdc", "_cfgtamper_mcp.mdc", "_cfgtamper_memory.mdc", "_cfgtamper"]' ;;
+    agent_config_tamper)    echo '["_cfgtamper_hook.mdc", "_cfgtamper_mcp.mdc", "_cfgtamper_memory.mdc", "_cfgtamper", "mcp.json"]' ;;
+    agent_rules_backdoor)   echo '["_rules_backdoor.mdc", "_rules_backdoor"]' ;;
     agent_cred_harvest)     echo '["_ach_key", "_ach_secring.key", "_ach.mdc"]' ;;
     agent_denylist_bypass)  echo '["denylist-bypass-probe.edamame.test"]' ;;
     # Scenarios below share an expected_check with other scenarios, so an

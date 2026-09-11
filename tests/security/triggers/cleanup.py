@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import os
 import platform
+import shutil
 import signal
 import subprocess
 import sys
@@ -52,6 +53,7 @@ PID_FILES = [
     # The stand-in daemon forwards SIGTERM to its egress child, so killing
     # this one pid stops both halves of the lineage.
     "daemon_lineage_egress.pid",
+    "agent_rules_backdoor.pid",
 ]
 
 CREATED_MARKERS = [
@@ -78,6 +80,17 @@ CREATED_MARKERS = [
     # Records a path OUTSIDE the state dir (the stand-in daemon installed into
     # /usr/sbin), which is why _PROTECTED_PARENTS below exists.
     "daemon_lineage_egress.created",
+    "agent_rules_backdoor.created",
+]
+
+# Markers written by `_common.claim_canonical_path` for triggers that must use
+# a canonical config filename (the shipped sensitive-path patterns for those
+# are file-specific). Each line is `<original>\t<backup>`; restoring copies the
+# backup back over the original. Processed BEFORE the created-file markers so a
+# path can never be both restored and deleted in one run.
+RESTORE_MARKERS = [
+    "agent_config_tamper.restored",
+    "agent_cred_harvest.restored",
 ]
 
 # Directories that must never be rmdir'd even when a marker records a file
@@ -154,6 +167,36 @@ def kill_from_pid_file(pid_file: Path) -> None:
     pid_file.unlink(missing_ok=True)
 
 
+def restore_backups(marker: Path) -> None:
+    if not marker.exists():
+        return
+    for line in marker.read_text("utf-8").splitlines():
+        entry = line.strip()
+        if not entry or "\t" not in entry:
+            continue
+        original_raw, backup_raw = entry.split("\t", 1)
+        original = Path(original_raw.strip())
+        backup = Path(backup_raw.strip())
+        if not backup.exists():
+            # Nothing to put back. Leaving the trigger's payload in place
+            # would be worse than removing it: the payload is a rogue MCP
+            # entry or a weakened sandbox setting.
+            try:
+                original.unlink(missing_ok=True)
+                print(f"  backup missing; removed trigger payload {original}")
+            except OSError as exc:
+                print(f"  cannot remove {original}: {exc}")
+            continue
+        try:
+            original.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(backup, original)
+            backup.unlink(missing_ok=True)
+            print(f"  restored {original}")
+        except OSError as exc:
+            print(f"  cannot restore {original}: {exc}")
+    marker.unlink(missing_ok=True)
+
+
 def remove_created_files(marker: Path) -> None:
     if not marker.exists():
         return
@@ -202,6 +245,9 @@ def main() -> int:
 
     for name in PID_FILES:
         kill_from_pid_file(state_dir / name)
+
+    for name in RESTORE_MARKERS:
+        restore_backups(state_dir / name)
 
     for name in CREATED_MARKERS:
         remove_created_files(state_dir / name)
