@@ -108,7 +108,7 @@ def build_plain_sleeper(state_dir: Path, name: str = "edamame_bs9_sleeper") -> P
         src.write_text("#include <unistd.h>\nint main(void){for(;;)sleep(1);return 0;}\n",
                        encoding="utf-8")
         res = subprocess.run(["cc", "-O0", "-o", str(out), str(src)],
-                             capture_output=True, text=True, timeout=120, check=False)
+                             capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120, check=False)
         if res.returncode != 0 or not out.exists():
             return None
         out.chmod(0o755)
@@ -174,7 +174,7 @@ def _posix_detached(argv: list[str]) -> int | None:
     quoted = " ".join(f"'{a}'" for a in argv)
     res = subprocess.run(
         ["sh", "-c", f"{quoted} </dev/null >/dev/null 2>&1 & echo $!"],
-        capture_output=True, text=True, timeout=30, check=False,
+        capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30, check=False,
     )
     try:
         return int(res.stdout.strip().splitlines()[-1])
@@ -214,7 +214,7 @@ def spawn_target(state_dir: Path, sensitive: bool = False) -> DetachedTarget:
             ["powershell", "-NoProfile", "-Command",
              f"(Start-Process '{image}' -ArgumentList {image_arg} "
              "-WindowStyle Hidden -PassThru).Id"],
-            capture_output=True, text=True, timeout=60, check=False,
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60, check=False,
         )
         try:
             pid = int(res.stdout.strip().splitlines()[-1])
@@ -351,7 +351,7 @@ def macos_read_step(pid: int) -> str:
     try:
         out = subprocess.run(
             ["sudo", "-n", sys.executable, os.path.abspath(__file__), "--task-for-pid", str(pid)],
-            capture_output=True, text=True, timeout=20, check=False,
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=20, check=False,
         )
         return (out.stdout or out.stderr).strip() or f"sudo rc={out.returncode}"
     except (OSError, subprocess.SubprocessError) as exc:

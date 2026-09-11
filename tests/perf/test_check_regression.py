@@ -47,6 +47,8 @@ def _run_gate(current: str, baseline: str) -> tuple[int, str]:
         [sys.executable, SCRIPT, "--current", current, "--baseline", baseline, "--threshold", "1.00"],
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         check=False,
     )
     return proc.returncode, proc.stdout
@@ -122,7 +124,7 @@ class SamplerIntegrityTests(unittest.TestCase):
              "--baseline", b1, "--baseline", b2, "--baseline", b3,
              "--baseline", os.path.join(self.tmp.name, "missing"),
              "--threshold", "1.00"],
-            capture_output=True, text=True, check=False,
+            capture_output=True, text=True, encoding="utf-8", errors="replace", check=False,
         )
         self.assertEqual(proc.returncode, 0, proc.stdout)
         self.assertIn("median of 3 baseline", proc.stdout)
