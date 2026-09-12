@@ -112,8 +112,33 @@ def cli_rpc(
             input=stdin_payload,
             capture_output=True,
             text=True,
+            # encoding/errors are MANDATORY, not tidiness. On Windows `text=True`
+            # alone decodes the child's pipes with the cp1252 locale codec, and
+            # the decode happens on subprocess's own reader THREAD. An
+            # undecodable byte raises UnicodeDecodeError inside that thread,
+            # which nothing propagates: the thread dies, its buffer stays empty,
+            # and `subprocess.run` returns normally with `stdout=None` --
+            # rc==0, empty stderr, no traceback the caller can see. The
+            # behavioural-model payload echoed back by `interactive` carries the
+            # agent's own transcript text, so a single curly quote was enough to
+            # do it. Gate 2's Windows leg failed this way for six consecutive
+            # runs from 2026-09-10; the visible symptom was
+            # `'NoneType' object has no attribute 'rfind'` three layers away in
+            # `_parse_interactive_output`. The same fix already exists twice in
+            # run_fleet_monitoring.py for installer and npm output; this helper,
+            # which carries the largest payloads of all, never got it.
+            encoding="utf-8",
+            errors="replace",
             timeout=timeout,
         )
+        if result.stdout is None:
+            # Only reachable if a reader thread died as described above. Fail
+            # with the cause rather than with an AttributeError further down.
+            raise RuntimeError(
+                f"edamame_cli {method} produced no stdout despite rc="
+                f"{result.returncode} -- a subprocess reader thread most likely "
+                f"died decoding the child's output"
+            )
         if use_stdin:
             interactive_error = _interactive_error(result.stderr)
             if result.returncode == 0 and interactive_error is None:

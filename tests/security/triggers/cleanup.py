@@ -147,6 +147,8 @@ def kill_from_pid_file(pid_file: Path) -> None:
                 ["taskkill", "/PID", str(pid), "/T", "/F"],
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
+                errors="replace",
                 check=False,
             )
             if result.returncode == 0:

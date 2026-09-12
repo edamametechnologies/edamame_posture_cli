@@ -226,7 +226,7 @@ def compile_probe(state_dir: Path) -> Path | None:
 
     print(f"compile_probe: running {cmd}", file=sys.stderr)
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True)
+        result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
         if result.returncode != 0:
             print(f"compile_probe: compilation failed (rc={result.returncode})", file=sys.stderr)
             print(f"  stdout: {result.stdout[:500]}", file=sys.stderr)

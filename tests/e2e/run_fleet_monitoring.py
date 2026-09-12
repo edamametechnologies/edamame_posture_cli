@@ -1189,6 +1189,12 @@ def assert_blast_radius() -> tuple[bool, str]:
 # treats a model older than 1200 s as Stale; the probe itself runs for up to
 # ~6 min (24 attempts), so anything older than this is rebuilt first.
 MODEL_FRESH_MAX_SECS = 600
+# Bound on the re-drive used to refresh a stale model. Short: the prompt is
+# benign and the point is a fresh transcript timestamp, not useful work.
+MODEL_REFRESH_DRIVE_TIMEOUT = 120
+# Total wall time allowed to get a fresh-enough model. Must comfortably exceed
+# one re-drive plus one rebuild, or the loop gives up mid-refresh.
+MODEL_WARMING_BUDGET_SECS = 420
 
 
 def _divergence_status() -> tuple[bool, int, int]:
@@ -1392,9 +1398,12 @@ def run_real_divergence(agent_type: str, drive_timeout: int) -> tuple[bool, str]
 
     log("--- Building real behavioral model directly (bypass observer hash-skip) ---")
     set_observer_enabled(agent_type, True)
-    waited = 0
+    # Wall-clock deadline rather than a fixed-step counter: an iteration that
+    # re-drives the agent can take a couple of minutes, and a counter that adds
+    # 6 per pass would have declared the budget spent after the first drive.
+    deadline = time.time() + MODEL_WARMING_BUDGET_SECS
     last_detail = ""
-    while waited <= 180:
+    while time.time() <= deadline:
         running, contrib, age = _divergence_status()
         # A model that already exists but is close to the engine's 1200 s
         # staleness threshold is NOT ready: the probe below takes several
@@ -1406,14 +1415,27 @@ def run_real_divergence(agent_type: str, drive_timeout: int) -> tuple[bool, str]
             log(f"  model ready: running={running} contributors={contrib} age={age}s")
             break
         if running and contrib > 0:
-            log(f"  model too old for the probe window (age={age}s >= {MODEL_FRESH_MAX_SECS}s); rebuilding")
+            # A rebuild alone CANNOT reduce this age, and looping on it was the
+            # windows-latest failure of 2026-09-10..11. `model_age_secs` is
+            # `Utc::now() - window_end`, and `window_end` comes from the
+            # agent's own transcript timestamps -- so rebuilding from unchanged
+            # transcripts reproduces the same window_end and the age keeps
+            # climbing however many times the build succeeds. The log said
+            # `rebuild: ok` on every iteration while age went 1207s -> 1266s.
+            # The only thing that moves window_end forward is the agent doing
+            # something new, so drive it again before rebuilding.
+            log(
+                f"  model too old for the probe window (age={age}s >= "
+                f"{MODEL_FRESH_MAX_SECS}s); re-driving {agent_type} to move "
+                f"window_end forward, then rebuilding"
+            )
+            drive_real_agent_normal(agent_type, MODEL_REFRESH_DRIVE_TIMEOUT)
         ok, last_detail = _force_model_build(agent_type)
         log(
             f"  model warming: running={running} contributors={contrib} age={age}s "
             f"| rebuild: {'ok' if ok else 'FAIL'} -- {last_detail}"
         )
         time.sleep(6)
-        waited += 6
     else:
         # Decisive diagnostics: the LLM probe above already showed whether the
         # provider is reachable; dump the registry so CI shows whether ANY

@@ -162,7 +162,7 @@ def compile_udp_probe(state_dir: Path, marker_name: str, binary_name: str) -> Pa
 
     print(f"compile_udp_probe: running {cmd}", file=sys.stderr)
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True)
+        result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
         if result.returncode != 0:
             print(f"compile_udp_probe: compilation failed (rc={result.returncode})", file=sys.stderr)
             print(f"  stdout: {result.stdout[:500]}", file=sys.stderr)
