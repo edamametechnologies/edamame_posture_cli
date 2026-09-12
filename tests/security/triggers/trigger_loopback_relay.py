@@ -33,13 +33,23 @@ multiprocessing produces on Linux and macOS. ``detect_sensitive_material_egress`
 then correlates child B's external session with the credential files child A
 holds (basis: ``process_tree_correlation``).
 
-That branch fires ONLY on a flagged flow -- ``is_anomalous`` or
-``is_blacklisted`` -- and emits nothing at all otherwise. Co-residency in a
-process tree is ambient (a developer shell holds ``~/.aws`` open next to any
-HTTPS client), and the gate's idle baseline is dirty on any finding at any
-severity, so an uncorroborated LOW would break every platform's baseline. All
-four platforms flagged this scenario's external session as anomalous in run
-34413252136, which is what makes the scenario gateable.
+That branch requires corroboration and emits nothing at all without it.
+Co-residency in a process tree is ambient (a developer shell holds ``~/.aws``
+open next to any HTTPS client), and the gate's idle baseline is dirty on any
+finding at any severity, so an uncorroborated LOW would break every platform's
+baseline.
+
+Corroboration is either a flagged flow (``is_anomalous`` / ``is_blacklisted``)
+or the structural relay shape: a live sibling holding two or more distinct
+credential classes, the egressing process holding none, a destination that is
+not ordinary web egress, and real volume on it.
+
+The structural shape is what makes this scenario gateable on every platform.
+The flagged-flow rule shipped alone first and failed here: run 34471274568
+graded this trigger's egress ``anomaly:abnormal`` on ubuntu-x64 and
+windows-x64 but ``anomaly:normal`` on macos-arm64, so the scenario passed on
+two platforms and missed on the third. iForest grades vary per host; the
+structure does not.
 
 This trigger reproduces that shape as **two sibling children of one coordinator
 process**, so the group root the detector computes (nearest AI-agent ancestor,
@@ -56,7 +66,8 @@ else the immediate parent) is the coordinator for both children:
 Detection path:
   child A                   -> no session at all (loopback is never captured);
                                holds ~/.ssh + ~/.aws open
-  child B external session  -> recent external egress, anomalous, holds nothing
+  child B external session  -> recent external egress to a non-web port,
+                               real volume, holds nothing sensitive itself
   process-tree correlation  -> child A's files reach child B's session as
                                l7.tree_sensitive_open_files
                             -> sensitive_material_egress

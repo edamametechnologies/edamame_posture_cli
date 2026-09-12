@@ -133,7 +133,7 @@ def provision_runtime(state_dir: Path) -> tuple[Path, str] | None:
     try:
         src.write_text(C_WRITER, encoding="utf-8")
         res = subprocess.run(["cc", "-O0", "-o", str(dst), str(src)],
-                             capture_output=True, text=True, timeout=120, check=False)
+                             capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120, check=False)
         if res.returncode == 0 and dst.exists():
             dst.chmod(0o755)
             return dst, "c"
