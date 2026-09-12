@@ -125,6 +125,8 @@ class GateTestCase(unittest.TestCase):
                 ],
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
+                errors="replace",
             )
         return proc.returncode, proc.stdout + proc.stderr
 
@@ -460,7 +462,7 @@ class TestWarmBaselineAdvisory(unittest.TestCase):
                     with open(os.path.join(wdir, "baseline.json"), "w", encoding="utf-8") as fh:
                         json.dump(baseline, fh)
                 args += ["--warm-baseline-dir", warm_root]
-            proc = subprocess.run(args, capture_output=True, text=True)
+            proc = subprocess.run(args, capture_output=True, text=True, encoding="utf-8", errors="replace")
         return proc.returncode, proc.stdout + proc.stderr
 
     def test_dirty_warm_baseline_is_advisory_not_blocking(self):
