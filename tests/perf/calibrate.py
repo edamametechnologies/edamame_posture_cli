@@ -78,7 +78,7 @@ def _cpu_model() -> str:
             out = subprocess.run(
                 ["sysctl", "-n", "machdep.cpu.brand_string"],
                 capture_output=True,
-                text=True,
+                text=True, encoding="utf-8", errors="replace",
                 timeout=5,
                 check=False,
             )
@@ -90,7 +90,7 @@ def _cpu_model() -> str:
             out = subprocess.run(
                 ["wmic", "cpu", "get", "Name", "/value"],
                 capture_output=True,
-                text=True,
+                text=True, encoding="utf-8", errors="replace",
                 timeout=10,
                 check=False,
             )
