@@ -10,26 +10,38 @@ distinct categories at once, while egressing.
 
 ``credential_harvest`` fires when a single attributed session holds sensitive
 files open spanning at least ``credential_harvest_min_labels`` (3) distinct
-label categories. This trigger opens AI-agent credential stores in three
-catalogued categories plus SSH/AWS for robustness:
+label categories. These are the exact paths this trigger opens:
 
-  - ``~/.claude/.credentials.json``  label: ``claude``
-  - ``~/.codex/auth.json``           label: ``codex``
-  - ``~/.cursor/mcp.json``           label: ``instruction``
-  - ``~/.ssh/...``                   label: ``ssh``
-  - ``~/.aws/credentials``           label: ``aws``
+  - ``~/.ssh/<pfx>_ach_key``           label: ``ssh``          (prefixed)
+  - ``~/.gnupg/<pfx>_ach_secring.key`` label: ``gnupg``        (prefixed)
+  - ``~/.cursor/rules/<pfx>_ach.mdc``  label: ``instruction``  (prefixed)
+  - ``~/.claude/credentials.json``     label: ``claude``       (canonical)
+  - ``~/.codex/auth.json``             label: ``codex``        (canonical)
+  - ``~/.aws/config``                  label: ``aws``          (canonical)
+
+The dir-level patterns are prefix-safe, so those three files are unambiguously
+ours. The AI credential stores and ``~/.aws/config`` must use their canonical
+filenames -- the shipped patterns for those are file-specific, and a prefixed
+variant classifies as nothing.
+
+Nothing here is ever overwritten: a canonical file is created with synthetic
+content only when it does not already exist (and is then removed by
+``cleanup.py``), and every handle is opened read-only. On a workstation where
+those files are real, the trigger reads one byte of the developer's real
+credential store and writes nothing.
 
 The same process holds all of them open (so attribution ties them to one
 lineage) and sends sustained HTTP POSTs to a routable sink, reproducing the
-downstream system-plane effect of an agent-credential stealer.
+downstream system-plane effect of an agent-credential stealer. The file
+contents are never part of the payload.
 
 Detection path:
   flodbadd L7 (attributed open_files, >= 3 label categories)
     -> credential_harvest (EvidenceFloor tier -> stays alertable)
 
-The paths are catalogued in threatmodels/sensitive-paths-db.json; all files are
-synthetic and created by the trigger. Cross-platform: macOS, Linux, Windows
-(uses Path.expanduser(); the target is a routable host:port).
+The paths are catalogued in threatmodels/sensitive-paths-db.json.
+Cross-platform: macOS, Linux, Windows (uses Path.expanduser(); the target is a
+routable host:port).
 """
 
 from __future__ import annotations
@@ -182,13 +194,19 @@ def main() -> int:
                                        "refreshToken": f"{pfx}_ach_refresh"}}),
         state_dir,
     )
+    codex_auth = ensure_demo_sensitive_file(
+        Path("~/.codex/auth.json"),  # label: codex  (/.codex/)
+        json.dumps({"OPENAI_API_KEY": f"sk-{pfx}-ach-not-a-real-key",
+                    "tokens": {"access_token": f"{upfx}_ACH_CODEX_TOKEN"}}),
+        state_dir,
+    )
     aws_cfg = ensure_demo_sensitive_file(
         Path("~/.aws/config"),  # label: aws  (/.aws/config)
         f"[default]\nregion = us-east-1\noutput = json\n# {upfx}_ACH\n",
         state_dir,
     )
 
-    open_paths = [ssh_key, gnupg_key, cursor_rule, claude_creds, aws_cfg]
+    open_paths = [ssh_key, gnupg_key, cursor_rule, claude_creds, codex_auth, aws_cfg]
 
     signal.signal(signal.SIGINT, handle_signal)
     signal.signal(signal.SIGTERM, handle_signal)
@@ -203,7 +221,7 @@ def main() -> int:
     interval = max(args.interval, 0.2)
 
     print(f"trigger_agent_cred_harvest.py active  pid={os.getpid()}")
-    print("  credential_categories=ssh,gnupg,instruction,claude,aws (5 files)")
+    print("  credential_categories=ssh,gnupg,instruction,claude,codex,aws (6 files)")
     for p in open_paths:
         print(f"  open_path={p}")
     print(f"  target={target_ip}:{args.target_port} host={args.target_host}")

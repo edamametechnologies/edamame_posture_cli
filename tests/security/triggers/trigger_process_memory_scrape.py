@@ -30,7 +30,14 @@ Detection path (kernel route):
 
 Detection path (procfs route, Linux only): the reader holds
 ``/proc/<other pid>/maps`` open while a session of its own is live, so the
-live-open-file enrichment also sees ``/proc/<pid>/{maps,mem}``.
+live-open-file enrichment also sees ``/proc/<pid>/{maps,mem,environ}``.
+
+Second real threat covered on Linux: the Codecov Bash Uploader compromise
+(Jan-Apr 2021) harvested the CI job's ENVIRONMENT rather than its memory or
+any credential file. ``/proc/<pid>/environ`` of another process goes through
+the same ``ptrace_may_access`` gate as ``/proc/<pid>/mem``, so the read is
+recorded on the same task-access edge -- which is why this trigger reads it
+too and why that shape needs no sensitive-path-DB entry of its own.
 
 Detection path (Windows): ``OpenProcess`` with a debugger-grade mask
 (``VM_READ | VM_WRITE | VM_OPERATION``, the analogue of ``task_for_pid`` /
@@ -285,6 +292,21 @@ def linux_read_memory(pid: int) -> str:
                 notes.append(f"mem={len(data)}B")
     except OSError as exc:
         notes.append(f"mem: {exc.__class__.__name__}")
+    # The environment block of another process. This is the Codecov Bash
+    # Uploader shape (Jan-Apr 2021): the payload never touched a credential
+    # FILE, it read the CI job's environment and shipped every secret the
+    # runner had exported. Same kernel gate as /proc/<pid>/mem --
+    # `proc_pid_environ` calls `mm_access(PTRACE_MODE_READ_FSCREDS)`, which
+    # calls `ptrace_may_access`, so the eBPF kprobe records a TaskAccess for
+    # this read too and no sensitive-path-DB entry is needed.
+    try:
+        with open(f"/proc/{pid}/environ", "rb", buffering=0) as environ:
+            blob = environ.read(4096)
+            # Hold it open across a live-open-file sample, as with maps.
+            time.sleep(0.5)
+        notes.append(f"environ={len(blob)}B")
+    except OSError as exc:
+        notes.append(f"environ: {exc.__class__.__name__}")
     return " ".join(notes)
 
 

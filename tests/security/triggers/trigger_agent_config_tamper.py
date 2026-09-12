@@ -21,13 +21,25 @@ The observable shapes, all reproduced safely here:
   4. ``~/.cursor/mcp.json`` -- a rogue MCP server entry pointing the agent at
      an attacker command (the SANDWORM_MODE / Mitiga shape).
 
-The numbered list above names the real-world THREAT locations. What this test
-actually WRITES, to stay portable and avoid touching a developer's live agent
-config, is the same hostile content placed into catalogued-sensitive Cursor
-paths: ``~/.cursor/rules/*.mdc`` and ``~/.cursorrules`` (labels ``instruction``
-in ``threatmodels/sensitive-paths-db.json``). Those actual write targets are
-catalogued sensitive, so the FIM watcher tags the events ``is_sensitive`` and
-the detector emits ``file_system_tampering``. Note that ``~/.claude/settings.json``
+The numbered list above names the real-world THREAT locations. Most of what
+this test WRITES, to stay portable, is the same hostile content placed into
+prefixed catalogued-sensitive Cursor paths: ``~/.cursor/rules/*.mdc`` and
+``~/.cursorrules`` (labels ``instruction`` in
+``threatmodels/sensitive-paths-db.json``).
+
+Shape 4 is the exception and uses the REAL ``~/.cursor/mcp.json``. That is the
+file CurXecute (CVE-2025-54135) rewrites, and ``/mcp.json`` is a file-specific
+sensitive-path pattern -- ``demo_openclaw_mcp.json`` matches nothing, so a
+prefixed copy would test nothing. On CI there is no such file, so the trigger
+creates it and ``cleanup.py`` removes it. When one already exists the target
+is SKIPPED, because a running Cursor watches that file and would offer to
+start the rogue server written into it; ``EDAMAME_ALLOW_CANONICAL_TAMPER=1``
+opts in, backing the original up and restoring it byte for byte afterwards
+(``_common.claim_canonical_path``).
+
+Those write targets are all catalogued sensitive, so the FIM watcher tags the
+events ``is_sensitive`` and the detector emits ``file_system_tampering``.
+Note that ``~/.claude/settings.json``
 and ``~/.claude/projects/.../MEMORY.md`` are NOT themselves in the sensitive
 catalog -- an agent WEAKENING settings.json is caught semantically by the
 separate ``agent_control_tampering`` check, not by path sensitivity here. The hook bodies additionally contain
@@ -63,6 +75,7 @@ from pathlib import Path
 
 from _common import (
     AGENT_TYPE_ARG_HELP,
+    claim_canonical_path,
     file_prefix_for,
     resolve_agent_type,
     state_dir_for,
@@ -71,6 +84,7 @@ from _common import (
 
 PID_FILE = "agent_config_tamper.pid"
 CREATED_MARKER = "agent_config_tamper.created"
+RESTORE_MARKER = "agent_config_tamper.restored"
 
 # Set on the re-exec'd process so it runs the write loop instead of
 # re-provisioning the temp interpreter a second time.
@@ -372,9 +386,28 @@ def main() -> int:
     rule_mcp = Path(f"~/.cursor/rules/{pfx}_cfgtamper_mcp.mdc")
     rule_memory = Path(f"~/.cursor/rules/{pfx}_cfgtamper_memory.mdc")
     cursorrules = Path(f"~/{pfx}_cfgtamper/.cursorrules")
-
     targets = [rule_hook, rule_mcp, rule_memory, cursorrules]
     bodies = [settings_json_body, mcp_json_body, memory_md_body, cursorrules_body]
+
+    # The one target that cannot be prefixed: CurXecute rewrites the real
+    # `~/.cursor/mcp.json`, and the shipped pattern for it is the exact
+    # basename `/mcp.json`, so a prefixed copy classifies as nothing.
+    #
+    # Skipped when a real one is already there, unless explicitly allowed. A
+    # running Cursor watches that file and would offer to start the rogue
+    # server this trigger writes into it; on CI (where there is no file and no
+    # IDE) we take the canonical path and `cleanup.py` removes it afterwards.
+    # With EDAMAME_ALLOW_CANONICAL_TAMPER=1 an existing file is backed up into
+    # the state dir first and restored byte for byte by `cleanup.py`.
+    mcp_target = Path("~/.cursor/mcp.json").expanduser()
+    if not mcp_target.exists() or os.environ.get("EDAMAME_ALLOW_CANONICAL_TAMPER") == "1":
+        targets.append(
+            claim_canonical_path(mcp_target, state_dir, CREATED_MARKER, RESTORE_MARKER)
+        )
+        bodies.append(mcp_json_body)
+    else:
+        print(f"  [SKIP] {mcp_target} exists (live agent config); set "
+              f"EDAMAME_ALLOW_CANONICAL_TAMPER=1 to include it")
 
     writer_lineage = "temp-dir" if "/tmp/" in sys.executable.replace("\\", "/") \
         or "\\temp\\" in sys.executable.lower() else "direct"
