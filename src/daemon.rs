@@ -324,6 +324,24 @@ fn collect_policy_violations(
             ));
         }
 
+        // Liveness before counting: a detector whose ticker died reports
+        // `running: true`, a frozen `last_run` and zero findings, which reads
+        // exactly like a clean host. The gate cannot certify what nobody
+        // observed, so fail closed. Daemons older than the field do not emit
+        // it and are treated as live.
+        if status_json
+            .get("ticker_stalled")
+            .and_then(|value| value.as_bool())
+            .unwrap_or(false)
+        {
+            return Err(format!(
+                "Attack pattern detector loop is stalled (no ticker iteration since {}); its zero findings certify nothing",
+                status_json
+                    .get("ticker_last_tick_at")
+                    .and_then(|value| value.as_str())
+                    .unwrap_or("unknown")
+            ));
+        }
         if let Some(alertable) = status_json
             .get("active_alertable_findings")
             .and_then(|value| value.as_u64())

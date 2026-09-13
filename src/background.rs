@@ -1995,6 +1995,24 @@ pub fn background_vulnerability_status(fail_on_findings: bool) -> i32 {
             }
 
             if fail_on_findings {
+                // Liveness first: a dead ticker leaves `running: true` and a
+                // frozen `last_run` behind, and zero findings from a loop that
+                // is not being driven certify nothing. Daemons older than the
+                // field do not emit it and are treated as live.
+                if json_value
+                    .get("ticker_stalled")
+                    .and_then(|value| value.as_bool())
+                    .unwrap_or(false)
+                {
+                    eprintln!(
+                        "Attack pattern detector loop is stalled (no ticker iteration since {}); refusing to certify zero findings",
+                        json_value
+                            .get("ticker_last_tick_at")
+                            .and_then(|value| value.as_str())
+                            .unwrap_or("unknown")
+                    );
+                    return ERROR_CODE_SERVER_ERROR;
+                }
                 // Prefer `active_alertable_findings` (HIGH/CRITICAL only)
                 // when the daemon exposes it. LOW severity findings
                 // (e.g. ambient `spawned_from_tmp` signals from CI

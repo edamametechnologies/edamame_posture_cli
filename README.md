@@ -306,7 +306,8 @@ edamame_posture agentic-status
 edamame_posture vulnerability-start 60
 edamame_posture vulnerability-stop
 edamame_posture vulnerability-status
-edamame_posture vulnerability-status --fail-on-findings  # CI gate: non-zero when active findings exist
+edamame_posture vulnerability-status --fail-on-findings  # CI gate: non-zero when HIGH/CRITICAL findings exist,
+                                                         # or when the detector loop is stalled (`ticker_stalled`)
 edamame_posture vulnerability-dismiss <FINDING_KEY>
 edamame_posture vulnerability-undismiss <FINDING_KEY>
 edamame_posture vulnerability-reset-suppressions
