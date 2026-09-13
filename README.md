@@ -328,7 +328,7 @@ edamame_posture get-file-events [--fail-on-suspicious]
 edamame_posture clear-file-events
 ```
 
-The attack pattern detector does **not** require an LLM provider or API key to emit findings. It runs model-independent runtime checks from packet capture, blacklist/anomaly evidence, file integrity events, and host telemetry. For CI/security gates, though, configuring an LLM is strongly recommended: EDAMAME can use it to adjudicate, suppress likely false positives, and produce better alert context. Without an LLM, raw detector findings still appear and `--fail-on-findings` still gates CI.
+The attack pattern detector's checks are model-independent: packet capture, blacklist/anomaly evidence, file integrity events and process lineage produce the raw findings without any LLM. **Publication is not:** every tick with raw findings is adjudicated by the configured LLM (KEEP / DEMOTE / SUPPRESS per finding, bounded by the evidence-floor guardrails), and a tick whose adjudication fails, times out, or has no provider configured is withheld -- `vulnerability-status` reports `adjudication_status: error` or `unavailable` and zero findings until an adjudicator answers. A daemon started without an LLM provider therefore emits no attack-pattern findings; see `edamame_core/VULNERABILITYDETECTION.md`, "What the adjudicator adds, and publication without it".
 
 ### Agent Telemetry: Metrics History (read-only, LLM-free)
 
