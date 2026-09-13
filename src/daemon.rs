@@ -342,6 +342,40 @@ fn collect_policy_violations(
                     .unwrap_or("unknown")
             ));
         }
+        // G-46 (decided 2026-09-13): a withheld tick (LLM did not answer in
+        // `llm` mode) is tolerated for one detector interval with a 120 s
+        // floor, then fails the policy closed. This path runs on every policy
+        // cycle, so the wait is a timestamp, not a sleep.
+        if crate::background::adjudication_is_withheld(&status_json) {
+            let now = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_secs() as i64)
+                .unwrap_or(0);
+            let since = match WITHHELD_SINCE_EPOCH.load(std::sync::atomic::Ordering::Relaxed) {
+                0 => {
+                    WITHHELD_SINCE_EPOCH.store(now, std::sync::atomic::Ordering::Relaxed);
+                    now
+                }
+                since => since,
+            };
+            let budget_secs = status_json
+                .get("interval_secs")
+                .and_then(|value| value.as_u64())
+                .unwrap_or(60)
+                .max(120) as i64;
+            if now - since > budget_secs {
+                return Err(format!(
+                    "Attack pattern detector adjudication withheld for {}s (adjudication_status={}); its zero findings certify nothing",
+                    now - since,
+                    status_json
+                        .get("adjudication_status")
+                        .and_then(|value| value.as_str())
+                        .unwrap_or("?")
+                ));
+            }
+        } else {
+            WITHHELD_SINCE_EPOCH.store(0, std::sync::atomic::Ordering::Relaxed);
+        }
         if let Some(alertable) = status_json
             .get("active_alertable_findings")
             .and_then(|value| value.as_u64())
@@ -363,6 +397,11 @@ fn collect_policy_violations(
         vulnerability_label,
     })
 }
+
+/// Unix seconds of the first policy cycle that saw a withheld adjudication;
+/// 0 when the latest tick was adjudicated or published. Lock-free on purpose:
+/// the policy check must not be able to wedge on its own bookkeeping.
+static WITHHELD_SINCE_EPOCH: std::sync::atomic::AtomicI64 = std::sync::atomic::AtomicI64::new(0);
 
 fn halt_ci_pipeline(reason: &str) -> Result<(), String> {
     // Check for custom cancellation script first (most secure - no token passing to daemon)

@@ -305,9 +305,12 @@ edamame_posture agentic-status
 # Attack pattern detector lifecycle
 edamame_posture vulnerability-start 60
 edamame_posture vulnerability-stop
+edamame_posture vulnerability-adjudication-mode <llm|advisory|deterministic>  # publication without the LLM, see below
 edamame_posture vulnerability-status
 edamame_posture vulnerability-status --fail-on-findings  # CI gate: non-zero when HIGH/CRITICAL findings exist,
-                                                         # or when the detector loop is stalled (`ticker_stalled`)
+                                                         # when the detector loop is stalled (`ticker_stalled`), or when the
+                                                         # latest tick is still withheld (LLM did not answer) after waiting one
+                                                         # detector interval (120 s floor) -- fail closed, never silently green
 edamame_posture vulnerability-dismiss <FINDING_KEY>
 edamame_posture vulnerability-undismiss <FINDING_KEY>
 edamame_posture vulnerability-reset-suppressions
@@ -315,6 +318,7 @@ edamame_posture vulnerability-reset-suppressions
 # Divergence engine lifecycle
 edamame_posture divergence-start 120
 edamame_posture divergence-stop
+edamame_posture divergence-adjudication-mode <llm|deterministic>  # consult the LLM or not
 edamame_posture divergence-status
 edamame_posture divergence-dismiss <FINDING_KEY>
 edamame_posture divergence-undismiss <FINDING_KEY>
@@ -329,6 +333,21 @@ edamame_posture clear-file-events
 ```
 
 The attack pattern detector's checks are model-independent: packet capture, blacklist/anomaly evidence, file integrity events and process lineage produce the raw findings without any LLM. **Publication is not:** every tick with raw findings is adjudicated by the configured LLM (KEEP / DEMOTE / SUPPRESS per finding, bounded by the evidence-floor guardrails), and a tick whose adjudication fails, times out, or has no provider configured is withheld -- `vulnerability-status` reports `adjudication_status: error` or `unavailable` and zero findings until an adjudicator answers. A daemon started without an LLM provider therefore emits no attack-pattern findings; see `edamame_core/VULNERABILITYDETECTION.md`, "What the adjudicator adds, and publication without it".
+
+**Adjudication modes** (`vulnerability-adjudication-mode`, persisted, default `llm`):
+`llm` -- every tick with raw findings is adjudicated and a tick the LLM did not
+answer is withheld (empty report, `adjudication_status: error|unavailable`);
+`advisory` -- the LLM is consulted, and when it fails or is not configured the
+deterministic result is published with `decision_source: DETERMINISTIC_ONLY`
+and `adjudication_status: deterministic`; `deterministic` -- the LLM is never
+consulted, no API key is needed, and every tick publishes the deterministic
+result. The evidence-floor tier publishes identically in all three modes (the
+LLM never had authority over it); the two other tiers publish at their graded
+severity, which already carries the CRS clamp. The divergence engine takes the
+same switch (`divergence-adjudication-mode`), where `llm` already falls back to
+the deterministic verdict on failure and `deterministic` skips the LLM entirely.
+The measured trade -- what the adjudicator quiets, what it costs -- is in
+`edamame_core/VULNERABILITYDETECTION.md`.
 
 ### Agent Telemetry: Metrics History (read-only, LLM-free)
 
@@ -1664,6 +1683,7 @@ Once installed, EDAMAME Posture is invoked via the `edamame_posture` command. Mo
 - **dismiss-device** `<IP_ADDRESS>` / **dismiss-device-port** `<IP_ADDRESS>` `<PORT>`: Mark an entire device (or a single port) as intentionally allowed. These commands add the relevant dismiss rules so future network scans treat the traffic as expected—ideal when you intentionally allow a service but still want posture reporting for everything else.
 - **dismiss-session** `<SESSION_UID>` / **dismiss-session-process** `<SESSION_UID>`: Silence a specific network session or every future session spawned by the same process. Use these commands after reviewing agentic/Slack summaries to acknowledge expected but noisy connections.
 - **background-divergence-dismiss** `<FINDING_KEY>` / **background-divergence-undismiss** `<FINDING_KEY>`: Dismiss or restore divergence evidence by finding key. Use when Slack/Telegram alerts indicate a divergence finding; the finding key is shown in the notification.
+- **background-vulnerability-adjudication-mode** / **vulnerability-adjudication-mode** `<llm|advisory|deterministic>`: Set how the detector publishes without the LLM adjudicator (withhold, deterministic fallback, or never consult it); persisted. **background-divergence-adjudication-mode** / **divergence-adjudication-mode** `<llm|deterministic>` does the same for the divergence engine.
 - **background-vulnerability-status** / **vulnerability-status** `[--fail-on-findings]`: Display runtime attack pattern detector status. Use `--fail-on-findings` in CI/CD to return a non-zero exit code when active runtime vulnerability findings exist. The gate consumes `active_alertable_findings` (HIGH/CRITICAL severity only) so LOW-severity ambient findings (e.g. CI bootstrappers running from `/tmp/`, build scripts writing benign `.log` artifacts) stay visible in the dashboard without by themselves failing the run. Older daemons that predate this counter fall back to the raw `active_findings` total. The gate does not require an LLM, but an LLM is recommended for CI/security use because adjudication and suppression reduce noise and improve alert text.
 - **background-vulnerability-dismiss** `<FINDING_KEY>` / **background-vulnerability-undismiss** `<FINDING_KEY>`: Dismiss or restore vulnerability findings by finding key.
 - **check-policy** `<min_score>` `"<threat_ids>"` `"[tag_prefixes]"`: Check whether the system meets a specified security policy. You provide a minimum score threshold, a comma-separated list of critical threat IDs to ensure are not present (or have specific states), and optional tag prefixes for compliance frameworks. This command exits with code 0 if the policy is met, or non-zero if not met (making it perfect for CI gating).
@@ -1731,6 +1751,8 @@ For completeness, here is a list of EDAMAME Posture CLI subcommands with detaile
 - **background-divergence-dismiss** (alias **divergence-dismiss**) `<FINDING_KEY>` – Dismiss divergence evidence by finding key. Communicates with the running daemon. Use when Slack/Telegram alerts indicate a divergence finding; the finding key is shown in the notification.
 - **background-divergence-undismiss** (alias **divergence-undismiss**) `<FINDING_KEY>` – Restore previously dismissed divergence evidence.
 - **background-divergence-reset-suppressions** (alias **divergence-reset-suppressions**) – Reset all divergence suppressions.
+- **background-vulnerability-adjudication-mode** (alias **vulnerability-adjudication-mode**) `<llm|advisory|deterministic>` – Set how the attack pattern detector publishes without the LLM adjudicator. Persisted with the daemon's agentic config.
+- **background-divergence-adjudication-mode** (alias **divergence-adjudication-mode**) `<llm|deterministic>` – Set whether the divergence engine consults the LLM.
 - **background-vulnerability-status** (alias **vulnerability-status**) `[--fail-on-findings]` – Display runtime attack pattern detector status. With `--fail-on-findings`, returns non-zero when `active_alertable_findings` (HIGH/CRITICAL severity, non-dismissed) is greater than zero, making it suitable as a CI/CD stop-on-vulnerability gate. LOW-severity findings (ambient lineage from CI bootstrappers, benign temp `.log`/`.txt` writes, etc.) still appear in `active_findings` for dashboard visibility but do not by themselves trip the gate. Older daemons that predate the alertable counter fall back to `active_findings`. No LLM is required for raw findings, but LLM configuration is recommended for adjudication, suppression, and clearer alerts.
 - **background-vulnerability-dismiss** (alias **vulnerability-dismiss**) `<FINDING_KEY>` – Dismiss vulnerability finding by finding key.
 - **background-vulnerability-undismiss** (alias **vulnerability-undismiss**) `<FINDING_KEY>` – Restore previously dismissed vulnerability finding.

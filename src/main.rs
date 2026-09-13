@@ -1165,6 +1165,15 @@ fn run_base() {
             exit_code = background_divergence_start(interval_secs);
             is_background = true;
         }
+        Some(("background-divergence-adjudication-mode", sub_matches)) => {
+            let mode = sub_matches
+                .get_one::<String>("MODE")
+                .cloned()
+                .unwrap_or_else(|| "llm".to_string());
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = crate::background::background_divergence_adjudication_mode(&mode);
+            is_background = true;
+        }
         Some(("background-divergence-stop", _)) => {
             initialize_core("".to_string(), false, false, false, false, false, verbose);
             exit_code = background_divergence_stop();
@@ -1213,6 +1222,15 @@ fn run_base() {
             let interval_secs = *sub_matches.get_one::<u64>("INTERVAL_SECS").unwrap_or(&60);
             initialize_core("".to_string(), false, false, false, false, false, verbose);
             exit_code = background_vulnerability_start(interval_secs);
+            is_background = true;
+        }
+        Some(("background-vulnerability-adjudication-mode", sub_matches)) => {
+            let mode = sub_matches
+                .get_one::<String>("MODE")
+                .cloned()
+                .unwrap_or_else(|| "llm".to_string());
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = crate::background::background_vulnerability_adjudication_mode(&mode);
             is_background = true;
         }
         Some(("background-vulnerability-stop", _)) => {

@@ -383,6 +383,15 @@ pub fn build_cli() -> Command {
             ),
     )
     .subcommand(
+        Command::new("background-divergence-adjudication-mode")
+            .alias("divergence-adjudication-mode")
+            .about("Set whether the divergence engine consults the LLM: llm (default; deterministic fallback when the LLM is unavailable) or deterministic (never consult the LLM). advisory is accepted and behaves as llm for this engine.")
+            .arg(
+                arg!(<MODE> "Adjudication mode")
+                    .value_parser(["llm", "advisory", "deterministic"]),
+            ),
+    )
+    .subcommand(
         Command::new("background-divergence-stop")
             .alias("divergence-stop")
             .about("Stop divergence engine in background process"),
@@ -451,6 +460,17 @@ pub fn build_cli() -> Command {
                     .required(false)
                     .default_value("60")
                     .value_parser(clap::value_parser!(u64)),
+            ),
+    )
+    .subcommand(
+        Command::new("background-vulnerability-adjudication-mode")
+            .alias("vulnerability-adjudication-mode")
+            .alias("background-attack-pattern-adjudication-mode")
+            .alias("attack-pattern-adjudication-mode")
+            .about("Set how the attack pattern detector publishes without the LLM adjudicator: llm (default: a tick the LLM did not answer is withheld), advisory (publish the deterministic result when the LLM fails), deterministic (never consult the LLM)")
+            .arg(
+                arg!(<MODE> "Adjudication mode")
+                    .value_parser(["llm", "advisory", "deterministic"]),
             ),
     )
     .subcommand(

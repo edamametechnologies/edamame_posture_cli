@@ -1603,6 +1603,42 @@ pub fn background_divergence_clear_model() -> i32 {
     }
 }
 
+/// Set the divergence engine's adjudication mode on the running daemon (operator plane).
+pub fn background_divergence_adjudication_mode(mode: &str) -> i32 {
+    match rpc_set_divergence_adjudication_mode(
+        mode.to_string(),
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => match serde_json::from_str::<serde_json::Value>(&result) {
+            Ok(json) if json["success"].as_bool().unwrap_or(false) => {
+                println!(
+                    "Divergence engine adjudication mode set to {}.",
+                    json["mode"].as_str().unwrap_or(mode)
+                );
+                0
+            }
+            Ok(json) => {
+                eprintln!(
+                    "Failed to set adjudication mode: {}",
+                    json["error"].as_str().unwrap_or("Unknown")
+                );
+                ERROR_CODE_PARAM
+            }
+            Err(e) => {
+                eprintln!("Error parsing result: {}", e);
+                ERROR_CODE_SERVER_ERROR
+            }
+        },
+        Err(e) => {
+            eprintln!("Error setting adjudication mode: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
 pub fn background_divergence_start(interval_secs: u64) -> i32 {
     match rpc_start_divergence_engine(
         true,
@@ -1834,6 +1870,54 @@ pub fn background_divergence_reset_suppressions() -> i32 {
 // Vulnerability Detector (model-independent heuristic checks)
 // ============================================================================
 
+/// A detector status whose latest tick was withheld: raw candidates existed
+/// and the LLM adjudicator did not answer (`error`) or is not configured
+/// (`unavailable`). Daemons older than the field never report either value.
+pub fn adjudication_is_withheld(status: &serde_json::Value) -> bool {
+    matches!(
+        status
+            .get("adjudication_status")
+            .and_then(|value| value.as_str()),
+        Some("error") | Some("unavailable")
+    )
+}
+
+/// Set the attack pattern detector's adjudication mode on the running daemon (operator plane).
+pub fn background_vulnerability_adjudication_mode(mode: &str) -> i32 {
+    match rpc_set_vulnerability_adjudication_mode(
+        mode.to_string(),
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(result) => match serde_json::from_str::<serde_json::Value>(&result) {
+            Ok(json) if json["success"].as_bool().unwrap_or(false) => {
+                println!(
+                    "Attack pattern detector adjudication mode set to {}.",
+                    json["mode"].as_str().unwrap_or(mode)
+                );
+                0
+            }
+            Ok(json) => {
+                eprintln!(
+                    "Failed to set adjudication mode: {}",
+                    json["error"].as_str().unwrap_or("Unknown")
+                );
+                ERROR_CODE_PARAM
+            }
+            Err(e) => {
+                eprintln!("Error parsing result: {}", e);
+                ERROR_CODE_SERVER_ERROR
+            }
+        },
+        Err(e) => {
+            eprintln!("Error setting adjudication mode: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
 pub fn background_vulnerability_start(interval_secs: u64) -> i32 {
     match rpc_start_vulnerability_detector(
         true,
@@ -2010,6 +2094,55 @@ pub fn background_vulnerability_status(fail_on_findings: bool) -> i32 {
                             .get("ticker_last_tick_at")
                             .and_then(|value| value.as_str())
                             .unwrap_or("unknown")
+                    );
+                    return ERROR_CODE_SERVER_ERROR;
+                }
+                // G-46 (decided 2026-09-13): in `llm` adjudication mode a tick
+                // the LLM did not answer is withheld -- the latest report is
+                // empty and reads exactly like a clean host. Wait for the
+                // adjudicator to answer, up to one detector interval with a
+                // 120 s floor (the LLM client timeout), then fail closed. A
+                // Portal blip is absorbed; an outage is a red gate, never a
+                // silently green one. `advisory` / `deterministic` never
+                // withhold, so they never enter this loop.
+                let mut json_value = json_value;
+                let budget_secs = json_value
+                    .get("interval_secs")
+                    .and_then(|value| value.as_u64())
+                    .unwrap_or(60)
+                    .max(120);
+                let mut waited_secs = 0u64;
+                while adjudication_is_withheld(&json_value) && waited_secs < budget_secs {
+                    if waited_secs == 0 {
+                        eprintln!(
+                            "Attack pattern detector: latest tick withheld (adjudication_status={}); waiting up to {}s for the LLM adjudicator...",
+                            json_value["adjudication_status"].as_str().unwrap_or("?"),
+                            budget_secs
+                        );
+                    }
+                    std::thread::sleep(std::time::Duration::from_secs(5));
+                    waited_secs += 5;
+                    match rpc_get_vulnerability_detector_status(
+                        &EDAMAME_CA_PEM,
+                        &EDAMAME_CLIENT_PEM,
+                        &EDAMAME_CLIENT_KEY,
+                        &EDAMAME_TARGET,
+                    ) {
+                        Ok(refreshed) => {
+                            match serde_json::from_str::<serde_json::Value>(&refreshed) {
+                                Ok(value) => json_value = value,
+                                Err(_) => break,
+                            }
+                        }
+                        Err(_) => break,
+                    }
+                }
+                if adjudication_is_withheld(&json_value) {
+                    eprintln!(
+                        "Attack pattern detector: adjudication still withheld after {}s (adjudication_status={}, raw_candidate_count={}); refusing to certify zero findings",
+                        waited_secs,
+                        json_value["adjudication_status"].as_str().unwrap_or("?"),
+                        json_value["raw_candidate_count"].as_u64().unwrap_or(0)
                     );
                     return ERROR_CODE_SERVER_ERROR;
                 }
