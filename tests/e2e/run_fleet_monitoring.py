@@ -62,6 +62,14 @@ Fleet-wide verification (run once):
                        any-lineage scope shipped in edamame_foundation 34be49f and
                        every posture release since 1.8.x carries it, so the former
                        best-effort Windows exemption is gone.
+  - idle baseline      SOFT (non-gating for the first release). The divergence
+                       engine's first false-positive measurement of any kind:
+                       with a REAL model built from the agent's own activity and
+                       the agent idle, samples the deterministic verdict for a
+                       short window and reports any DIVERGENCE on benign
+                       activity. Runs inside the divergence leg, between "model
+                       ready" and the freeze -- the one moment a live model
+                       exists and nothing hostile is happening.
   - lineage floor      SOFT (non-gating for the first release). Copies the system
                        interpreter into a fresh OS-temp dir and execs the copy
                        through the driven agent's persistent shell; the copy opens
@@ -1375,6 +1383,91 @@ def dump_probe_sessions() -> int:
     return hits
 
 
+# ── Divergence idle baseline (Gate 2 leg, SOFT) ────────────────────────────
+#
+# The false-positive question for the divergence engine, which until this leg
+# had no measurement of any kind (the attack-pattern detector has the 10-minute
+# idle baseline in tests.yml; divergence had nothing): with a REAL model built
+# from the agent's own activity, and the agent now idle, does the deterministic
+# verdict stay CLEAN? Sampled between "model ready" and the observer freeze that
+# precedes the divergent drive -- the one point in the run where a live model
+# exists and nothing hostile is happening.
+#
+# A DIVERGENCE here is not automatically a detector bug. The benign drive itself
+# may have made egress the model never declared -- a package fetch, a docs
+# lookup -- which is a true positive by construction. That is exactly what the
+# measurement is for, and why it starts SOFT: it reports, dumps the evidence for
+# triage, and never fails the gate in its first release. Promote to HARD only
+# after enough green runs to know what the benign floor looks like.
+#
+# Deliberately short. The e2e already runs for most of an hour per platform;
+# four samples 30 s apart is enough to catch a verdict that flips on benign
+# activity without adding a second idle-baseline-length wait.
+IDLE_BASELINE_SAMPLES = int(os.environ.get("FLEET_IDLE_BASELINE_SAMPLES", "4"))
+IDLE_BASELINE_INTERVAL_SECS = int(os.environ.get("FLEET_IDLE_BASELINE_INTERVAL_SECS", "30"))
+# Runs inside run_real_divergence (the only place a fresh real model exists),
+# so its result travels to main's summary through this holder rather than a
+# return value that would entangle the HARD leg's contract.
+IDLE_BASELINE = {"enabled": True, "result": None}  # result: (status, detail)
+
+
+def run_divergence_idle_baseline(agent_type: str) -> tuple[str, str]:
+    """('pass' | 'fail' | 'skip', detail). See the leg comment above."""
+    log(f"--- Divergence idle baseline (SOFT): {IDLE_BASELINE_SAMPLES} samples, "
+        f"{IDLE_BASELINE_INTERVAL_SECS}s apart, model live, agent idle ---")
+    live_samples = 0
+    divergent: list[tuple[int, str, str, list[str], list]] = []
+    for i in range(IDLE_BASELINE_SAMPLES):
+        rpc_quiet("debug_run_divergence_tick")
+        summary = rpc_quiet("get_divergence_verdict")
+        if isinstance(summary, str):
+            try:
+                summary = json.loads(summary)
+            except json.JSONDecodeError:
+                summary = None
+        summary = summary if isinstance(summary, dict) else {}
+        running, contrib, age = _divergence_status()
+        verdict = str(summary.get("verdict") or "").strip().upper()
+        det = str(summary.get("deterministic_verdict") or "").strip().upper()
+        evidence = summary.get("evidence") or []
+        categories = sorted({
+            str(item.get("category") or "").strip()
+            for item in evidence
+            if isinstance(item, dict) and not item.get("dismissed")
+        } - {""})
+        live = running and contrib > 0
+        if live:
+            live_samples += 1
+            if "DIVERGENCE" in (det, verdict) and (set(categories) & DIVERGENCE_OK_CATEGORIES):
+                divergent.append((i + 1, det, verdict, categories, evidence[:6]))
+        log(
+            f"  idle sample {i + 1}/{IDLE_BASELINE_SAMPLES}: deterministic={det or 'NONE'} "
+            f"final={verdict or 'NONE'} live_model={live} contributors={contrib} age={age}s "
+            f"categories={','.join(categories) or 'none'}"
+        )
+        if i + 1 < IDLE_BASELINE_SAMPLES:
+            time.sleep(IDLE_BASELINE_INTERVAL_SECS)
+    if live_samples == 0:
+        return "skip", "no live model during the idle window (nothing to measure against)"
+    if divergent:
+        for n, det, verdict, categories, evidence in divergent:
+            log(f"  idle sample {n}: DIVERGENCE on benign activity -- deterministic={det} "
+                f"final={verdict} categories={','.join(categories)}")
+            for item in evidence:
+                if isinstance(item, dict):
+                    log(f"    - [{item.get('severity')}] {item.get('category')} "
+                        f"{str(item.get('description') or '')[:140]}")
+        return "fail", (
+            f"{len(divergent)}/{live_samples} live idle samples reached DIVERGENCE on benign "
+            f"activity (a false positive for the engine, or undeclared egress from the "
+            f"benign drive itself -- triage the evidence above)"
+        )
+    return "pass", (
+        f"{live_samples} live samples over ~{(IDLE_BASELINE_SAMPLES - 1) * IDLE_BASELINE_INTERVAL_SECS}s, "
+        f"deterministic verdict never DIVERGENCE"
+    )
+
+
 def run_real_divergence(agent_type: str, drive_timeout: int) -> tuple[bool, str]:
     """Build a real model from the agent, freeze it, then drive divergent
     egress THROUGH the agent and assert a DIVERGENCE verdict."""
@@ -1451,6 +1544,17 @@ def run_real_divergence(agent_type: str, drive_timeout: int) -> tuple[bool, str]
     # Diagnostic: show the model scope the upcoming egress lineage must match.
     log("--- Behavioral model scope (diagnostic) ---")
     dump_model_scope()
+
+    # SOFT idle baseline: the only moment a fresh real model exists and the
+    # agent is idle. Must run BEFORE the freeze below, while the observer is
+    # still live, and before any divergent egress.
+    if IDLE_BASELINE["enabled"]:
+        try:
+            IDLE_BASELINE["result"] = run_divergence_idle_baseline(agent_type)
+        except Exception as exc:  # noqa: BLE001
+            IDLE_BASELINE["result"] = ("fail", f"exception: {exc}")
+        status, detail = IDLE_BASELINE["result"]
+        log(f"{status.upper()}: idle baseline -- {detail}")
 
     # Freeze the model so the upcoming probe activity is NOT ingested as
     # 'expected'. The egress the agent is about to make is therefore unexplained.
@@ -1836,6 +1940,7 @@ def parse_args() -> argparse.Namespace:
     )
     p.add_argument("--skip-divergence", action="store_true", default=os.environ.get("FLEET_SKIP_DIVERGENCE") == "1")
     p.add_argument("--skip-lineage-floor", action="store_true", default=os.environ.get("FLEET_SKIP_LINEAGE_FLOOR") == "1")
+    p.add_argument("--skip-idle-baseline", action="store_true", default=os.environ.get("FLEET_SKIP_IDLE_BASELINE") == "1")
     p.add_argument("--skip-blast-radius", action="store_true", default=os.environ.get("FLEET_SKIP_BLAST_RADIUS") == "1")
     p.add_argument("--score-wait", type=int, default=int(os.environ.get("FLEET_SCORE_WAIT_SECS", "8")))
     p.add_argument(
@@ -2033,6 +2138,7 @@ def main() -> int:
             divergence_ok = False
         else:
             try:
+                IDLE_BASELINE["enabled"] = not args.skip_idle_baseline
                 divergence_ok, detail = run_real_divergence(representative, args.drive_timeout)
             except Exception as exc:  # noqa: BLE001
                 divergence_ok, detail = False, f"exception: {exc}"
@@ -2136,6 +2242,11 @@ def main() -> int:
         lineage_floor_status, "-"
     )
     log(f"lineage floor(SOFT): {lineage_cell}  {lineage_floor_detail}")
+    # Idle baseline is SOFT for the first release, same contract as the lineage
+    # floor: fail/skip is a soft warning, reported with its own status.
+    idle_status, idle_detail = IDLE_BASELINE["result"] or (None, "")
+    idle_cell = {"pass": "OK", "fail": "FAIL", "skip": "SKIP"}.get(idle_status, "-")
+    log(f"idle baseline(SOFT): {idle_cell}  {idle_detail}")
     log(f"blast radius:        {cell(blast_ok)}")
     if floor_ok is False:
         hard_failures += 1
@@ -2144,6 +2255,8 @@ def main() -> int:
     if blast_ok is False:
         hard_failures += 1
     if lineage_floor_status in ("fail", "skip"):
+        soft_warnings += 1
+    if idle_status in ("fail", "skip"):
         soft_warnings += 1
     if soft_warnings:
         log(
