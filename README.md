@@ -3262,6 +3262,15 @@ and notarized on macOS) shared via GitHub Actions artifacts:
   - Report artifact: `security-report` (contains `VULNDETECTION.md` + raw per-platform results)
   - Harness: [`tests/security/`](tests/security/) (`run_cve_detection.sh`, `generate_report.py`)
 
+- **LLM adjudication eval** (job `llm-eval`) -- runs the 14 labelled
+  adjudication scenarios of `edamame_core/src/agentic/vulnerability_eval.rs`
+  against the production Portal with the gate's `EDAMAME_LLM_API_KEY`, through
+  the same `CoreCommunications` path the daemon uses, on the `edamame_core`
+  revision this checkout's `Cargo.lock` pins. Blocking since 2026-09-14
+  (G-47): a verdict outside the expected class, a missing per-finding verdict,
+  or a Portal call that fails twice fails the gate. Runs once on the
+  `ubuntu-x64` image; the LLM is platform-independent.
+
 - **Agent monitoring E2E** (workflow `agent_monitoring_e2e.yml`) -- installs real
   agents (Claude Code, Codex, OpenClaw), drives them, and asserts EDAMAME's
   host-side transcript observer produces behavioral models and divergence

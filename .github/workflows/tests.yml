@@ -2036,6 +2036,97 @@ jobs:
   # gating in a later release. Gated on a canonical full-default source build so
   # the pre-built ubuntu-x64 / windows-x64 binaries it reuses exist.
   # =========================================================================
+  llm-eval:
+    name: Live LLM adjudication eval (Portal)
+    needs: setup
+    # Blocking by decision (G-47, 2026-09-14). The 14 labelled adjudication
+    # scenarios in edamame_core/src/agentic/vulnerability_eval.rs run against
+    # the production Portal with this gate's EDAMAME_LLM_API_KEY, through the
+    # same CoreCommunications path the daemon uses. A verdict outside the
+    # expected class, a missing per-finding verdict, or a Portal call that
+    # fails twice fails this job and therefore the gate. The LLM is
+    # platform-independent, so it runs once, on the ubuntu-x64 leg's image,
+    # against the edamame_core revision this checkout's Cargo.lock pins.
+    if: |
+      always() && needs.setup.result == 'success' &&
+      needs.setup.outputs.run_security == 'true'
+    # ~30 min to build the core lib test binary + up to 14 x 2 x 120 s of
+    # Portal calls in the worst case.
+    timeout-minutes: 90
+    runs-on: ubuntu-24.04
+    env:
+      EDAMAME_APP_SENTRY: ${{ secrets.EDAMAME_APP_SENTRY }}
+      PWNED_API_KEY: ${{ secrets.PWNED_API_KEY }}
+      EDAMAME_TARGET: ${{ secrets.EDAMAME_TARGET }}
+      EDAMAME_CORE_TARGET: ${{ secrets.EDAMAME_CORE_TARGET }}
+      EDAMAME_CORE_SERVER: ${{ secrets.EDAMAME_CORE_SERVER }}
+      EDAMAME_CA_PEM: ${{ secrets.EDAMAME_CA_PEM }}
+      EDAMAME_CLIENT_PEM: ${{ secrets.EDAMAME_CLIENT_PEM }}
+      EDAMAME_CLIENT_KEY: ${{ secrets.EDAMAME_CLIENT_KEY }}
+      EDAMAME_SERVER_PEM: ${{ secrets.EDAMAME_SERVER_PEM }}
+      EDAMAME_SERVER_KEY: ${{ secrets.EDAMAME_SERVER_KEY }}
+      EDAMAME_CLIENT_CA_PEM: ${{ secrets.EDAMAME_CLIENT_CA_PEM }}
+      LAMBDA_SIGNATURE: ${{ secrets.LAMBDA_SIGNATURE }}
+      MIXPANEL_TOKEN: ${{ secrets.MIXPANEL_TOKEN }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      EDAMAME_LLM_API_KEY: ${{ secrets.EDAMAME_LLM_API_KEY }}
+      EDAMAME_EVAL_LIVE_LLM: "1"
+      CARGO_TERM_COLOR: always
+      CARGO_INCREMENTAL: "0"
+      # No debug info: the core lib test binary must fit the hosted runner's
+      # disk (the full core suite ENOSPCs there with debug info on).
+      CARGO_PROFILE_DEV_DEBUG: "0"
+      CARGO_PROFILE_TEST_DEBUG: "0"
+      RUST_BACKTRACE: "1"
+    steps:
+      - name: Setup EDAMAME Posture (whitelist runner IP, checkout source)
+        uses: edamametechnologies/edamame_posture_action@v1
+        with:
+          edamame_user: ${{ vars.EDAMAME_POSTURE_USER }}
+          edamame_domain: ${{ vars.EDAMAME_POSTURE_DOMAIN }}
+          edamame_pin: ${{ secrets.EDAMAME_POSTURE_PIN }}
+          edamame_id: ${{ github.run_id }}-llm-eval
+          checkout: true
+          token: ${{ secrets.DEV_GITHUB_TOKEN }}
+          wait_for_api: true
+          wait_for_https: true
+      - name: Configure Git Authentication to import private crates
+        run: |
+          git config --global user.email "dev@edamame.tech"
+          git config --global user.name "EDAMAME Dev"
+          git config --global url."https://edamamedev:${{ secrets.DEV_GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
+      - name: Free disk space on host
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL || true
+          df -h / | tail -1
+      - name: Install build dependencies (apt)
+        run: |
+          export DEBIAN_FRONTEND=noninteractive
+          for attempt in 1 2 3 4 5; do
+            if sudo apt-get update -y && sudo apt-get install -y protobuf-compiler libpcap-dev pkg-config libgtk-3-dev clang llvm libbpf-dev; then
+              break
+            fi
+            echo "apt attempt $attempt failed, retrying in $((attempt * 20))s"
+            sleep $((attempt * 20))
+          done
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - name: Check out edamame_core at the revision this posture pins
+        run: |
+          rev=$(grep -A3 '^name = "edamame_core"$' Cargo.lock | sed -n 's/^source = .*#\([0-9a-f]\{40\}\)".*/\1/p' | head -1)
+          if [ -z "$rev" ]; then
+            echo "edamame_core revision not found in Cargo.lock"; exit 1
+          fi
+          git clone --quiet https://github.com/edamametechnologies/edamame_core.git "${{ github.workspace }}/../edamame_core"
+          git -C "${{ github.workspace }}/../edamame_core" checkout --quiet "$rev"
+          echo "edamame_core @ $rev"
+      - name: Run the live LLM adjudication eval against the Portal
+        working-directory: ${{ github.workspace }}/../edamame_core
+        run: |
+          cargo test --lib -- --ignored --exact --nocapture \
+            agentic::vulnerability_eval::tests::vulnerability_eval_live
+
   warm-baseline:
     name: Warm-host baseline (${{ matrix.label }})
     needs: [setup, build]
