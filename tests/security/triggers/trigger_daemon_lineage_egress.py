@@ -236,7 +236,13 @@ def compile_standin(state_dir: Path, binary_name: str) -> Path | None:
     cmd = [cc, str(src), "-O2", "-o", str(binary)]
     print(f"compile_standin: running {cmd}", file=sys.stderr)
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True)
+        # encoding/errors are mandatory on every captured-output call in this
+        # tree (see _edamame_cli.py): `text=True` alone decodes with the
+        # locale codec and raises on the first byte it cannot map, which turns
+        # a compiler diagnostic into an opaque crash.
+        result = subprocess.run(
+            cmd, capture_output=True, text=True, encoding="utf-8", errors="replace"
+        )
         if result.returncode != 0:
             print(
                 f"compile_standin: compilation failed (rc={result.returncode})",
