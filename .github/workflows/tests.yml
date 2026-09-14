@@ -82,7 +82,7 @@ on:
       security_scenarios:
         description: "Comma-separated CVE scenarios to run (also the gate's required set)."
         required: false
-        default: "blacklist_comm,cve_token_exfil,cve_sandbox_escape,memory_poisoning,credential_sprawl,supply_chain_exfil,npm_rat_beacon,file_events,skill_supply_chain,pgserve_postinstall,package_install_lifecycle,temp_modify,nonsensitive_path,agent_config_tamper,agent_cred_harvest,agent_denylist_bypass,dns_tunnel,dns_tunnel_reconnect,ntp_tunnel,loopback_relay,process_memory_scrape,agent_memory_scrape"
+        default: "blacklist_comm,cve_token_exfil,cve_sandbox_escape,memory_poisoning,credential_sprawl,supply_chain_exfil,npm_rat_beacon,file_events,skill_supply_chain,pgserve_postinstall,package_install_lifecycle,temp_modify,nonsensitive_path,agent_config_tamper,agent_rules_backdoor,agent_cred_harvest,agent_denylist_bypass,dns_tunnel,dns_tunnel_reconnect,ntp_tunnel,loopback_relay,process_memory_scrape,agent_memory_scrape"
       security_divergence_scenarios:
         description: "Comma-separated divergence scenarios to run (run_divergence_detection.sh). Not yet part of the gate's required set; a `fail` still blocks, an absent row does not."
         required: false
@@ -173,7 +173,7 @@ jobs:
           # depending on that session: the credential-holding half is now read
           # from the live process tree (edamame_core BS-7 process-tree
           # correlation), which needs no loopback capture.
-          DEFAULT_SEC_SCEN="blacklist_comm,cve_token_exfil,cve_sandbox_escape,memory_poisoning,credential_sprawl,supply_chain_exfil,npm_rat_beacon,file_events,skill_supply_chain,pgserve_postinstall,package_install_lifecycle,temp_modify,nonsensitive_path,agent_config_tamper,agent_cred_harvest,agent_denylist_bypass,dns_tunnel,dns_tunnel_reconnect,ntp_tunnel,loopback_relay,process_memory_scrape,agent_memory_scrape"
+          DEFAULT_SEC_SCEN="blacklist_comm,cve_token_exfil,cve_sandbox_escape,memory_poisoning,credential_sprawl,supply_chain_exfil,npm_rat_beacon,file_events,skill_supply_chain,pgserve_postinstall,package_install_lifecycle,temp_modify,nonsensitive_path,agent_config_tamper,agent_rules_backdoor,agent_cred_harvest,agent_denylist_bypass,dns_tunnel,dns_tunnel_reconnect,ntp_tunnel,loopback_relay,process_memory_scrape,agent_memory_scrape"
           # Divergence-plane scenarios, asserted by run_divergence_detection.sh
           # against `get_divergence_verdict` rather than by the CVE runner
           # against `get_vulnerability_findings`. Kept as its own list because
