@@ -307,6 +307,107 @@ print(f"{matched}|{det or 'NONE'}|{final or 'NONE'}|{len(evidence)}|{cats}|{len(
 PY
 }
 
+# Snapshot the sessions the divergence engine is evaluating, for a scenario
+# that did not reach its expected verdict. The CVE runner has carried a
+# `sessions_snapshot` since 2026-09-06; the divergence runner had none, so a
+# miss here could not be classified from the artifact at all.
+#
+# The port is read back from the trigger's own `target=<ip>:<port>` banner
+# rather than kept in a second registry, and the process match uses the
+# corpus-wide `demo_` staging-name convention plus the scenario's evidence
+# marker, so this stays generic across divergence scenarios.
+dump_sessions_snapshot() {
+  local scenario="$1" marker="$2" trigger_log="$3" attempt="${4:-final}"
+  local port=""
+  port="$(sed -n 's/.*target=[0-9.]*:\([0-9][0-9]*\).*/\1/p' "$trigger_log" 2>/dev/null | head -1)"
+  # Keyed by run AND attempt: the same scenario may be listed more than once
+  # in SCENARIOS_CSV (repeat probing for an intermittent miss), and a single
+  # filename per scenario silently kept only the last failure.
+  DS_OUT="$OUTPUT_DIR_ABS/${scenario}.run${SCEN_RUN_INDEX:-1}.attempt${attempt}.sessions.json" \
+  DS_MARKER="$marker" \
+  DS_PORT="$port" TRIGGERS_DIR_ENV="$TRIGGERS_DIR" \
+    "$PYTHON" - <<'PY' 2>>"$TICK_LOG"
+import json, os, sys
+sys.path.insert(0, os.environ["TRIGGERS_DIR_ENV"])
+from _edamame_cli import cli_rpc
+
+marker = os.environ.get("DS_MARKER") or ""
+port_raw = os.environ.get("DS_PORT") or ""
+port = int(port_raw) if port_raw.isdigit() else None
+
+def l7_of(sess):
+    return sess.get("l7") or {}
+
+def tuple_of(sess):
+    return sess.get("session") or {}
+
+def is_candidate(sess):
+    l7 = l7_of(sess)
+    hay = " ".join(
+        str(l7.get(k) or "")
+        for k in ("process_name", "process_path", "parent_process_name", "parent_process_path")
+    )
+    if "demo_" in hay or (marker and marker in hay):
+        return True
+    return port is not None and tuple_of(sess).get("dst_port") == port
+
+def project(sess):
+    l7 = l7_of(sess)
+    tup = tuple_of(sess)
+    return {
+        "uid": sess.get("uid"),
+        "protocol": tup.get("protocol"),
+        "dst_ip": tup.get("dst_ip"),
+        "dst_port": tup.get("dst_port"),
+        "status": sess.get("status"),
+        "last_modified": sess.get("last_modified"),
+        "stats": sess.get("stats"),
+        "criticality": sess.get("criticality"),
+        "l7_present": bool(l7),
+        "l7": {
+            "pid": l7.get("pid"),
+            "process_name": l7.get("process_name"),
+            "process_path": l7.get("process_path"),
+            "parent_process_name": l7.get("parent_process_name"),
+            "parent_process_path": l7.get("parent_process_path"),
+        } if l7 else None,
+    }
+
+out = {"marker": marker, "target_port": port, "error": None}
+try:
+    sessions = cli_rpc("get_current_sessions") or []
+    if isinstance(sessions, str):
+        sessions = json.loads(sessions)
+    sessions = [s for s in sessions if isinstance(s, dict)]
+    candidates = [s for s in sessions if is_candidate(s)]
+    out.update({
+        "total_sessions": len(sessions),
+        "sessions_with_l7": sum(1 for s in sessions if l7_of(s)),
+        "sessions_with_parent_path": sum(
+            1 for s in sessions if (l7_of(s).get("parent_process_path") or "")
+        ),
+        "candidate_count": len(candidates),
+        "candidates": [project(s) for s in candidates[:25]],
+    })
+except Exception as exc:
+    out["error"] = str(exc)
+
+with open(os.environ["DS_OUT"], "w", encoding="utf-8") as fh:
+    json.dump(out, fh, indent=2, default=str)
+
+print(
+    "  sessions snapshot: total={} l7={} parent_path={} candidates={}".format(
+        out.get("total_sessions", "?"),
+        out.get("sessions_with_l7", "?"),
+        out.get("sessions_with_parent_path", "?"),
+        out.get("candidate_count", "?"),
+    ),
+    file=sys.stderr,
+)
+PY
+  log "  sessions snapshot written: ${scenario}.run${SCEN_RUN_INDEX:-1}.attempt${attempt}.sessions.json"
+}
+
 record_scenario_result() {
   local scenario="$1" check="$2" status="$3" total="$4" alertable="$5"
   local elapsed="$6" extra="$7" severities="${8:-none}"
@@ -342,6 +443,8 @@ PY
 
 run_one_scenario() {
   local scenario="$1"
+  # Distinguishes repeat invocations of the same scenario in SCENARIOS_CSV.
+  SCEN_RUN_INDEX=$(( ${SCEN_RUN_INDEX:-0} + 1 ))
   local check model_file trigger_script prefix marker
   check="$(expected_check_for "$scenario")"
   if [[ -z "$check" ]]; then
@@ -443,12 +546,29 @@ run_one_scenario() {
     if [[ "$matched" == "1" ]]; then
       break
     fi
+    # Snapshot per unmatched attempt, not just once at the end. A single
+    # end-of-run snapshot shows the session as it finally settled, which
+    # cannot distinguish "the rule never fired" from "the L7 field the rule
+    # needs arrived after the last evaluation" -- the two remaining
+    # explanations for a scenario that stays CLEAN while its session is
+    # reported in scope on every poll.
+    dump_sessions_snapshot "$scenario" "$marker" "$trigger_log" "$attempt"
     if ! kill -0 "$trigger_pid" 2>/dev/null; then
       log "  trigger exited before a verdict was reached"
       break
     fi
     sleep "$POLL_INTERVAL"
   done
+
+  # A failed scenario must record what the engine was actually looking at.
+  # Asserting only the verdict leaves "never diverged" indistinguishable from
+  # "the stimulus was never visible to correlation", which is the difference
+  # between a detector bug and a capture/attribution bug. MUST run while the
+  # trigger is still alive: the divergence engine reads CURRENT sessions, so
+  # tearing the trigger down first empties exactly the evidence we need.
+  if [[ "$matched" != "1" ]]; then
+    dump_sessions_snapshot "$scenario" "$marker" "$trigger_log"
+  fi
 
   if kill -0 "$trigger_pid" 2>/dev/null; then
     kill -TERM "$trigger_pid" 2>/dev/null || true
