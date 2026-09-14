@@ -1574,7 +1574,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c54e03a951783e8b327515db3f2a2fd0e3bed362a96b066f341ce66ed49b4ead"
 dependencies = [
  "data-encoding",
- "syn 1.0.109",
+ "syn 3.0.5",
 ]
 
 [[package]]
@@ -1868,7 +1868,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "1.9.0"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#9032763cafe547f08cc52415e2c6cc2cdde258ef"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#1f81c2dfbc269ca8be98f5c43b2589eedbbea3bc"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -1957,7 +1957,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "1.9.0"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#5666fb39d1c5982d00874b3165b8848fa7a68dff"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#b21f492702289d19bc27f1935e199a21bfed84fe"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -2435,7 +2435,7 @@ dependencies = [
 [[package]]
 name = "flodbadd"
 version = "1.9.0"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#a5a6a57784b4f5bb155805ea7ff3db2819a0e3d3"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#f1f48e62908cc3ad44aa27b04e0f855793d38c3a"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -3515,7 +3515,7 @@ dependencies = [
  "js-sys",
  "log",
  "wasm-bindgen",
- "windows-core 0.62.2",
+ "windows-core 0.58.0",
 ]
 
 [[package]]
@@ -4043,7 +4043,7 @@ dependencies = [
 [[package]]
 name = "l7_ebpf_program"
 version = "0.1.0"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#a5a6a57784b4f5bb155805ea7ff3db2819a0e3d3"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#f1f48e62908cc3ad44aa27b04e0f855793d38c3a"
 
 [[package]]
 name = "lazy_static"
@@ -7622,7 +7622,7 @@ dependencies = [
 [[package]]
 name = "threatmodels_rs"
 version = "0.1.1"
-source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#d463324088f2a5a7f6d5a358ec7cda33d34e31c7"
+source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#b139cde1db509b9e5d5cba966683e8cc501c14f3"
 dependencies = [
  "anyhow",
  "chrono",
