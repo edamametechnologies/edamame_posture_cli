@@ -418,15 +418,19 @@ jobs:
                 sleep 5
                 continue
               fi
-              if $PREFIX apt-get "$@"; then
+              # Capture apt's own status: `$?` after an `if` compound is the
+              # compound's status (0 when the condition failed), which made
+              # every failure log rc=0 and skipped the dpkg repair below.
+              RC=0
+              $PREFIX apt-get "$@" || RC=$?
+              if [ "$RC" -eq 0 ]; then
                 return 0
               fi
-              RC=$?
               echo "apt-get $* failed (rc=$RC)"
-              if [ $RC -eq 100 ]; then
-                echo "Attempting dpkg --configure -a to fix interrupted state..."
-                sudo dpkg --configure -a || true
-              fi
+              # "dpkg was interrupted" (rc=100) is the common hosted-image
+              # state; repairing is harmless on any failure, so do not gate it.
+              echo "Attempting dpkg --configure -a to fix interrupted state..."
+              $PREFIX dpkg --configure -a || true
               echo "Waiting 5s before retry..."
               sleep 5
             done
@@ -694,9 +698,12 @@ jobs:
             while [ $ATTEMPTS -lt $MAX_ATTEMPTS ]; do
               ATTEMPTS=$((ATTEMPTS + 1))
               wait_for_apt_locks || true
-              if $PREFIX apt-get "$@"; then return 0; fi
-              local RC=$?
-              [ $RC -eq 100 ] && sudo dpkg --configure -a || true
+              local RC=0
+              $PREFIX apt-get "$@" || RC=$?
+              if [ "$RC" -eq 0 ]; then return 0; fi
+              echo "apt-get $* failed (rc=$RC)"
+              # see the build job's run_apt: `$?` after `if` never carried apt's status
+              $PREFIX dpkg --configure -a || true
               sleep 5
             done
             return 1
