@@ -1417,6 +1417,11 @@ def run_divergence_idle_baseline(agent_type: str) -> tuple[str, str]:
         f"{IDLE_BASELINE_INTERVAL_SECS}s apart, model live, agent idle ---")
     live_samples = 0
     divergent: list[tuple[int, str, str, list[str], list]] = []
+    # Samples that DID reach DIVERGENCE but only on categories outside
+    # DIVERGENCE_OK_CATEGORIES (e.g. policy:*). They do not fail this soft leg,
+    # but the pass message used to claim the verdict was "never DIVERGENCE",
+    # which is untrue whenever this list is non-empty.
+    other_divergent: list[tuple[int, str, str, list[str]]] = []
     for i in range(IDLE_BASELINE_SAMPLES):
         rpc_quiet("debug_run_divergence_tick")
         summary = rpc_quiet("get_divergence_verdict")
@@ -1440,6 +1445,8 @@ def run_divergence_idle_baseline(agent_type: str) -> tuple[str, str]:
             live_samples += 1
             if "DIVERGENCE" in (det, verdict) and (set(categories) & DIVERGENCE_OK_CATEGORIES):
                 divergent.append((i + 1, det, verdict, categories, evidence[:6]))
+            elif "DIVERGENCE" in (det, verdict):
+                other_divergent.append((i + 1, det, verdict, categories))
         log(
             f"  idle sample {i + 1}/{IDLE_BASELINE_SAMPLES}: deterministic={det or 'NONE'} "
             f"final={verdict or 'NONE'} live_model={live} contributors={contrib} age={age}s "
@@ -1462,9 +1469,20 @@ def run_divergence_idle_baseline(agent_type: str) -> tuple[str, str]:
             f"activity (a false positive for the engine, or undeclared egress from the "
             f"benign drive itself -- triage the evidence above)"
         )
+    window = f"~{(IDLE_BASELINE_SAMPLES - 1) * IDLE_BASELINE_INTERVAL_SECS}s"
+    if other_divergent:
+        for n, det, verdict, categories in other_divergent:
+            log(f"  idle sample {n}: DIVERGENCE on non-correlation categories only -- "
+                f"deterministic={det} final={verdict} categories={','.join(categories) or 'none'}")
+        seen = sorted({c for _, _, _, cats in other_divergent for c in cats})
+        return "pass", (
+            f"{live_samples} live samples over {window}, no DIVERGENCE on the correlation "
+            f"categories this leg gates on; {len(other_divergent)}/{live_samples} samples DID "
+            f"reach DIVERGENCE on other categories only ({','.join(seen) or 'none'}) -- not "
+            f"counted here, see the log above"
+        )
     return "pass", (
-        f"{live_samples} live samples over ~{(IDLE_BASELINE_SAMPLES - 1) * IDLE_BASELINE_INTERVAL_SECS}s, "
-        f"deterministic verdict never DIVERGENCE"
+        f"{live_samples} live samples over {window}, deterministic verdict never DIVERGENCE"
     )
 
 
