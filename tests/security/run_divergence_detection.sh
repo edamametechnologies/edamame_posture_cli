@@ -317,10 +317,14 @@ PY
 # corpus-wide `demo_` staging-name convention plus the scenario's evidence
 # marker, so this stays generic across divergence scenarios.
 dump_sessions_snapshot() {
-  local scenario="$1" marker="$2" trigger_log="$3"
+  local scenario="$1" marker="$2" trigger_log="$3" attempt="${4:-final}"
   local port=""
   port="$(sed -n 's/.*target=[0-9.]*:\([0-9][0-9]*\).*/\1/p' "$trigger_log" 2>/dev/null | head -1)"
-  DS_OUT="$OUTPUT_DIR_ABS/${scenario}.sessions.json" DS_MARKER="$marker" \
+  # Keyed by run AND attempt: the same scenario may be listed more than once
+  # in SCENARIOS_CSV (repeat probing for an intermittent miss), and a single
+  # filename per scenario silently kept only the last failure.
+  DS_OUT="$OUTPUT_DIR_ABS/${scenario}.run${SCEN_RUN_INDEX:-1}.attempt${attempt}.sessions.json" \
+  DS_MARKER="$marker" \
   DS_PORT="$port" TRIGGERS_DIR_ENV="$TRIGGERS_DIR" \
     "$PYTHON" - <<'PY' 2>>"$TICK_LOG"
 import json, os, sys
@@ -401,7 +405,7 @@ print(
     file=sys.stderr,
 )
 PY
-  log "  sessions snapshot written: $OUTPUT_DIR_ABS/${scenario}.sessions.json"
+  log "  sessions snapshot written: ${scenario}.run${SCEN_RUN_INDEX:-1}.attempt${attempt}.sessions.json"
 }
 
 record_scenario_result() {
@@ -439,6 +443,8 @@ PY
 
 run_one_scenario() {
   local scenario="$1"
+  # Distinguishes repeat invocations of the same scenario in SCENARIOS_CSV.
+  SCEN_RUN_INDEX=$(( ${SCEN_RUN_INDEX:-0} + 1 ))
   local check model_file trigger_script prefix marker
   check="$(expected_check_for "$scenario")"
   if [[ -z "$check" ]]; then
@@ -540,6 +546,13 @@ run_one_scenario() {
     if [[ "$matched" == "1" ]]; then
       break
     fi
+    # Snapshot per unmatched attempt, not just once at the end. A single
+    # end-of-run snapshot shows the session as it finally settled, which
+    # cannot distinguish "the rule never fired" from "the L7 field the rule
+    # needs arrived after the last evaluation" -- the two remaining
+    # explanations for a scenario that stays CLEAN while its session is
+    # reported in scope on every poll.
+    dump_sessions_snapshot "$scenario" "$marker" "$trigger_log" "$attempt"
     if ! kill -0 "$trigger_pid" 2>/dev/null; then
       log "  trigger exited before a verdict was reached"
       break
