@@ -109,12 +109,21 @@ VALID_STATUSES = ("pass", "skip", "fail")
 # platform has no sensor for the shape (not a flake, not a gap in the
 # suite). They are not required there: a ``skip`` with a recorded reason
 # or an absent row is accepted; a ``fail`` still fails. Mirrors
-# PLATFORM_EXCLUDED_SCENARIOS in run_cve_detection.sh.
+# ``scenario_excluded_on_this_platform()`` in run_cve_detection.sh (CVE
+# scenarios) and in run_divergence_detection.sh (divergence scenarios);
+# an entry added here MUST be added to whichever runner owns the scenario.
 PLATFORM_EXCLUDED_SCENARIOS: dict = {
-    # Empty since 2026-09-07: process_memory_scrape gained its Windows
-    # source (flodbadd's Kernel-Audit-API-Calls ETW session). The mechanism
-    # stays for the next platform gap; mirror any entry in
-    # scenario_excluded_on_this_platform() in run_cve_detection.sh.
+    # process_memory_scrape gained its Windows source (flodbadd's
+    # Kernel-Audit-API-Calls ETW session) on 2026-09-07 and is no longer
+    # excluded anywhere.
+    "windows-x64": {
+        # daemon_lineage_egress installs a stand-in daemon into a
+        # soft-trusted system location and asserts on l7.parent_process_path.
+        # The Windows equivalent needs a %WINDIR%\System32 write plus ETW
+        # parent attribution; neither is implemented. Owned by
+        # run_divergence_detection.sh.
+        "daemon_lineage_egress",
+    },
 }
 
 
