@@ -2121,6 +2121,18 @@ jobs:
           git clone --quiet https://github.com/edamametechnologies/edamame_core.git "${{ github.workspace }}/../edamame_core"
           git -C "${{ github.workspace }}/../edamame_core" checkout --quiet "$rev"
           echo "edamame_core @ $rev"
+      - name: Make the userspace storage directory writable for the eval
+        # The posture action's daemon runs as root and creates ~/.edamame; the
+        # eval runs as the runner user and persists agentic status there after
+        # every Portal answer. Until edamame_core treats that write as
+        # telemetry (non-fatal), a root-owned directory fails every scenario
+        # with EACCES, so hand the directory to the runner user first.
+        run: |
+          if [ -d "$HOME/.edamame" ]; then
+            sudo chown -R "$(id -u):$(id -g)" "$HOME/.edamame"
+          fi
+          mkdir -p "$HOME/.edamame"
+          ls -ld "$HOME/.edamame"
       - name: Run the live LLM adjudication eval against the Portal
         working-directory: ${{ github.workspace }}/../edamame_core
         run: |
