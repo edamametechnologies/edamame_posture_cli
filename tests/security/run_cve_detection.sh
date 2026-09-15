@@ -325,6 +325,40 @@ clear_vuln_history() {
   call_rpc clear_vulnerability_history >>"$TICK_LOG" 2>&1 || true
 }
 
+# A daemon that stops answering RPC mid-suite (native crash, external kill)
+# must fail the suite at once with an unambiguous message. Every finding
+# helper tolerates a failed RPC as "no finding", so without this probe the
+# remaining scenarios grind through readiness waits and retries against a
+# refused port until the job's 150-minute timeout: on run 34994147848
+# (windows-x64) the daemon vanished at 17:07:44Z and the job died at 19:27Z.
+CURRENT_TRIGGER_PID=""
+assert_daemon_reachable() {
+  local where="$1"
+  local probe
+  for probe in 1 2 3; do
+    if "$EDAMAME_CLI" rpc get_core_version >/dev/null 2>>"$TICK_LOG"; then
+      return 0
+    fi
+    log "  daemon RPC probe $probe/3 failed ($where)"
+    sleep 5
+  done
+  log "FATAL: the posture daemon no longer answers RPC ($where): it crashed or was killed; aborting the suite"
+  if [[ "${RUNNER_OS:-}" == "Windows" ]]; then
+    tasklist //FI "IMAGENAME eq edamame_posture.exe" 2>/dev/null | sed 's/^/  /' >&2 || true
+  else
+    pgrep -fl edamame_posture 2>/dev/null | sed 's/^/  /' >&2 || log "  no edamame_posture process is running"
+  fi
+  printf 'daemon_unreachable at %s (%s)\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$where" \
+    >"$OUTPUT_DIR_ABS/daemon_unreachable.log"
+  if [[ -n "$CURRENT_TRIGGER_PID" ]]; then
+    kill -TERM "$CURRENT_TRIGGER_PID" 2>/dev/null || true
+    sleep 1
+    kill -9 "$CURRENT_TRIGGER_PID" 2>/dev/null || true
+  fi
+  run_cleanup
+  exit 1
+}
+
 # Poll until L7 attribution and anomaly detection have enough evidence for the
 # detector to fire. Returns early as soon as signal is visible or the trigger
 # has already produced a finding.
@@ -337,6 +371,7 @@ wait_for_readiness() {
   [[ "$max_wait" -le 0 ]] && return 0
 
   while (( waited < max_wait )); do
+    assert_daemon_reachable "readiness wait for $scenario"
     local counts
     counts="$(TRIGGERS_DIR_ENV="$TRIGGERS_DIR" count_finding_for_scenario "$scenario" "$check" 2>/dev/null)"
     local total=${counts%%|*}
@@ -936,6 +971,7 @@ run_one_scenario_attempt() {
   local expected_severity
   expected_severity="$(expected_severity_for "$scenario")"
 
+  assert_daemon_reachable "start of $scenario"
   clear_vuln_history
   run_cleanup
   prepare_scenario_state "$scenario" "$check"
@@ -960,6 +996,7 @@ run_one_scenario_attempt() {
   fi
   local trigger_pid=$!
   log "  trigger started pid=$trigger_pid"
+  CURRENT_TRIGGER_PID="$trigger_pid"
 
   if (( POST_WAIT > 0 )); then
     log "  initial settle ${POST_WAIT}s for capture + L7 attribution"
@@ -978,6 +1015,7 @@ run_one_scenario_attempt() {
       trigger_state="ended"
     fi
     log "  verify attempt $attempt/$POLL_ATTEMPTS (trigger=$trigger_state)"
+    assert_daemon_reachable "verify attempt $attempt for $scenario"
     force_vuln_tick
     sleep 2
     if [[ "$check" == "blacklisted_sessions" ]]; then
@@ -1030,6 +1068,7 @@ run_one_scenario_attempt() {
     kill -9 "$trigger_pid" 2>/dev/null || true
   fi
   wait "$trigger_pid" 2>/dev/null || true
+  CURRENT_TRIGGER_PID=""
 
   if (( DETECTED == 0 )); then
     log "  no alertable detection within verify loop; final tick + tail poll"
