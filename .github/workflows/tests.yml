@@ -1740,6 +1740,30 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install requests
 
+      # A daemon that dies mid-suite leaves nothing behind on Windows: the
+      # detached process has no stderr, a native fault (access violation,
+      # stack overflow, __fastfail) never reaches the Rust panic hook, and
+      # the job only notices two hours later when every remaining scenario
+      # has timed out against a refused RPC port (run 34994147848,
+      # windows-x64). Ask Windows Error Reporting for a minidump of
+      # edamame_posture.exe so the next occurrence carries a stack, and
+      # remember when the job started so the event-log sweep below is
+      # bounded to this job.
+      - name: Enable daemon crash dumps (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $dumpDir = Join-Path $env:RUNNER_TEMP 'edamame_dumps'
+          New-Item -ItemType Directory -Force -Path $dumpDir | Out-Null
+          $key = 'HKLM:\SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps\edamame_posture.exe'
+          New-Item -Path $key -Force | Out-Null
+          New-ItemProperty -Path $key -Name DumpFolder -Value $dumpDir -PropertyType ExpandString -Force | Out-Null
+          New-ItemProperty -Path $key -Name DumpType -Value 1 -PropertyType DWord -Force | Out-Null
+          New-ItemProperty -Path $key -Name DumpCount -Value 3 -PropertyType DWord -Force | Out-Null
+          "EDAMAME_DUMP_DIR=$dumpDir" >> $env:GITHUB_ENV
+          "EDAMAME_JOB_STARTED_UTC=$((Get-Date).ToUniversalTime().ToString('o'))" >> $env:GITHUB_ENV
+          Write-Host "WER LocalDumps enabled for edamame_posture.exe -> $dumpDir (minidump, up to 3)"
+
       - name: Restart daemon with chosen binary (packet-capture, disconnected)
         shell: bash
         env:
@@ -1984,6 +2008,57 @@ jobs:
           find "$LOG_DEST" -type f -print0 2>/dev/null \
             | xargs -0 -r grep -hE '(vdiag|token_exfil|sandbox|live_sensitive)' 2>/dev/null \
             | head -200 || true
+
+      # Whether the daemon is still alive, what the Windows event logs say
+      # about edamame_posture.exe since the job started (Application Error
+      # 1000 carries the exception code and faulting module, Windows Error
+      # Reporting 1001 the report, Defender its detections), and any
+      # minidump WER wrote. A daemon that is gone with no event-log entry
+      # and no dump was terminated from outside; one with an entry crashed,
+      # and the dump says where.
+      - name: Collect daemon crash evidence (Windows)
+        if: always() && runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $dest = "results/${{ matrix.label }}/daemon-logs"
+          New-Item -ItemType Directory -Force -Path $dest | Out-Null
+          $alive = Get-Process -Name edamame_posture -ErrorAction SilentlyContinue
+          if ($alive) {
+            Write-Host "edamame_posture.exe still running: pid(s) $($alive.Id -join ', ')"
+          } else {
+            Write-Host "edamame_posture.exe is NOT running at collection time"
+          }
+          $since = if ($env:EDAMAME_JOB_STARTED_UTC) {
+            ([DateTime]::Parse($env:EDAMAME_JOB_STARTED_UTC)).ToLocalTime()
+          } else {
+            (Get-Date).AddHours(-6)
+          }
+          $lines = New-Object System.Collections.Generic.List[string]
+          foreach ($logName in @('Application', 'System', 'Microsoft-Windows-Windows Defender/Operational')) {
+            $events = Get-WinEvent -FilterHashtable @{ LogName = $logName; StartTime = $since } -ErrorAction SilentlyContinue
+            foreach ($e in $events) {
+              $msg = ([string]$e.Message) -replace '\s+', ' '
+              if ($msg -match 'edamame') {
+                $stamp = $e.TimeCreated.ToUniversalTime().ToString('o')
+                $lines.Add("$stamp [$logName/$($e.ProviderName)/$($e.Id)] $msg")
+              }
+            }
+          }
+          $out = Join-Path $dest 'windows_crash_evidence.log'
+          $lines | Sort-Object | Set-Content -Path $out -Encoding utf8
+          Write-Host "--- event-log entries mentioning edamame since $($since.ToUniversalTime().ToString('o')): $($lines.Count) ---"
+          foreach ($l in ($lines | Sort-Object)) {
+            if ($l.Length -gt 700) { $l = $l.Substring(0, 700) + ' ...' }
+            Write-Host $l
+          }
+          if ($env:EDAMAME_DUMP_DIR -and (Test-Path $env:EDAMAME_DUMP_DIR)) {
+            $dumps = Get-ChildItem -Path $env:EDAMAME_DUMP_DIR -Filter '*.dmp' -ErrorAction SilentlyContinue
+            if (-not $dumps) { Write-Host "no crash dump in $env:EDAMAME_DUMP_DIR" }
+            foreach ($d in $dumps) {
+              Write-Host "crash dump: $($d.Name) ($([math]::Round($d.Length / 1MB, 1)) MB)"
+              Copy-Item -Path $d.FullName -Destination $dest -Force
+            }
+          }
 
       - name: Sanitize logs
         if: always()
