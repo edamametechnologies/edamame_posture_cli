@@ -1808,6 +1808,13 @@ CONFIG_DEVICE_ID=""
 CONFIG_AGENTIC_MODE="disabled"
 CONFIG_AGENTIC_PROVIDER=""
 CONFIG_AGENTIC_INTERVAL="3600"
+# The LLM credential has to reach the daemon through the service conf, not the
+# environment: a systemd/OpenRC unit does not inherit the shell that ran the
+# installer. Without this an operator who exports EDAMAME_LLM_API_KEY and asks
+# for --agentic-mode analyze gets a service with the AI assistant disabled and
+# nothing adjudicated. Seeded from the environment, overridden by the flags.
+CONFIG_LLM_API_KEY="${EDAMAME_LLM_API_KEY:-}"
+CONFIG_LLM_BASE_URL="${EDAMAME_LLM_BASE_URL:-}"
 CONFIG_SLACK_BOT_TOKEN=""
 CONFIG_SLACK_ACTIONS_CHANNEL=""
 CONFIG_SLACK_ESCALATIONS_CHANNEL=""
@@ -1879,13 +1886,29 @@ while [ $# -gt 0 ]; do
             CONFIG_AGENTIC_INTERVAL="$2"
             shift 2
             ;;
-        # Legacy options for backwards compatibility (prefer --agentic-provider + env vars)
-        --claude-api-key|--openai-api-key)
-            warn "Note: $1 is deprecated. Use --agentic-provider with EDAMAME_LLM_API_KEY env var instead"
+        --llm-api-key)
+            CONFIG_LLM_API_KEY="$2"
             shift 2
             ;;
-        --ollama-api-key|--ollama-base-url)
-            warn "Note: $1 is deprecated. Use --agentic-provider ollama with EDAMAME_LLM_BASE_URL env var instead"
+        --llm-base-url)
+            CONFIG_LLM_BASE_URL="$2"
+            shift 2
+            ;;
+        # Legacy options for backwards compatibility (prefer --agentic-provider + env vars).
+        # They now carry their value into the conf like the new flags; discarding
+        # it left the service with no credential and no warning.
+        --claude-api-key|--openai-api-key)
+            warn "Note: $1 is deprecated. Use --llm-api-key or the EDAMAME_LLM_API_KEY env var instead"
+            CONFIG_LLM_API_KEY="$2"
+            shift 2
+            ;;
+        --ollama-base-url)
+            warn "Note: $1 is deprecated. Use --llm-base-url or the EDAMAME_LLM_BASE_URL env var instead"
+            CONFIG_LLM_BASE_URL="$2"
+            shift 2
+            ;;
+        --ollama-api-key)
+            warn "Note: $1 is deprecated and ignored. Use --agentic-provider ollama with --llm-base-url instead"
             shift 2
             ;;
         --slack-bot-token)
@@ -2552,7 +2575,7 @@ configure_service() {
     fi
     
     # Check if any configuration was provided
-    if [ -z "$CONFIG_USER" ] && [ -z "$CONFIG_CLAUDE_KEY" ] && [ -z "$CONFIG_OPENAI_KEY" ] && [ -z "$CONFIG_OLLAMA_URL" ] && [ "$CONFIG_AGENTIC_MODE" = "disabled" ] && [ "$CONFIG_START_LANSCAN" != "true" ] && [ "$CONFIG_START_CAPTURE" != "true" ]; then
+    if [ -z "$CONFIG_USER" ] && [ -z "$CONFIG_LLM_API_KEY" ] && [ -z "$CONFIG_LLM_BASE_URL" ] && [ "$CONFIG_AGENTIC_MODE" = "disabled" ] && [ "$CONFIG_START_LANSCAN" != "true" ] && [ "$CONFIG_START_CAPTURE" != "true" ]; then
         info "No configuration parameters provided, skipping service configuration"
         return 0
     fi
@@ -2616,6 +2639,36 @@ configure_service() {
         EFFECTIVE_DEVICE_ID="$PRESERVE_DEVICE_ID"
     fi
     
+    # Route the supplied credential into the slot its provider implies, and keep
+    # whatever the conf already holds when this run supplies none -- a rewrite
+    # must never silently erase the credential that makes the daemon adjudicate.
+    CONF_LLM_API_KEY=$(conf_yaml_value "$CONF_FILE" llm_api_key)
+    CONF_CLAUDE_API_KEY=$(conf_yaml_value "$CONF_FILE" claude_api_key)
+    CONF_OPENAI_API_KEY=$(conf_yaml_value "$CONF_FILE" openai_api_key)
+    CONF_OLLAMA_BASE_URL=$(conf_yaml_value "$CONF_FILE" ollama_base_url)
+    case "$CONFIG_AGENTIC_PROVIDER" in
+        claude)
+            [ -n "$CONFIG_LLM_API_KEY" ] && CONF_CLAUDE_API_KEY="$CONFIG_LLM_API_KEY"
+            ;;
+        openai)
+            [ -n "$CONFIG_LLM_API_KEY" ] && CONF_OPENAI_API_KEY="$CONFIG_LLM_API_KEY"
+            ;;
+        ollama)
+            [ -n "$CONFIG_LLM_BASE_URL" ] && CONF_OLLAMA_BASE_URL="$CONFIG_LLM_BASE_URL"
+            ;;
+        *)
+            # "edamame" and an unset provider both mean the EDAMAME Portal LLM.
+            [ -n "$CONFIG_LLM_API_KEY" ] && CONF_LLM_API_KEY="$CONFIG_LLM_API_KEY"
+            ;;
+    esac
+    if [ "$CONFIG_AGENTIC_MODE" != "disabled" ] && \
+       [ -z "$CONF_LLM_API_KEY" ] && [ -z "$CONF_CLAUDE_API_KEY" ] && \
+       [ -z "$CONF_OPENAI_API_KEY" ] && [ -z "$CONF_OLLAMA_BASE_URL" ]; then
+        warn "Agentic mode '$CONFIG_AGENTIC_MODE' was requested but no LLM credential was supplied."
+        warn "Export EDAMAME_LLM_API_KEY or pass --llm-api-key so the service can adjudicate;"
+        warn "without one the daemon starts with the AI assistant disabled."
+    fi
+
     # Create temporary config file
     TMP_CONF=$(mktemp)
     ESC_USER=$(yaml_escape "$CONFIG_USER")
@@ -2626,6 +2679,10 @@ configure_service() {
     ESC_AGENTIC_MODE=$(yaml_escape "$CONFIG_AGENTIC_MODE")
     ESC_AGENTIC_PROVIDER=$(yaml_escape "$CONFIG_AGENTIC_PROVIDER")
     ESC_AGENTIC_INTERVAL=$(yaml_escape "$CONFIG_AGENTIC_INTERVAL")
+    ESC_LLM_API_KEY=$(yaml_escape "$CONF_LLM_API_KEY")
+    ESC_CLAUDE_API_KEY=$(yaml_escape "$CONF_CLAUDE_API_KEY")
+    ESC_OPENAI_API_KEY=$(yaml_escape "$CONF_OPENAI_API_KEY")
+    ESC_OLLAMA_BASE_URL=$(yaml_escape "$CONF_OLLAMA_BASE_URL")
     ESC_SLACK_BOT_TOKEN=$(yaml_escape "$CONFIG_SLACK_BOT_TOKEN")
     ESC_SLACK_ACTIONS_CHANNEL=$(yaml_escape "$CONFIG_SLACK_ACTIONS_CHANNEL")
     ESC_SLACK_ESCALATIONS_CHANNEL=$(yaml_escape "$CONFIG_SLACK_ESCALATIONS_CHANNEL")
@@ -2668,13 +2725,21 @@ agentic_mode: "${ESC_AGENTIC_MODE}"
 # LLM Provider Configuration
 # ============================================================================
 #
-# Set agentic_provider and use environment variables for API keys:
-#   - edamame: EDAMAME Portal LLM (recommended) - uses EDAMAME_LLM_API_KEY env var
-#   - claude:  Anthropic Claude - uses EDAMAME_LLM_API_KEY env var
-#   - openai:  OpenAI - uses EDAMAME_LLM_API_KEY env var
-#   - ollama:  Local Ollama - uses EDAMAME_LLM_BASE_URL env var
+# The installer copies EDAMAME_LLM_API_KEY / EDAMAME_LLM_BASE_URL (or the
+# --llm-api-key / --llm-base-url flags) into the slot the provider implies:
+#   - edamame: EDAMAME Portal LLM (recommended) -> llm_api_key
+#   - claude:  Anthropic Claude                 -> claude_api_key
+#   - openai:  OpenAI                           -> openai_api_key
+#   - ollama:  Local Ollama                     -> ollama_base_url
 #
 agentic_provider: "${ESC_AGENTIC_PROVIDER}"
+
+# Credentials. The service manager does not inherit the environment of the
+# shell that ran the installer, so the key lives here; this file is 0600.
+llm_api_key: "${ESC_LLM_API_KEY}"
+claude_api_key: "${ESC_CLAUDE_API_KEY}"
+openai_api_key: "${ESC_OPENAI_API_KEY}"
+ollama_base_url: "${ESC_OLLAMA_BASE_URL}"
 
 # ============================================================================
 # Slack Notifications (optional)
@@ -2707,11 +2772,14 @@ EOF
     fi
     if [ "$CONF_CHANGED" = "true" ]; then
         $SUDO cp "$TMP_CONF" "$CONF_FILE"
-        $SUDO chmod 600 "$CONF_FILE"  # Protect API keys
         info "✓ Service configuration updated at $CONF_FILE"
     else
         info "✓ Service configuration already matches request at $CONF_FILE (left untouched)"
     fi
+    # The packaged conf arrives world-readable and now carries the LLM key, so
+    # tighten it whether or not this run rewrote it. chmod moves ctime, not
+    # mtime, so the restart-provenance test above is unaffected.
+    $SUDO chmod 600 "$CONF_FILE" 2>/dev/null || true
     rm -f "$TMP_CONF"
     
     # Check if service is already running with proper credentials.
