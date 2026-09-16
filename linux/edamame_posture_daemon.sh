@@ -128,25 +128,84 @@ case "$notification_provider" in
     ;;
 esac
 
-# Determine LLM provider based on which API key is configured (first non-empty wins)
-# Priority: edamame > claude > openai > ollama
+# A provider named in the conf decides which credential slot is authoritative;
+# when the conf names none, the first non-empty key wins (edamame > claude >
+# openai > ollama). Inferring the provider from key order alone mislabels an
+# Anthropic key written to llm_api_key as the EDAMAME Portal provider.
+configured_provider="$(get_config_value "agentic_provider")"
+configured_provider=$(echo "$configured_provider" | tr '[:upper:]' '[:lower:]')
+
 agentic_provider="none"
-if [ -n "$llm_api_key" ]; then
-  agentic_provider="edamame"
-  export EDAMAME_LLM_API_KEY="$llm_api_key"
-  echo "Using EDAMAME Portal as LLM provider"
-elif [ -n "$claude_api_key" ]; then
-  agentic_provider="claude"
-  export EDAMAME_LLM_API_KEY="$claude_api_key"
-  echo "Using Claude as LLM provider"
-elif [ -n "$openai_api_key" ]; then
-  agentic_provider="openai"
-  export EDAMAME_LLM_API_KEY="$openai_api_key"
-  echo "Using OpenAI as LLM provider"
-elif [ -n "$ollama_base_url" ]; then
-  agentic_provider="ollama"
-  export EDAMAME_LLM_BASE_URL="$ollama_base_url"
+case "$configured_provider" in
+  edamame)
+    if [ -n "$llm_api_key" ]; then
+      agentic_provider="edamame"
+      export EDAMAME_LLM_API_KEY="$llm_api_key"
+    fi
+    ;;
+  claude)
+    if [ -n "$claude_api_key" ]; then
+      agentic_provider="claude"
+      export EDAMAME_LLM_API_KEY="$claude_api_key"
+    fi
+    ;;
+  openai)
+    if [ -n "$openai_api_key" ]; then
+      agentic_provider="openai"
+      export EDAMAME_LLM_API_KEY="$openai_api_key"
+    fi
+    ;;
+  ollama)
+    if [ -n "$ollama_base_url" ]; then
+      agentic_provider="ollama"
+      export EDAMAME_LLM_BASE_URL="$ollama_base_url"
+    fi
+    ;;
+esac
+
+if [ "$agentic_provider" = "none" ] && [ -z "$configured_provider" ]; then
+  if [ -n "$llm_api_key" ]; then
+    agentic_provider="edamame"
+    export EDAMAME_LLM_API_KEY="$llm_api_key"
+  elif [ -n "$claude_api_key" ]; then
+    agentic_provider="claude"
+    export EDAMAME_LLM_API_KEY="$claude_api_key"
+  elif [ -n "$openai_api_key" ]; then
+    agentic_provider="openai"
+    export EDAMAME_LLM_API_KEY="$openai_api_key"
+  elif [ -n "$ollama_base_url" ]; then
+    agentic_provider="ollama"
+    export EDAMAME_LLM_BASE_URL="$ollama_base_url"
+  fi
+fi
+
+if [ "$agentic_provider" = "ollama" ]; then
   echo "Using Ollama as LLM provider at: $ollama_base_url"
+elif [ "$agentic_provider" != "none" ]; then
+  echo "Using $agentic_provider as LLM provider"
+elif [ "$agentic_mode" != "disabled" ]; then
+  # Failing quietly here is what made a configured agentic install look healthy
+  # while nothing was ever adjudicated: mode is set, no credential is, and the
+  # block below simply omits every --agentic-* argument.
+  if [ -n "$configured_provider" ]; then
+    echo "WARNING: agentic_provider is '$configured_provider' but its credential slot"
+    echo "WARNING: in $CONF is empty. Starting a different provider because some other"
+    echo "WARNING: slot happens to be filled would contradict the configuration, so the"
+    echo "WARNING: AI assistant stays disabled instead."
+    case "$configured_provider" in
+      edamame) echo "WARNING: set llm_api_key, or re-run the installer with EDAMAME_LLM_API_KEY exported." ;;
+      claude)  echo "WARNING: set claude_api_key, or re-run the installer with --agentic-provider claude and EDAMAME_LLM_API_KEY exported." ;;
+      openai)  echo "WARNING: set openai_api_key, or re-run the installer with --agentic-provider openai and EDAMAME_LLM_API_KEY exported." ;;
+      ollama)  echo "WARNING: set ollama_base_url, or re-run the installer with --agentic-provider ollama and EDAMAME_LLM_BASE_URL exported." ;;
+      *)       echo "WARNING: '$configured_provider' is not a known provider; use edamame, claude, openai or ollama." ;;
+    esac
+  else
+    echo "WARNING: agentic_mode is '$agentic_mode' but no LLM credential is set in $CONF."
+    echo "WARNING: set llm_api_key (EDAMAME Portal), claude_api_key, openai_api_key or"
+    echo "WARNING: ollama_base_url there -- re-running the installer with"
+    echo "WARNING: EDAMAME_LLM_API_KEY exported does it for you. The AI assistant"
+    echo "WARNING: stays disabled and nothing is adjudicated until one is present."
+  fi
 fi
 
 # Set unified notification environment variables if configured
