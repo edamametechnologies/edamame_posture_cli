@@ -1845,7 +1845,7 @@ dependencies = [
 [[package]]
 name = "edamame_backend"
 version = "0.3.5"
-source = "git+https://github.com/edamametechnologies/edamame_backend?branch=main#b2eaa1eafe9aad7fdce3a6a147f0f224d620a83d"
+source = "git+https://github.com/edamametechnologies/edamame_backend?branch=main#177dca49435fc54efc392a79d0c7588587cc1785"
 dependencies = [
  "anyhow",
  "blake3",
@@ -1860,7 +1860,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "1.9.1"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#e3a0f2614eef29166c6cec12c3709b61cff1e5b2"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#5b9cc34c3b87cadfbac75827de5b68ebcaac1152"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -1949,7 +1949,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "1.9.1"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#01612abc8ee7a100311c33606c8e91a81d1d39f4"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#3312a64588c1b43ef9c7aedc767611eeda10e342"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -2404,7 +2404,7 @@ dependencies = [
 [[package]]
 name = "flodbadd"
 version = "1.9.1"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#68a26234bfed33d2833652e7673cfd2baeb67b46"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#6f140ad061f4007c9068da8b53bb4d043790706b"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -3483,7 +3483,7 @@ dependencies = [
  "js-sys",
  "log",
  "wasm-bindgen",
- "windows-core 0.62.2",
+ "windows-core 0.58.0",
 ]
 
 [[package]]
@@ -4011,7 +4011,7 @@ dependencies = [
 [[package]]
 name = "l7_ebpf_program"
 version = "0.1.0"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#68a26234bfed33d2833652e7673cfd2baeb67b46"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#6f140ad061f4007c9068da8b53bb4d043790706b"
 
 [[package]]
 name = "lazy_static"
@@ -7572,7 +7572,7 @@ dependencies = [
 [[package]]
 name = "threatmodels_rs"
 version = "0.1.1"
-source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#6d2416e58cada73bf106295ab70293612f28415b"
+source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#1291906da4dcb62ac2d9966d7a7959557e3cc3d8"
 dependencies = [
  "anyhow",
  "chrono",
