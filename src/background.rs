@@ -1757,13 +1757,26 @@ pub fn background_divergence_get_history(limit: usize) -> i32 {
     }
 }
 
-pub fn background_divergence_dismiss(finding_key: String) -> i32 {
-    if finding_key.trim().is_empty() {
+/// Dismiss one finding by key on either plane.
+///
+/// Since core 1.9.1 the per-key `dismiss_*` RPCs are gone: a dismissal is a
+/// dismissal rule, and a one-off dismissal is a `Finding`-scope rule created
+/// through `agentic_dismiss_with_scope`. The subcommand keeps its name so
+/// existing operator scripts still work.
+fn finding_dismiss(domain: &str, finding_key: String, what: &str) -> i32 {
+    let finding_key = finding_key.trim().to_string();
+    if finding_key.is_empty() {
         eprintln!("Finding key cannot be empty");
         return ERROR_CODE_PARAM;
     }
-    match rpc_dismiss_divergence_evidence(
-        finding_key.trim().to_string(),
+    let request = serde_json::json!({
+        "domain": domain,
+        "scope": "finding",
+        "finding_key": finding_key,
+    })
+    .to_string();
+    match rpc_agentic_dismiss_with_scope(
+        request,
         &EDAMAME_CA_PEM,
         &EDAMAME_CLIENT_PEM,
         &EDAMAME_CLIENT_KEY,
@@ -1778,59 +1791,158 @@ pub fn background_divergence_dismiss(finding_key: String) -> i32 {
                 }
             };
             if json["success"].as_bool().unwrap_or(false) {
-                println!("Divergence evidence dismissed.");
+                println!(
+                    "{} dismissed (rule {}).",
+                    what,
+                    json["rule_id"].as_str().unwrap_or("unknown")
+                );
                 0
             } else {
                 eprintln!(
-                    "Failed to dismiss divergence evidence: {}",
+                    "Failed to dismiss {}: {}",
+                    what.to_lowercase(),
                     json["error"].as_str().unwrap_or("Unknown")
                 );
                 ERROR_CODE_SERVER_ERROR
             }
         }
         Err(e) => {
-            eprintln!("Error dismissing divergence evidence: {}", e);
+            eprintln!("Error dismissing {}: {}", what.to_lowercase(), e);
             ERROR_CODE_SERVER_ERROR
         }
     }
 }
 
-pub fn background_divergence_undismiss(finding_key: String) -> i32 {
-    if finding_key.trim().is_empty() {
+/// Restore one finding by key on either plane.
+///
+/// Restore is rule removal since core 1.9.1: the `Finding`-scope rule(s)
+/// naming this key are removed, which is exactly what a per-key dismissal
+/// created. A finding quieted by a broader rule is deliberately left alone --
+/// removing that rule would restore everything it covers, so it is an
+/// explicit `background-agentic-remove-dismissal-rule <rule_id>` instead.
+fn finding_undismiss(domain: &str, finding_key: String, what: &str) -> i32 {
+    let finding_key = finding_key.trim().to_string();
+    if finding_key.is_empty() {
         eprintln!("Finding key cannot be empty");
         return ERROR_CODE_PARAM;
     }
-    match rpc_undismiss_divergence_evidence(
-        finding_key.trim().to_string(),
+    let listed = match rpc_agentic_list_dismissal_rules(
+        domain.to_string(),
         &EDAMAME_CA_PEM,
         &EDAMAME_CLIENT_PEM,
         &EDAMAME_CLIENT_KEY,
         &EDAMAME_TARGET,
     ) {
-        Ok(result) => {
-            let json: serde_json::Value = match serde_json::from_str(&result) {
-                Ok(v) => v,
-                Err(e) => {
-                    eprintln!("Error parsing undismiss result: {}", e);
+        Ok(result) => result,
+        Err(e) => {
+            eprintln!("Error listing dismissal rules: {}", e);
+            return ERROR_CODE_SERVER_ERROR;
+        }
+    };
+    let json: serde_json::Value = match serde_json::from_str(&listed) {
+        Ok(v) => v,
+        Err(e) => {
+            eprintln!("Error parsing dismissal rules: {}", e);
+            return ERROR_CODE_SERVER_ERROR;
+        }
+    };
+    if !json["success"].as_bool().unwrap_or(false) {
+        eprintln!(
+            "Failed to list dismissal rules: {}",
+            json["error"].as_str().unwrap_or("Unknown")
+        );
+        return ERROR_CODE_SERVER_ERROR;
+    }
+    let covering: Vec<String> = json["rules"]
+        .as_array()
+        .map(|rules| {
+            rules
+                .iter()
+                .filter(|rule| {
+                    rule["scope"].as_str() == Some("finding")
+                        && rule["matcher"]["finding_key"].as_str() == Some(finding_key.as_str())
+                })
+                .filter_map(|rule| rule["id"].as_str().map(str::to_string))
+                .collect()
+        })
+        .unwrap_or_default();
+    if covering.is_empty() {
+        let broader: Vec<String> = json["rules"]
+            .as_array()
+            .map(|rules| {
+                rules
+                    .iter()
+                    .filter(|rule| {
+                        rule["source_finding_key"].as_str() == Some(finding_key.as_str())
+                    })
+                    .filter_map(|rule| {
+                        Some(format!(
+                            "{} ({})",
+                            rule["id"].as_str()?,
+                            rule["scope"].as_str().unwrap_or("?")
+                        ))
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        if broader.is_empty() {
+            println!(
+                "{} is not dismissed by a per-finding rule; nothing to restore.",
+                what
+            );
+        } else {
+            eprintln!(
+                "{} is covered by a broader rule, which would restore everything it covers: {}. \
+                 Remove it explicitly with background-agentic-remove-dismissal-rule <rule_id>.",
+                what,
+                broader.join(", ")
+            );
+        }
+        return 0;
+    }
+    for rule_id in &covering {
+        match rpc_agentic_remove_dismissal_rule(
+            rule_id.clone(),
+            &EDAMAME_CA_PEM,
+            &EDAMAME_CLIENT_PEM,
+            &EDAMAME_CLIENT_KEY,
+            &EDAMAME_TARGET,
+        ) {
+            Ok(result) => {
+                let removed: serde_json::Value = serde_json::from_str(&result).unwrap_or_default();
+                if !removed["success"].as_bool().unwrap_or(false) {
+                    eprintln!(
+                        "Failed to remove dismissal rule {}: {}",
+                        rule_id,
+                        removed["error"].as_str().unwrap_or("Unknown")
+                    );
                     return ERROR_CODE_SERVER_ERROR;
                 }
-            };
-            if json["success"].as_bool().unwrap_or(false) {
-                println!("Divergence evidence restored.");
-                0
-            } else {
-                eprintln!(
-                    "Failed to restore divergence evidence: {}",
-                    json["error"].as_str().unwrap_or("Unknown")
-                );
-                ERROR_CODE_SERVER_ERROR
+            }
+            Err(e) => {
+                eprintln!("Error removing dismissal rule {}: {}", rule_id, e);
+                return ERROR_CODE_SERVER_ERROR;
             }
         }
-        Err(e) => {
-            eprintln!("Error restoring divergence evidence: {}", e);
-            ERROR_CODE_SERVER_ERROR
-        }
     }
+    println!("{} restored (removed rule {}).", what, covering.join(", "));
+    0
+}
+
+pub fn background_divergence_dismiss(finding_key: String) -> i32 {
+    finding_dismiss("divergence", finding_key, "Divergence evidence")
+}
+
+pub fn background_divergence_undismiss(finding_key: String) -> i32 {
+    finding_undismiss("divergence", finding_key, "Divergence evidence")
+}
+
+pub fn background_vulnerability_dismiss(finding_key: String) -> i32 {
+    finding_dismiss("vulnerability", finding_key, "Attack-pattern finding")
+}
+
+pub fn background_vulnerability_undismiss(finding_key: String) -> i32 {
+    finding_undismiss("vulnerability", finding_key, "Attack-pattern finding")
 }
 
 pub fn background_divergence_reset_suppressions() -> i32 {
@@ -2276,90 +2388,6 @@ pub fn background_vulnerability_debug_trace(report_id: Option<String>) -> i32 {
                 "Error getting vulnerability debug trace (report_id={}): {}",
                 resolved_id, e
             );
-            ERROR_CODE_SERVER_ERROR
-        }
-    }
-}
-
-pub fn background_vulnerability_dismiss(finding_key: String) -> i32 {
-    if finding_key.trim().is_empty() {
-        eprintln!("Finding key cannot be empty");
-        return ERROR_CODE_PARAM;
-    }
-    match rpc_dismiss_vulnerability_finding(
-        finding_key.trim().to_string(),
-        &EDAMAME_CA_PEM,
-        &EDAMAME_CLIENT_PEM,
-        &EDAMAME_CLIENT_KEY,
-        &EDAMAME_TARGET,
-    ) {
-        Ok(result) => {
-            let json: serde_json::Value = match serde_json::from_str(&result) {
-                Ok(v) => v,
-                Err(e) => {
-                    eprintln!("Error parsing dismiss result: {}", e);
-                    return ERROR_CODE_SERVER_ERROR;
-                }
-            };
-            if json["success"].as_bool().unwrap_or(false) {
-                if json["changed"].as_bool().unwrap_or(true) {
-                    println!("Vulnerability finding dismissed.");
-                } else {
-                    println!("No matching finding found or already dismissed.");
-                }
-                0
-            } else {
-                eprintln!(
-                    "Failed to dismiss vulnerability finding: {}",
-                    json["error"].as_str().unwrap_or("Unknown")
-                );
-                ERROR_CODE_SERVER_ERROR
-            }
-        }
-        Err(e) => {
-            eprintln!("Error dismissing vulnerability finding: {}", e);
-            ERROR_CODE_SERVER_ERROR
-        }
-    }
-}
-
-pub fn background_vulnerability_undismiss(finding_key: String) -> i32 {
-    if finding_key.trim().is_empty() {
-        eprintln!("Finding key cannot be empty");
-        return ERROR_CODE_PARAM;
-    }
-    match rpc_undismiss_vulnerability_finding(
-        finding_key.trim().to_string(),
-        &EDAMAME_CA_PEM,
-        &EDAMAME_CLIENT_PEM,
-        &EDAMAME_CLIENT_KEY,
-        &EDAMAME_TARGET,
-    ) {
-        Ok(result) => {
-            let json: serde_json::Value = match serde_json::from_str(&result) {
-                Ok(v) => v,
-                Err(e) => {
-                    eprintln!("Error parsing undismiss result: {}", e);
-                    return ERROR_CODE_SERVER_ERROR;
-                }
-            };
-            if json["success"].as_bool().unwrap_or(false) {
-                if json["changed"].as_bool().unwrap_or(true) {
-                    println!("Vulnerability finding restored.");
-                } else {
-                    println!("No matching dismissed finding found or already restored.");
-                }
-                0
-            } else {
-                eprintln!(
-                    "Failed to restore vulnerability finding: {}",
-                    json["error"].as_str().unwrap_or("Unknown")
-                );
-                ERROR_CODE_SERVER_ERROR
-            }
-        }
-        Err(e) => {
-            eprintln!("Error restoring vulnerability finding: {}", e);
             ERROR_CODE_SERVER_ERROR
         }
     }
