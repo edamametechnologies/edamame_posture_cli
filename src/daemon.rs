@@ -153,12 +153,11 @@ pub fn background_process(
     // Configure agentic AI only when the operator explicitly opted in. When
     // `agentic_mode == "disabled"` (the default in /etc/edamame_posture.conf, and
     // the default for `edamame_posture_action` jobs that don't pass --agentic-mode),
-    // the daemon MUST NOT call background_set_agentic_loop(false, ...). That call
-    // routes through edamame_core::core_manager_agentic::auto_processing::
-    // set_agentic_auto_processing(false, ...), which has an asymmetric side-effect
-    // that also disables the vulnerability detector. Calling it on every daemon
-    // restart overwrites operator-set persisted state (vulnerability detector
-    // enabled = true via RPC) every time the service restarts.
+    // the daemon MUST NOT call background_set_agentic_loop(false, ...): calling
+    // it on every daemon restart overwrites operator-set persisted state every
+    // time the service restarts. (Since core 2.0 the call no longer touches the
+    // detection engines -- they are on by default and independent of the
+    // assistant -- but the persisted assistant state is still the operator's.)
     //
     // Mirror the EDAMAME app behavior: at startup, hydrate from persisted state
     // (already done in initialize_core via hydrate_agentic_from_persisted_config)
@@ -178,6 +177,13 @@ pub fn background_process(
         if !crate::background_set_agentic_loop(agentic_enabled, agentic_interval, &agentic_mode) {
             warn!("Failed to configure AI Assistant background loop");
         }
+
+        // The operator asked for the LLM: the strict `llm` adjudication is
+        // what a gate wants (G-46, fail closed when the model does not
+        // answer), and the core's 2.0 default (`auto`) would run `advisory`
+        // instead. Pin it unless a mode was already pinned explicitly; the
+        // action's `adjudication_mode` input runs after start and overrides.
+        crate::background::pin_llm_adjudication_when_auto();
 
         info!("AI Assistant: Processing security todos...");
         crate::background_process_agentic(&agentic_mode);

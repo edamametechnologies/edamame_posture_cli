@@ -1994,6 +1994,35 @@ pub fn adjudication_is_withheld(status: &serde_json::Value) -> bool {
     )
 }
 
+/// Pin both engines to `llm` when their adjudication setting is still the
+/// core's `auto` default. The daemon calls this in-process when
+/// `--agentic-mode` asked for the LLM: strict `llm` (withhold a tick the
+/// model did not answer) is what a gate wants, and `auto` would resolve to
+/// `advisory` with the same credentials. An explicit pin -- a previous
+/// `vulnerability-adjudication-mode` / `divergence-adjudication-mode`
+/// command -- is left alone. Daemons built before `adjudication_auto`
+/// existed report no such field and are left alone too.
+pub fn pin_llm_adjudication_when_auto() {
+    let is_auto = |status: String| {
+        serde_json::from_str::<serde_json::Value>(&status)
+            .ok()
+            .and_then(|value| {
+                value
+                    .get("adjudication_auto")
+                    .and_then(|auto| auto.as_bool())
+            })
+            .unwrap_or(false)
+    };
+    if is_auto(get_vulnerability_detector_status()) {
+        let _ = set_vulnerability_adjudication_mode("llm".to_string());
+        info!("Attack pattern detector adjudication pinned to llm (was auto; --agentic-mode asked for the LLM)");
+    }
+    if is_auto(get_divergence_engine_status()) {
+        let _ = set_divergence_adjudication_mode("llm".to_string());
+        info!("Divergence engine adjudication pinned to llm (was auto; --agentic-mode asked for the LLM)");
+    }
+}
+
 /// Set the attack pattern detector's adjudication mode on the running daemon (operator plane).
 pub fn background_vulnerability_adjudication_mode(mode: &str) -> i32 {
     match rpc_set_vulnerability_adjudication_mode(

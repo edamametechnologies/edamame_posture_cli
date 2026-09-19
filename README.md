@@ -305,7 +305,7 @@ edamame_posture agentic-status
 # Attack pattern detector lifecycle
 edamame_posture vulnerability-start 60
 edamame_posture vulnerability-stop
-edamame_posture vulnerability-adjudication-mode <llm|advisory|deterministic>  # publication without the LLM, see below
+edamame_posture vulnerability-adjudication-mode <auto|llm|advisory|deterministic>  # publication without the LLM, see below
 edamame_posture vulnerability-status
 edamame_posture vulnerability-status --fail-on-findings  # CI gate: non-zero when HIGH/CRITICAL findings exist,
                                                          # when the detector loop is stalled (`ticker_stalled`), or when the
@@ -318,7 +318,7 @@ edamame_posture vulnerability-reset-suppressions
 # Divergence engine lifecycle
 edamame_posture divergence-start 120
 edamame_posture divergence-stop
-edamame_posture divergence-adjudication-mode <llm|deterministic>  # consult the LLM or not
+edamame_posture divergence-adjudication-mode <auto|llm|deterministic>  # consult the LLM or not
 edamame_posture divergence-status
 edamame_posture divergence-dismiss <FINDING_KEY>
 edamame_posture divergence-undismiss <FINDING_KEY>
@@ -332,9 +332,14 @@ edamame_posture get-file-events [--fail-on-suspicious]
 edamame_posture clear-file-events
 ```
 
-The attack pattern detector's checks are model-independent: packet capture, blacklist/anomaly evidence, file integrity events and process lineage produce the raw findings without any LLM. **Publication is not:** every tick with raw findings is adjudicated by the configured LLM (KEEP / DEMOTE / SUPPRESS per finding, bounded by the evidence-floor guardrails), and a tick whose adjudication fails, times out, or has no provider configured is withheld -- `vulnerability-status` reports `adjudication_status: error` or `unavailable` and zero findings until an adjudicator answers. A daemon started without an LLM provider therefore emits no attack-pattern findings; see `edamame_core/VULNERABILITYDETECTION.md`, "What the adjudicator adds, and publication without it".
+The attack pattern detector's checks are model-independent: packet capture, blacklist/anomaly evidence, file integrity events and process lineage produce the raw findings without any LLM. **Publication is not:** every tick with raw findings is adjudicated by the configured LLM (KEEP / DEMOTE / SUPPRESS per finding, bounded by the evidence-floor guardrails), and a tick whose adjudication fails, times out, or has no provider configured is withheld -- `vulnerability-status` reports `adjudication_status: error` or `unavailable` and zero findings until an adjudicator answers. That is the pinned `llm` mode; under the 2.0 default (`auto`) a daemon without an LLM provider runs `deterministic` and publishes its findings without review. See `edamame_core/VULNERABILITYDETECTION.md`, "What the adjudicator adds, and publication without it".
 
-**Adjudication modes** (`vulnerability-adjudication-mode`, persisted, default `llm`):
+**Adjudication modes** (`vulnerability-adjudication-mode`, persisted; the core
+default since 2.0.0 is `auto`, and the daemon pins `llm` at start when
+`--agentic-mode` asked for the LLM so a gate fails closed):
+`auto` -- follow the LLM connection: `advisory` while credentials are
+configured, `deterministic` without (the status reports the resolved mode as
+`adjudication_mode` and `adjudication_auto: true`);
 `llm` -- every tick with raw findings is adjudicated and a tick the LLM did not
 answer is withheld (empty report, `adjudication_status: error|unavailable`);
 `advisory` -- the LLM is consulted, and when it fails or is not configured the
@@ -1509,20 +1514,20 @@ For Alpine Linux users, install via the APK repository:
 If you prefer not to add a repository, you can install the Debian package manually:
 
 1. **Download** the Debian package for your platform:
-   - **x86_64 (64-bit):** [edamame-posture_1.9.1-1_amd64.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.9.1/edamame-posture_1.9.1-1_amd64.deb)
-   - **i686 (32-bit):** [edamame-posture_1.9.1-1_i386.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.9.1/edamame-posture_1.9.1-1_i386.deb)
-   - **aarch64 (ARM 64-bit):** [edamame-posture_1.9.1-1_arm64.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.9.1/edamame-posture_1.9.1-1_arm64.deb)
+   - **x86_64 (64-bit):** [edamame-posture_2.0.0-1_amd64.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v2.0.0/edamame-posture_2.0.0-1_amd64.deb)
+   - **i686 (32-bit):** [edamame-posture_2.0.0-1_i386.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v2.0.0/edamame-posture_2.0.0-1_i386.deb)
+   - **aarch64 (ARM 64-bit):** [edamame-posture_2.0.0-1_arm64.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v2.0.0/edamame-posture_2.0.0-1_arm64.deb)
      - For Raspberry Pi 3/4/5 running 64-bit OS
-   - **armv7 (ARM 32-bit):** [edamame-posture_1.9.1-1_armhf.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.9.1/edamame-posture_1.9.1-1_armhf.deb)
+   - **armv7 (ARM 32-bit):** [edamame-posture_2.0.0-1_armhf.deb](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v2.0.0/edamame-posture_2.0.0-1_armhf.deb)
      - For Raspberry Pi 2/3/4/Zero 2 running 32-bit OS (Raspberry Pi OS)
 
    > **Note**: These Debian packages have been tested on Linux Mint 20 and newer, Ubuntu 20.04 and newer, and Raspberry Pi OS (Raspbian).
 
 2. **Install** the package using either method:
    ```bash
-   sudo apt install ./edamame-posture_1.9.1-1_amd64.deb
+   sudo apt install ./edamame-posture_2.0.0-1_amd64.deb
    # or
-   sudo dpkg -i edamame-posture_1.9.1-1_amd64.deb
+   sudo dpkg -i edamame-posture_2.0.0-1_amd64.deb
    ```
 
 3. **Configure** the service by editing the configuration file:
@@ -1580,17 +1585,17 @@ If you prefer not to add a repository, you can install the Debian package manual
 For other Linux distributions or portable installation:
 
 1. **Download Binary**: From the Releases page, download the binary for your architecture:
-   - **x86_64 (64-bit)**: [edamame_posture-1.9.1-x86_64-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.9.1/edamame_posture-1.9.1-x86_64-unknown-linux-gnu)
-   - **i686 (32-bit)**: [edamame_posture-1.9.1-i686-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.9.1/edamame_posture-1.9.1-i686-unknown-linux-gnu)
-   - **aarch64 (ARM 64-bit)**: [edamame_posture-1.9.1-aarch64-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.9.1/edamame_posture-1.9.1-aarch64-unknown-linux-gnu)
-   - **armv7 (ARM 32-bit)**: [edamame_posture-1.9.1-armv7-unknown-linux-gnueabihf](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.9.1/edamame_posture-1.9.1-armv7-unknown-linux-gnueabihf)
-   - **x86_64 (64-bit) for Alpine Linux (musl)**: [edamame_posture-1.9.1-x86_64-unknown-linux-musl](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.9.1/edamame_posture-1.9.1-x86_64-unknown-linux-musl)
-   - **aarch64 (ARM 64-bit) for Alpine Linux (musl)**: [edamame_posture-1.9.1-aarch64-unknown-linux-musl](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.9.1/edamame_posture-1.9.1-aarch64-unknown-linux-musl)
+   - **x86_64 (64-bit)**: [edamame_posture-2.0.0-x86_64-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v2.0.0/edamame_posture-2.0.0-x86_64-unknown-linux-gnu)
+   - **i686 (32-bit)**: [edamame_posture-2.0.0-i686-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v2.0.0/edamame_posture-2.0.0-i686-unknown-linux-gnu)
+   - **aarch64 (ARM 64-bit)**: [edamame_posture-2.0.0-aarch64-unknown-linux-gnu](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v2.0.0/edamame_posture-2.0.0-aarch64-unknown-linux-gnu)
+   - **armv7 (ARM 32-bit)**: [edamame_posture-2.0.0-armv7-unknown-linux-gnueabihf](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v2.0.0/edamame_posture-2.0.0-armv7-unknown-linux-gnueabihf)
+   - **x86_64 (64-bit) for Alpine Linux (musl)**: [edamame_posture-2.0.0-x86_64-unknown-linux-musl](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v2.0.0/edamame_posture-2.0.0-x86_64-unknown-linux-musl)
+   - **aarch64 (ARM 64-bit) for Alpine Linux (musl)**: [edamame_posture-2.0.0-aarch64-unknown-linux-musl](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v2.0.0/edamame_posture-2.0.0-aarch64-unknown-linux-musl)
 
 2. **Install Binary**: Extract if needed and place the edamame_posture binary into a directory in your PATH (such as `/usr/local/bin`). For example:
 ```bash
-chmod +x edamame_posture-1.9.1-x86_64-unknown-linux-gnu
-sudo mv edamame_posture-1.9.1-x86_64-unknown-linux-gnu /usr/local/bin/edamame_posture
+chmod +x edamame_posture-2.0.0-x86_64-unknown-linux-gnu
+sudo mv edamame_posture-2.0.0-x86_64-unknown-linux-gnu /usr/local/bin/edamame_posture
 ```
 
 ### macOS
@@ -1622,7 +1627,7 @@ brew upgrade --cask edamametechnologies/tap/edamame-posture
 For environments that do not need Endpoint Security features, the bare universal binary is still available:
 
 1. **Download** the macOS universal binary:
-   - [edamame_posture-1.9.1-universal-apple-darwin](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.9.1/edamame_posture-1.9.1-universal-apple-darwin)
+   - [edamame_posture-2.0.0-universal-apple-darwin](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v2.0.0/edamame_posture-2.0.0-universal-apple-darwin)
 
 2. **Install** by placing the binary in your `PATH` and making it executable:
    ```bash
@@ -1658,7 +1663,7 @@ choco upgrade edamame-posture
 For a manual installation on Windows:
 
 1. **Download** the Windows binary:
-   - [edamame_posture-1.9.1-x86_64-pc-windows-msvc.exe](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.9.1/edamame_posture-1.9.1-x86_64-pc-windows-msvc.exe)
+   - [edamame_posture-2.0.0-x86_64-pc-windows-msvc.exe](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v2.0.0/edamame_posture-2.0.0-x86_64-pc-windows-msvc.exe)
 
 2. **Install Npcap** (Required for traffic capture feature):
    - Install [Npcap](https://npcap.com/#download), the packet capture library from the Nmap team
@@ -1683,7 +1688,7 @@ Once installed, EDAMAME Posture is invoked via the `edamame_posture` command. Mo
 - **dismiss-device** `<IP_ADDRESS>` / **dismiss-device-port** `<IP_ADDRESS>` `<PORT>`: Mark an entire device (or a single port) as intentionally allowed. These commands add the relevant dismiss rules so future network scans treat the traffic as expected—ideal when you intentionally allow a service but still want posture reporting for everything else.
 - **dismiss-session** `<SESSION_UID>` / **dismiss-session-process** `<SESSION_UID>`: Silence a specific network session or every future session spawned by the same process. Use these commands after reviewing agentic/Slack summaries to acknowledge expected but noisy connections.
 - **background-divergence-dismiss** `<FINDING_KEY>` / **background-divergence-undismiss** `<FINDING_KEY>`: Dismiss or restore divergence evidence by finding key. Use when Slack/Telegram alerts indicate a divergence finding; the finding key is shown in the notification. Since core 1.9.1 a dismissal is a `Finding`-scope dismissal rule (`agentic_dismiss_with_scope`) and a restore removes that rule; evidence quieted by a broader rule is left alone and named, so it is restored explicitly with `background-agentic-remove-dismissal-rule <RULE_ID>`.
-- **background-vulnerability-adjudication-mode** / **vulnerability-adjudication-mode** `<llm|advisory|deterministic>`: Set how the detector publishes without the LLM adjudicator (withhold, deterministic fallback, or never consult it); persisted. **background-divergence-adjudication-mode** / **divergence-adjudication-mode** `<llm|deterministic>` does the same for the divergence engine.
+- **background-vulnerability-adjudication-mode** / **vulnerability-adjudication-mode** `<auto|llm|advisory|deterministic>`: Set how the detector publishes without the LLM adjudicator (withhold, deterministic fallback, or never consult it); persisted. **background-divergence-adjudication-mode** / **divergence-adjudication-mode** `<auto|llm|deterministic>` does the same for the divergence engine.
 - **background-vulnerability-status** / **vulnerability-status** `[--fail-on-findings]`: Display runtime attack pattern detector status. Use `--fail-on-findings` in CI/CD to return a non-zero exit code when active runtime vulnerability findings exist. The gate consumes `active_alertable_findings` (HIGH/CRITICAL severity only) so LOW-severity ambient findings (e.g. CI bootstrappers running from `/tmp/`, build scripts writing benign `.log` artifacts) stay visible in the dashboard without by themselves failing the run. Older daemons that predate this counter fall back to the raw `active_findings` total. The gate does not require an LLM, but an LLM is recommended for CI/security use because adjudication and suppression reduce noise and improve alert text.
 - **background-vulnerability-dismiss** `<FINDING_KEY>` / **background-vulnerability-undismiss** `<FINDING_KEY>`: Dismiss or restore vulnerability findings by finding key. Same rule semantics as the divergence pair since core 1.9.1: dismiss creates a `Finding`-scope rule, undismiss removes it, and a broader covering rule is named rather than removed.
 - **check-policy** `<min_score>` `"<threat_ids>"` `"[tag_prefixes]"`: Check whether the system meets a specified security policy. You provide a minimum score threshold, a comma-separated list of critical threat IDs to ensure are not present (or have specific states), and optional tag prefixes for compliance frameworks. This command exits with code 0 if the policy is met, or non-zero if not met (making it perfect for CI gating).
@@ -1751,8 +1756,8 @@ For completeness, here is a list of EDAMAME Posture CLI subcommands with detaile
 - **background-divergence-dismiss** (alias **divergence-dismiss**) `<FINDING_KEY>` – Dismiss divergence evidence by finding key. Communicates with the running daemon. Use when Slack/Telegram alerts indicate a divergence finding; the finding key is shown in the notification.
 - **background-divergence-undismiss** (alias **divergence-undismiss**) `<FINDING_KEY>` – Restore previously dismissed divergence evidence.
 - **background-divergence-reset-suppressions** (alias **divergence-reset-suppressions**) – Reset all divergence suppressions.
-- **background-vulnerability-adjudication-mode** (alias **vulnerability-adjudication-mode**) `<llm|advisory|deterministic>` – Set how the attack pattern detector publishes without the LLM adjudicator. Persisted with the daemon's agentic config.
-- **background-divergence-adjudication-mode** (alias **divergence-adjudication-mode**) `<llm|deterministic>` – Set whether the divergence engine consults the LLM.
+- **background-vulnerability-adjudication-mode** (alias **vulnerability-adjudication-mode**) `<auto|llm|advisory|deterministic>` – Set how the attack pattern detector publishes without the LLM adjudicator. Persisted with the daemon's agentic config.
+- **background-divergence-adjudication-mode** (alias **divergence-adjudication-mode**) `<auto|llm|deterministic>` – Set whether the divergence engine consults the LLM.
 - **background-vulnerability-status** (alias **vulnerability-status**) `[--fail-on-findings]` – Display runtime attack pattern detector status. With `--fail-on-findings`, returns non-zero when `active_alertable_findings` (HIGH/CRITICAL severity, non-dismissed) is greater than zero, making it suitable as a CI/CD stop-on-vulnerability gate. LOW-severity findings (ambient lineage from CI bootstrappers, benign temp `.log`/`.txt` writes, etc.) still appear in `active_findings` for dashboard visibility but do not by themselves trip the gate. Older daemons that predate the alertable counter fall back to `active_findings`. No LLM is required for raw findings, but LLM configuration is recommended for adjudication, suppression, and clearer alerts.
 - **background-vulnerability-dismiss** (alias **vulnerability-dismiss**) `<FINDING_KEY>` – Dismiss vulnerability finding by finding key.
 - **background-vulnerability-undismiss** (alias **vulnerability-undismiss**) `<FINDING_KEY>` – Restore previously dismissed vulnerability finding.
@@ -3093,9 +3098,9 @@ jobs:
 
       - name: Install EDAMAME Posture
         run: |
-          curl -LO https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v1.9.1/edamame_posture-1.9.1-x86_64-unknown-linux-gnu
-          chmod +x edamame_posture-1.9.1-x86_64-unknown-linux-gnu
-          sudo mv edamame_posture-1.9.1-x86_64-unknown-linux-gnu /usr/local/bin/edamame_posture
+          curl -LO https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v2.0.0/edamame_posture-2.0.0-x86_64-unknown-linux-gnu
+          chmod +x edamame_posture-2.0.0-x86_64-unknown-linux-gnu
+          sudo mv edamame_posture-2.0.0-x86_64-unknown-linux-gnu /usr/local/bin/edamame_posture
 
       - name: Extract and verify signature from last commit
         run: |
