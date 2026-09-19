@@ -26,7 +26,7 @@ EDAMAME Posture is a lightweight, developer-first CLI for runner and build-host 
 - [Automation Options](#automation-options)
   - [Overview of Automation Capabilities](#overview-of-automation-capabilities)
   - [1. Auto-Remediation (One-Shot)](#1-auto-remediation-one-shot)
-  - [2. AI Assistant (Continuous Remediation)](#2-ai-assistant-continuous-remediation)
+  - [2. Security Assistant (Continuous Remediation)](#2-security-assistant-continuous-remediation)
   - [3. Network Violation Detection & Exit Codes](#3-network-violation-detection--exit-codes)
   - [4. Pipeline Cancellation (Real-Time)](#4-pipeline-cancellation-real-time)
   - [Combining Automation Options](#combining-automation-options)
@@ -264,7 +264,7 @@ edamame_posture background-logs
 
 If the daemon is running, `background-status` will return:
 - **Connection status**: user, domain, connection state, last report time
-- **AI Assistant status**: mode (disabled/analyze/auto), interval, enabled state, last/next run times
+- **Security assistant status**: mode (disabled/analyze/auto), interval, enabled state, last/next run times
 
 If it fails with "Error getting connection status", the daemon is not running.
 
@@ -558,7 +558,7 @@ Once connected, you can ask Claude to help with security:
 > Claude uses `advisor.get_action_history` to display recent automated fixes.
 
 **"Undo the last security action"**
-> Claude uses `advisor.undo_action` to roll back if something went wrong.
+> Undo is operator-only: roll back from the EDAMAME app or `edamame_cli rpc agentic_undo_action`; MCP clients cannot undo (observer-independence).
 
 ### MCP Server Commands
 
@@ -769,7 +769,7 @@ EDAMAME Posture provides multiple automation capabilities that can be combined t
 | Capability | Type | Trigger | Scope | Use Case |
 |-----------|------|---------|-------|----------|
 | **Auto-Remediation** | One-shot | Manual command | Security posture | Fix security issues before/during build |
-| **AI Assistant (Agentic)** | Continuous | Background daemon | Security findings | Automated security remediation |
+| **Security assistant (agentic)** | Continuous | Background daemon | Security findings | Automated security remediation |
 | **Network Violation Detection** | One-shot | Command exit | Network traffic | Detect supply chain attacks, unauthorized connections |
 | **Pipeline Cancellation** | Real-time | Violation detected | CI/CD pipeline | Stop builds immediately on security violations |
 
@@ -799,7 +799,7 @@ edamame_posture remediate-threat "threat-id"
 - One-time action only (doesn't monitor for new issues)
 - Skips potentially disruptive fixes by default (remote login, local firewall)
 
-### 2. AI Assistant (Continuous Remediation)
+### 2. Security Assistant (Continuous Remediation)
 
 **Purpose**: Continuous security auto-remediation using LLM intelligence.
 
@@ -1018,7 +1018,7 @@ edamame_posture get-sessions \
 
 **Recommended Patterns**:
 
-| Environment | Remediation | AI Assistant | Network Detection | Cancellation |
+| Environment | Remediation | Security assistant | Network Detection | Cancellation |
 |------------|-------------|--------------|-------------------|--------------|
 | **Personal Workstation** | Manual | `auto` mode | Optional | No |
 | **Development CI** | Auto | `analyze` mode | `--fail-on-whitelist` | No |
@@ -1116,7 +1116,7 @@ edamame_posture background-start-disconnected [--network-scan] [--packet-capture
 This enables all the monitoring and whitelist enforcement capabilities locally without requiring a registered domain:
 - Fully local, real-time monitoring and network traffic capture (enable with `--packet-capture`)
 - Whitelist enforcement without any external connectivity
-- AI Assistant support with EDAMAME Portal LLM (`--agentic-provider edamame` + `EDAMAME_LLM_API_KEY` env) or BYOLLM
+- Security assistant support with EDAMAME Portal LLM (`--agentic-provider edamame` + `EDAMAME_LLM_API_KEY` env) or BYOLLM
 - Ideal for sensitive environments or isolated runners where external communication is not allowed
 
 ## Preventing Supply Chain Attacks
@@ -1784,7 +1784,7 @@ Each command may have additional options and flags; run `edamame_posture <comman
 
 ## AI Assistant for Automated Security Management
 
-EDAMAME Posture includes an **AI Assistant** that provides automated "Do It For Me" functionality for posture checks, runtime monitoring, and remediation. The AI assistant can automatically process security todos using LLM (Large Language Model) analysis, reducing manual security work while maintaining safety.
+EDAMAME Posture includes a **Security assistant** that provides automated remediation for posture checks, runtime monitoring, and findings. The AI assistant can automatically process security todos using LLM (Large Language Model) analysis, reducing manual security work while maintaining safety.
 
 ### Background Daemon Integration (Recommended)
 
@@ -2147,7 +2147,7 @@ edamame_posture remediate-threat "threat-name"
 ```
 
 **Review via App:**
-- Open edamame_app → Advisor tab → See escalated items with AI reasoning
+- Open edamame_app → Security tab → History → See escalated items with AI reasoning
 
 ## MCP Server for External AI Assistants
 

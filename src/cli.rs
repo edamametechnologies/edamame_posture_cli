@@ -317,7 +317,7 @@ pub fn build_cli() -> Command {
     .subcommand(
         Command::new("background-agentic-start")
             .alias("agentic-start")
-            .about("Start AI assistant todo-processing loop in background process")
+            .about("Start the security assistant (auto-remediation) loop in the background process")
             .arg(
                 arg!([MODE] "Loop mode: auto (execute) or analyze (review)")
                     .required(false)
@@ -334,12 +334,12 @@ pub fn build_cli() -> Command {
     .subcommand(
         Command::new("background-agentic-stop")
             .alias("agentic-stop")
-            .about("Stop AI assistant todo-processing loop in background process"),
+            .about("Stop the security assistant (auto-remediation) loop in the background process"),
     )
     .subcommand(
         Command::new("background-agentic-status")
             .alias("agentic-status")
-            .about("Get AI assistant loop status"),
+            .about("Get the security assistant loop status"),
     )
     .subcommand(
         Command::new("background-divergence-upsert-model")
@@ -1140,7 +1140,7 @@ fn start_common_args() -> Vec<Arg> {
             .long("llm-api-key")
             .short('k')
             .value_name("API_KEY")
-            .help("EDAMAME Portal LLM API key for AI assistant (edamame provider)")
+            .help("EDAMAME Portal LLM API key for the security assistant (edamame provider)")
             .env("EDAMAME_LLM_API_KEY")
             .value_parser(clap::value_parser!(String)),
         Arg::new("device_id")
@@ -1186,7 +1186,7 @@ fn start_common_args() -> Vec<Arg> {
         Arg::new("agentic_mode")
             .long("agentic-mode")
             .value_name("MODE")
-            .help("AI assistant mode: auto, analyze or disabled")
+            .help("Security assistant mode: auto, analyze or disabled")
             .default_value("disabled")
             .value_parser(["auto", "analyze", "disabled"]),
         Arg::new("agentic_provider")
@@ -1223,7 +1223,7 @@ fn disconnected_start_args() -> Vec<Arg> {
             .long("llm-api-key")
             .short('k')
             .value_name("API_KEY")
-            .help("EDAMAME Portal LLM API key for AI assistant (edamame provider)")
+            .help("EDAMAME Portal LLM API key for the security assistant (edamame provider)")
             .env("EDAMAME_LLM_API_KEY")
             .value_parser(clap::value_parser!(String)),
         Arg::new("network_scan")
@@ -1264,7 +1264,7 @@ fn disconnected_start_args() -> Vec<Arg> {
         Arg::new("agentic_mode")
             .long("agentic-mode")
             .value_name("MODE")
-            .help("AI assistant mode for automated todo processing: auto, analyze or disabled")
+            .help("Security assistant mode for automated remediation: auto, analyze or disabled")
             .default_value("disabled")
             .value_parser(["auto", "analyze", "disabled"]),
         Arg::new("agentic_provider")
