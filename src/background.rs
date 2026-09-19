@@ -2003,8 +2003,14 @@ pub fn adjudication_is_withheld(status: &serde_json::Value) -> bool {
 /// command -- is left alone. Daemons built before `adjudication_auto`
 /// existed report no such field and are left alone too.
 pub fn pin_llm_adjudication_when_auto() {
-    let is_auto = |status: String| {
-        serde_json::from_str::<serde_json::Value>(&status)
+    // This runs in the launcher after `background-start`, like the other
+    // `background_*` calls around it: the daemon is a separate process, so
+    // its status is read and its mode set over RPC. The in-process
+    // `get_*_status()` / `set_*_mode()` twins would only ever touch the
+    // launcher's own core, which exits right after (posture tests.yml run
+    // 35438830448: every leg ran `advisory` although the pin had logged).
+    let is_auto = |status: &str| {
+        serde_json::from_str::<serde_json::Value>(status)
             .ok()
             .and_then(|value| {
                 value
@@ -2013,13 +2019,59 @@ pub fn pin_llm_adjudication_when_auto() {
             })
             .unwrap_or(false)
     };
-    if is_auto(get_vulnerability_detector_status()) {
-        let _ = set_vulnerability_adjudication_mode("llm".to_string());
-        info!("Attack pattern detector adjudication pinned to llm (was auto; --agentic-mode asked for the LLM)");
+    match rpc_get_vulnerability_detector_status(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(status) if is_auto(&status) => match rpc_set_vulnerability_adjudication_mode(
+            "llm".to_string(),
+            &EDAMAME_CA_PEM,
+            &EDAMAME_CLIENT_PEM,
+            &EDAMAME_CLIENT_KEY,
+            &EDAMAME_TARGET,
+        ) {
+            Ok(_) => info!(
+                "Attack pattern detector adjudication pinned to llm (was auto; --agentic-mode asked for the LLM)"
+            ),
+            Err(e) => warn!(
+                "Failed to pin the attack pattern detector adjudication to llm: {}",
+                e
+            ),
+        },
+        Ok(_) => {}
+        Err(e) => warn!(
+            "Could not read the attack pattern detector status to pin llm adjudication: {}",
+            e
+        ),
     }
-    if is_auto(get_divergence_engine_status()) {
-        let _ = set_divergence_adjudication_mode("llm".to_string());
-        info!("Divergence engine adjudication pinned to llm (was auto; --agentic-mode asked for the LLM)");
+    match rpc_get_divergence_engine_status(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(status) if is_auto(&status) => match rpc_set_divergence_adjudication_mode(
+            "llm".to_string(),
+            &EDAMAME_CA_PEM,
+            &EDAMAME_CLIENT_PEM,
+            &EDAMAME_CLIENT_KEY,
+            &EDAMAME_TARGET,
+        ) {
+            Ok(_) => info!(
+                "Divergence engine adjudication pinned to llm (was auto; --agentic-mode asked for the LLM)"
+            ),
+            Err(e) => warn!(
+                "Failed to pin the divergence engine adjudication to llm: {}",
+                e
+            ),
+        },
+        Ok(_) => {}
+        Err(e) => warn!(
+            "Could not read the divergence engine status to pin llm adjudication: {}",
+            e
+        ),
     }
 }
 

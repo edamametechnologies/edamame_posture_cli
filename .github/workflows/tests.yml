@@ -1818,6 +1818,12 @@ jobs:
           $POSTURE_CMD background-start-disconnected --packet-capture
           sleep 3
           $POSTURE_CMD background-status || true
+          # G-46: the gate fails closed (a tick the LLM did not answer is
+          # withheld). The 2.0 core default is auto -- advisory with a key --
+          # and the daemon pins llm only when --agentic-mode asked for the
+          # LLM, which this start does not, so pin both engines explicitly.
+          $POSTURE_CMD background-vulnerability-adjudication-mode llm
+          $POSTURE_CMD background-divergence-adjudication-mode llm
 
       - name: Install edamame_cli
         id: install_cli
@@ -2430,6 +2436,12 @@ jobs:
           $POSTURE_CMD background-start-disconnected --packet-capture
           sleep 3
           $POSTURE_CMD background-status || true
+          # G-46: the gate fails closed (a tick the LLM did not answer is
+          # withheld). The 2.0 core default is auto -- advisory with a key --
+          # and the daemon pins llm only when --agentic-mode asked for the
+          # LLM, which this start does not, so pin both engines explicitly.
+          $POSTURE_CMD background-vulnerability-adjudication-mode llm
+          $POSTURE_CMD background-divergence-adjudication-mode llm
 
       - name: Install edamame_cli
         id: install_cli
