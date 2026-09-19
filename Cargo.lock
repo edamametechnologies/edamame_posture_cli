@@ -905,9 +905,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.4.6"
+version = "1.4.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a3eb0f42d6c360dc3f8a821f6bf2fdea7f72bfd36b3076eb0e6d1e9e0752fff4"
+checksum = "54413ede23c2daf518f35156dfde027feb2374004d63bd497f983c8db9c0e313"
 dependencies = [
  "find-msvc-tools",
  "shlex 2.0.1",
@@ -1860,7 +1860,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "2.0.0"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#0cec1afe16e20bf313ccb44d5a0c57cf88d3b4a0"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#a65026e7404e3fc1feed45149dd3951770a899cf"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -1949,7 +1949,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "2.0.0"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#c0491d7378fc0d3f4aedacff29670241b6a9d062"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#118b1065e95d7aa7d500f924b44dfcd89b4f2889"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -2380,9 +2380,9 @@ dependencies = [
 
 [[package]]
 name = "find-msvc-tools"
-version = "0.1.12"
+version = "0.1.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3e0f1c7c3a72c66fd80abe965175f7523475c0489a87d3ff9d6e8c87d87a9d2d"
+checksum = "ef25905e51abafe4dcea6c15fec58c57b601cdbd0ee53d22ea1d3016c587d39b"
 
 [[package]]
 name = "fixedbitset"
@@ -2404,7 +2404,7 @@ dependencies = [
 [[package]]
 name = "flodbadd"
 version = "2.0.0"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#1ffdff396212b092a21e29b280e411b0aa20396b"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#5a6ee8df0f2cb424bd3dd8e976e682937a3e4718"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -3483,7 +3483,7 @@ dependencies = [
  "js-sys",
  "log",
  "wasm-bindgen",
- "windows-core 0.62.2",
+ "windows-core 0.58.0",
 ]
 
 [[package]]
@@ -4011,7 +4011,7 @@ dependencies = [
 [[package]]
 name = "l7_ebpf_program"
 version = "0.1.0"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#1ffdff396212b092a21e29b280e411b0aa20396b"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#5a6ee8df0f2cb424bd3dd8e976e682937a3e4718"
 
 [[package]]
 name = "lazy_static"
@@ -7572,7 +7572,7 @@ dependencies = [
 [[package]]
 name = "threatmodels_rs"
 version = "0.1.1"
-source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#a93d0158b7fd7daf277d0846db226f0568eacede"
+source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#79dc54bdec4ab062a29926bec3a74c03b5009d1f"
 dependencies = [
  "anyhow",
  "chrono",
