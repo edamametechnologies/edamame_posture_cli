@@ -385,10 +385,10 @@ pub fn build_cli() -> Command {
     .subcommand(
         Command::new("background-divergence-adjudication-mode")
             .alias("divergence-adjudication-mode")
-            .about("Set whether the divergence engine consults the LLM: llm (default; deterministic fallback when the LLM is unavailable) or deterministic (never consult the LLM). advisory is accepted and behaves as llm for this engine.")
+            .about("Set whether the divergence engine consults the LLM: llm (deterministic fallback when the LLM is unavailable), deterministic (never consult the LLM), or auto (the core default: follow the LLM connection; the daemon pins llm when --agentic-mode asked for the LLM). advisory is accepted and behaves as llm for this engine.")
             .arg(
                 arg!(<MODE> "Adjudication mode")
-                    .value_parser(["llm", "advisory", "deterministic"]),
+                    .value_parser(["auto", "llm", "advisory", "deterministic"]),
             ),
     )
     .subcommand(
@@ -467,10 +467,10 @@ pub fn build_cli() -> Command {
             .alias("vulnerability-adjudication-mode")
             .alias("background-attack-pattern-adjudication-mode")
             .alias("attack-pattern-adjudication-mode")
-            .about("Set how the attack pattern detector publishes without the LLM adjudicator: llm (default: a tick the LLM did not answer is withheld), advisory (publish the deterministic result when the LLM fails), deterministic (never consult the LLM)")
+            .about("Set how the attack pattern detector publishes without the LLM adjudicator: llm (a tick the LLM did not answer is withheld; the daemon pins this when --agentic-mode asked for the LLM), advisory (publish the deterministic result when the LLM fails), deterministic (never consult the LLM), auto (the core default: advisory with LLM credentials, deterministic without)")
             .arg(
                 arg!(<MODE> "Adjudication mode")
-                    .value_parser(["llm", "advisory", "deterministic"]),
+                    .value_parser(["auto", "llm", "advisory", "deterministic"]),
             ),
     )
     .subcommand(
