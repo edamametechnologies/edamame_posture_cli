@@ -1285,7 +1285,7 @@ pub fn background_agentic_summary() -> i32 {
     println!("  Usage: {:.1}%", summary.subscription_usage * 100.0);
 
     // Todos
-    println!("\n[Security Todos] Total: {}", summary.todo_counts.total);
+    println!("\n[Security Findings] Total: {}", summary.todo_counts.total);
     if summary.todo_counts.total > 0 {
         if summary.todo_counts.threats > 0 {
             println!("  Threats: {}", summary.todo_counts.threats);

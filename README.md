@@ -453,7 +453,7 @@ Key tools include:
 - `get_anomalous_sessions` - ML-flagged anomalous sessions
 - `get_score` - Full security posture score with sub-scores
 - `add_pwned_email` / `get_pwned_emails` - Add and inspect breach-monitored emails
-- `agentic_process_todos` - AI-powered "Do It For Me" workflow
+- `agentic_process_todos` - AI-powered security auto-remediation
 - `get_divergence_verdict` - Read reasoning-plane versus system-plane correlation
 - `get_vulnerability_findings` - Read attack-pattern findings
 
@@ -769,7 +769,7 @@ EDAMAME Posture provides multiple automation capabilities that can be combined t
 | Capability | Type | Trigger | Scope | Use Case |
 |-----------|------|---------|-------|----------|
 | **Auto-Remediation** | One-shot | Manual command | Security posture | Fix security issues before/during build |
-| **AI Assistant (Agentic)** | Continuous | Background daemon | Security todos | Automated "Do It For Me" security management |
+| **AI Assistant (Agentic)** | Continuous | Background daemon | Security findings | Automated security remediation |
 | **Network Violation Detection** | One-shot | Command exit | Network traffic | Detect supply chain attacks, unauthorized connections |
 | **Pipeline Cancellation** | Real-time | Violation detected | CI/CD pipeline | Stop builds immediately on security violations |
 
@@ -801,7 +801,7 @@ edamame_posture remediate-threat "threat-id"
 
 ### 2. AI Assistant (Continuous Remediation)
 
-**Purpose**: Continuous "Do It For Me" security management using LLM intelligence.
+**Purpose**: Continuous security auto-remediation using LLM intelligence.
 
 **How it works**: The background daemon monitors security todos and automatically processes them using AI reasoning.
 
