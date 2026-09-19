@@ -318,11 +318,11 @@ call_rpc() {
 
 force_vuln_tick() {
   log "  forcing vulnerability detector tick"
-  call_rpc debug_run_vulnerability_detector_tick >>"$TICK_LOG" 2>&1 || true
+  call_rpc debug_run_attack_pattern_detector_tick >>"$TICK_LOG" 2>&1 || true
 }
 
 clear_vuln_history() {
-  call_rpc clear_vulnerability_history >>"$TICK_LOG" 2>&1 || true
+  call_rpc clear_attack_pattern_history >>"$TICK_LOG" 2>&1 || true
 }
 
 # A daemon that stops answering RPC mid-suite (native crash, external kill)
@@ -704,7 +704,7 @@ expected_severity = os.environ.get("EXPECTED_SEVERITY", "").strip().upper()
 matched = []
 
 try:
-    report = cli_rpc("get_vulnerability_findings")
+    report = cli_rpc("get_attack_pattern_findings")
     current_matched = [f for f in findings_of(report) if matches(f, check, markers, ports)]
 except Exception as exc:
     print(f"__ERR__ current: {exc}", file=sys.stderr)
@@ -712,7 +712,7 @@ except Exception as exc:
 
 history_matched = []
 try:
-    hist = cli_rpc("get_vulnerability_history", '{"limit": 50}')
+    hist = cli_rpc("get_attack_pattern_history", '{"limit": 50}')
     if isinstance(hist, list):
         for entry in hist:
             if not isinstance(entry, dict):

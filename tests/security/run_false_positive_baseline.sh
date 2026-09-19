@@ -92,14 +92,14 @@ call_rpc() {
 }
 
 force_vuln_tick() {
-  call_rpc debug_run_vulnerability_detector_tick >>"$TICK_LOG" 2>&1
+  call_rpc debug_run_attack_pattern_detector_tick >>"$TICK_LOG" 2>&1
 }
 
 clear_vuln_history() {
   # Per the edamame_core vuln-persistence invariant, clearing history also
   # invalidates the detector input-hash cache so the next tick re-evaluates
   # live telemetry from a known-empty baseline instead of a stale skip.
-  call_rpc clear_vulnerability_history >>"$TICK_LOG" 2>&1
+  call_rpc clear_attack_pattern_history >>"$TICK_LOG" 2>&1
 }
 
 clear_file_events() {
@@ -107,8 +107,8 @@ clear_file_events() {
 }
 
 # Sample the detector state as JSON on stdout. Returns findings grouped
-# into current (get_vulnerability_findings) vs history (last 50 entries
-# of get_vulnerability_history). A clean idle baseline MUST return
+# into current (get_attack_pattern_findings) vs history (last 50 entries
+# of get_attack_pattern_history). A clean idle baseline MUST return
 # empty arrays for both.
 sample_findings() {
   TRIGGERS_DIR_ENV="$TRIGGERS_DIR" "$PYTHON" - <<'PY'
@@ -126,18 +126,18 @@ def _findings(report):
 out = {"current": [], "history": [], "errors": []}
 
 try:
-    report = cli_rpc("get_vulnerability_findings")
+    report = cli_rpc("get_attack_pattern_findings")
     out["current"] = _findings(report)
 except Exception as exc:
-    out["errors"].append(f"get_vulnerability_findings: {exc}")
+    out["errors"].append(f"get_attack_pattern_findings: {exc}")
 
 try:
-    hist = cli_rpc("get_vulnerability_history", '{"limit": 50}')
+    hist = cli_rpc("get_attack_pattern_history", '{"limit": 50}')
     if isinstance(hist, list):
         for entry in hist:
             out["history"].extend(entry.get("findings") or [])
 except Exception as exc:
-    out["errors"].append(f"get_vulnerability_history: {exc}")
+    out["errors"].append(f"get_attack_pattern_history: {exc}")
 
 print(json.dumps(out))
 sys.exit(1 if out["errors"] else 0)

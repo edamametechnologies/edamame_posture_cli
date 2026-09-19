@@ -1218,70 +1218,70 @@ fn run_base() {
             exit_code = background_divergence_reset_suppressions();
             is_background = true;
         }
-        Some(("background-vulnerability-start", sub_matches)) => {
+        Some(("background-attack-pattern-start", sub_matches)) => {
             let interval_secs = *sub_matches.get_one::<u64>("INTERVAL_SECS").unwrap_or(&60);
             initialize_core("".to_string(), false, false, false, false, false, verbose);
-            exit_code = background_vulnerability_start(interval_secs);
+            exit_code = background_attack_pattern_start(interval_secs);
             is_background = true;
         }
-        Some(("background-vulnerability-adjudication-mode", sub_matches)) => {
+        Some(("background-attack-pattern-adjudication-mode", sub_matches)) => {
             let mode = sub_matches
                 .get_one::<String>("MODE")
                 .cloned()
                 .unwrap_or_else(|| "llm".to_string());
             initialize_core("".to_string(), false, false, false, false, false, verbose);
-            exit_code = crate::background::background_vulnerability_adjudication_mode(&mode);
+            exit_code = crate::background::background_attack_pattern_adjudication_mode(&mode);
             is_background = true;
         }
-        Some(("background-vulnerability-stop", _)) => {
+        Some(("background-attack-pattern-stop", _)) => {
             initialize_core("".to_string(), false, false, false, false, false, verbose);
-            exit_code = background_vulnerability_stop();
+            exit_code = background_attack_pattern_stop();
             is_background = true;
         }
-        Some(("background-vulnerability-status", sub_matches)) => {
+        Some(("background-attack-pattern-status", sub_matches)) => {
             let fail_on_findings = sub_matches.get_flag("fail-on-findings");
             initialize_core("".to_string(), false, false, false, false, false, verbose);
-            exit_code = background_vulnerability_status(fail_on_findings);
+            exit_code = background_attack_pattern_status(fail_on_findings);
             is_background = true;
         }
-        Some(("background-vulnerability-findings", sub_matches)) => {
+        Some(("background-attack-pattern-findings", sub_matches)) => {
             let active_only = sub_matches.get_flag("active-only");
             initialize_core("".to_string(), false, false, false, false, false, verbose);
-            exit_code = background_vulnerability_findings(active_only);
+            exit_code = background_attack_pattern_findings(active_only);
             is_background = true;
         }
-        Some(("background-vulnerability-dismiss", sub_matches)) => {
+        Some(("background-attack-pattern-dismiss", sub_matches)) => {
             let finding_key = sub_matches
                 .get_one::<String>("FINDING_KEY")
                 .expect("FINDING_KEY not provided")
                 .to_string();
             initialize_core("".to_string(), false, false, false, false, false, verbose);
-            exit_code = background_vulnerability_dismiss(finding_key);
+            exit_code = background_attack_pattern_dismiss(finding_key);
             is_background = true;
         }
-        Some(("background-vulnerability-undismiss", sub_matches)) => {
+        Some(("background-attack-pattern-undismiss", sub_matches)) => {
             let finding_key = sub_matches
                 .get_one::<String>("FINDING_KEY")
                 .expect("FINDING_KEY not provided")
                 .to_string();
             initialize_core("".to_string(), false, false, false, false, false, verbose);
-            exit_code = background_vulnerability_undismiss(finding_key);
+            exit_code = background_attack_pattern_undismiss(finding_key);
             is_background = true;
         }
-        Some(("background-vulnerability-reset-suppressions", _)) => {
+        Some(("background-attack-pattern-reset-suppressions", _)) => {
             initialize_core("".to_string(), false, false, false, false, false, verbose);
-            exit_code = background_vulnerability_reset_suppressions();
+            exit_code = background_attack_pattern_reset_suppressions();
             is_background = true;
         }
-        Some(("background-vulnerability-debug-trace", sub_matches)) => {
+        Some(("background-attack-pattern-debug-trace", sub_matches)) => {
             let report_id = sub_matches.get_one::<String>("REPORT_ID").cloned();
             initialize_core("".to_string(), false, false, false, false, false, verbose);
-            exit_code = background_vulnerability_debug_trace(report_id);
+            exit_code = background_attack_pattern_debug_trace(report_id);
             is_background = true;
         }
-        Some(("background-clear-vulnerability-history", _)) => {
+        Some(("background-clear-attack-pattern-history", _)) => {
             initialize_core("".to_string(), false, false, false, false, false, verbose);
-            exit_code = background_clear_vulnerability_history();
+            exit_code = background_clear_attack_pattern_history();
             is_background = true;
         }
         Some(("background-agentic-dismiss-with-scope", sub_matches)) => {
