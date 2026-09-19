@@ -445,14 +445,14 @@ pub fn build_cli() -> Command {
     ////////////////
     // Attack Pattern Detector commands (model-independent)
     //
-    // Transition note: legacy names use "vulnerability"; new names use
+    // Since 2.0.0 the canonical names use "attack-pattern"; the legacy names use "vulnerability" and are kept as aliases for one release; both short forms also work. Naming:
     // "attack-pattern". Both work via clap aliases. See the workspace rules
     // (Vulnerability -> Attack Pattern Detection Terminology Transition).
     ////////////////
     .subcommand(
-        Command::new("background-vulnerability-start")
+        Command::new("background-attack-pattern-start")
             .alias("vulnerability-start")
-            .alias("background-attack-pattern-start")
+            .alias("background-vulnerability-start")
             .alias("attack-pattern-start")
             .about("Start attack pattern detector in background process")
             .arg(
@@ -463,9 +463,9 @@ pub fn build_cli() -> Command {
             ),
     )
     .subcommand(
-        Command::new("background-vulnerability-adjudication-mode")
+        Command::new("background-attack-pattern-adjudication-mode")
             .alias("vulnerability-adjudication-mode")
-            .alias("background-attack-pattern-adjudication-mode")
+            .alias("background-vulnerability-adjudication-mode")
             .alias("attack-pattern-adjudication-mode")
             .about("Set how the attack pattern detector publishes without the LLM adjudicator: llm (a tick the LLM did not answer is withheld; the daemon pins this when --agentic-mode asked for the LLM), advisory (publish the deterministic result when the LLM fails), deterministic (never consult the LLM), auto (the core default: advisory with LLM credentials, deterministic without)")
             .arg(
@@ -474,16 +474,16 @@ pub fn build_cli() -> Command {
             ),
     )
     .subcommand(
-        Command::new("background-vulnerability-stop")
+        Command::new("background-attack-pattern-stop")
             .alias("vulnerability-stop")
-            .alias("background-attack-pattern-stop")
+            .alias("background-vulnerability-stop")
             .alias("attack-pattern-stop")
             .about("Stop attack pattern detector in background process"),
     )
     .subcommand(
-        Command::new("background-vulnerability-status")
+        Command::new("background-attack-pattern-status")
             .alias("vulnerability-status")
-            .alias("background-attack-pattern-status")
+            .alias("background-vulnerability-status")
             .alias("attack-pattern-status")
             .about("Get attack pattern detector status")
             .arg(
@@ -493,9 +493,9 @@ pub fn build_cli() -> Command {
             ),
     )
     .subcommand(
-        Command::new("background-vulnerability-findings")
+        Command::new("background-attack-pattern-findings")
             .alias("vulnerability-findings")
-            .alias("background-attack-pattern-findings")
+            .alias("background-vulnerability-findings")
             .alias("attack-pattern-findings")
             .about("Dump active runtime attack pattern findings as JSON")
             .arg(
@@ -505,9 +505,9 @@ pub fn build_cli() -> Command {
             ),
     )
     .subcommand(
-        Command::new("background-vulnerability-dismiss")
+        Command::new("background-attack-pattern-dismiss")
             .alias("vulnerability-dismiss")
-            .alias("background-attack-pattern-dismiss")
+            .alias("background-vulnerability-dismiss")
             .alias("attack-pattern-dismiss")
             .about("Dismiss attack pattern finding by finding key")
             .arg(
@@ -517,9 +517,9 @@ pub fn build_cli() -> Command {
             ),
     )
     .subcommand(
-        Command::new("background-vulnerability-undismiss")
+        Command::new("background-attack-pattern-undismiss")
             .alias("vulnerability-undismiss")
-            .alias("background-attack-pattern-undismiss")
+            .alias("background-vulnerability-undismiss")
             .alias("attack-pattern-undismiss")
             .about("Restore previously dismissed attack pattern finding")
             .arg(
@@ -529,16 +529,16 @@ pub fn build_cli() -> Command {
             ),
     )
     .subcommand(
-        Command::new("background-vulnerability-reset-suppressions")
+        Command::new("background-attack-pattern-reset-suppressions")
             .alias("vulnerability-reset-suppressions")
-            .alias("background-attack-pattern-reset-suppressions")
+            .alias("background-vulnerability-reset-suppressions")
             .alias("attack-pattern-reset-suppressions")
             .about("Reset all attack pattern suppressions"),
     )
     .subcommand(
-        Command::new("background-vulnerability-debug-trace")
+        Command::new("background-attack-pattern-debug-trace")
             .alias("vulnerability-debug-trace")
-            .alias("background-attack-pattern-debug-trace")
+            .alias("background-vulnerability-debug-trace")
             .alias("attack-pattern-debug-trace")
             .about(
                 "Dump VulnerabilityDebugTrace JSON for a past attack pattern report \
@@ -557,9 +557,9 @@ pub fn build_cli() -> Command {
             ),
     )
     .subcommand(
-        Command::new("background-clear-vulnerability-history")
+        Command::new("background-clear-attack-pattern-history")
             .alias("clear-vulnerability-history")
-            .alias("background-clear-attack-pattern-history")
+            .alias("background-clear-vulnerability-history")
             .alias("clear-attack-pattern-history")
             .about("Clear the daemon's in-memory and persisted attack pattern action_history (test-induced FP cleanup)"),
     )
@@ -1176,7 +1176,7 @@ fn start_common_args() -> Vec<Arg> {
             .action(ArgAction::SetTrue),
         Arg::new("fail_on_findings")
             .long("fail-on-findings")
-            .help("Treat active vulnerability findings as fatal")
+            .help("Treat active attack pattern findings as fatal")
             .action(ArgAction::SetTrue),
         Arg::new("include_local_traffic")
             .long("include-local-traffic")
@@ -1254,7 +1254,7 @@ fn disconnected_start_args() -> Vec<Arg> {
             .action(ArgAction::SetTrue),
         Arg::new("fail_on_findings")
             .long("fail-on-findings")
-            .help("Treat active vulnerability findings as fatal")
+            .help("Treat active attack pattern findings as fatal")
             .action(ArgAction::SetTrue),
         Arg::new("include_local_traffic")
             .long("include-local-traffic")
@@ -1635,13 +1635,13 @@ mod tests {
         let matches = build_cli()
             .try_get_matches_from([
                 "edamame_posture",
-                "background-vulnerability-status",
+                "background-attack-pattern-status",
                 "--fail-on-findings",
             ])
             .expect("background-vulnerability-status should accept --fail-on-findings");
 
         let (sub, sub_matches) = matches.subcommand().expect("expected subcommand");
-        assert_eq!(sub, "background-vulnerability-status");
+        assert_eq!(sub, "background-attack-pattern-status");
         assert!(sub_matches.get_flag("fail-on-findings"));
     }
 
@@ -1652,7 +1652,7 @@ mod tests {
             .expect("vulnerability-status alias should parse");
 
         let (sub, sub_matches) = matches.subcommand().expect("expected subcommand");
-        assert_eq!(sub, "background-vulnerability-status");
+        assert_eq!(sub, "background-attack-pattern-status");
         assert!(!sub_matches.get_flag("fail-on-findings"));
     }
 

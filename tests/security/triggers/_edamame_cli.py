@@ -11,7 +11,7 @@ cases.
 
 Usage as a library:
     from _edamame_cli import cli_rpc
-    findings = cli_rpc("get_vulnerability_findings")
+    findings = cli_rpc("get_attack_pattern_findings")
 
 Usage from shell:
     python3 _edamame_cli.py get_vulnerability_findings

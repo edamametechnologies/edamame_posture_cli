@@ -348,14 +348,14 @@ def main() -> int:
     lines.append("")
     lines.append(
         "Detection is confirmed via `edamame_cli` RPCs against the running"
-        " daemon. For most scenarios we call `debug_run_vulnerability_detector_tick`"
+        " daemon. For most scenarios we call `debug_run_attack_pattern_detector_tick`"
         " to force an immediate evaluation and then match findings by `check`,"
         " process markers (e.g. `_exfil_token`, `_sprawl_key`), and destination"
         " port (63169 for token exfil, 63171 for sprawl)."
         " Blacklisted-traffic detection queries"
         " `get_blacklisted_sessions` for the canonical FireHOL test IPs."
-        " Findings are retrieved with `get_vulnerability_findings` plus"
-        " `get_vulnerability_history` (last 50) so we catch scenarios that"
+        " Findings are retrieved with `get_attack_pattern_findings` plus"
+        " `get_attack_pattern_history` (last 50) so we catch scenarios that"
         " completed before the poll loop but are still in history, matching the"
         " vulnerability finding persistence invariant."
     )

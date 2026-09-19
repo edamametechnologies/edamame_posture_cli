@@ -1937,11 +1937,11 @@ pub fn background_divergence_undismiss(finding_key: String) -> i32 {
     finding_undismiss("divergence", finding_key, "Divergence evidence")
 }
 
-pub fn background_vulnerability_dismiss(finding_key: String) -> i32 {
+pub fn background_attack_pattern_dismiss(finding_key: String) -> i32 {
     finding_dismiss("vulnerability", finding_key, "Attack-pattern finding")
 }
 
-pub fn background_vulnerability_undismiss(finding_key: String) -> i32 {
+pub fn background_attack_pattern_undismiss(finding_key: String) -> i32 {
     finding_undismiss("vulnerability", finding_key, "Attack-pattern finding")
 }
 
@@ -2019,13 +2019,13 @@ pub fn pin_llm_adjudication_when_auto() {
             })
             .unwrap_or(false)
     };
-    match rpc_get_vulnerability_detector_status(
+    match rpc_get_attack_pattern_detector_status(
         &EDAMAME_CA_PEM,
         &EDAMAME_CLIENT_PEM,
         &EDAMAME_CLIENT_KEY,
         &EDAMAME_TARGET,
     ) {
-        Ok(status) if is_auto(&status) => match rpc_set_vulnerability_adjudication_mode(
+        Ok(status) if is_auto(&status) => match rpc_set_attack_pattern_adjudication_mode(
             "llm".to_string(),
             &EDAMAME_CA_PEM,
             &EDAMAME_CLIENT_PEM,
@@ -2076,8 +2076,8 @@ pub fn pin_llm_adjudication_when_auto() {
 }
 
 /// Set the attack pattern detector's adjudication mode on the running daemon (operator plane).
-pub fn background_vulnerability_adjudication_mode(mode: &str) -> i32 {
-    match rpc_set_vulnerability_adjudication_mode(
+pub fn background_attack_pattern_adjudication_mode(mode: &str) -> i32 {
+    match rpc_set_attack_pattern_adjudication_mode(
         mode.to_string(),
         &EDAMAME_CA_PEM,
         &EDAMAME_CLIENT_PEM,
@@ -2111,8 +2111,8 @@ pub fn background_vulnerability_adjudication_mode(mode: &str) -> i32 {
     }
 }
 
-pub fn background_vulnerability_start(interval_secs: u64) -> i32 {
-    match rpc_start_vulnerability_detector(
+pub fn background_attack_pattern_start(interval_secs: u64) -> i32 {
+    match rpc_start_attack_pattern_detector(
         true,
         interval_secs,
         &EDAMAME_CA_PEM,
@@ -2150,8 +2150,8 @@ pub fn background_vulnerability_start(interval_secs: u64) -> i32 {
     }
 }
 
-pub fn background_vulnerability_stop() -> i32 {
-    match rpc_start_vulnerability_detector(
+pub fn background_attack_pattern_stop() -> i32 {
+    match rpc_start_attack_pattern_detector(
         false,
         0,
         &EDAMAME_CA_PEM,
@@ -2188,7 +2188,7 @@ pub fn background_vulnerability_stop() -> i32 {
 
 /// Dump active runtime vulnerability findings as JSON.
 ///
-/// Calls the `get_vulnerability_findings` RPC on the running daemon and
+/// Calls the `get_attack_pattern_findings` RPC on the running daemon and
 /// pretty-prints the report (which includes per-finding `finding_key`,
 /// `check`, `severity`, `description`, `process_*`, `destination_*`,
 /// `open_files`, and `detection_basis`). When `--active-only` is set,
@@ -2197,8 +2197,8 @@ pub fn background_vulnerability_stop() -> i32 {
 /// Exit codes:
 ///   0 -- printed report (zero or more findings)
 ///   ERROR_CODE_SERVER_ERROR -- RPC failed or response was unparseable
-pub fn background_vulnerability_findings(active_only: bool) -> i32 {
-    match rpc_get_vulnerability_findings(
+pub fn background_attack_pattern_findings(active_only: bool) -> i32 {
+    match rpc_get_attack_pattern_findings(
         &EDAMAME_CA_PEM,
         &EDAMAME_CLIENT_PEM,
         &EDAMAME_CLIENT_KEY,
@@ -2247,8 +2247,8 @@ pub fn background_vulnerability_findings(active_only: bool) -> i32 {
     }
 }
 
-pub fn background_vulnerability_status(fail_on_findings: bool) -> i32 {
-    match rpc_get_vulnerability_detector_status(
+pub fn background_attack_pattern_status(fail_on_findings: bool) -> i32 {
+    match rpc_get_attack_pattern_detector_status(
         &EDAMAME_CA_PEM,
         &EDAMAME_CLIENT_PEM,
         &EDAMAME_CLIENT_KEY,
@@ -2315,7 +2315,7 @@ pub fn background_vulnerability_status(fail_on_findings: bool) -> i32 {
                     }
                     std::thread::sleep(std::time::Duration::from_secs(5));
                     waited_secs += 5;
-                    match rpc_get_vulnerability_detector_status(
+                    match rpc_get_attack_pattern_detector_status(
                         &EDAMAME_CA_PEM,
                         &EDAMAME_CLIENT_PEM,
                         &EDAMAME_CLIENT_KEY,
@@ -2390,19 +2390,19 @@ pub fn background_vulnerability_status(fail_on_findings: bool) -> i32 {
 /// without re-running the original live scenario.
 ///
 /// When `report_id` is `None`, resolves the latest in-memory report by first
-/// calling `get_vulnerability_findings` and extracting its `report_id`. This
+/// calling `get_attack_pattern_findings` and extracting its `report_id`. This
 /// is the `--latest` CLI path.
 ///
 /// Exit codes:
 ///   0                       -- printed trace JSON (or `{"trace": null}` when no trace is stored)
 ///   ERROR_CODE_PARAM        -- daemon has no current report to resolve `--latest` against
 ///   ERROR_CODE_SERVER_ERROR -- RPC failed or response was unparseable
-pub fn background_vulnerability_debug_trace(report_id: Option<String>) -> i32 {
+pub fn background_attack_pattern_debug_trace(report_id: Option<String>) -> i32 {
     let resolved_id = match report_id {
         Some(id) if !id.trim().is_empty() => id.trim().to_string(),
         _ => {
             // Resolve latest report_id from get_vulnerability_findings.
-            match rpc_get_vulnerability_findings(
+            match rpc_get_attack_pattern_findings(
                 &EDAMAME_CA_PEM,
                 &EDAMAME_CLIENT_PEM,
                 &EDAMAME_CLIENT_KEY,
@@ -2437,7 +2437,7 @@ pub fn background_vulnerability_debug_trace(report_id: Option<String>) -> i32 {
         }
     };
 
-    match rpc_get_vulnerability_debug_trace(
+    match rpc_get_attack_pattern_debug_trace(
         resolved_id.clone(),
         &EDAMAME_CA_PEM,
         &EDAMAME_CLIENT_PEM,
@@ -2474,8 +2474,8 @@ pub fn background_vulnerability_debug_trace(report_id: Option<String>) -> i32 {
     }
 }
 
-pub fn background_vulnerability_reset_suppressions() -> i32 {
-    match rpc_reset_vulnerability_suppressions(
+pub fn background_attack_pattern_reset_suppressions() -> i32 {
+    match rpc_reset_attack_pattern_suppressions(
         &EDAMAME_CA_PEM,
         &EDAMAME_CLIENT_PEM,
         &EDAMAME_CLIENT_KEY,
@@ -2511,8 +2511,8 @@ pub fn background_vulnerability_reset_suppressions() -> i32 {
     }
 }
 
-pub fn background_clear_vulnerability_history() -> i32 {
-    match rpc_clear_vulnerability_history(
+pub fn background_clear_attack_pattern_history() -> i32 {
+    match rpc_clear_attack_pattern_history(
         &EDAMAME_CA_PEM,
         &EDAMAME_CLIENT_PEM,
         &EDAMAME_CLIENT_KEY,
