@@ -1223,6 +1223,18 @@ log "triggers dir: $TRIGGERS_DIR"
 log "output dir: $OUTPUT_DIR_ABS"
 log "cli: $EDAMAME_CLI"
 
+# Detection is off until an operator turns it on (core 2.0: the agentic
+# protection switch, off by default), so the suite starts the attack pattern
+# detector itself, as run_divergence_detection.sh starts the divergence engine.
+# Idempotent against a daemon where it already runs.
+log "starting the attack pattern detector (interval ${DETECTOR_INTERVAL:-60}s)"
+call_rpc start_attack_pattern_detector "[true, ${DETECTOR_INTERVAL:-60}]" >>"$TICK_LOG" 2>&1 || true
+DETECTOR_STATUS="$(call_rpc get_attack_pattern_detector_status 2>/dev/null || true)"
+# The CLI may print the status document as an escaped JSON string.
+if ! printf '%s' "$DETECTOR_STATUS" | grep -Eq 'running\\?"[[:space:]]*:[[:space:]]*true'; then
+  log "WARNING: the attack pattern detector does not report running after the start: ${DETECTOR_STATUS:-no answer}"
+fi
+
 for scen in "${SCENARIOS[@]}"; do
   [[ -z "$scen" ]] && continue
   run_one_scenario "$scen"
