@@ -155,9 +155,9 @@ pub fn background_process(
     // the default for `edamame_posture_action` jobs that don't pass --agentic-mode),
     // the daemon MUST NOT call background_set_agentic_loop(false, ...): calling
     // it on every daemon restart overwrites operator-set persisted state every
-    // time the service restarts. (Since core 2.0 the call no longer touches the
-    // detection engines -- they are on by default and independent of the
-    // assistant -- but the persisted assistant state is still the operator's.)
+    // time the service restarts. (Core 2.0 keeps the Assistant and both
+    // detection engines off until an operator turns them on; --agentic-mode
+    // analyze|auto is that switch here and turns all three on together.)
     //
     // Mirror the EDAMAME app behavior: at startup, hydrate from persisted state
     // (already done in initialize_core via hydrate_agentic_from_persisted_config)
@@ -189,7 +189,7 @@ pub fn background_process(
         crate::background_process_agentic(&agentic_mode);
     } else {
         info!(
-            "AI Assistant mode 'disabled': leaving persisted agentic state untouched (auto-processing/divergence/vulnerability detector remain as last set by the operator)"
+            "AI Assistant mode 'disabled': leaving persisted agentic state untouched (the Assistant, attack pattern detection and divergence detection remain as last set by the operator; all three are off on a fresh install)"
         );
     }
 

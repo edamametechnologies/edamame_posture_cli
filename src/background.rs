@@ -3474,8 +3474,12 @@ pub fn background_process_agentic(mode: &str) {
     }
 }
 
+/// `--agentic-mode analyze|auto`: the Assistant's level and cadence, then the
+/// agentic-protection switch, which turns the Assistant, the attack pattern
+/// detector and the divergence engine on together (core 2.0: all three are off
+/// until an operator turns them on).
 pub fn background_set_agentic_loop(enabled: bool, interval_secs: u64, mode: &str) -> bool {
-    use edamame_core::api::api_agentic::agentic_set_auto_processing;
+    use edamame_core::api::api_agentic::{agentic_set_auto_processing, agentic_set_protection};
 
     let confirmation_level = match mode {
         "auto" => 0,
@@ -3490,7 +3494,20 @@ pub fn background_set_agentic_loop(enabled: bool, interval_secs: u64, mode: &str
         }
     };
 
-    let success = agentic_set_auto_processing(enabled, interval_secs, confirmation_level);
+    let mut success = agentic_set_auto_processing(enabled, interval_secs, confirmation_level);
+    if success && enabled {
+        let reply = agentic_set_protection(true);
+        let protected = serde_json::from_str::<serde_json::Value>(&reply)
+            .ok()
+            .and_then(|value| value.get("success").and_then(|ok| ok.as_bool()))
+            .unwrap_or(false);
+        if protected {
+            info!("AI Assistant: agentic protection on (Assistant, attack pattern detection, divergence detection)");
+        } else {
+            error!("AI Assistant: failed to turn agentic protection on: {}", reply);
+            success = false;
+        }
+    }
     if success {
         if enabled {
             info!(
