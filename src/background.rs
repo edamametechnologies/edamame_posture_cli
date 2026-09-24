@@ -3504,7 +3504,10 @@ pub fn background_set_agentic_loop(enabled: bool, interval_secs: u64, mode: &str
         if protected {
             info!("AI Assistant: agentic protection on (Assistant, attack pattern detection, divergence detection)");
         } else {
-            error!("AI Assistant: failed to turn agentic protection on: {}", reply);
+            error!(
+                "AI Assistant: failed to turn agentic protection on: {}",
+                reply
+            );
             success = false;
         }
     }
