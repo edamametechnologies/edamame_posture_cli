@@ -31,7 +31,6 @@ jobs:
           checkout: true
           # Wait for the API to be ready
           wait_for_api: true
-          wait_repository: edamametechnologies/edamame_core
           packet_capture: true
           vulnerability_detection: true
           vulnerability_detection_interval: "60"

@@ -51,6 +51,9 @@ jobs:
           edamame_pin: ${{ secrets.EDAMAME_POSTURE_PIN }}
           edamame_id: ${{ github.run_id }}-audit-${{ matrix.checks }}
           checkout: true
+          # cargo-deny fetches the internal edamame_core crate, so the wait
+          # probes it, with a token that can read it (GITHUB_TOKEN gets 404).
+          token: ${{ secrets.DEV_GITHUB_TOKEN }}
           wait_for_api: true
           wait_repository: edamametechnologies/edamame_core
           packet_capture: true
@@ -115,7 +118,6 @@ jobs:
           edamame_id: ${{ github.run_id }}-audit-drift
           checkout: false
           wait_for_api: true
-          wait_repository: edamametechnologies/edamame_core
           packet_capture: true
           vulnerability_detection: true
           vulnerability_detection_interval: "60"
