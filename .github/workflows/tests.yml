@@ -2261,8 +2261,24 @@ jobs:
           if [ -z "$rev" ]; then
             echo "edamame_core revision not found in Cargo.lock"; exit 1
           fi
-          git clone --quiet https://github.com/edamametechnologies/edamame_core.git "${{ github.workspace }}/../edamame_core"
-          git -C "${{ github.workspace }}/../edamame_core" checkout --quiet "$rev"
+          # The org IP allow list admits this hosted runner through the Hub's
+          # allow-list trigger, which can land minutes after the setup step
+          # stopped waiting: on 2026-09-25 the runner IP was added 39 s after
+          # this clone's 403, on two attempts in a row. Retry for up to 20
+          # minutes instead of failing the gate on the first refusal.
+          dest="${{ github.workspace }}/../edamame_core"
+          for attempt in $(seq 1 40); do
+            rm -rf "$dest"
+            if git clone --quiet https://github.com/edamametechnologies/edamame_core.git "$dest"; then
+              break
+            fi
+            if [ "$attempt" = 40 ]; then
+              echo "edamame_core clone still refused after 20 minutes"; exit 1
+            fi
+            echo "clone refused (attempt $attempt): the runner IP may not be allow-listed yet; retrying in 30 s"
+            sleep 30
+          done
+          git -C "$dest" checkout --quiet "$rev"
           echo "edamame_core @ $rev"
       - name: Make the userspace storage directory writable for the eval
         # The posture action's daemon runs as root and creates ~/.edamame; the
