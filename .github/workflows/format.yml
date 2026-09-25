@@ -32,6 +32,7 @@ jobs:
           checkout: true
           token: ${{ secrets.DEV_GITHUB_TOKEN }}
           wait_for_api: true
+          wait_repository: edamametechnologies/edamame_core
 
       - name: Configure Git Authentication to import private crates
         run: |
