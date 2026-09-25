@@ -153,7 +153,6 @@ jobs:
           vulnerability_detection: true
           vulnerability_detection_interval: "60"
           wait_for_api: true
-          wait_repository: edamametechnologies/edamame_core
           checkout: false
           agentic_mode: analyze
           agentic_provider: edamame
