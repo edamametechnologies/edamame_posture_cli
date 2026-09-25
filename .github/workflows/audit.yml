@@ -52,6 +52,7 @@ jobs:
           edamame_id: ${{ github.run_id }}-audit-${{ matrix.checks }}
           checkout: true
           wait_for_api: true
+          wait_repository: edamametechnologies/edamame_core
           packet_capture: true
           vulnerability_detection: true
           vulnerability_detection_interval: "60"
@@ -114,6 +115,7 @@ jobs:
           edamame_id: ${{ github.run_id }}-audit-drift
           checkout: false
           wait_for_api: true
+          wait_repository: edamametechnologies/edamame_core
           packet_capture: true
           vulnerability_detection: true
           vulnerability_detection_interval: "60"
