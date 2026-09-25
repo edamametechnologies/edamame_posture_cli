@@ -451,14 +451,17 @@ fn run_base() {
             ensure_admin();
             exit_code = base_remediate_threat(threat_id);
         }
+        // The dismiss-* commands act on the daemon's LAN scan and capture over
+        // RPC: a one-shot core has neither, so a local call only looked
+        // successful.
         Some(("dismiss-device", sub_matches)) => {
             let ip_address = sub_matches
                 .get_one::<String>("IP_ADDRESS")
                 .expect("IP_ADDRESS not provided")
                 .to_string();
-            initialize_core("".to_string(), true, false, false, false, true, verbose);
-            ensure_admin();
-            exit_code = base_dismiss_device(ip_address);
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_dismiss_device(ip_address);
+            is_background = true;
         }
         Some(("dismiss-device-port", sub_matches)) => {
             let ip_address = sub_matches
@@ -468,27 +471,27 @@ fn run_base() {
             let port = *sub_matches
                 .get_one::<u16>("PORT")
                 .expect("PORT not provided");
-            initialize_core("".to_string(), true, false, false, false, true, verbose);
-            ensure_admin();
-            exit_code = base_dismiss_device_port(ip_address, port);
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_dismiss_device_port(ip_address, port);
+            is_background = true;
         }
         Some(("dismiss-session", sub_matches)) => {
             let session_uid = sub_matches
                 .get_one::<String>("SESSION_UID")
                 .expect("SESSION_UID not provided")
                 .to_string();
-            initialize_core("".to_string(), true, false, false, false, true, verbose);
-            ensure_admin();
-            exit_code = base_dismiss_session(session_uid);
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_dismiss_session(session_uid);
+            is_background = true;
         }
         Some(("dismiss-session-process", sub_matches)) => {
             let session_uid = sub_matches
                 .get_one::<String>("SESSION_UID")
                 .expect("SESSION_UID not provided")
                 .to_string();
-            initialize_core("".to_string(), true, false, false, false, true, verbose);
-            ensure_admin();
-            exit_code = base_dismiss_session_process(session_uid);
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            exit_code = background_dismiss_session_process(session_uid);
+            is_background = true;
         }
         Some(("check-policy-for-domain", sub_matches)) => {
             let domain = sub_matches.get_one::<String>("DOMAIN").unwrap().to_string();

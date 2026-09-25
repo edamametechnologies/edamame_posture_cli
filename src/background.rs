@@ -7,6 +7,7 @@ use crate::ERROR_CODE_MISMATCH;
 use crate::ERROR_CODE_PARAM;
 use crate::ERROR_CODE_SERVER_ERROR;
 use crate::ERROR_CODE_TIMEOUT;
+use edamame_core::agentic::ConfirmationLevel;
 use edamame_core::api::api_agentic::*;
 use edamame_core::api::api_core::*;
 use edamame_core::api::api_fim::*;
@@ -231,13 +232,10 @@ pub fn background_get_status() -> i32 {
             ) {
                 Ok(agentic_status) => {
                     let _ = write_stdout("AI Assistant:");
-                    let mode_str = match agentic_status.mode {
-                        0 => "disabled",
-                        1 => "analyze",
-                        2 => "auto",
-                        _ => "unknown",
-                    };
-                    let _ = write_stdout(&format!("  - Mode: {}", mode_str));
+                    let _ = write_stdout(&format!(
+                        "  - Mode: {}",
+                        format_agentic_mode(agentic_status.mode)
+                    ));
                     let _ =
                         write_stdout(&format!("  - Interval: {}s", agentic_status.interval_secs));
                     let _ = write_stdout(&format!(
@@ -1389,13 +1387,37 @@ pub fn background_agentic_summary() -> i32 {
     0
 }
 
-fn format_agentic_mode(mode: i32) -> &'static str {
+/// The Assistant's level as core carries it over RPC: `ConfirmationLevel` as
+/// i32 (Auto = 0, Manual = 1, the app's Review), which this CLI calls `auto`
+/// and `analyze`. Whether the Assistant runs is `enabled`, not the level.
+fn agentic_level_for_mode(mode: &str) -> Option<i32> {
     match mode {
-        0 => "disabled",
-        1 => "analyze",
-        2 => "auto",
-        _ => "unknown",
+        "auto" => Some(ConfirmationLevel::Auto as i32),
+        "analyze" => Some(ConfirmationLevel::Manual as i32),
+        _ => None,
     }
+}
+
+/// The CLI name of a level read back from `agentic_get_auto_processing_status`.
+fn format_agentic_mode(level: i32) -> &'static str {
+    if level == ConfirmationLevel::Auto as i32 {
+        "auto"
+    } else if level == ConfirmationLevel::Manual as i32 {
+        "analyze"
+    } else {
+        "unknown"
+    }
+}
+
+/// Interval and level to write back when stopping the Assistant: stopping
+/// clears `enabled` only, the operator's cadence and level stay.
+fn agentic_stop_settings(status: &AgenticAutoProcessingStatusAPI) -> (u64, i32) {
+    let interval = if status.interval_secs == 0 {
+        3600
+    } else {
+        status.interval_secs
+    };
+    (interval, status.mode)
 }
 
 pub fn background_agentic_start(mode: &str, interval_secs: u64) -> i32 {
@@ -1404,13 +1426,9 @@ pub fn background_agentic_start(mode: &str, interval_secs: u64) -> i32 {
         return ERROR_CODE_PARAM;
     }
 
-    let confirmation_level = match mode {
-        "auto" => 0,
-        "analyze" => 1,
-        _ => {
-            eprintln!("Invalid mode '{}': expected 'auto' or 'analyze'", mode);
-            return ERROR_CODE_PARAM;
-        }
+    let Some(confirmation_level) = agentic_level_for_mode(mode) else {
+        eprintln!("Invalid mode '{}': expected 'auto' or 'analyze'", mode);
+        return ERROR_CODE_PARAM;
     };
 
     match rpc_agentic_set_auto_processing(
@@ -1447,16 +1465,8 @@ pub fn background_agentic_stop() -> i32 {
         &EDAMAME_CLIENT_KEY,
         &EDAMAME_TARGET,
     ) {
-        Ok(status) => {
-            let interval = if status.interval_secs == 0 {
-                3600
-            } else {
-                status.interval_secs
-            };
-            let level = if status.mode == 2 { 0 } else { 1 };
-            (interval, level)
-        }
-        Err(_) => (3600, 1),
+        Ok(status) => agentic_stop_settings(&status),
+        Err(_) => (3600, ConfirmationLevel::Manual as i32),
     };
 
     match rpc_agentic_set_auto_processing(
@@ -1757,12 +1767,73 @@ pub fn background_divergence_get_history(limit: usize) -> i32 {
     }
 }
 
+/// The daemon's current findings for one dismissal domain and the field that
+/// lists them: the attack-pattern report's `findings`, the divergence
+/// verdict's `evidence`. `None` when the daemon cannot be read.
+fn current_findings_report(domain: &str) -> Option<(serde_json::Value, &'static str)> {
+    let (raw, list_field) = match domain {
+        "vulnerability" => (
+            rpc_get_attack_pattern_findings(
+                &EDAMAME_CA_PEM,
+                &EDAMAME_CLIENT_PEM,
+                &EDAMAME_CLIENT_KEY,
+                &EDAMAME_TARGET,
+            )
+            .ok()?,
+            "findings",
+        ),
+        "divergence" => (
+            rpc_get_divergence_verdict(
+                &EDAMAME_CA_PEM,
+                &EDAMAME_CLIENT_PEM,
+                &EDAMAME_CLIENT_KEY,
+                &EDAMAME_TARGET,
+            )
+            .ok()?,
+            "evidence",
+        ),
+        _ => return None,
+    };
+    serde_json::from_str(&raw)
+        .ok()
+        .map(|report| (report, list_field))
+}
+
+/// Whether `finding_key` is listed CRITICAL and not dismissed in `report`.
+/// A key the report does not list is not known to be CRITICAL.
+fn critical_finding_still_visible(
+    report: &serde_json::Value,
+    list_field: &str,
+    finding_key: &str,
+) -> bool {
+    report
+        .get(list_field)
+        .and_then(|list| list.as_array())
+        .and_then(|list| {
+            list.iter().find(|finding| {
+                finding.get("finding_key").and_then(|key| key.as_str()) == Some(finding_key)
+            })
+        })
+        .is_some_and(|finding| {
+            finding
+                .get("severity")
+                .and_then(|severity| severity.as_str())
+                .is_some_and(|severity| severity.eq_ignore_ascii_case("critical"))
+                && !finding
+                    .get("dismissed")
+                    .and_then(|dismissed| dismissed.as_bool())
+                    .unwrap_or(false)
+        })
+}
+
 /// Dismiss one finding by key on either plane.
 ///
-/// Since core 1.9.1 the per-key `dismiss_*` RPCs are gone: a dismissal is a
+/// Since core 2.0.0 the per-key `dismiss_*` RPCs are gone: a dismissal is a
 /// dismissal rule, and a one-off dismissal is a `Finding`-scope rule created
 /// through `agentic_dismiss_with_scope`. The subcommand keeps its name so
-/// existing operator scripts still work.
+/// existing operator scripts still work. It sends no severity ceiling, so the
+/// rule is `high_and_below` and never hides a CRITICAL finding: that takes a
+/// `critical_capable` rule with a reason (`agentic-dismiss-with-scope`).
 fn finding_dismiss(domain: &str, finding_key: String, what: &str) -> i32 {
     let finding_key = finding_key.trim().to_string();
     if finding_key.is_empty() {
@@ -1791,11 +1862,28 @@ fn finding_dismiss(domain: &str, finding_key: String, what: &str) -> i32 {
                 }
             };
             if json["success"].as_bool().unwrap_or(false) {
-                println!(
-                    "{} dismissed (rule {}).",
-                    what,
-                    json["rule_id"].as_str().unwrap_or("unknown")
-                );
+                let still_visible =
+                    current_findings_report(domain).is_some_and(|(report, list_field)| {
+                        critical_finding_still_visible(&report, list_field, &finding_key)
+                    });
+                if still_visible {
+                    println!(
+                        "{} {} is CRITICAL and stays visible: a CRITICAL finding is only hidden by a critical_capable rule with a reason:",
+                        what, finding_key
+                    );
+                    println!(
+                        "  edamame_posture agentic-dismiss-with-scope '{}'",
+                        serde_json::json!({
+                            "domain": domain,
+                            "scope": "finding",
+                            "finding_key": finding_key,
+                            "severity_ceiling": "critical_capable",
+                            "reason": "<why this finding is expected>",
+                        })
+                    );
+                } else {
+                    println!("{} dismissed.", what);
+                }
                 0
             } else {
                 eprintln!(
@@ -1815,7 +1903,7 @@ fn finding_dismiss(domain: &str, finding_key: String, what: &str) -> i32 {
 
 /// Restore one finding by key on either plane.
 ///
-/// Restore is rule removal since core 1.9.1: the `Finding`-scope rule(s)
+/// Restore is rule removal since core 2.0.0: the `Finding`-scope rule(s)
 /// naming this key are removed, which is exactly what a per-key dismissal
 /// created. A finding quieted by a broader rule is deliberately left alone --
 /// removing that rule would restore everything it covers, so it is an
@@ -1945,6 +2033,177 @@ pub fn background_attack_pattern_undismiss(finding_key: String) -> i32 {
     finding_undismiss("vulnerability", finding_key, "Attack-pattern finding")
 }
 
+/// `dismiss-session` / `dismiss-session-process`: a `Session`-domain rule the
+/// daemon builds from the session it captured. The RPC answers nothing, and
+/// the daemon only logs a UID it does not hold (or, for the process scope, a
+/// session without a process), so both are checked here first.
+fn dismiss_session_on_daemon(uid: String, process_scope: bool) -> i32 {
+    let uid = uid.trim().to_string();
+    if uid.is_empty() {
+        eprintln!("Session UID cannot be empty");
+        return ERROR_CODE_PARAM;
+    }
+    let session = match rpc_get_session_by_uid(
+        uid.clone(),
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(Some(session)) => session,
+        Ok(None) => {
+            eprintln!("Session {} not found in the daemon's capture", uid);
+            return ERROR_CODE_PARAM;
+        }
+        Err(e) => {
+            eprintln!("Error looking up session {}: {}", uid, e);
+            return ERROR_CODE_SERVER_ERROR;
+        }
+    };
+
+    if !process_scope {
+        return match rpc_add_dismiss_rule_from_session(
+            uid.clone(),
+            &EDAMAME_CA_PEM,
+            &EDAMAME_CLIENT_PEM,
+            &EDAMAME_CLIENT_KEY,
+            &EDAMAME_TARGET,
+        ) {
+            Ok(()) => {
+                println!("Dismissed session {}", uid);
+                0
+            }
+            Err(e) => {
+                eprintln!("Error dismissing session {}: {}", uid, e);
+                ERROR_CODE_SERVER_ERROR
+            }
+        };
+    }
+
+    let Some(process_name) = session
+        .l7
+        .as_ref()
+        .map(|l7| l7.process_name.trim().to_string())
+        .filter(|name| !name.is_empty())
+    else {
+        eprintln!(
+            "Session {} has no process attribution; dismiss the session instead",
+            uid
+        );
+        return ERROR_CODE_PARAM;
+    };
+    match rpc_add_dismiss_rule_from_process(
+        uid.clone(),
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(()) => {
+            println!(
+                "Dismissed future sessions for process {} (session {})",
+                process_name, uid
+            );
+            0
+        }
+        Err(e) => {
+            eprintln!(
+                "Error dismissing sessions for process {}: {}",
+                process_name, e
+            );
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn background_dismiss_session(uid: String) -> i32 {
+    dismiss_session_on_daemon(uid, false)
+}
+
+pub fn background_dismiss_session_process(uid: String) -> i32 {
+    dismiss_session_on_daemon(uid, true)
+}
+
+/// The device the daemon's LAN scan holds at `ip_address`. The device
+/// dismissals answer nothing and the daemon only logs an unknown device or
+/// port, so the dismiss commands look it up first. `Err` is the exit code.
+fn device_on_daemon(ip_address: &str) -> Result<DeviceInfoAPI, i32> {
+    if ip_address.parse::<std::net::IpAddr>().is_err() {
+        eprintln!("Invalid IP address: {}", ip_address);
+        return Err(ERROR_CODE_PARAM);
+    }
+    match rpc_get_device_by_ip(
+        ip_address.to_string(),
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(Some(device)) => Ok(device),
+        Ok(None) => {
+            eprintln!("Device {} not found in the daemon's LAN scan", ip_address);
+            Err(ERROR_CODE_PARAM)
+        }
+        Err(e) => {
+            eprintln!("Error looking up device {}: {}", ip_address, e);
+            Err(ERROR_CODE_SERVER_ERROR)
+        }
+    }
+}
+
+pub fn background_dismiss_device(ip_address: String) -> i32 {
+    if let Err(code) = device_on_daemon(&ip_address) {
+        return code;
+    }
+    match rpc_dismiss_all_device_ports(
+        ip_address.clone(),
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(()) => {
+            println!("Dismissed device {} (all ports)", ip_address);
+            0
+        }
+        Err(e) => {
+            eprintln!("Error dismissing device {}: {}", ip_address, e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+pub fn background_dismiss_device_port(ip_address: String, port: u16) -> i32 {
+    let device = match device_on_daemon(&ip_address) {
+        Ok(device) => device,
+        Err(code) => return code,
+    };
+    if !device.open_ports.iter().any(|open| open.port == port) {
+        eprintln!(
+            "Port {} is not an open port of device {} in the daemon's LAN scan",
+            port, ip_address
+        );
+        return ERROR_CODE_PARAM;
+    }
+    match rpc_dismiss_device_port(
+        ip_address.clone(),
+        port,
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(()) => {
+            println!("Dismissed port {} on {}", port, ip_address);
+            0
+        }
+        Err(e) => {
+            eprintln!("Error dismissing port {} on {}: {}", port, ip_address, e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
 pub fn background_divergence_reset_suppressions() -> i32 {
     match rpc_reset_divergence_suppressions(
         &EDAMAME_CA_PEM,
@@ -1994,6 +2253,41 @@ pub fn adjudication_is_withheld(status: &serde_json::Value) -> bool {
     )
 }
 
+/// Why `--fail-on-findings` must not read this detector status as clean,
+/// before any finding is counted: zero findings from a detector that is off
+/// (core 2.0 keeps it off until an operator turns it on) or from a loop
+/// nobody drives certify nothing. A withheld tick is judged by the callers,
+/// which wait for it. Shared by `attack-pattern-status` and the daemon's
+/// live gate.
+pub fn attack_pattern_gate_refusal(status: &serde_json::Value) -> Option<String> {
+    if !status
+        .get("running")
+        .and_then(|value| value.as_bool())
+        .unwrap_or(false)
+    {
+        return Some(
+            "Attack pattern detector is not running: start it (attack-pattern-start, or --agentic-mode analyze|auto) before certifying findings"
+                .to_string(),
+        );
+    }
+    // A dead ticker leaves `running: true` and a frozen `last_run` behind.
+    // Daemons older than the field do not emit it and are treated as live.
+    if status
+        .get("ticker_stalled")
+        .and_then(|value| value.as_bool())
+        .unwrap_or(false)
+    {
+        return Some(format!(
+            "Attack pattern detector loop is stalled (no ticker iteration since {}); refusing to certify zero findings",
+            status
+                .get("ticker_last_tick_at")
+                .and_then(|value| value.as_str())
+                .unwrap_or("unknown")
+        ));
+    }
+    None
+}
+
 /// Pin both engines to `llm` when their adjudication setting is still the
 /// core's `auto` default. The daemon calls this in-process when
 /// `--agentic-mode` asked for the LLM: strict `llm` (withhold a tick the
@@ -2003,12 +2297,12 @@ pub fn adjudication_is_withheld(status: &serde_json::Value) -> bool {
 /// command -- is left alone. Daemons built before `adjudication_auto`
 /// existed report no such field and are left alone too.
 pub fn pin_llm_adjudication_when_auto() {
-    // This runs in the launcher after `background-start`, like the other
-    // `background_*` calls around it: the daemon is a separate process, so
-    // its status is read and its mode set over RPC. The in-process
-    // `get_*_status()` / `set_*_mode()` twins would only ever touch the
-    // launcher's own core, which exits right after (posture tests.yml run
-    // 35438830448: every leg ran `advisory` although the pin had logged).
+    // This runs inside the daemon: `background_process` is the
+    // `background-process` child that `background-start` spawns, and the
+    // launcher exits once it has. Status and mode still go over RPC, to the
+    // daemon's own endpoint, so the call reaches the daemon from any process;
+    // the in-process `get_*_status()` / `set_*_mode()` twins touch only the
+    // calling process's core.
     let is_auto = |status: &str| {
         serde_json::from_str::<serde_json::Value>(status)
             .ok()
@@ -2272,22 +2566,9 @@ pub fn background_attack_pattern_status(fail_on_findings: bool) -> i32 {
             }
 
             if fail_on_findings {
-                // Liveness first: a dead ticker leaves `running: true` and a
-                // frozen `last_run` behind, and zero findings from a loop that
-                // is not being driven certify nothing. Daemons older than the
-                // field do not emit it and are treated as live.
-                if json_value
-                    .get("ticker_stalled")
-                    .and_then(|value| value.as_bool())
-                    .unwrap_or(false)
-                {
-                    eprintln!(
-                        "Attack pattern detector loop is stalled (no ticker iteration since {}); refusing to certify zero findings",
-                        json_value
-                            .get("ticker_last_tick_at")
-                            .and_then(|value| value.as_str())
-                            .unwrap_or("unknown")
-                    );
+                // Liveness first: the detector must be on and its loop driven.
+                if let Some(refusal) = attack_pattern_gate_refusal(&json_value) {
+                    eprintln!("{}", refusal);
                     return ERROR_CODE_SERVER_ERROR;
                 }
                 // G-46 (decided 2026-09-13): in `llm` adjudication mode a tick
@@ -2550,10 +2831,9 @@ pub fn background_agentic_dismiss_with_scope(request_json: String) -> i32 {
                 }
             };
             if json["success"].as_bool().unwrap_or(false) {
-                println!(
-                    "Dismissal rule created: {}",
-                    json["rule_id"].as_str().unwrap_or("unknown")
-                );
+                // Core 2.0 answers a bare `{"success": true}`: the rule id is
+                // listed by `agentic-list-dismissal-rules`.
+                println!("Dismissal rule created.");
                 0
             } else {
                 eprintln!(
@@ -3385,16 +3665,12 @@ pub fn background_process_agentic(mode: &str) {
     );
 
     // Supported CLI/daemon modes: auto (execute) or analyze (recommendations only)
-    let confirmation_level = match mode {
-        "auto" => 0,
-        "analyze" => 1,
-        _ => {
-            warn!(
-                "AI Assistant: Unsupported mode '{}', valid options are 'auto', 'analyze', or 'disabled'",
-                mode
-            );
-            return;
-        }
+    let Some(confirmation_level) = agentic_level_for_mode(mode) else {
+        warn!(
+            "AI Assistant: Unsupported mode '{}', valid options are 'auto', 'analyze', or 'disabled'",
+            mode
+        );
+        return;
     };
 
     let results = agentic_process_todos(confirmation_level);
@@ -3481,14 +3757,13 @@ pub fn background_process_agentic(mode: &str) {
 pub fn background_set_agentic_loop(enabled: bool, interval_secs: u64, mode: &str) -> bool {
     use edamame_core::api::api_agentic::{agentic_set_auto_processing, agentic_set_protection};
 
-    let confirmation_level = match mode {
-        "auto" => 0,
-        "analyze" => 1,
-        "disabled" => 1,
-        other => {
+    let confirmation_level = match agentic_level_for_mode(mode) {
+        Some(level) => level,
+        None if mode == "disabled" => ConfirmationLevel::Manual as i32,
+        None => {
             warn!(
                 "AI Assistant: Unsupported mode '{}' for auto-processing loop",
-                other
+                mode
             );
             return false;
         }
@@ -3659,5 +3934,123 @@ pub fn background_clear_file_events() -> i32 {
             eprintln!("Error clearing file events: {}", e);
             ERROR_CODE_SERVER_ERROR
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn agentic_modes_map_to_core_confirmation_levels() {
+        // Core reports and accepts `ConfirmationLevel as i32`. This CLI used
+        // to read 0 as `disabled` and 2 as `auto`.
+        assert_eq!(
+            agentic_level_for_mode("auto").map(ConfirmationLevel::from),
+            Some(ConfirmationLevel::Auto)
+        );
+        assert_eq!(
+            agentic_level_for_mode("analyze").map(ConfirmationLevel::from),
+            Some(ConfirmationLevel::Manual)
+        );
+        assert_eq!(agentic_level_for_mode("disabled"), None);
+        assert_eq!(format_agentic_mode(ConfirmationLevel::Auto as i32), "auto");
+        assert_eq!(
+            format_agentic_mode(ConfirmationLevel::Manual as i32),
+            "analyze"
+        );
+        assert_eq!(format_agentic_mode(2), "unknown");
+        for mode in ["auto", "analyze"] {
+            assert_eq!(
+                format_agentic_mode(agentic_level_for_mode(mode).unwrap()),
+                mode
+            );
+        }
+    }
+
+    #[test]
+    fn stopping_the_assistant_keeps_its_level_and_interval() {
+        let status = |mode: i32, interval_secs: u64| AgenticAutoProcessingStatusAPI {
+            enabled: true,
+            interval_secs,
+            mode,
+            last_run: None,
+            next_run: None,
+            timer_registered: true,
+        };
+        // An Auto Assistant stays Auto once stopped (it was written back as
+        // Review).
+        let auto = ConfirmationLevel::Auto as i32;
+        let manual = ConfirmationLevel::Manual as i32;
+        assert_eq!(agentic_stop_settings(&status(auto, 300)), (300, auto));
+        assert_eq!(agentic_stop_settings(&status(manual, 0)), (3600, manual));
+    }
+
+    #[test]
+    fn fail_on_findings_refuses_a_detector_that_is_off_or_stalled() {
+        let refusal = |status: serde_json::Value| attack_pattern_gate_refusal(&status);
+
+        let off = refusal(serde_json::json!({"running": false, "active_alertable_findings": 0}))
+            .expect("a detector that is off certifies nothing");
+        assert!(off.contains("not running"), "{off}");
+        assert!(refusal(serde_json::json!({"active_findings": 0})).is_some());
+
+        let stalled = refusal(serde_json::json!({
+            "running": true,
+            "ticker_stalled": true,
+            "ticker_last_tick_at": "2026-09-25T10:00:00Z",
+        }))
+        .expect("a stalled loop certifies nothing");
+        assert!(stalled.contains("stalled"), "{stalled}");
+        assert!(stalled.contains("2026-09-25T10:00:00Z"), "{stalled}");
+
+        assert_eq!(
+            refusal(serde_json::json!({"running": true, "ticker_stalled": false})),
+            None
+        );
+        // Daemons older than `ticker_stalled` are treated as live.
+        assert_eq!(refusal(serde_json::json!({"running": true})), None);
+    }
+
+    #[test]
+    fn a_critical_finding_stays_visible_under_a_plain_dismissal() {
+        let report = serde_json::json!({"findings": [
+            {"finding_key": "vuln:critical", "severity": "CRITICAL", "dismissed": false},
+            {"finding_key": "vuln:hidden", "severity": "critical", "dismissed": true},
+            {"finding_key": "vuln:high", "severity": "HIGH", "dismissed": false},
+        ]});
+        assert!(critical_finding_still_visible(
+            &report,
+            "findings",
+            "vuln:critical"
+        ));
+        // Already hidden (a critical_capable rule), not CRITICAL, or unknown.
+        assert!(!critical_finding_still_visible(
+            &report,
+            "findings",
+            "vuln:hidden"
+        ));
+        assert!(!critical_finding_still_visible(
+            &report,
+            "findings",
+            "vuln:high"
+        ));
+        assert!(!critical_finding_still_visible(
+            &report,
+            "findings",
+            "vuln:missing"
+        ));
+
+        let verdict = serde_json::json!({"evidence": [
+            {"finding_key": "div:c2", "severity": "CRITICAL", "dismissed": false},
+        ]});
+        assert!(critical_finding_still_visible(
+            &verdict, "evidence", "div:c2"
+        ));
+        assert!(!critical_finding_still_visible(
+            &serde_json::json!({"verdict": null}),
+            "evidence",
+            "div:c2"
+        ));
     }
 }
