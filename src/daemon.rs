@@ -210,6 +210,9 @@ pub fn background_process(
                 local_traffic,
             ) {
                 Ok(violations) => {
+                    if let Some(refusal) = &violations.detector_refusal {
+                        eprintln!("Error checking policy violations: {}", refusal);
+                    }
                     if !violations.is_empty() {
                         if !violations.sessions.is_empty() {
                             println!("\n=== Violating Sessions Detected ===");
@@ -250,6 +253,11 @@ struct PolicyViolations {
     sessions: Vec<SessionInfoAPI>,
     vulnerability_findings: u64,
     vulnerability_label: &'static str,
+    /// Why the attack pattern detector's count certifies nothing this cycle
+    /// (off, stalled, withheld past its budget, unreadable). Reported every
+    /// cycle, never read as clean, and never hides the session violations
+    /// found alongside it.
+    detector_refusal: Option<String>,
 }
 
 impl PolicyViolations {
@@ -318,82 +326,14 @@ fn collect_policy_violations(
         }
     }
 
+    let mut detector_refusal = None;
     if fail_on_findings {
-        let status = edamame_core::api::api_agentic::get_vulnerability_detector_status();
-        let status_json: serde_json::Value = serde_json::from_str(&status)
-            .map_err(|e| format!("Error parsing vulnerability detector status: {}", e))?;
-
-        if let Some(error) = status_json.get("error").and_then(|value| value.as_str()) {
-            return Err(format!(
-                "Error getting vulnerability detector status: {}",
-                error
-            ));
-        }
-
-        // Liveness before counting: a detector whose ticker died reports
-        // `running: true`, a frozen `last_run` and zero findings, which reads
-        // exactly like a clean host. The gate cannot certify what nobody
-        // observed, so fail closed. Daemons older than the field do not emit
-        // it and are treated as live.
-        if status_json
-            .get("ticker_stalled")
-            .and_then(|value| value.as_bool())
-            .unwrap_or(false)
-        {
-            return Err(format!(
-                "Attack pattern detector loop is stalled (no ticker iteration since {}); its zero findings certify nothing",
-                status_json
-                    .get("ticker_last_tick_at")
-                    .and_then(|value| value.as_str())
-                    .unwrap_or("unknown")
-            ));
-        }
-        // G-46 (decided 2026-09-13): a withheld tick (LLM did not answer in
-        // `llm` mode) is tolerated for one detector interval with a 120 s
-        // floor, then fails the policy closed. This path runs on every policy
-        // cycle, so the wait is a timestamp, not a sleep.
-        if crate::background::adjudication_is_withheld(&status_json) {
-            let now = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .map(|d| d.as_secs() as i64)
-                .unwrap_or(0);
-            let since = match WITHHELD_SINCE_EPOCH.load(std::sync::atomic::Ordering::Relaxed) {
-                0 => {
-                    WITHHELD_SINCE_EPOCH.store(now, std::sync::atomic::Ordering::Relaxed);
-                    now
-                }
-                since => since,
-            };
-            let budget_secs = status_json
-                .get("interval_secs")
-                .and_then(|value| value.as_u64())
-                .unwrap_or(60)
-                .max(120) as i64;
-            if now - since > budget_secs {
-                return Err(format!(
-                    "Attack pattern detector adjudication withheld for {}s (adjudication_status={}); its zero findings certify nothing",
-                    now - since,
-                    status_json
-                        .get("adjudication_status")
-                        .and_then(|value| value.as_str())
-                        .unwrap_or("?")
-                ));
+        match attack_pattern_findings_for_gate() {
+            Ok((count, label)) => {
+                vulnerability_findings = count;
+                vulnerability_label = label;
             }
-        } else {
-            WITHHELD_SINCE_EPOCH.store(0, std::sync::atomic::Ordering::Relaxed);
-        }
-        if let Some(alertable) = status_json
-            .get("active_alertable_findings")
-            .and_then(|value| value.as_u64())
-        {
-            vulnerability_findings = alertable;
-            vulnerability_label = "HIGH/CRITICAL severity";
-        } else {
-            vulnerability_findings = status_json
-                .get("active_findings")
-                .and_then(|value| value.as_u64())
-                .unwrap_or(0);
-            vulnerability_label = "all severities (legacy daemon)";
+            Err(refusal) => detector_refusal = Some(refusal),
         }
     }
 
@@ -401,7 +341,80 @@ fn collect_policy_violations(
         sessions: violating_sessions,
         vulnerability_findings,
         vulnerability_label,
+        detector_refusal,
     })
+}
+
+/// Alertable attack pattern findings for the live gate, with the label to
+/// print, or why the detector's count certifies nothing this cycle.
+fn attack_pattern_findings_for_gate() -> Result<(u64, &'static str), String> {
+    let status = edamame_core::api::api_agentic::get_vulnerability_detector_status();
+    let status_json: serde_json::Value = serde_json::from_str(&status)
+        .map_err(|e| format!("Error parsing vulnerability detector status: {}", e))?;
+
+    if let Some(error) = status_json.get("error").and_then(|value| value.as_str()) {
+        return Err(format!(
+            "Error getting vulnerability detector status: {}",
+            error
+        ));
+    }
+
+    // Liveness before counting: a detector that is off, or whose ticker
+    // died (`running: true`, a frozen `last_run`), reports zero findings,
+    // which reads exactly like a clean host. The gate cannot certify what
+    // nobody observed, so fail closed.
+    if let Some(refusal) = crate::background::attack_pattern_gate_refusal(&status_json) {
+        return Err(refusal);
+    }
+    // G-46 (decided 2026-09-13): a withheld tick (LLM did not answer in
+    // `llm` mode) is tolerated for one detector interval with a 120 s
+    // floor, then fails the policy closed. This path runs on every policy
+    // cycle, so the wait is a timestamp, not a sleep.
+    if crate::background::adjudication_is_withheld(&status_json) {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs() as i64)
+            .unwrap_or(0);
+        let since = match WITHHELD_SINCE_EPOCH.load(std::sync::atomic::Ordering::Relaxed) {
+            0 => {
+                WITHHELD_SINCE_EPOCH.store(now, std::sync::atomic::Ordering::Relaxed);
+                now
+            }
+            since => since,
+        };
+        let budget_secs = status_json
+            .get("interval_secs")
+            .and_then(|value| value.as_u64())
+            .unwrap_or(60)
+            .max(120) as i64;
+        if now - since > budget_secs {
+            return Err(format!(
+                "Attack pattern detector adjudication withheld for {}s (adjudication_status={}); its zero findings certify nothing",
+                now - since,
+                status_json
+                    .get("adjudication_status")
+                    .and_then(|value| value.as_str())
+                    .unwrap_or("?")
+            ));
+        }
+    } else {
+        WITHHELD_SINCE_EPOCH.store(0, std::sync::atomic::Ordering::Relaxed);
+    }
+    Ok(
+        match status_json
+            .get("active_alertable_findings")
+            .and_then(|value| value.as_u64())
+        {
+            Some(alertable) => (alertable, "HIGH/CRITICAL severity"),
+            None => (
+                status_json
+                    .get("active_findings")
+                    .and_then(|value| value.as_u64())
+                    .unwrap_or(0),
+                "all severities (legacy daemon)",
+            ),
+        },
+    )
 }
 
 /// Unix seconds of the first policy cycle that saw a withheld adjudication;

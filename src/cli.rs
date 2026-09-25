@@ -317,7 +317,7 @@ pub fn build_cli() -> Command {
     .subcommand(
         Command::new("background-agentic-start")
             .alias("agentic-start")
-            .about("Start the security assistant (auto-remediation) loop in the background process")
+            .about("Start only the security assistant (auto-remediation) loop in the background process; attack-pattern-start and divergence-start drive the detection engines")
             .arg(
                 arg!([MODE] "Loop mode: auto (execute) or analyze (review)")
                     .required(false)
@@ -325,7 +325,7 @@ pub fn build_cli() -> Command {
                     .value_parser(["auto", "analyze"]),
             )
             .arg(
-                arg!([INTERVAL_SECS] "Tick interval in seconds")
+                arg!([INTERVAL_SECS] "Tick interval in seconds (minimum 300)")
                     .required(false)
                     .default_value("3600")
                     .value_parser(clap::value_parser!(u64)),
@@ -334,7 +334,7 @@ pub fn build_cli() -> Command {
     .subcommand(
         Command::new("background-agentic-stop")
             .alias("agentic-stop")
-            .about("Stop the security assistant (auto-remediation) loop in the background process"),
+            .about("Stop only the security assistant loop; the detection engines keep running"),
     )
     .subcommand(
         Command::new("background-agentic-status")
@@ -487,7 +487,7 @@ pub fn build_cli() -> Command {
             .alias("attack-pattern-status")
             .about("Get attack pattern detector status")
             .arg(
-                arg!(--"fail-on-findings" "Exit with code 1 if active attack pattern findings are detected")
+                arg!(--"fail-on-findings" "Exit 1 on active HIGH/CRITICAL findings; exit 2 when the detector is not running, its loop is stalled, or its latest tick stays withheld (LLM did not answer) past one interval")
                     .required(false)
                     .action(ArgAction::SetTrue),
             ),
@@ -580,7 +580,7 @@ pub fn build_cli() -> Command {
             .alias("dismissal-rules")
             .about("List recurrence-aware dismissal rules")
             .arg(
-                arg!(--domain <DOMAIN> "Optional domain filter: vulnerability or divergence")
+                arg!(--domain <DOMAIN> "Optional domain filter: vulnerability, divergence or session")
                     .required(false)
                     .value_parser(clap::value_parser!(String)),
             ),
