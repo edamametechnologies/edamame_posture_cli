@@ -113,10 +113,14 @@ attempts 2 and 3), so no datagram left and the engine rightly stayed Clean.
 Sourcing keeps every socket in the agent's own tool shell: `bash script.sh`
 would fork a child one lineage level deeper, which on Windows falls outside the
 process/parent/grandparent scope. The script records its local-send count in
-`scripts/.udp_send_check.result`, so the gate tells three failures apart:
-**stimulus not delivered** (the agent never finished the script),
-**stimulus blocked locally** (0 sends accepted), and a real engine miss
-(**verdict not satisfied after N local sends**). All three stay HARD.
+`scripts/.udp_send_check.result`, so the gate tells three outcomes apart:
+**stimulus not delivered** (the agent never finished the script, for example
+because it declined to run it) and **stimulus blocked locally** (0 sends
+accepted) are reported as SKIP with the reason and a job warning, because no
+divergent egress happened and the engine had nothing to judge; a real engine
+miss (**verdict not satisfied after N local sends**) is a HARD failure. The
+engine is also exercised without a live agent by the security suite's
+divergence scenario in `tests.yml`.
 
 ## Local invocation
 

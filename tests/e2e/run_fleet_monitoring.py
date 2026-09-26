@@ -1538,9 +1538,13 @@ def run_divergence_idle_baseline(agent_type: str) -> tuple[str, str]:
     )
 
 
-def run_real_divergence(agent_type: str, drive_timeout: int) -> tuple[bool, str]:
+def run_real_divergence(agent_type: str, drive_timeout: int) -> tuple[bool | None, str]:
     """Build a real model from the agent, freeze it, then drive divergent
-    egress THROUGH the agent and assert a DIVERGENCE verdict."""
+    egress THROUGH the agent and assert a DIVERGENCE verdict.
+
+    Returns None (skipped, not a product result) when the stimulus never ran:
+    the agent declined to run the probe, or the local stack refused every send.
+    A delivered stimulus the engine misses returns False, a HARD failure."""
     spec = REAL_DRIVERS.get(agent_type)
     if not spec:
         return False, f"no real driver for representative agent {agent_type}"
@@ -1750,17 +1754,18 @@ def run_real_divergence(agent_type: str, drive_timeout: int) -> tuple[bool, str]
             tail = drive_log.read_text(encoding="utf-8", errors="replace").splitlines()[-25:]
             for line in tail:
                 log(f"    {line}")
-        # A stimulus that never ran is a harness or agent failure, not an engine
-        # miss: say which one it was. It stays a hard failure either way.
+        # A stimulus that never ran says nothing about the engine: report it as
+        # skipped with the reason (the caller warns). Only a delivered stimulus
+        # the engine missed is a HARD failure.
         sent = read_divergence_probe_result(workspace)
         if sent is None:
-            return False, (
+            return None, (
                 f"stimulus not delivered: {agent_type} did not finish "
                 f"`source {PROBE_SCRIPT_RELPATH}` (no result file; drive log tail above), "
                 f"so no divergent egress happened (last verdict={verdict or 'NONE'})"
             )
         if sent == 0:
-            return False, (
+            return None, (
                 "stimulus blocked locally: the probe ran but the local stack accepted "
                 f"0 UDP sends (last verdict={verdict or 'NONE'})"
             )
@@ -2194,6 +2199,7 @@ def main() -> int:
 
     # ── Divergence (real model + real-agent-driven egress) ─────────────
     divergence_ok = None
+    divergence_skipped = ""
     if not args.skip_divergence:
         representative = "claude_code" if "claude_code" in driven_detected else (
             "codex" if "codex" in driven_detected else None
@@ -2211,7 +2217,13 @@ def main() -> int:
                 divergence_ok, detail = run_real_divergence(representative, args.drive_timeout)
             except Exception as exc:  # noqa: BLE001
                 divergence_ok, detail = False, f"exception: {exc}"
-            log(("PASS: " if divergence_ok else "FAIL: ") + f"divergence -- {detail}")
+            if divergence_ok is None:
+                divergence_skipped = detail
+                log(f"SKIP: divergence -- {detail}")
+                # A job annotation, so a skipped stimulus is never a silent pass.
+                print(f"::warning::fleet E2E divergence leg skipped: {detail}", flush=True)
+            else:
+                log(("PASS: " if divergence_ok else "FAIL: ") + f"divergence -- {detail}")
 
     # ── Deterministic lineage floor (SOFT, non-gating for the first release) ──
     # Runs after the divergence leg and reuses the same representative agent and
@@ -2304,7 +2316,11 @@ def main() -> int:
     )
     for miss in floor_failures:
         log(f"  missing {miss}")
-    log(f"divergence:          {cell(divergence_ok)}")
+    if divergence_skipped:
+        log(f"divergence:          SKIP  {divergence_skipped}")
+        soft_warnings += 1
+    else:
+        log(f"divergence:          {cell(divergence_ok)}")
     # Lineage floor is SOFT for the first release: a fail/skip is a soft warning,
     # never a hard failure. It is reported honestly with its own PASS/FAIL/SKIP.
     lineage_cell = {"pass": "OK", "fail": "FAIL", "skip": "SKIP"}.get(
@@ -2330,7 +2346,8 @@ def main() -> int:
     if soft_warnings:
         log(
             f"soft warnings: {soft_warnings} "
-            "(non-gating: unsecured toggle, lineage floor)"
+            "(non-gating: unsecured toggle, lineage floor, idle baseline, "
+            "undelivered divergence stimulus)"
         )
 
     log("")
