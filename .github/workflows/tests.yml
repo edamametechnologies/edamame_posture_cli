@@ -104,6 +104,10 @@ on:
       # harness changes, so iterating on the gate stays push-triggered.
       - '.github/workflows/tests.yml'
       - 'tests/**'
+      # The fleet E2E harness belongs to agent_monitoring_e2e.yml; this suite
+      # never runs it, and a push there must not cancel and restart this whole
+      # suite (concurrency cancel-in-progress below).
+      - '!tests/e2e/**'
 
 # Auto cancel previous runs if they were not completed.
 concurrency:
