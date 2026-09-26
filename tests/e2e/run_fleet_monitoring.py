@@ -755,7 +755,13 @@ def _augment_path(*dirs: str) -> None:
 HERMES_INSTALL_SH = (
     "curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash -s -- --skip-browser"
 )
-HERMES_INSTALL_PS1 = "iex (irm https://hermes-agent.nousresearch.com/install.ps1)"
+# The scriptblock form passes the installer's switches, which `iex (irm ...)`
+# cannot: -SkipBrowser mirrors the Unix --skip-browser (no browser tools on a
+# CI runner), -NonInteractive skips the stages that would wait for input.
+HERMES_INSTALL_PS1 = (
+    "& ([scriptblock]::Create((irm https://hermes-agent.nousresearch.com/install.ps1)))"
+    " -SkipBrowser -NonInteractive"
+)
 _HERMES_BIN_DIRS = ("~/.local/bin", "/usr/local/bin", "~/.hermes/bin")
 # uv/console_scripts + the PS1 installer drop the launcher in one of these on Windows.
 # The PS1 installer clones to ~/.hermes/hermes-agent and builds a venv next to it, so
@@ -901,6 +907,26 @@ def ensure_hermes_installed() -> str | None:
     return cli_path("hermes") or _find_hermes_under_home()
 
 
+def _hermes_home() -> Path:
+    """Where Hermes keeps its home: HERMES_HOME when set, else the installer's
+    default -- %LOCALAPPDATA%\\hermes on Windows (install.ps1), ~/.hermes
+    elsewhere. Driving Hermes with any other HERMES_HOME makes its first run
+    build a second runtime under that home (a fresh `uv sync`): forcing
+    ~/.hermes on Windows did exactly that, and the rebuild failed installing
+    pywin32 while the installer's own build of the same wheel had succeeded
+    minutes earlier (fleet run 36260299827, 2026-09-26). The observer finds
+    the default home on its own (foundation resolve_hermes_home falls back to
+    %LOCALAPPDATA%\\hermes on Windows)."""
+    custom = os.environ.get("HERMES_HOME", "").strip()
+    if custom:
+        return Path(custom)
+    if is_windows():
+        local = os.environ.get("LOCALAPPDATA", "").strip()
+        if local:
+            return Path(local) / "hermes"
+    return Path.home() / ".hermes"
+
+
 def drive_hermes(workdir: Path, prompt: str, timeout: int, background: bool, log_path: Path | None):
     cli = ensure_hermes_installed()
     if not cli:
@@ -911,9 +937,9 @@ def drive_hermes(workdir: Path, prompt: str, timeout: int, background: bool, log
     key = os.environ.get("ANTHROPIC_API_KEY", "")
     if not key:
         return None
-    hermes_home = Path(os.environ.get("HERMES_HOME") or (Path.home() / ".hermes"))
+    hermes_home = _hermes_home()
     hermes_home.mkdir(parents=True, exist_ok=True)
-    # Hermes loads credentials from ~/.hermes/.env even with --ignore-user-config.
+    # Hermes loads credentials from <HERMES_HOME>/.env even with --ignore-user-config.
     env_lines = [f"ANTHROPIC_API_KEY={key}"]
     if os.environ.get("OPENAI_API_KEY"):
         env_lines.append(f"OPENAI_API_KEY={os.environ['OPENAI_API_KEY']}")
@@ -983,6 +1009,23 @@ def _openclaw_agent_name() -> str:
     return "main"
 
 
+def _openclaw_env(key: str) -> dict:
+    """The environment OpenClaw runs in. On Windows its SQLite read-only worker
+    stages snapshots in a private directory under %LOCALAPPDATA%\\openclaw, and
+    creating it failed on windows-latest ("Unable to create private Windows
+    SQLite directory ... set XDG_CACHE_HOME to a writable filesystem", fleet
+    run 36260299827 attempt 2; 2026.8.2 failed the same way earlier), so the
+    CLI never started. Point the cache at the runner's scratch space, as the
+    error advises; sessions stay under ~/.openclaw, where the observer reads
+    them."""
+    env = {"ANTHROPIC_API_KEY": key}
+    if is_windows():
+        cache = Path(os.environ.get("RUNNER_TEMP") or tempfile.gettempdir()) / "openclaw-xdg-cache"
+        cache.mkdir(parents=True, exist_ok=True)
+        env["XDG_CACHE_HOME"] = str(cache)
+    return env
+
+
 def _openclaw_onboard(cli: str, key: str, workdir: Path) -> None:
     if _OPENCLAW_ONBOARDED["done"] or os.environ.get("OPENCLAW_SKIP_ONBOARD") == "1":
         return
@@ -998,7 +1041,7 @@ def _openclaw_onboard(cli: str, key: str, workdir: Path) -> None:
     if extra:
         args += shlex.split(extra)
     # Tolerate a non-zero/timeout onboarding; the drive below is the real gate.
-    run_cmd(args, workdir, {"ANTHROPIC_API_KEY": key}, 300)
+    run_cmd(args, workdir, _openclaw_env(key), 300)
     _OPENCLAW_ONBOARDED["done"] = True
 
 
@@ -1025,7 +1068,7 @@ def drive_openclaw(workdir: Path, prompt: str, timeout: int, background: bool, l
         extra = os.environ.get("OPENCLAW_DRIVE_EXTRA_ARGS", "")
         if extra:
             cmd += shlex.split(extra)
-    env = {"ANTHROPIC_API_KEY": key}
+    env = _openclaw_env(key)
     if background:
         assert log_path is not None
         return popen_cmd(cmd, workdir, env, log_path)
