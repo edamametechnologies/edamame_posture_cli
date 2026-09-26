@@ -2261,15 +2261,51 @@ jobs:
           done
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
-      - name: Check out edamame_core at the revision this posture pins
+      - name: Check out edamame_core at the revision this posture pins, and fetch its crates
+        # WORKAROUND until edamame-services PR #1949 is deployed to prod, then
+        # remove allow_list_retry. On a later score report the Hub deletes this
+        # runner's access-control rows and puts them back, and the allow-list
+        # trigger drops the runner IP from the GitHub allow list for the ~8 s
+        # between the two stream records (org audit log: an
+        # ip_allow_list_entry.destroy 1-2 s before each 403, runs 36184801232
+        # attempts 1-3, 2026-09-25/26). The setup's wait cannot cover a gap
+        # that opens after it returned, so the git traffic of this job (the
+        # clone, and cargo's git dependencies, all authenticated through the
+        # insteadOf above and so behind the allow list) retries, only on
+        # GitHub's allow-list 403 and for two minutes at most. Any other error
+        # fails at once, and the eval step itself is never retried.
         run: |
+          allow_list_retry() {
+            local out attempt
+            for attempt in 1 2 3 4 5 6 7 8 9 10 11 12; do
+              if out=$("$@" 2>&1); then
+                printf '%s\n' "$out"
+                return 0
+              fi
+              printf '%s\n' "$out"
+              if ! printf '%s' "$out" | grep -q -E "IP allow list|returned error: 403|status code: 403"; then
+                return 1
+              fi
+              echo "::warning::GitHub IP allow list refused this runner (attempt $attempt/12), retrying in 10 s: Hub allow-list gap, see edamame-services PR #1949"
+              sleep 10
+            done
+            return 1
+          }
           rev=$(grep -A3 '^name = "edamame_core"$' Cargo.lock | sed -n 's/^source = .*#\([0-9a-f]\{40\}\)".*/\1/p' | head -1)
           if [ -z "$rev" ]; then
             echo "edamame_core revision not found in Cargo.lock"; exit 1
           fi
-          git clone --quiet https://github.com/edamametechnologies/edamame_core.git "${{ github.workspace }}/../edamame_core"
-          git -C "${{ github.workspace }}/../edamame_core" checkout --quiet "$rev"
+          dest="${{ github.workspace }}/../edamame_core"
+          clone_core() {
+            rm -rf "$dest"
+            git clone --quiet https://github.com/edamametechnologies/edamame_core.git "$dest"
+          }
+          allow_list_retry clone_core
+          git -C "$dest" checkout --quiet "$rev"
           echo "edamame_core @ $rev"
+          cd "$dest"
+          # git CLI, so a refusal carries GitHub's allow-list message.
+          allow_list_retry env CARGO_NET_GIT_FETCH_WITH_CLI=true cargo fetch
       - name: Make the userspace storage directory writable for the eval
         # The posture action's daemon runs as root and creates ~/.edamame; the
         # eval runs as the runner user and persists agentic status there after
