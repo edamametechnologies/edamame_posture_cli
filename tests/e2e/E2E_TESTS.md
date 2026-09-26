@@ -105,6 +105,19 @@ double-exec); the engine matches it through the any-lineage scope shipped in
 `edamame_foundation` 34be49f, present in every posture release the workflow
 deploys (1.8.5 onward), so the leg is HARD on Windows too.
 
+The probe is a project script the agent **sources**
+(`source scripts/udp_send_check.sh` in the scratch workspace), not a command it
+types. The agent used to type the whole loop inline, and Claude Code's safety
+classifier stopped that inline loop mid-run on Windows (run 36196592737,
+attempts 2 and 3), so no datagram left and the engine rightly stayed Clean.
+Sourcing keeps every socket in the agent's own tool shell: `bash script.sh`
+would fork a child one lineage level deeper, which on Windows falls outside the
+process/parent/grandparent scope. The script records its local-send count in
+`scripts/.udp_send_check.result`, so the gate tells three failures apart:
+**stimulus not delivered** (the agent never finished the script),
+**stimulus blocked locally** (0 sends accepted), and a real engine miss
+(**verdict not satisfied after N local sends**). All three stay HARD.
+
 ## Local invocation
 
 Detection-only, against an already-running core:
@@ -219,8 +232,12 @@ transcripts under the root the observer advertises
 (`get_transcript_observer_status` -> `last_transcripts_roots`), and that the
 driver and the daemon agree on `HOME`.
 
-**Divergence verdict stays Clean.** The engine needs a behavioral model to
-compare against. Confirm `get_behavioral_model` is non-empty and that the probe's
+**Divergence verdict stays Clean.** Read the failure reason first. "Stimulus
+not delivered" means the agent did not run the probe script: the drive log tail
+shows what it said (a refusal or a safety-classifier stop). "Stimulus blocked
+locally" means the sandbox refused the sends. Only "verdict not satisfied after
+N local sends" is an engine miss: the engine needs a behavioral model to compare
+against, so confirm `get_behavioral_model` is non-empty and that the probe's
 egress was attributed to the agent's process lineage (`get_current_sessions`).
 
 **Registry not found.** Export `EDAMAME_SUPPORTED_AGENTS_INDEX`. The fallback
