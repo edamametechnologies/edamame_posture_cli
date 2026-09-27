@@ -25,6 +25,8 @@
 #   --agentic-mode MODE            AI mode: auto, analyze, or disabled (default: disabled)
 #   --agentic-provider PROVIDER    LLM provider: edamame (recommended), claude, openai, ollama
 #   --agentic-interval SECONDS     AI processing interval in seconds (default: 3600)
+#   --llm-api-key KEY              LLM API key (overrides EDAMAME_LLM_API_KEY)
+#   --llm-base-url URL             Ollama base URL (overrides EDAMAME_LLM_BASE_URL)
 #   --slack-bot-token TOKEN        Slack bot token
 #   --slack-actions-channel ID     Slack actions channel ID
 #   --slack-escalations-channel ID Slack escalations channel ID
@@ -32,6 +34,12 @@
 # AI Environment Variables:
 #   EDAMAME_LLM_API_KEY            LLM API key for all providers (edamame, claude, openai)
 #   EDAMAME_LLM_BASE_URL           Ollama base URL (for agentic-provider=ollama)
+#
+#   With a managed service (APT/APK), mode, provider, interval and key are
+#   written to /etc/edamame_posture.conf (root-only, 0600), which the service
+#   reads at every start. Options a re-run leaves out keep their current value
+#   there; the key is never printed. Otherwise (binary, .pkg, Homebrew,
+#   Chocolatey) the installer starts the daemon with them itself.
 #
 # Installation Control:
 #   --install-dir PATH             Binary install directory (default: /usr/local/bin)
@@ -679,8 +687,330 @@ conf_yaml_value() {
     else
         _conf_text=$(cat "$_conf_file" 2>/dev/null || true)
     fi
-    printf '%s\n' "$_conf_text" | grep "^${_conf_key}:" 2>/dev/null | head -1 \
-        | sed -e 's/^[^:]*:[[:space:]]*//' -e 's/^"\(.*\)"$/\1/' -e "s/^'\\(.*\\)'$/\\1/"
+    # The packaged conf carries inline comments after quoted values
+    # (`edamame_device_id: ""       # Optional device identifier`), so a
+    # plain "strip the surrounding quotes" returned the comment as the value.
+    # Double-quoted values are read up to the closing quote and unescaped
+    # (the inverse of yaml_escape), so a value carried over by a re-run is
+    # written back byte-identical instead of growing a backslash per run.
+    printf '%s\n' "$_conf_text" | awk -v key="$_conf_key" '
+        index($0, key ":") == 1 {
+            v = substr($0, length(key) + 2)
+            sub(/^[ \t]+/, "", v)
+            q = substr(v, 1, 1)
+            if (q == "\"") {
+                out = ""
+                i = 2
+                n = length(v)
+                while (i <= n) {
+                    c = substr(v, i, 1)
+                    if (c == "\\" && i < n) { out = out substr(v, i + 1, 1); i += 2; continue }
+                    if (c == "\"") break
+                    out = out c
+                    i++
+                }
+                v = out
+            } else if (q == "\047") {
+                v = substr(v, 2)
+                p = index(v, "\047")
+                if (p > 0) v = substr(v, 1, p - 1)
+            } else {
+                sub(/[ \t]+#.*$/, "", v)
+                sub(/[ \t]+$/, "", v)
+            }
+            print v
+            exit
+        }'
+}
+
+# Escape backslashes and double quotes for a YAML double-quoted value.
+yaml_escape() {
+    printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
+}
+
+# True when a managed service (systemd unit or OpenRC script) is installed.
+# Such a service reads its whole configuration, the LLM credential included,
+# from /etc/edamame_posture.conf, so that file must exist whenever it does.
+linux_service_installed() {
+    for _lsi_path in \
+        /lib/systemd/system/edamame_posture.service \
+        /usr/lib/systemd/system/edamame_posture.service \
+        /etc/systemd/system/edamame_posture.service \
+        /etc/init.d/edamame_posture; do
+        [ -f "$_lsi_path" ] && return 0
+    done
+    return 1
+}
+
+# ---------------------------------------------------------------------------
+# Service conf merge (pure: reads the current conf, never writes anything).
+#
+# resolve_service_conf <conf_file>
+#   Computes the SVC_* values configure_service writes. Every option group a
+#   run does not supply is carried over from <conf_file> (which may be absent),
+#   so re-running the installer never wipes what an earlier run or the operator
+#   set -- in particular never the agentic mode or the LLM credential, whose
+#   loss leaves a daemon that silently adjudicates nothing.
+#     - connection (user/domain/pin): supplied when any of them is given
+#     - network flags: supplied when any network option is given
+#     - agentic mode / provider / interval: each on its own flag
+#     - credentials: the supplied key lands in the slot the effective provider
+#       implies; the other slots keep their value
+#     - notification keys: supplied value, else the current one
+#   Sets SVC_AGENTIC_CHANGED=true when mode, provider, interval or any
+#   credential slot differs from the current conf.
+# ---------------------------------------------------------------------------
+resolve_service_conf() {
+    _rsc_conf="$1"
+    _rsc_prev() {
+        _rsc_v=$(conf_yaml_value "$_rsc_conf" "$1")
+        if [ -z "$_rsc_v" ]; then
+            _rsc_v="$2"
+        fi
+        printf '%s' "$_rsc_v"
+    }
+
+    if [ -n "${CONFIG_USER:-}" ] || [ -n "${CONFIG_DOMAIN:-}" ] || [ -n "${CONFIG_PIN:-}" ]; then
+        SVC_USER="$CONFIG_USER"
+        SVC_DOMAIN="$CONFIG_DOMAIN"
+        SVC_PIN="$CONFIG_PIN"
+        SVC_DEVICE_ID="${CONFIG_DEVICE_ID:-}"
+    else
+        SVC_USER=$(_rsc_prev edamame_user "")
+        SVC_DOMAIN=$(_rsc_prev edamame_domain "")
+        SVC_PIN=$(_rsc_prev edamame_pin "")
+        if [ -n "${CONFIG_DEVICE_ID:-}" ]; then
+            SVC_DEVICE_ID="$CONFIG_DEVICE_ID"
+        else
+            SVC_DEVICE_ID=$(_rsc_prev edamame_device_id "")
+        fi
+    fi
+
+    if [ "${CONFIG_NETWORK_SET:-false}" = "true" ]; then
+        SVC_START_LANSCAN="$CONFIG_START_LANSCAN"
+        SVC_START_CAPTURE="$CONFIG_START_CAPTURE"
+        SVC_WHITELIST="$CONFIG_WHITELIST"
+        SVC_FAIL_ON_WHITELIST="$CONFIG_FAIL_ON_WHITELIST"
+        SVC_FAIL_ON_BLACKLIST="$CONFIG_FAIL_ON_BLACKLIST"
+        SVC_FAIL_ON_FINDINGS="$CONFIG_FAIL_ON_FINDINGS"
+        SVC_CANCEL_ON_VIOLATION="$CONFIG_CANCEL_ON_VIOLATION"
+        SVC_INCLUDE_LOCAL_TRAFFIC="$CONFIG_INCLUDE_LOCAL_TRAFFIC"
+    else
+        SVC_START_LANSCAN=$(_rsc_prev start_lanscan false)
+        SVC_START_CAPTURE=$(_rsc_prev start_capture false)
+        SVC_WHITELIST=$(_rsc_prev whitelist_name "")
+        SVC_FAIL_ON_WHITELIST=$(_rsc_prev fail_on_whitelist false)
+        SVC_FAIL_ON_BLACKLIST=$(_rsc_prev fail_on_blacklist false)
+        SVC_FAIL_ON_FINDINGS=$(_rsc_prev fail_on_findings false)
+        SVC_CANCEL_ON_VIOLATION=$(_rsc_prev cancel_on_violation false)
+        SVC_INCLUDE_LOCAL_TRAFFIC=$(_rsc_prev include_local_traffic false)
+    fi
+
+    _rsc_prev_mode=$(_rsc_prev agentic_mode disabled)
+    _rsc_prev_provider=$(_rsc_prev agentic_provider "")
+    _rsc_prev_interval=$(_rsc_prev agentic_interval 3600)
+    _rsc_prev_llm=$(_rsc_prev llm_api_key "")
+    _rsc_prev_claude=$(_rsc_prev claude_api_key "")
+    _rsc_prev_openai=$(_rsc_prev openai_api_key "")
+    _rsc_prev_ollama=$(_rsc_prev ollama_base_url "")
+
+    SVC_AGENTIC_MODE="$_rsc_prev_mode"
+    SVC_AGENTIC_PROVIDER="$_rsc_prev_provider"
+    SVC_AGENTIC_INTERVAL="$_rsc_prev_interval"
+    [ "${CONFIG_AGENTIC_MODE_SET:-false}" = "true" ] && SVC_AGENTIC_MODE="$CONFIG_AGENTIC_MODE"
+    [ "${CONFIG_AGENTIC_PROVIDER_SET:-false}" = "true" ] && SVC_AGENTIC_PROVIDER="$CONFIG_AGENTIC_PROVIDER"
+    [ "${CONFIG_AGENTIC_INTERVAL_SET:-false}" = "true" ] && SVC_AGENTIC_INTERVAL="$CONFIG_AGENTIC_INTERVAL"
+    # "none" is how the action and the CLI spell "no provider".
+    [ "$SVC_AGENTIC_PROVIDER" = "none" ] && SVC_AGENTIC_PROVIDER=""
+
+    SVC_LLM_API_KEY="$_rsc_prev_llm"
+    SVC_CLAUDE_API_KEY="$_rsc_prev_claude"
+    SVC_OPENAI_API_KEY="$_rsc_prev_openai"
+    SVC_OLLAMA_BASE_URL="$_rsc_prev_ollama"
+    case "$SVC_AGENTIC_PROVIDER" in
+        claude)
+            [ -n "${CONFIG_LLM_API_KEY:-}" ] && SVC_CLAUDE_API_KEY="$CONFIG_LLM_API_KEY"
+            ;;
+        openai)
+            [ -n "${CONFIG_LLM_API_KEY:-}" ] && SVC_OPENAI_API_KEY="$CONFIG_LLM_API_KEY"
+            ;;
+        ollama)
+            [ -n "${CONFIG_LLM_BASE_URL:-}" ] && SVC_OLLAMA_BASE_URL="$CONFIG_LLM_BASE_URL"
+            ;;
+        *)
+            # "edamame" and an unset provider both mean the EDAMAME Portal LLM.
+            [ -n "${CONFIG_LLM_API_KEY:-}" ] && SVC_LLM_API_KEY="$CONFIG_LLM_API_KEY"
+            ;;
+    esac
+
+    SVC_SLACK_BOT_TOKEN="${CONFIG_SLACK_BOT_TOKEN:-}"
+    [ -n "$SVC_SLACK_BOT_TOKEN" ] || SVC_SLACK_BOT_TOKEN=$(_rsc_prev slack_bot_token "")
+    SVC_SLACK_ACTIONS_CHANNEL="${CONFIG_SLACK_ACTIONS_CHANNEL:-}"
+    [ -n "$SVC_SLACK_ACTIONS_CHANNEL" ] || SVC_SLACK_ACTIONS_CHANNEL=$(_rsc_prev slack_actions_channel "")
+    SVC_SLACK_ESCALATIONS_CHANNEL="${CONFIG_SLACK_ESCALATIONS_CHANNEL:-}"
+    [ -n "$SVC_SLACK_ESCALATIONS_CHANNEL" ] || SVC_SLACK_ESCALATIONS_CHANNEL=$(_rsc_prev slack_escalations_channel "")
+    SVC_NOTIFICATION_PROVIDER=$(_rsc_prev notification_provider auto)
+    SVC_NOTIFICATION_SLACK_BOT_TOKEN=$(_rsc_prev notification_slack_bot_token "")
+    SVC_NOTIFICATION_SLACK_CHANNEL=$(_rsc_prev notification_slack_channel "")
+    SVC_NOTIFICATION_TELEGRAM_BOT_TOKEN=$(_rsc_prev notification_telegram_bot_token "")
+    SVC_NOTIFICATION_TELEGRAM_CHAT_ID=$(_rsc_prev notification_telegram_chat_id "")
+    SVC_TELEGRAM_BOT_TOKEN=$(_rsc_prev telegram_bot_token "")
+    SVC_TELEGRAM_CHAT_ID=$(_rsc_prev telegram_chat_id "")
+
+    SVC_AGENTIC_CHANGED="false"
+    if [ "$SVC_AGENTIC_MODE" != "$_rsc_prev_mode" ] || \
+       [ "$SVC_AGENTIC_PROVIDER" != "$_rsc_prev_provider" ] || \
+       [ "$SVC_AGENTIC_INTERVAL" != "$_rsc_prev_interval" ] || \
+       [ "$SVC_LLM_API_KEY" != "$_rsc_prev_llm" ] || \
+       [ "$SVC_CLAUDE_API_KEY" != "$_rsc_prev_claude" ] || \
+       [ "$SVC_OPENAI_API_KEY" != "$_rsc_prev_openai" ] || \
+       [ "$SVC_OLLAMA_BASE_URL" != "$_rsc_prev_ollama" ]; then
+        SVC_AGENTIC_CHANGED="true"
+    fi
+    return 0
+}
+
+# True when the resolved settings carry any LLM credential slot.
+service_conf_has_credential() {
+    [ -n "$SVC_LLM_API_KEY" ] || [ -n "$SVC_CLAUDE_API_KEY" ] || \
+        [ -n "$SVC_OPENAI_API_KEY" ] || [ -n "$SVC_OLLAMA_BASE_URL" ]
+}
+
+# True when the resolved settings enable the AI assistant but carry no
+# credential for it: the daemon would start with nothing adjudicated.
+service_conf_agentic_without_credential() {
+    [ "$SVC_AGENTIC_MODE" != "disabled" ] && [ -n "$SVC_AGENTIC_MODE" ] && \
+        ! service_conf_has_credential
+}
+
+# True when this run asked for anything the service conf holds.
+service_conf_requested() {
+    [ -n "${CONFIG_USER:-}" ] || [ -n "${CONFIG_DOMAIN:-}" ] || [ -n "${CONFIG_PIN:-}" ] || \
+        [ -n "${CONFIG_DEVICE_ID:-}" ] || \
+        [ "${CONFIG_NETWORK_SET:-false}" = "true" ] || \
+        [ "${CONFIG_AGENTIC_MODE_SET:-false}" = "true" ] || \
+        [ "${CONFIG_AGENTIC_PROVIDER_SET:-false}" = "true" ] || \
+        [ "${CONFIG_AGENTIC_INTERVAL_SET:-false}" = "true" ] || \
+        [ -n "${CONFIG_LLM_API_KEY:-}" ] || [ -n "${CONFIG_LLM_BASE_URL:-}" ] || \
+        [ -n "${CONFIG_SLACK_BOT_TOKEN:-}" ] || [ -n "${CONFIG_SLACK_ACTIONS_CHANNEL:-}" ] || \
+        [ -n "${CONFIG_SLACK_ESCALATIONS_CHANNEL:-}" ]
+}
+
+# render_service_conf: print the conf for the SVC_* values on stdout.
+# SVC_DEVICE_ID may be overridden by the caller between resolve and render.
+render_service_conf() {
+    cat <<EOF
+# EDAMAME Posture Service Configuration
+# This file is read by the service wrapper (edamame_posture_daemon.sh).
+# It holds the LLM credential, so it is root-owned and mode 0600.
+
+# ============================================================================
+# Connection Settings (leave empty for disconnected mode)
+# ============================================================================
+edamame_user: "$(yaml_escape "$SVC_USER")"
+edamame_domain: "$(yaml_escape "$SVC_DOMAIN")"
+edamame_pin: "$(yaml_escape "$SVC_PIN")"
+edamame_device_id: "$(yaml_escape "$SVC_DEVICE_ID")"
+
+# ============================================================================
+# Network Monitoring (optional)
+# ============================================================================
+start_lanscan: "$(yaml_escape "$SVC_START_LANSCAN")"
+start_capture: "$(yaml_escape "$SVC_START_CAPTURE")"
+whitelist_name: "$(yaml_escape "$SVC_WHITELIST")"
+fail_on_whitelist: "$(yaml_escape "$SVC_FAIL_ON_WHITELIST")"
+fail_on_blacklist: "$(yaml_escape "$SVC_FAIL_ON_BLACKLIST")"
+fail_on_findings: "$(yaml_escape "$SVC_FAIL_ON_FINDINGS")"
+cancel_on_violation: "$(yaml_escape "$SVC_CANCEL_ON_VIOLATION")"
+include_local_traffic: "$(yaml_escape "$SVC_INCLUDE_LOCAL_TRAFFIC")"
+
+# ============================================================================
+# AI Assistant (Agentic) Configuration
+# ============================================================================
+
+# Agentic Mode
+# - auto: Automatically process and resolve safe/low-risk todos; escalate high-risk items
+# - analyze: Gather recommendations without executing changes
+# - disabled: No AI processing (default)
+agentic_mode: "$(yaml_escape "$SVC_AGENTIC_MODE")"
+
+# ============================================================================
+# LLM Provider Configuration
+# ============================================================================
+#
+# The installer copies EDAMAME_LLM_API_KEY / EDAMAME_LLM_BASE_URL (or the
+# --llm-api-key / --llm-base-url flags) into the slot the provider implies:
+#   - edamame: EDAMAME Portal LLM (recommended) -> llm_api_key
+#   - claude:  Anthropic Claude                 -> claude_api_key
+#   - openai:  OpenAI                           -> openai_api_key
+#   - ollama:  Local Ollama                     -> ollama_base_url
+#
+agentic_provider: "$(yaml_escape "$SVC_AGENTIC_PROVIDER")"
+
+# Credentials. The service manager does not inherit the environment of the
+# shell that ran the installer, so the key lives here; this file is 0600.
+llm_api_key: "$(yaml_escape "$SVC_LLM_API_KEY")"
+claude_api_key: "$(yaml_escape "$SVC_CLAUDE_API_KEY")"
+openai_api_key: "$(yaml_escape "$SVC_OPENAI_API_KEY")"
+ollama_base_url: "$(yaml_escape "$SVC_OLLAMA_BASE_URL")"
+
+# ============================================================================
+# Unified Notifications (optional, preferred)
+# ============================================================================
+# notification_provider: auto (default), slack, telegram or both
+notification_provider: "$(yaml_escape "$SVC_NOTIFICATION_PROVIDER")"
+notification_slack_bot_token: "$(yaml_escape "$SVC_NOTIFICATION_SLACK_BOT_TOKEN")"
+notification_slack_channel: "$(yaml_escape "$SVC_NOTIFICATION_SLACK_CHANNEL")"
+notification_telegram_bot_token: "$(yaml_escape "$SVC_NOTIFICATION_TELEGRAM_BOT_TOKEN")"
+notification_telegram_chat_id: "$(yaml_escape "$SVC_NOTIFICATION_TELEGRAM_CHAT_ID")"
+
+# ============================================================================
+# Legacy Notification Keys (backward compatibility)
+# ============================================================================
+
+# Slack Bot Token (starts with xoxb-)
+slack_bot_token: "$(yaml_escape "$SVC_SLACK_BOT_TOKEN")"
+
+# Slack Actions Channel (channel ID, e.g., C01234567)
+slack_actions_channel: "$(yaml_escape "$SVC_SLACK_ACTIONS_CHANNEL")"
+
+# Slack Escalations Channel (channel ID, e.g., C07654321)
+slack_escalations_channel: "$(yaml_escape "$SVC_SLACK_ESCALATIONS_CHANNEL")"
+
+telegram_bot_token: "$(yaml_escape "$SVC_TELEGRAM_BOT_TOKEN")"
+telegram_chat_id: "$(yaml_escape "$SVC_TELEGRAM_CHAT_ID")"
+
+# ============================================================================
+# Agentic Processing Configuration
+# ============================================================================
+
+# Processing interval in seconds
+agentic_interval: "$(yaml_escape "$SVC_AGENTIC_INTERVAL")"
+EOF
+}
+
+# write_service_conf <tmp_file> <conf_file>
+# Installs <tmp_file> as <conf_file>, root-owned 0600, without a window in
+# which a newly created conf (it carries the LLM key) is world-readable.
+# Leaves an identical conf untouched so its mtime -- which the restart
+# provenance test reads -- does not move. Sets CONF_CHANGED.
+write_service_conf() {
+    _wsc_tmp="$1"
+    _wsc_conf="$2"
+    CONF_CHANGED="true"
+    if ${SUDO:-} cmp -s "$_wsc_tmp" "$_wsc_conf" 2>/dev/null; then
+        CONF_CHANGED="false"
+    fi
+    if [ "$CONF_CHANGED" = "true" ]; then
+        if [ ! -e "$_wsc_conf" ]; then
+            (umask 077 && ${SUDO:-} touch "$_wsc_conf")
+        fi
+        ${SUDO:-} chmod 600 "$_wsc_conf"
+        ${SUDO:-} cp "$_wsc_tmp" "$_wsc_conf"
+    fi
+    # The packaged conf of older releases arrived world-readable; tighten it
+    # whether or not this run rewrote it. chmod moves ctime, not mtime.
+    ${SUDO:-} chmod 600 "$_wsc_conf" 2>/dev/null || true
 }
 
 is_posture_process_running() {
@@ -1800,6 +2130,14 @@ install_macos_via_brew() {
     return 0
 }
 
+# Test hook: `EDAMAME_INSTALL_SH_LIB=1 . ./install.sh` loads the functions
+# above and stops before argument parsing or any side effect
+# (tests/installer/install_conf_test.sh).
+if [ "${EDAMAME_INSTALL_SH_LIB:-}" = "1" ]; then
+    # shellcheck disable=SC2317
+    return 0 2>/dev/null || exit 0
+fi
+
 # Parse command line arguments
 CONFIG_USER=""
 CONFIG_DOMAIN=""
@@ -1830,6 +2168,13 @@ CONFIG_FAIL_ON_FINDINGS="false"
 CONFIG_CANCEL_ON_VIOLATION="false"
 CONFIG_INCLUDE_LOCAL_TRAFFIC="false"
 CONFIG_WHITELIST=""
+# Which option groups this run supplied. resolve_service_conf carries every
+# group a run leaves out over from the current service conf, so a re-run
+# (with fewer or no options) never resets the agentic mode or the key.
+CONFIG_AGENTIC_MODE_SET="false"
+CONFIG_AGENTIC_PROVIDER_SET="false"
+CONFIG_AGENTIC_INTERVAL_SET="false"
+CONFIG_NETWORK_SET="false"
 
 while [ $# -gt 0 ]; do
     current_arg=$(normalize_cli_option "$1")
@@ -1852,38 +2197,47 @@ while [ $# -gt 0 ]; do
             ;;
         --whitelist)
             CONFIG_WHITELIST="$2"
+            CONFIG_NETWORK_SET="true"
             shift 2
             ;;
         --fail-on-whitelist)
             CONFIG_FAIL_ON_WHITELIST="true"
+            CONFIG_NETWORK_SET="true"
             shift
             ;;
         --fail-on-blacklist)
             CONFIG_FAIL_ON_BLACKLIST="true"
+            CONFIG_NETWORK_SET="true"
             shift
             ;;
         --fail-on-findings)
             CONFIG_FAIL_ON_FINDINGS="true"
+            CONFIG_NETWORK_SET="true"
             shift
             ;;
         --cancel-on-violation)
             CONFIG_CANCEL_ON_VIOLATION="true"
+            CONFIG_NETWORK_SET="true"
             shift
             ;;
         --include-local-traffic)
             CONFIG_INCLUDE_LOCAL_TRAFFIC="true"
+            CONFIG_NETWORK_SET="true"
             shift
             ;;
         --agentic-mode)
             CONFIG_AGENTIC_MODE="$2"
+            CONFIG_AGENTIC_MODE_SET="true"
             shift 2
             ;;
         --agentic-provider)
             CONFIG_AGENTIC_PROVIDER="$2"
+            CONFIG_AGENTIC_PROVIDER_SET="true"
             shift 2
             ;;
         --agentic-interval)
             CONFIG_AGENTIC_INTERVAL="$2"
+            CONFIG_AGENTIC_INTERVAL_SET="true"
             shift 2
             ;;
         --llm-api-key)
@@ -1942,10 +2296,12 @@ while [ $# -gt 0 ]; do
             ;;
         --start-lanscan)
             CONFIG_START_LANSCAN="true"
+            CONFIG_NETWORK_SET="true"
             shift
             ;;
         --start-capture)
             CONFIG_START_CAPTURE="true"
+            CONFIG_NETWORK_SET="true"
             shift
             ;;
         *)
@@ -2117,6 +2473,26 @@ if [ "$PLATFORM" = "linux" ]; then
     info "Detected OS: $ID"
 fi
 
+# True when this run asks for the AI assistant.
+agentic_requested() {
+    [ "$CONFIG_AGENTIC_MODE_SET" = "true" ] && [ "$CONFIG_AGENTIC_MODE" != "disabled" ] && \
+        [ -n "$CONFIG_AGENTIC_MODE" ]
+}
+
+# True when the Linux service conf must be (re)written for this run's agentic
+# mode / provider / interval / LLM credential: they differ from the current
+# conf, or a managed service is installed with no conf at all.
+service_agentic_update_pending() {
+    [ "$PLATFORM" = "linux" ] || return 1
+    service_conf_requested || return 1
+    if [ ! -f /etc/edamame_posture.conf ]; then
+        linux_service_installed
+        return $?
+    fi
+    resolve_service_conf /etc/edamame_posture.conf
+    [ "$SVC_AGENTIC_CHANGED" = "true" ]
+}
+
 # Check if edamame_posture is already installed with matching credentials and version
 check_existing_installation() {
     # Locate existing binary
@@ -2287,6 +2663,31 @@ check_existing_installation() {
         FINAL_BINARY_PATH="$EXISTING_BINARY"
         INSTALL_METHOD="existing"
         SKIP_INSTALLATION="true"
+        if [ "$PLATFORM" = "linux" ] && [ "$IS_PACKAGE_INSTALL" = "true" ]; then
+            INSTALLED_VIA_PACKAGE_MANAGER="true"
+        fi
+        # A reconfigure without Hub credentials (disconnected host, or an
+        # operator adding --agentic-mode / EDAMAME_LLM_API_KEY to an existing
+        # install) used to stop here, so the agentic mode and the key never
+        # reached the service conf and the daemon adjudicated nothing.
+        if service_agentic_update_pending; then
+            info "Agentic mode / LLM settings differ from the service configuration, will reconfigure"
+            SKIP_CONFIGURATION="false"
+            return 1  # Skip installation but reconfigure
+        fi
+        # macOS/Windows have no service conf: the daemon takes the agentic
+        # settings on its command line at start. Start one if none runs.
+        if [ "$PLATFORM" != "linux" ] && agentic_requested; then
+            if is_posture_process_running; then
+                warn "A daemon is already running; agentic settings on $PLATFORM apply only when it starts."
+                warn "Stop it ('edamame_posture stop') and re-run the installer to apply them."
+            else
+                info "Agentic mode requested and no daemon is running, will start one"
+                SKIP_CONFIGURATION="false"
+                SHOULD_START_DAEMON="true"
+                return 1
+            fi
+        fi
         SKIP_CONFIGURATION="true"
         return 0  # Skip everything
     fi
@@ -2413,6 +2814,13 @@ check_existing_installation() {
                     NEED_CONFIG_UPDATE="true"
                 fi
             fi
+        fi
+        # Agentic mode, provider, interval or LLM credential changed: the
+        # conf must be rewritten and (see configure_service) the daemon
+        # restarted, or it keeps running without an adjudicator.
+        if service_agentic_update_pending; then
+            info "Agentic mode / LLM settings differ from the service configuration, will update"
+            NEED_CONFIG_UPDATE="true"
         fi
         
         info "Skipping installation"
@@ -2561,23 +2969,29 @@ fi
 # Configure service if configuration parameters were provided
 configure_service() {
     CONF_FILE="/etc/edamame_posture.conf"
-    yaml_escape() {
-        # Escape backslashes and double quotes for safe YAML double-quoted values
-        # Uses a single sed pass to avoid placeholder churn
-        printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
-    }
-    
-    # Only configure if config file exists (Debian/Ubuntu/Raspbian/Alpine with service)
-    if [ ! -f "$CONF_FILE" ]; then
-        info "No service configuration file found at $CONF_FILE"
+
+    # The managed service reads its whole configuration, the LLM credential
+    # included, from $CONF_FILE. Returning here when the file is missing left
+    # an installed unit with no conf (its wrapper then exits at every start)
+    # and dropped the agentic mode on the floor; create it instead. Without a
+    # managed service (direct binary install) there is nothing to configure:
+    # the installer starts the daemon itself with the settings on its command
+    # line and the key in its environment.
+    if [ ! -f "$CONF_FILE" ] && ! linux_service_installed; then
+        info "No service configuration file found at $CONF_FILE and no managed service installed"
         info "Service configuration only available for APT/APK installations"
         return 0
     fi
-    
-    # Check if any configuration was provided
-    if [ -z "$CONFIG_USER" ] && [ -z "$CONFIG_LLM_API_KEY" ] && [ -z "$CONFIG_LLM_BASE_URL" ] && [ "$CONFIG_AGENTIC_MODE" = "disabled" ] && [ "$CONFIG_START_LANSCAN" != "true" ] && [ "$CONFIG_START_CAPTURE" != "true" ]; then
+
+    # Check if any configuration was provided. Anything a run leaves out is
+    # carried over from the current conf (resolve_service_conf), so a run
+    # without options has nothing to change.
+    if [ -f "$CONF_FILE" ] && ! service_conf_requested; then
         info "No configuration parameters provided, skipping service configuration"
         return 0
+    fi
+    if [ ! -f "$CONF_FILE" ]; then
+        warn "Service installed but $CONF_FILE is missing; creating it"
     fi
     
     info "Configuring EDAMAME Posture service..."
@@ -2639,147 +3053,37 @@ configure_service() {
         EFFECTIVE_DEVICE_ID="$PRESERVE_DEVICE_ID"
     fi
     
-    # Route the supplied credential into the slot its provider implies, and keep
-    # whatever the conf already holds when this run supplies none -- a rewrite
-    # must never silently erase the credential that makes the daemon adjudicate.
-    CONF_LLM_API_KEY=$(conf_yaml_value "$CONF_FILE" llm_api_key)
-    CONF_CLAUDE_API_KEY=$(conf_yaml_value "$CONF_FILE" claude_api_key)
-    CONF_OPENAI_API_KEY=$(conf_yaml_value "$CONF_FILE" openai_api_key)
-    CONF_OLLAMA_BASE_URL=$(conf_yaml_value "$CONF_FILE" ollama_base_url)
-    case "$CONFIG_AGENTIC_PROVIDER" in
-        claude)
-            [ -n "$CONFIG_LLM_API_KEY" ] && CONF_CLAUDE_API_KEY="$CONFIG_LLM_API_KEY"
-            ;;
-        openai)
-            [ -n "$CONFIG_LLM_API_KEY" ] && CONF_OPENAI_API_KEY="$CONFIG_LLM_API_KEY"
-            ;;
-        ollama)
-            [ -n "$CONFIG_LLM_BASE_URL" ] && CONF_OLLAMA_BASE_URL="$CONFIG_LLM_BASE_URL"
-            ;;
-        *)
-            # "edamame" and an unset provider both mean the EDAMAME Portal LLM.
-            [ -n "$CONFIG_LLM_API_KEY" ] && CONF_LLM_API_KEY="$CONFIG_LLM_API_KEY"
-            ;;
-    esac
-    if [ "$CONFIG_AGENTIC_MODE" != "disabled" ] && \
-       [ -z "$CONF_LLM_API_KEY" ] && [ -z "$CONF_CLAUDE_API_KEY" ] && \
-       [ -z "$CONF_OPENAI_API_KEY" ] && [ -z "$CONF_OLLAMA_BASE_URL" ]; then
-        warn "Agentic mode '$CONFIG_AGENTIC_MODE' was requested but no LLM credential was supplied."
+    # Merge this run's options over the current conf: every group the run
+    # leaves out (agentic mode, provider, interval, each credential slot,
+    # notification keys, and connection / network settings when not given)
+    # keeps its current value, so a re-run never silently erases what makes
+    # the daemon adjudicate.
+    resolve_service_conf "$CONF_FILE"
+    if [ -n "$CONFIG_USER" ] || [ -n "$CONFIG_DOMAIN" ] || [ -n "$CONFIG_PIN" ]; then
+        SVC_DEVICE_ID="$EFFECTIVE_DEVICE_ID"
+    fi
+    SERVICE_AGENTIC_CHANGED="$SVC_AGENTIC_CHANGED"
+    if service_conf_agentic_without_credential; then
+        warn "Agentic mode '$SVC_AGENTIC_MODE' was requested but no LLM credential was supplied."
         warn "Export EDAMAME_LLM_API_KEY or pass --llm-api-key so the service can adjudicate;"
         warn "without one the daemon starts with the AI assistant disabled."
     fi
 
-    # Create temporary config file
+    # Render into a private temp file (mktemp creates it 0600): it carries
+    # the key, which must never be world-readable nor printed.
     TMP_CONF=$(mktemp)
-    ESC_USER=$(yaml_escape "$CONFIG_USER")
-    ESC_DOMAIN=$(yaml_escape "$CONFIG_DOMAIN")
-    ESC_PIN=$(yaml_escape "$CONFIG_PIN")
-    ESC_DEVICE_ID=$(yaml_escape "$EFFECTIVE_DEVICE_ID")
-    ESC_WHITELIST=$(yaml_escape "$CONFIG_WHITELIST")
-    ESC_AGENTIC_MODE=$(yaml_escape "$CONFIG_AGENTIC_MODE")
-    ESC_AGENTIC_PROVIDER=$(yaml_escape "$CONFIG_AGENTIC_PROVIDER")
-    ESC_AGENTIC_INTERVAL=$(yaml_escape "$CONFIG_AGENTIC_INTERVAL")
-    ESC_LLM_API_KEY=$(yaml_escape "$CONF_LLM_API_KEY")
-    ESC_CLAUDE_API_KEY=$(yaml_escape "$CONF_CLAUDE_API_KEY")
-    ESC_OPENAI_API_KEY=$(yaml_escape "$CONF_OPENAI_API_KEY")
-    ESC_OLLAMA_BASE_URL=$(yaml_escape "$CONF_OLLAMA_BASE_URL")
-    ESC_SLACK_BOT_TOKEN=$(yaml_escape "$CONFIG_SLACK_BOT_TOKEN")
-    ESC_SLACK_ACTIONS_CHANNEL=$(yaml_escape "$CONFIG_SLACK_ACTIONS_CHANNEL")
-    ESC_SLACK_ESCALATIONS_CHANNEL=$(yaml_escape "$CONFIG_SLACK_ESCALATIONS_CHANNEL")
+    render_service_conf > "$TMP_CONF"
 
-    cat > "$TMP_CONF" <<EOF
-# EDAMAME Posture Service Configuration
-# This file is read by the systemd service to configure edamame_posture
-
-# ============================================================================
-# Connection Settings (leave empty for disconnected mode)
-# ============================================================================
-edamame_user: "${ESC_USER}"
-edamame_domain: "${ESC_DOMAIN}"
-edamame_pin: "${ESC_PIN}"
-edamame_device_id: "${ESC_DEVICE_ID}"
-
-# ============================================================================
-# Network Monitoring (optional)
-# ============================================================================
-start_lanscan: "${CONFIG_START_LANSCAN}"
-start_capture: "${CONFIG_START_CAPTURE}"
-whitelist_name: "${ESC_WHITELIST}"
-fail_on_whitelist: "${CONFIG_FAIL_ON_WHITELIST}"
-fail_on_blacklist: "${CONFIG_FAIL_ON_BLACKLIST}"
-fail_on_findings: "${CONFIG_FAIL_ON_FINDINGS}"
-cancel_on_violation: "${CONFIG_CANCEL_ON_VIOLATION}"
-include_local_traffic: "${CONFIG_INCLUDE_LOCAL_TRAFFIC}"
-
-# ============================================================================
-# AI Assistant (Agentic) Configuration
-# ============================================================================
-
-# Agentic Mode
-# - auto: Automatically process and resolve safe/low-risk todos; escalate high-risk items
-# - analyze: Gather recommendations without executing changes
-# - disabled: No AI processing (default)
-agentic_mode: "${ESC_AGENTIC_MODE}"
-
-# ============================================================================
-# LLM Provider Configuration
-# ============================================================================
-#
-# The installer copies EDAMAME_LLM_API_KEY / EDAMAME_LLM_BASE_URL (or the
-# --llm-api-key / --llm-base-url flags) into the slot the provider implies:
-#   - edamame: EDAMAME Portal LLM (recommended) -> llm_api_key
-#   - claude:  Anthropic Claude                 -> claude_api_key
-#   - openai:  OpenAI                           -> openai_api_key
-#   - ollama:  Local Ollama                     -> ollama_base_url
-#
-agentic_provider: "${ESC_AGENTIC_PROVIDER}"
-
-# Credentials. The service manager does not inherit the environment of the
-# shell that ran the installer, so the key lives here; this file is 0600.
-llm_api_key: "${ESC_LLM_API_KEY}"
-claude_api_key: "${ESC_CLAUDE_API_KEY}"
-openai_api_key: "${ESC_OPENAI_API_KEY}"
-ollama_base_url: "${ESC_OLLAMA_BASE_URL}"
-
-# ============================================================================
-# Slack Notifications (optional)
-# ============================================================================
-
-# Slack Bot Token (starts with xoxb-)
-slack_bot_token: "${ESC_SLACK_BOT_TOKEN}"
-
-# Slack Actions Channel (channel ID, e.g., C01234567)
-slack_actions_channel: "${ESC_SLACK_ACTIONS_CHANNEL}"
-
-# Slack Escalations Channel (channel ID, e.g., C07654321)
-slack_escalations_channel: "${ESC_SLACK_ESCALATIONS_CHANNEL}"
-
-# ============================================================================
-# Agentic Processing Configuration
-# ============================================================================
-
-# Processing interval in seconds
-agentic_interval: "${ESC_AGENTIC_INTERVAL}"
-EOF
-    
-    # Copy to final location, but only when the content actually changes.
-    # A no-op rewrite would bump the conf mtime and make the provenance test
-    # below conclude that every sibling worker's daemon predates its own
-    # credentials, forcing a restart on each concurrent run.
-    CONF_CHANGED="true"
-    if $SUDO cmp -s "$TMP_CONF" "$CONF_FILE" 2>/dev/null; then
-        CONF_CHANGED="false"
-    fi
+    write_service_conf "$TMP_CONF" "$CONF_FILE"
     if [ "$CONF_CHANGED" = "true" ]; then
-        $SUDO cp "$TMP_CONF" "$CONF_FILE"
         info "✓ Service configuration updated at $CONF_FILE"
     else
         info "✓ Service configuration already matches request at $CONF_FILE (left untouched)"
     fi
-    # The packaged conf arrives world-readable and now carries the LLM key, so
-    # tighten it whether or not this run rewrote it. chmod moves ctime, not
-    # mtime, so the restart-provenance test above is unaffected.
-    $SUDO chmod 600 "$CONF_FILE" 2>/dev/null || true
+    # Never print the credential itself, only whether one is present.
+    _svc_cred_state="none"
+    service_conf_has_credential && _svc_cred_state="present"
+    info "  Agentic mode: $SVC_AGENTIC_MODE, provider: ${SVC_AGENTIC_PROVIDER:-auto}, LLM credential: $_svc_cred_state"
     rm -f "$TMP_CONF"
     
     # Check if service is already running with proper credentials.
@@ -2905,6 +3209,17 @@ EOF
         fi
     fi
     
+    # The daemon reads agentic mode, provider and key only at start. Reusing
+    # a running daemon after they changed in the conf leaves it running with
+    # the old ones -- typically "disabled", nothing adjudicated -- until some
+    # unrelated restart. Siblings on a shared host that pass the same settings
+    # find the conf unchanged and still reuse the daemon.
+    if [ "$SHOULD_RESTART" != "true" ] && [ "${SERVICE_AGENTIC_CHANGED:-false}" = "true" ] && \
+       [ "${CONF_CHANGED:-false}" = "true" ]; then
+        info "Agentic mode / LLM settings changed in $CONF_FILE, restarting the service to apply them"
+        SHOULD_RESTART="true"
+    fi
+
     # Start or restart service only if needed
     if [ "$SHOULD_RESTART" = "true" ]; then
         info "Starting/restarting EDAMAME Posture service..."
@@ -3073,6 +3388,12 @@ if ! credentials_provided; then
        [ -n "$CONFIG_WHITELIST" ] || [ "$CONFIG_CANCEL_ON_VIOLATION" = "true" ]; then
         DISCONNECTED_MODE="true"
         info "  Disconnected mode: enabled (network monitoring without credentials)"
+    elif agentic_requested; then
+        # The AI assistant needs a running daemon too; without this a
+        # binary/pkg/brew/choco install asked only for --agentic-mode started
+        # nothing.
+        DISCONNECTED_MODE="true"
+        info "  Disconnected mode: enabled (AI assistant without credentials)"
     fi
 fi
 
@@ -3126,9 +3447,26 @@ if [ "$SHOULD_START_DAEMON" = "true" ]; then
     # AI configuration is handled via environment variables
     # The daemon reads: EDAMAME_LLM_API_KEY (for all LLM providers: edamame, claude, openai), 
     #                   EDAMAME_LLM_BASE_URL (for ollama)
+    # A key given with --llm-api-key lived only in CONFIG_LLM_API_KEY, so the
+    # background daemon started without it. Export it (never on the command
+    # line, where ps would show it); $SUDO is `sudo -E` and keeps it.
     AGENTIC_PROVIDER_NAME="$CONFIG_AGENTIC_PROVIDER"
+    [ "$AGENTIC_PROVIDER_NAME" = "none" ] && AGENTIC_PROVIDER_NAME=""
     if [ "$CONFIG_AGENTIC_MODE" != "disabled" ]; then
-        
+        if [ -n "$CONFIG_LLM_API_KEY" ]; then
+            export EDAMAME_LLM_API_KEY="$CONFIG_LLM_API_KEY"
+        fi
+        if [ -n "$CONFIG_LLM_BASE_URL" ]; then
+            export EDAMAME_LLM_BASE_URL="$CONFIG_LLM_BASE_URL"
+        fi
+        if [ -z "$CONFIG_LLM_API_KEY" ] && [ -z "$CONFIG_LLM_BASE_URL" ]; then
+            warn "Agentic mode '$CONFIG_AGENTIC_MODE' requested without EDAMAME_LLM_API_KEY / EDAMAME_LLM_BASE_URL;"
+            warn "the daemon will not be able to adjudicate anything."
+        fi
+        if [ "$SUDO" = "doas" ]; then
+            warn "doas preserves the environment only with a keepenv rule; without one the daemon will not see the LLM key."
+        fi
+
         if [ -n "$CONFIG_SLACK_BOT_TOKEN" ]; then
             export EDAMAME_AGENTIC_SLACK_BOT_TOKEN="$CONFIG_SLACK_BOT_TOKEN"
         fi

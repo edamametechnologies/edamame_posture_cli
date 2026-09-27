@@ -28,6 +28,34 @@ env:
   REPO_BASE: "https://github.com/edamametechnologies/edamame_posture_cli"
 
 jobs:
+  # install.sh's service-conf merge and the daemon wrapper's conf parser,
+  # without root, network or a package manager. Guards the 2.0.1 fix: the
+  # agentic mode and the LLM key must reach /etc/edamame_posture.conf, survive
+  # re-runs, stay 0600, never be printed, and reach the daemon at start.
+  install-sh-conf:
+    name: install.sh service conf (${{ matrix.runner }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          sh -n install.sh
+          sh -n linux/edamame_posture_daemon.sh
+      - name: Conf merge tests (bash)
+        shell: bash
+        run: bash tests/installer/install_conf_test.sh
+      - name: Conf merge tests (dash)
+        if: ${{ runner.os == 'Linux' }}
+        shell: bash
+        run: dash tests/installer/install_conf_test.sh
+
   linux-apt:
     name: Ubuntu (APT package)
     runs-on: ubuntu-latest
