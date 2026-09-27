@@ -4,7 +4,10 @@
 
 set -e
 
-CONF="/etc/edamame_posture.conf"
+# Overridable for tests only (tests/installer/install_conf_test.sh); the
+# systemd unit and the OpenRC script set neither.
+CONF="${EDAMAME_POSTURE_CONF:-/etc/edamame_posture.conf}"
+POSTURE_BIN="${EDAMAME_POSTURE_BIN:-/usr/bin/edamame_posture}"
 
 if [ ! -f "$CONF" ]; then
   echo "Configuration file $CONF not found!"
@@ -13,32 +16,40 @@ fi
 
 # Extract a configuration value by key from a YAML-formatted file.
 get_config_value() {
-  key="$1"
-  awk -v search="$key" -F':' '
+  # Same parser as install.sh's conf_yaml_value: a double-quoted value is read
+  # up to its closing quote and unescaped (the installer escapes \ and "),
+  # anything else loses a trailing " # comment".
+  awk -v key="$1" '
     {
-      k=$1
-      gsub(/^[[:space:]]+/, "", k)
-      gsub(/[[:space:]]+$/, "", k)
-      if (k != search) {
+      line = $0
+      sub(/^[ \t]+/, "", line)
+      if (index(line, key ":") != 1) {
         next
       }
-
-      # Capture everything after the first colon so we keep inline comments separate
-      val=substr($0, index($0, ":") + 1)
-      gsub(/^[[:space:]]+/, "", val)
-      sub(/[[:space:]]+#.*$/, "", val)
-
-      # Handle quoted values
-      if (val ~ /^"/) {
-        sub(/^"/, "", val)
-        sub(/".*$/, "", val)
+      v = substr(line, length(key) + 2)
+      sub(/^[ \t]+/, "", v)
+      q = substr(v, 1, 1)
+      if (q == "\"") {
+        out = ""
+        i = 2
+        n = length(v)
+        while (i <= n) {
+          c = substr(v, i, 1)
+          if (c == "\\" && i < n) { out = out substr(v, i + 1, 1); i += 2; continue }
+          if (c == "\"") break
+          out = out c
+          i++
+        }
+        v = out
+      } else if (q == "\047") {
+        v = substr(v, 2)
+        p = index(v, "\047")
+        if (p > 0) v = substr(v, 1, p - 1)
+      } else {
+        sub(/[ \t]+#.*$/, "", v)
+        sub(/[ \t]+$/, "", v)
       }
-
-      # Trim any remaining surrounding whitespace
-      gsub(/^[[:space:]]+/, "", val)
-      gsub(/[[:space:]]+$/, "", val)
-
-      print val
+      print v
       exit
     }
   ' "$CONF"
@@ -323,4 +334,4 @@ elif cd /var/tmp 2>/dev/null; then
 fi
 
 # Execute the main binary in foreground mode (systemd manages daemonization)
-exec /usr/bin/edamame_posture "$@"
+exec "$POSTURE_BIN" "$@"
