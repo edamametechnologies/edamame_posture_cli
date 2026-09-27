@@ -22,6 +22,7 @@ typedef int socklen_t;
 static void usleep_ms(int ms) { Sleep(ms); }
 #else
 #include <arpa/inet.h>
+#include <errno.h>
 #include <sys/socket.h>
 #include <unistd.h>
 static void usleep_ms(int ms) { usleep((useconds_t)ms * 1000U); }
@@ -76,7 +77,14 @@ int main(int argc, char **argv) {
 
     while (keep_running) {
         if (send(sock, buf, (size_t)size, 0) < 0) {
-            break;
+            /* A connected UDP socket reports the peer's ICMP port
+               unreachable on the next send. That is an answer, not a
+               broken socket: keep sending for the scenario's duration. */
+#ifdef _WIN32
+            if (WSAGetLastError() != WSAECONNRESET) break;
+#else
+            if (errno != ECONNREFUSED) break;
+#endif
         }
         usleep_ms(interval);
     }
