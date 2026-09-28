@@ -92,6 +92,13 @@ jobs:
           draft: false
           prerelease: false
 
+      # Verify with: gh attestation verify install.sh --repo edamametechnologies/edamame_posture_cli
+      - name: Attest build provenance
+        if: github.ref == 'refs/heads/main'
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: install.sh
+
       - name: Upload install.sh to release
         if: github.ref == 'refs/heads/main'
         uses: shogo82148/actions-upload-release-asset@v1

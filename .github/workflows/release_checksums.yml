@@ -1,0 +1,90 @@
+name: Publish release checksums
+
+# Publishes SHA256SUMS (every asset of the release) and its keyless Sigstore
+# signature SHA256SUMS.sigstore.json on the GitHub release, after each release
+# workflow finishes. The release workflows upload to the same release from
+# separate runs, so each completion regenerates the file from the assets
+# present at that point; the concurrency group serializes the runs and the
+# last one sees every asset. Per-asset build provenance is attested by the
+# build jobs themselves (actions/attest-build-provenance).
+#
+# Users verify with:
+#   cosign verify-blob --bundle SHA256SUMS.sigstore.json \
+#     --certificate-identity-regexp '^https://github\.com/edamametechnologies/edamame_posture_cli/\.github/workflows/release_checksums\.yml@refs/heads/main$' \
+#     --certificate-oidc-issuer https://token.actions.githubusercontent.com SHA256SUMS
+#   sha256sum --ignore-missing -c SHA256SUMS
+
+on:
+  workflow_run:
+    workflows:
+      - "Build and publish for other platforms"
+      - "Build and publish for linux debs"
+      - "Build and publish for linux apks"
+      - "Release install script"
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag (vX.Y.Z). Blank = v<Cargo.toml version> of the selected ref"
+        type: string
+        required: false
+      allow_replaced:
+        description: "Do not fail when an asset's digest changed since the previous SHA256SUMS"
+        type: boolean
+        default: false
+
+# Never cancel: an in-flight run may be the one that sees the last asset.
+concurrency:
+  group: release-checksums
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  checksums:
+    # Release uploads only happen from main.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.head_branch == 'main' &&
+       (github.event.workflow_run.conclusion == 'success' || github.event.workflow_run.conclusion == 'failure'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      # The script always comes from the default branch; only the version is
+      # read from the commit the release workflow built.
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v4.1.2
+
+      - name: Resolve release tag
+        id: tag
+        shell: bash
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+        run: |
+          set -euo pipefail
+          if [ -n "${INPUT_TAG:-}" ]; then
+            TAG="$INPUT_TAG"
+          else
+            VERSION=$(git show "${HEAD_SHA}:Cargo.toml" | grep '^version =' | head -1 | awk '{print $3}' | tr -d '"')
+            TAG="v${VERSION}"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Release tag: $TAG"
+
+      - name: Publish SHA256SUMS
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.tag.outputs.tag }}
+          ALLOW_REPLACED: ${{ inputs.allow_replaced && '--allow-replaced' || '' }}
+        run: |
+          # shellcheck disable=SC2086
+          .github/scripts/release_checksums.sh "${{ github.repository }}" "$TAG" $ALLOW_REPLACED
