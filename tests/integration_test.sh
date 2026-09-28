@@ -1306,6 +1306,8 @@ if [ "$CI" = "true" ]; then
     EDAMAME_USER="${EDAMAME_USER:?🔴 Error: EDAMAME_USER must be set for CI mode}"
     EDAMAME_DOMAIN="${EDAMAME_DOMAIN:?🔴 Error: EDAMAME_DOMAIN must be set for CI mode}"
     EDAMAME_PIN="${EDAMAME_PIN:?🔴 Error: EDAMAME_PIN must be set for CI mode}"
+    # The PIN reaches posture in EDAMAME_PIN (kept by sudo -E), not on argv.
+    export EDAMAME_PIN
     EDAMAME_ID="${EDAMAME_ID:-test-run-$(date +%s)}" # Default if not provided
 
     # Start posture in connected mode (agentic defaults to disabled)
@@ -1314,7 +1316,6 @@ if [ "$CI" = "true" ]; then
     $SUDO_CMD "$BINARY_DEST" $VERBOSE_FLAG start \
         --user "$EDAMAME_USER" \
         --domain "$EDAMAME_DOMAIN" \
-        --pin "$EDAMAME_PIN" \
         --device-id "$EDAMAME_ID" \
         --network-scan \
         --packet-capture \

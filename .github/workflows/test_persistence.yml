@@ -50,11 +50,19 @@ jobs:
       - name: Use the local universal install script - step 1
         id: install-1
         shell: bash
+        env:
+          # The PIN travels in the environment, never on the installer's argv.
+          EDAMAME_PIN: ${{ secrets.EDAMAME_POSTURE_PIN }}
         run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh | sh -s -- \
+          INSTALLER="${RUNNER_TEMP:-/tmp}/edamame_install.sh"
+          curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh -o "$INSTALLER"
+          # An installer from before 2.0.2 does not read EDAMAME_PIN: --pin for it.
+          if grep -q EDAMAME_PIN "$INSTALLER"; then set --; else set -- --pin "$EDAMAME_PIN"; fi
+          sh "$INSTALLER" \
           --user ${{ vars.EDAMAME_POSTURE_USER }} \
           --domain ${{ vars.EDAMAME_POSTURE_DOMAIN }} \
-          --pin ${{ secrets.EDAMAME_POSTURE_PIN }}  
+          "$@"
+          rm -f "$INSTALLER"
         continue-on-error: true
 
       - name: Check if the daemon is running
@@ -84,11 +92,19 @@ jobs:
       - name: Use the local universal install script - step 2
         id: install-2
         shell: bash
+        env:
+          # The PIN travels in the environment, never on the installer's argv.
+          EDAMAME_PIN: ${{ secrets.EDAMAME_POSTURE_PIN }}
         run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh | sh -s -- \
+          INSTALLER="${RUNNER_TEMP:-/tmp}/edamame_install.sh"
+          curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh -o "$INSTALLER"
+          # An installer from before 2.0.2 does not read EDAMAME_PIN: --pin for it.
+          if grep -q EDAMAME_PIN "$INSTALLER"; then set --; else set -- --pin "$EDAMAME_PIN"; fi
+          sh "$INSTALLER" \
           --user ${{ vars.EDAMAME_POSTURE_USER }} \
           --domain ${{ vars.EDAMAME_POSTURE_DOMAIN }} \
-          --pin ${{ secrets.EDAMAME_POSTURE_PIN }}
+          "$@"
+          rm -f "$INSTALLER"
         continue-on-error: true
 
       - name: Check if the daemon is running
@@ -196,11 +212,19 @@ jobs:
       - name: Use the local universal install script - step 1
         id: install-1
         shell: bash
+        env:
+          # The PIN travels in the environment, never on the installer's argv.
+          EDAMAME_PIN: ${{ secrets.EDAMAME_POSTURE_PIN }}
         run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh | sh -s -- \
+          INSTALLER="${RUNNER_TEMP:-/tmp}/edamame_install.sh"
+          curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh -o "$INSTALLER"
+          # An installer from before 2.0.2 does not read EDAMAME_PIN: --pin for it.
+          if grep -q EDAMAME_PIN "$INSTALLER"; then set --; else set -- --pin "$EDAMAME_PIN"; fi
+          sh "$INSTALLER" \
           --user ${{ vars.EDAMAME_POSTURE_USER }} \
           --domain ${{ vars.EDAMAME_POSTURE_DOMAIN }} \
-          --pin ${{ secrets.EDAMAME_POSTURE_PIN }}
+          "$@"
+          rm -f "$INSTALLER"
         continue-on-error: true
 
       - name: Check if the daemon is running
@@ -230,11 +254,19 @@ jobs:
       - name: Use the local universal install script - step 2
         id: install-2
         shell: bash
+        env:
+          # The PIN travels in the environment, never on the installer's argv.
+          EDAMAME_PIN: ${{ secrets.EDAMAME_POSTURE_PIN }}
         run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh | sh -s -- \
+          INSTALLER="${RUNNER_TEMP:-/tmp}/edamame_install.sh"
+          curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh -o "$INSTALLER"
+          # An installer from before 2.0.2 does not read EDAMAME_PIN: --pin for it.
+          if grep -q EDAMAME_PIN "$INSTALLER"; then set --; else set -- --pin "$EDAMAME_PIN"; fi
+          sh "$INSTALLER" \
           --user ${{ vars.EDAMAME_POSTURE_USER }} \
           --domain ${{ vars.EDAMAME_POSTURE_DOMAIN }} \
-          --pin ${{ secrets.EDAMAME_POSTURE_PIN }}
+          "$@"
+          rm -f "$INSTALLER"
         continue-on-error: true
 
       - name: Check if the daemon is running
@@ -405,11 +437,19 @@ jobs:
       - name: Use the local universal install script - step 1
         id: install-1
         shell: bash
+        env:
+          # The PIN travels in the environment, never on the installer's argv.
+          EDAMAME_PIN: ${{ secrets.EDAMAME_POSTURE_PIN }}
         run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh | sh -s -- \
+          INSTALLER="${RUNNER_TEMP:-/tmp}/edamame_install.sh"
+          curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh -o "$INSTALLER"
+          # An installer from before 2.0.2 does not read EDAMAME_PIN: --pin for it.
+          if grep -q EDAMAME_PIN "$INSTALLER"; then set --; else set -- --pin "$EDAMAME_PIN"; fi
+          sh "$INSTALLER" \
           --user ${{ vars.EDAMAME_POSTURE_USER }} \
           --domain ${{ vars.EDAMAME_POSTURE_DOMAIN }} \
-          --pin ${{ secrets.EDAMAME_POSTURE_PIN }}
+          "$@"
+          rm -f "$INSTALLER"
         continue-on-error: true
 
       - name: Check if the daemon is running
@@ -439,11 +479,19 @@ jobs:
       - name: Use the local universal install script - step 2
         id: install-2
         shell: bash
+        env:
+          # The PIN travels in the environment, never on the installer's argv.
+          EDAMAME_PIN: ${{ secrets.EDAMAME_POSTURE_PIN }}
         run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh | sh -s -- \
+          INSTALLER="${RUNNER_TEMP:-/tmp}/edamame_install.sh"
+          curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh -o "$INSTALLER"
+          # An installer from before 2.0.2 does not read EDAMAME_PIN: --pin for it.
+          if grep -q EDAMAME_PIN "$INSTALLER"; then set --; else set -- --pin "$EDAMAME_PIN"; fi
+          sh "$INSTALLER" \
           --user ${{ vars.EDAMAME_POSTURE_USER }} \
           --domain ${{ vars.EDAMAME_POSTURE_DOMAIN }} \
-          --pin ${{ secrets.EDAMAME_POSTURE_PIN }}
+          "$@"
+          rm -f "$INSTALLER"
         continue-on-error: true
 
       - name: Check if the daemon is running
@@ -562,11 +610,19 @@ jobs:
 
       - name: Use the local universal install script - step 1
         shell: sh
+        env:
+          # The PIN travels in the environment, never on the installer's argv.
+          EDAMAME_PIN: ${{ secrets.EDAMAME_POSTURE_PIN }}
         run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh | sh -s -- \
+          INSTALLER="${RUNNER_TEMP:-/tmp}/edamame_install.sh"
+          curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh -o "$INSTALLER"
+          # An installer from before 2.0.2 does not read EDAMAME_PIN: --pin for it.
+          if grep -q EDAMAME_PIN "$INSTALLER"; then set --; else set -- --pin "$EDAMAME_PIN"; fi
+          sh "$INSTALLER" \
           --user ${{ vars.EDAMAME_POSTURE_USER }} \
           --domain ${{ vars.EDAMAME_POSTURE_DOMAIN }} \
-          --pin ${{ secrets.EDAMAME_POSTURE_PIN }}
+          "$@"
+          rm -f "$INSTALLER"
 
       - name: Check if the daemon is running
         shell: sh
@@ -590,11 +646,19 @@ jobs:
 
       - name: Use the local universal install script - step 2
         shell: sh
+        env:
+          # The PIN travels in the environment, never on the installer's argv.
+          EDAMAME_PIN: ${{ secrets.EDAMAME_POSTURE_PIN }}
         run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh | sh -s -- \
+          INSTALLER="${RUNNER_TEMP:-/tmp}/edamame_install.sh"
+          curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh -o "$INSTALLER"
+          # An installer from before 2.0.2 does not read EDAMAME_PIN: --pin for it.
+          if grep -q EDAMAME_PIN "$INSTALLER"; then set --; else set -- --pin "$EDAMAME_PIN"; fi
+          sh "$INSTALLER" \
           --user ${{ vars.EDAMAME_POSTURE_USER }} \
           --domain ${{ vars.EDAMAME_POSTURE_DOMAIN }} \
-          --pin ${{ secrets.EDAMAME_POSTURE_PIN }}
+          "$@"
+          rm -f "$INSTALLER"
 
       - name: Check if the daemon is running
         shell: sh
