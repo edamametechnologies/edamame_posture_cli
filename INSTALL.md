@@ -38,7 +38,8 @@ curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamamete
 |------|-------------|
 | `--user <user>` | EDAMAME Hub username (triggers service/daemon auto-start when provided with domain/pin). |
 | `--domain <domain>` | EDAMAME Hub domain. |
-| `--pin <pin>` | EDAMAME Hub PIN. |
+| `--pin <pin>` | EDAMAME Hub PIN. Visible in the process list: prefer `EDAMAME_PIN` or `--pin-file`. |
+| `--pin-file <path>` | Read the Hub PIN from the first line of a file (warns unless owner-only). |
 | `--device-id <id>` | Device identifier for Hub tracking (e.g., `ci-runner-123`). Passed to daemon on start. |
 
 #### Network Monitoring & Enforcement
@@ -59,7 +60,8 @@ curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamamete
 | `--claude-api-key <key>` | Claude API key for AI assistant. |
 | `--openai-api-key <key>` | OpenAI API key for AI assistant. |
 | `--ollama-base-url <url>` | Ollama base URL (default: `http://localhost:11434`). |
-| `--agentic-mode <mode>` | AI mode: `auto`, `analyze`, or `disabled` (default: `disabled`). |
+| `--agentic-mode <mode>` | AI mode: `auto`, `analyze`, `off` (turn the Assistant and both detection engines off), or `disabled` (leave them as last set; default). |
+| `--llm-model <model>` | Model for claude/openai/ollama (also `EDAMAME_LLM_MODEL`); written to `llm_model`. |
 | `--agentic-interval <seconds>` | AI processing interval in seconds (default: `3600`). |
 | `--slack-bot-token <token>` | Slack bot token for notifications. |
 | `--slack-actions-channel <id>` | Slack channel ID for routine actions. |
@@ -347,7 +349,8 @@ Package installs create `/etc/edamame_posture.conf` which supports all daemon pa
 - `include_local_traffic`: "true" → pass `--include-local-traffic`
 
 **AI Assistant:**
-- `agentic_mode`: "auto", "analyze", or "disabled"
+- `agentic_mode`: "auto", "analyze", "off", or "disabled"
+- `llm_model`, `llm_base_url` (2.0.2): model and alternative endpoint for the BYO providers; absent keys (a conf kept across a package upgrade) mean the provider defaults
 - `claude_api_key`: Claude API key
 - `openai_api_key`: OpenAI API key
 - `ollama_base_url`: Ollama base URL
@@ -468,11 +471,12 @@ When `SHOULD_START_DAEMON=true`:
 
 2. **Export AI configuration** (if agentic mode enabled)
    - `EDAMAME_LLM_API_KEY`
-   - `EDAMAME_LLM_BASE_URL` (for Ollama)
+   - `EDAMAME_LLM_BASE_URL` (for Ollama), `EDAMAME_LLM_MODEL`
    - Slack tokens and channels
+   - `EDAMAME_PIN` in connected mode: the PIN is never on the daemon's command line
 
 3. **Build command based on mode**
-   - **Connected mode**: `edamame_posture start --user ... --domain ... --pin ...`
+   - **Connected mode**: `edamame_posture start --user ... --domain ...` (PIN in `EDAMAME_PIN`)
    - **Disconnected mode**: `edamame_posture background-start-disconnected`
 
 4. **Add network flags**
@@ -500,7 +504,7 @@ The composite Action delegates ALL configuration to `install.sh`, passing action
 # Action inputs → install.sh flags
 edamame_user → --user
 edamame_domain → --domain  
-edamame_pin → --pin
+edamame_pin → EDAMAME_PIN (environment; never on the daemon's command line)
 edamame_id → --device-id (with timestamp suffix)
 network_scan → --start-lanscan
 packet_capture → --start-capture

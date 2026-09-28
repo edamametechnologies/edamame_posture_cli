@@ -1113,6 +1113,77 @@ pub fn build_cli() -> Command {
     )
 }
 
+/// `--agentic-mode` values. `disabled` leaves the persisted agentic state as
+/// the operator last set it (the default: a restart never overwrites it);
+/// `off` turns agentic protection off (the Assistant, attack pattern
+/// detection and divergence detection) through the daemon's RPC.
+pub const AGENTIC_MODES: [&str; 4] = ["auto", "analyze", "off", "disabled"];
+
+/// Where the PIN of a start command came from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PinSource {
+    None,
+    CommandLine,
+    Environment,
+    File,
+}
+
+/// The Hub PIN of a start command, from `--pin-file`, `EDAMAME_PIN` or
+/// `--pin` (in that order of preference; `--pin-file` and `--pin` conflict).
+/// Warns on stderr when the PIN came from the command line (visible in the
+/// process list) or from a file other accounts can read. `EDAMAME_PIN` is
+/// removed from the environment once read, so the daemon's own children
+/// (agent CLIs, the cancel-pipeline script) never inherit it.
+pub fn resolve_pin(matches: &clap::ArgMatches) -> Result<(String, PinSource), String> {
+    use clap::parser::ValueSource;
+    let resolved = if let Some(path) = matches.get_one::<std::path::PathBuf>("pin_file") {
+        (read_pin_file(path)?, PinSource::File)
+    } else {
+        let pin = matches
+            .get_one::<String>("pin")
+            .cloned()
+            .unwrap_or_default();
+        match matches.value_source("pin") {
+            Some(ValueSource::CommandLine) if !pin.is_empty() => {
+                eprintln!(
+                    "Warning: --pin puts the PIN in the process list; use the EDAMAME_PIN environment variable or --pin-file instead."
+                );
+                (pin, PinSource::CommandLine)
+            }
+            Some(ValueSource::EnvVariable) if !pin.is_empty() => (pin, PinSource::Environment),
+            _ => (String::new(), PinSource::None),
+        }
+    };
+    std::env::remove_var("EDAMAME_PIN");
+    Ok(resolved)
+}
+
+/// The PIN in `path`: its first line, trimmed, digits only. Warns when the
+/// file is readable or writable by group or others (unix).
+pub fn read_pin_file(path: &std::path::Path) -> Result<String, String> {
+    let text = std::fs::read_to_string(path)
+        .map_err(|e| format!("Cannot read PIN file {}: {}", path.display(), e))?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        if let Ok(meta) = std::fs::metadata(path) {
+            let mode = meta.permissions().mode() & 0o777;
+            if mode & 0o077 != 0 {
+                eprintln!(
+                    "Warning: PIN file {} is accessible to other accounts (mode {:o}); chmod 600 it.",
+                    path.display(),
+                    mode
+                );
+            }
+        }
+    }
+    let pin = text.lines().next().unwrap_or("").trim().to_string();
+    if pin.is_empty() {
+        return Err(format!("PIN file {} is empty", path.display()));
+    }
+    parse_digits_only(&pin)
+}
+
 fn start_common_args() -> Vec<Arg> {
     vec![
         Arg::new("user")
@@ -1133,9 +1204,17 @@ fn start_common_args() -> Vec<Arg> {
             .long("pin")
             .short('p')
             .value_name("PIN")
-            .help("PIN")
+            .help("PIN. Prefer the EDAMAME_PIN environment variable or --pin-file: a PIN on the command line is visible in the process list")
+            .env("EDAMAME_PIN")
+            .hide_env_values(true)
             .value_parser(parse_digits_only)
             .default_value(""),
+        Arg::new("pin_file")
+            .long("pin-file")
+            .value_name("PATH")
+            .help("Read the PIN from this file (first line; keep it 0600, owner-only)")
+            .conflicts_with("pin")
+            .value_parser(clap::value_parser!(std::path::PathBuf)),
         Arg::new("llm_api_key")
             .long("llm-api-key")
             .short('k')
@@ -1186,9 +1265,9 @@ fn start_common_args() -> Vec<Arg> {
         Arg::new("agentic_mode")
             .long("agentic-mode")
             .value_name("MODE")
-            .help("Security assistant mode: auto, analyze or disabled")
+            .help("Security assistant mode: auto, analyze, off (turn the Assistant and both detection engines off) or disabled (leave them as last set)")
             .default_value("disabled")
-            .value_parser(["auto", "analyze", "disabled"]),
+            .value_parser(AGENTIC_MODES),
         Arg::new("agentic_provider")
             .long("agentic-provider")
             .value_name("PROVIDER")
@@ -1264,9 +1343,9 @@ fn disconnected_start_args() -> Vec<Arg> {
         Arg::new("agentic_mode")
             .long("agentic-mode")
             .value_name("MODE")
-            .help("Security assistant mode for automated remediation: auto, analyze or disabled")
+            .help("Security assistant mode for automated remediation: auto, analyze, off (turn the Assistant and both detection engines off) or disabled (leave them as last set)")
             .default_value("disabled")
-            .value_parser(["auto", "analyze", "disabled"]),
+            .value_parser(AGENTIC_MODES),
         Arg::new("agentic_provider")
             .long("agentic-provider")
             .value_name("PROVIDER")
@@ -1553,6 +1632,105 @@ mod tests {
                 .map(String::as_str),
             Some("edm_live_background456")
         );
+    }
+
+    /// One test for every PIN source: resolve_pin reads and clears the
+    /// process environment, so the cases must not run in parallel.
+    #[test]
+    fn pin_sources_resolve_in_order_and_never_leak_through_the_environment() {
+        use super::{resolve_pin, PinSource};
+        let parse = |args: &[&str]| {
+            let matches = build_cli().try_get_matches_from(args).expect("parse");
+            let (_, sub) = matches.subcommand().expect("subcommand");
+            resolve_pin(sub)
+        };
+        let base = [
+            "edamame_posture",
+            "foreground-start",
+            "--user",
+            "runner",
+            "--domain",
+            "example.com",
+        ];
+
+        // --pin: accepted (compatibility), flagged as command line.
+        let mut args = base.to_vec();
+        args.extend(["--pin", "123456"]);
+        assert_eq!(
+            parse(&args).unwrap(),
+            ("123456".to_string(), PinSource::CommandLine)
+        );
+
+        // EDAMAME_PIN: read, then removed from the environment.
+        std::env::set_var("EDAMAME_PIN", "654321");
+        assert_eq!(
+            parse(&base).unwrap(),
+            ("654321".to_string(), PinSource::Environment)
+        );
+        assert!(
+            std::env::var("EDAMAME_PIN").is_err(),
+            "EDAMAME_PIN left in the environment"
+        );
+
+        // A non-digit PIN from the environment is rejected like one on argv.
+        std::env::set_var("EDAMAME_PIN", "12ab");
+        assert!(build_cli().try_get_matches_from(base).is_err());
+        std::env::remove_var("EDAMAME_PIN");
+
+        // --pin-file: first line, trimmed.
+        let dir = std::env::temp_dir().join(format!("posture-pin-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let file = dir.join("pin");
+        std::fs::write(&file, "  777888 \nignored\n").unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o600)).unwrap();
+        }
+        let file_arg = file.to_string_lossy().to_string();
+        let mut args = base.to_vec();
+        args.extend(["--pin-file", file_arg.as_str()]);
+        assert_eq!(
+            parse(&args).unwrap(),
+            ("777888".to_string(), PinSource::File)
+        );
+
+        // --pin-file and --pin conflict; a bad file is an error.
+        let mut args = base.to_vec();
+        args.extend(["--pin-file", file_arg.as_str(), "--pin", "1"]);
+        assert!(build_cli().try_get_matches_from(&args).is_err());
+        std::fs::write(&file, "not-a-pin\n").unwrap();
+        let mut args = base.to_vec();
+        args.extend(["--pin-file", file_arg.as_str()]);
+        assert!(parse(&args).is_err());
+        let missing = dir.join("missing").to_string_lossy().to_string();
+        let mut args = base.to_vec();
+        args.extend(["--pin-file", missing.as_str()]);
+        assert!(parse(&args).is_err());
+
+        // No PIN at all: disconnected-style empty.
+        assert_eq!(parse(&base).unwrap(), (String::new(), PinSource::None));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn agentic_mode_off_is_accepted_everywhere() {
+        for sub in [
+            "foreground-start",
+            "background-start",
+            "background-start-disconnected",
+        ] {
+            let matches = build_cli()
+                .try_get_matches_from(["edamame_posture", sub, "--agentic-mode", "off"])
+                .unwrap_or_else(|e| panic!("{sub}: {e}"));
+            let (_, sub_matches) = matches.subcommand().unwrap();
+            assert_eq!(
+                sub_matches
+                    .get_one::<String>("agentic_mode")
+                    .map(String::as_str),
+                Some("off")
+            );
+        }
     }
 
     #[test]

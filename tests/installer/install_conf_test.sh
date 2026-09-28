@@ -8,6 +8,9 @@
 # Covers the 2.0.1 regressions: the agentic mode and the LLM key must reach
 # the service conf, survive re-runs (with the same, fewer or no options), be
 # written 0600, never be printed, and be handed to the daemon at start.
+# 2.0.2: the PIN reaches the daemon through EDAMAME_PIN, never argv; the
+# llm_model / llm_base_url keys; agentic_mode "off"; confs written before a
+# key existed read it as its default.
 #
 # The CONFIG_* / SUDO assignments are read by the sourced install.sh functions.
 # shellcheck disable=SC2034
@@ -49,7 +52,7 @@ reset_run() {
     CONFIG_AGENTIC_MODE="disabled"; CONFIG_AGENTIC_MODE_SET="false"
     CONFIG_AGENTIC_PROVIDER=""; CONFIG_AGENTIC_PROVIDER_SET="false"
     CONFIG_AGENTIC_INTERVAL="3600"; CONFIG_AGENTIC_INTERVAL_SET="false"
-    CONFIG_LLM_API_KEY=""; CONFIG_LLM_BASE_URL=""
+    CONFIG_LLM_API_KEY=""; CONFIG_LLM_BASE_URL=""; CONFIG_LLM_MODEL=""
     CONFIG_SLACK_BOT_TOKEN=""; CONFIG_SLACK_ACTIONS_CHANNEL=""; CONFIG_SLACK_ESCALATIONS_CHANNEL=""
     CONFIG_NETWORK_SET="false"
     CONFIG_START_LANSCAN="false"; CONFIG_START_CAPTURE="false"; CONFIG_WHITELIST=""
@@ -191,11 +194,118 @@ case "$WRAP_OUT" in
     *) ok "wrapper never prints the key" ;;
 esac
 
-# --- 10. the installer never prints the key -------------------------------
+# --- 10. 2.0.2: PIN in the environment, llm_model / llm_base_url, off -------
+STUB2="$WORK/edamame_posture_stub2"
+cat > "$STUB2" <<'EOF'
+#!/bin/sh
+printf 'ARGS:%s\n' "$*"
+if [ "${EDAMAME_PIN:-}" = "$EXPECTED_PIN" ]; then echo "ENV_PIN:match"; else echo "ENV_PIN:mismatch"; fi
+printf 'ENV_MODEL:%s\n' "${EDAMAME_LLM_MODEL:-<unset>}"
+printf 'ENV_BASE_URL:%s\n' "${EDAMAME_LLM_BASE_URL:-<unset>}"
+EOF
+chmod +x "$STUB2"
+PIN_CONF="$WORK/pin.conf"
+reset_run
+CONFIG_USER="runner"; CONFIG_DOMAIN="example.com"; CONFIG_PIN="424242"
+CONFIG_AGENTIC_MODE="analyze"; CONFIG_AGENTIC_MODE_SET="true"
+CONFIG_AGENTIC_PROVIDER="openai"; CONFIG_AGENTIC_PROVIDER_SET="true"
+CONFIG_LLM_API_KEY="sk-TESTKEY"; CONFIG_LLM_MODEL="gpt-test"; CONFIG_LLM_BASE_URL="https://gw.example/v1"
+run_configure "$PIN_CONF"
+assert_eq "llm_model persisted" "$(conf_yaml_value "$PIN_CONF" llm_model)" "gpt-test"
+assert_eq "llm_base_url persisted for openai" "$(conf_yaml_value "$PIN_CONF" llm_base_url)" "https://gw.example/v1"
+assert_eq "openai key in openai slot" "$(conf_yaml_value "$PIN_CONF" openai_api_key)" "sk-TESTKEY"
+reset_run
+run_configure "$PIN_CONF"
+assert_eq "no-arg re-run keeps llm_model" "$(conf_yaml_value "$PIN_CONF" llm_model)" "gpt-test"
+assert_eq "no-arg re-run keeps llm_base_url" "$(conf_yaml_value "$PIN_CONF" llm_base_url)" "https://gw.example/v1"
+assert_eq "no-arg re-run: no agentic change" "$SVC_AGENTIC_CHANGED" "false"
+reset_run
+CONFIG_LLM_MODEL="gpt-other"
+run_configure "$PIN_CONF"
+assert_eq "model change is an agentic change" "$SVC_AGENTIC_CHANGED" "true"
+WRAP_OUT="$(env -u EDAMAME_PIN -u EDAMAME_LLM_MODEL -u EDAMAME_LLM_BASE_URL EXPECTED_PIN="424242" \
+    EDAMAME_POSTURE_CONF="$PIN_CONF" EDAMAME_POSTURE_BIN="$STUB2" sh "$WRAPPER" 2>&1)"
+case "$WRAP_OUT" in
+    *"--pin"*|*"424242"*) not_ok "wrapper keeps the PIN off argv and out of its output: $WRAP_OUT" ;;
+    *) ok "wrapper keeps the PIN off argv and out of its output" ;;
+esac
+case "$WRAP_OUT" in
+    *"ENV_PIN:match"*) ok "wrapper hands the PIN over in EDAMAME_PIN" ;;
+    *) not_ok "wrapper hands the PIN over in EDAMAME_PIN: $WRAP_OUT" ;;
+esac
+case "$WRAP_OUT" in
+    *"--user runner --domain example.com"*) ok "wrapper still passes user and domain" ;;
+    *) not_ok "wrapper still passes user and domain: $WRAP_OUT" ;;
+esac
+case "$WRAP_OUT" in
+    *"ENV_MODEL:gpt-other"*) ok "wrapper exports llm_model" ;;
+    *) not_ok "wrapper exports llm_model: $WRAP_OUT" ;;
+esac
+case "$WRAP_OUT" in
+    *"ENV_BASE_URL:https://gw.example/v1"*) ok "wrapper exports llm_base_url for openai" ;;
+    *) not_ok "wrapper exports llm_base_url for openai: $WRAP_OUT" ;;
+esac
+
+# A conf written before llm_model / llm_base_url existed (the packaged one,
+# which an upgrade keeps as a conffile): the keys read as empty, the wrapper
+# starts with the provider defaults.
+OLD_CONF="$WORK/old.conf"
+cp "$PACKAGED_CONF" "$OLD_CONF"
+assert_eq "packaged conf has no llm_model key" "$(grep -c '^llm_model:' "$OLD_CONF")" "0"
+sed 's/^agentic_mode: "disabled"/agentic_mode: "analyze"/; s/^openai_api_key: ""/openai_api_key: "sk-OLD"/' "$OLD_CONF" > "$OLD_CONF.new" && mv "$OLD_CONF.new" "$OLD_CONF"
+WRAP_OUT="$(env -u EDAMAME_PIN -u EDAMAME_LLM_MODEL -u EDAMAME_LLM_BASE_URL EXPECTED_PIN="" \
+    EDAMAME_POSTURE_CONF="$OLD_CONF" EDAMAME_POSTURE_BIN="$STUB2" sh "$WRAPPER" 2>&1)"
+case "$WRAP_OUT" in
+    *"--agentic-provider openai"*"ENV_MODEL:<unset>"*"ENV_BASE_URL:<unset>"*) ok "missing keys fall back to defaults" ;;
+    *) not_ok "missing keys fall back to defaults: $WRAP_OUT" ;;
+esac
+reset_run
+resolve_service_conf "$OLD_CONF"
+assert_eq "resolve: missing llm_model reads empty" "$SVC_LLM_MODEL" ""
+assert_eq "resolve: missing llm_base_url reads empty" "$SVC_LLM_BASE_URL" ""
+
+# agentic_mode off: passed to the daemon with no provider or credential,
+# never flagged as "agentic without credential", never a reason to start one.
+OFF_CONF="$WORK/off.conf"
+reset_run
+CONFIG_AGENTIC_MODE="off"; CONFIG_AGENTIC_MODE_SET="true"
+run_configure "$OFF_CONF"
+assert_eq "off persisted" "$(conf_yaml_value "$OFF_CONF" agentic_mode)" "off"
+if service_conf_agentic_without_credential; then not_ok "off is not agentic-without-credential"; else ok "off is not agentic-without-credential"; fi
+if agentic_requested; then not_ok "off does not request a daemon"; else ok "off does not request a daemon"; fi
+WRAP_OUT="$(env -u EDAMAME_PIN EXPECTED_PIN="" EDAMAME_POSTURE_CONF="$OFF_CONF" EDAMAME_POSTURE_BIN="$STUB2" sh "$WRAPPER" 2>&1)"
+case "$WRAP_OUT" in
+    *"--agentic-mode off"*) ok "wrapper passes --agentic-mode off" ;;
+    *) not_ok "wrapper passes --agentic-mode off: $WRAP_OUT" ;;
+esac
+case "$WRAP_OUT" in
+    *WARNING*) not_ok "off warns about a missing credential: $WRAP_OUT" ;;
+    *) ok "off needs no credential" ;;
+esac
+
+# read_pin_file: first line, digits only; warns when group/world readable.
+PIN_FILE="$WORK/pin"
+printf ' 135790 \nsecond line\n' > "$PIN_FILE"; chmod 600 "$PIN_FILE"
+assert_eq "pin file read" "$(read_pin_file "$PIN_FILE" 2>/dev/null)" "135790"
+assert_eq "0600 pin file: no warning" "$(read_pin_file "$PIN_FILE" 2>&1 >/dev/null)" ""
+chmod 644 "$PIN_FILE"
+case "$(read_pin_file "$PIN_FILE" 2>&1 >/dev/null)" in
+    *"accessible to other accounts"*) ok "world-readable pin file warns" ;;
+    *) not_ok "world-readable pin file warns" ;;
+esac
+printf 'abc\n' > "$PIN_FILE"
+if read_pin_file "$PIN_FILE" >/dev/null 2>&1; then not_ok "non-digit pin file rejected"; else ok "non-digit pin file rejected"; fi
+if read_pin_file "$WORK/missing" >/dev/null 2>&1; then not_ok "missing pin file rejected"; else ok "missing pin file rejected"; fi
+
+# --- 11. the installer never prints the key or the PIN --------------------
 # Every place install.sh logs a credential-bearing variable would show up as
 # an info/warn/error/echo line interpolating one of them.
-LEAKS="$(grep -nE '^[[:space:]]*(info|warn|error|echo|printf)[[:space:]].*\$\{?(CONFIG_LLM_API_KEY|SVC_(LLM|CLAUDE|OPENAI)_API_KEY|ESC_[A-Z_]*API_KEY|EDAMAME_LLM_API_KEY)' "$INSTALL_SH")"
-if [ -z "$LEAKS" ]; then ok "install.sh logs no API key variable"; else not_ok "install.sh logs an API key variable: $LEAKS"; fi
+LEAKS="$(grep -nE '^[[:space:]]*(info|warn|error|echo|printf)[[:space:]].*\$\{?(CONFIG_LLM_API_KEY|SVC_(LLM|CLAUDE|OPENAI)_API_KEY|ESC_[A-Z_]*API_KEY|EDAMAME_LLM_API_KEY|CONFIG_PIN|SVC_PIN|EDAMAME_PIN)' "$INSTALL_SH")"
+if [ -z "$LEAKS" ]; then ok "install.sh logs no API key or PIN variable"; else not_ok "install.sh logs an API key or PIN variable: $LEAKS"; fi
+PIN_ARGV="$(grep -nE -- '--pin "\$' "$INSTALL_SH")"
+if [ -z "$PIN_ARGV" ]; then ok "install.sh never puts the PIN on a command line"; else not_ok "install.sh puts the PIN on a command line: $PIN_ARGV"; fi
+WRAP_ARGV="$(grep -nE -- '--pin ' "$WRAPPER")"
+if [ -z "$WRAP_ARGV" ]; then ok "wrapper never puts the PIN on a command line"; else not_ok "wrapper puts the PIN on a command line: $WRAP_ARGV"; fi
 
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]
