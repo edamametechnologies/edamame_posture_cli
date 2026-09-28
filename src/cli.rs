@@ -1188,6 +1188,63 @@ pub fn read_pin_file(path: &std::path::Path) -> Result<String, String> {
     parse_digits_only(&pin)
 }
 
+/// Environment variable carrying a Hub enrollment token (MDM deployment).
+pub const ENROLLMENT_TOKEN_ENV: &str = "EDAMAME_ENROLLMENT_TOKEN";
+
+/// The Hub enrollment token of a start command, from
+/// `--enrollment-token-file`, `EDAMAME_ENROLLMENT_TOKEN` or
+/// `--enrollment-token` (warned: visible in the process list). The variable
+/// is removed from this process's environment once read; the caller hands
+/// the token to the daemon explicitly. Empty when none was given.
+pub fn resolve_enrollment_token(matches: &clap::ArgMatches) -> Result<String, String> {
+    use clap::parser::ValueSource;
+    let token = if let Some(path) = matches.get_one::<std::path::PathBuf>("enrollment_token_file") {
+        read_secret_file(path, "enrollment token")?
+    } else {
+        let token = matches
+            .get_one::<String>("enrollment_token")
+            .cloned()
+            .unwrap_or_default();
+        if matches.value_source("enrollment_token") == Some(ValueSource::CommandLine)
+            && !token.is_empty()
+        {
+            eprintln!(
+                "Warning: --enrollment-token puts the token in the process list; use the EDAMAME_ENROLLMENT_TOKEN environment variable or --enrollment-token-file instead."
+            );
+        }
+        token.trim().to_string()
+    };
+    std::env::remove_var(ENROLLMENT_TOKEN_ENV);
+    Ok(token)
+}
+
+/// First line of a secret file, trimmed; warns when other accounts can
+/// read or write it (unix).
+fn read_secret_file(path: &std::path::Path, what: &str) -> Result<String, String> {
+    let text = std::fs::read_to_string(path)
+        .map_err(|e| format!("Cannot read {} file {}: {}", what, path.display(), e))?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        if let Ok(meta) = std::fs::metadata(path) {
+            let mode = meta.permissions().mode() & 0o777;
+            if mode & 0o077 != 0 {
+                eprintln!(
+                    "Warning: {} file {} is accessible to other accounts (mode {:o}); chmod 600 it.",
+                    what,
+                    path.display(),
+                    mode
+                );
+            }
+        }
+    }
+    let value = text.lines().next().unwrap_or("").trim().to_string();
+    if value.is_empty() {
+        return Err(format!("{} file {} is empty", what, path.display()));
+    }
+    Ok(value)
+}
+
 fn start_common_args() -> Vec<Arg> {
     vec![
         Arg::new("user")
@@ -1218,6 +1275,19 @@ fn start_common_args() -> Vec<Arg> {
             .value_name("PATH")
             .help("Read the PIN from this file (first line; keep it 0600, owner-only)")
             .conflicts_with("pin")
+            .value_parser(clap::value_parser!(std::path::PathBuf)),
+        Arg::new("enrollment_token")
+            .long("enrollment-token")
+            .value_name("TOKEN")
+            .help("Hub enrollment token (MDM deployment): enrolls this device for --user/--domain without the user's PIN. Prefer the EDAMAME_ENROLLMENT_TOKEN environment variable or --enrollment-token-file: a token on the command line is visible in the process list")
+            .env(ENROLLMENT_TOKEN_ENV)
+            .hide_env_values(true)
+            .value_parser(clap::value_parser!(String)),
+        Arg::new("enrollment_token_file")
+            .long("enrollment-token-file")
+            .value_name("PATH")
+            .help("Read the Hub enrollment token from this file (first line; keep it 0600, owner-only)")
+            .conflicts_with("enrollment_token")
             .value_parser(clap::value_parser!(std::path::PathBuf)),
         Arg::new("llm_api_key")
             .long("llm-api-key")
@@ -1636,6 +1706,77 @@ mod tests {
                 .map(String::as_str),
             Some("edm_live_background456")
         );
+    }
+
+    /// Every enrollment-token source; reads and clears the process
+    /// environment, so the cases run in one test.
+    #[test]
+    fn enrollment_token_sources_resolve_and_never_leak_through_the_environment() {
+        use super::{resolve_enrollment_token, ENROLLMENT_TOKEN_ENV};
+        const TOKEN: &str = "edm_enr_0123456789abcdef0123456789abcdef_secretpart";
+        let parse = |args: &[&str]| {
+            let matches = build_cli().try_get_matches_from(args).expect("parse");
+            let (_, sub) = matches.subcommand().expect("subcommand");
+            resolve_enrollment_token(sub)
+        };
+        let base = [
+            "edamame_posture",
+            "background-start",
+            "--user",
+            "alice",
+            "--domain",
+            "example.com",
+        ];
+        std::env::remove_var(ENROLLMENT_TOKEN_ENV);
+
+        // None given.
+        assert_eq!(parse(&base).unwrap(), "");
+
+        // --enrollment-token (accepted, warned).
+        let mut args = base.to_vec();
+        args.extend(["--enrollment-token", TOKEN]);
+        assert_eq!(parse(&args).unwrap(), TOKEN);
+
+        // EDAMAME_ENROLLMENT_TOKEN: read, trimmed, then removed.
+        std::env::set_var(ENROLLMENT_TOKEN_ENV, format!(" {TOKEN} "));
+        assert_eq!(parse(&base).unwrap(), TOKEN);
+        assert!(std::env::var(ENROLLMENT_TOKEN_ENV).is_err());
+
+        // --enrollment-token-file: first line; conflicts with the flag.
+        let dir = std::env::temp_dir().join(format!("posture-enroll-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let file = dir.join("token");
+        std::fs::write(&file, format!("{TOKEN}\nignored\n")).unwrap();
+        let file_arg = file.to_string_lossy().to_string();
+        let mut args = base.to_vec();
+        args.extend(["--enrollment-token-file", file_arg.as_str()]);
+        assert_eq!(parse(&args).unwrap(), TOKEN);
+        let mut args = base.to_vec();
+        args.extend([
+            "--enrollment-token-file",
+            file_arg.as_str(),
+            "--enrollment-token",
+            TOKEN,
+        ]);
+        assert!(build_cli().try_get_matches_from(&args).is_err());
+        std::fs::write(&file, "\n").unwrap();
+        let mut args = base.to_vec();
+        args.extend(["--enrollment-token-file", file_arg.as_str()]);
+        assert!(parse(&args).is_err());
+        let _ = std::fs::remove_dir_all(&dir);
+
+        // Accepted on foreground-start too; the token never shows in help.
+        let fg = [
+            "edamame_posture",
+            "foreground-start",
+            "--user",
+            "alice",
+            "--domain",
+            "example.com",
+            "--enrollment-token",
+            TOKEN,
+        ];
+        assert!(build_cli().try_get_matches_from(fg).is_ok());
     }
 
     /// One test for every PIN source: resolve_pin reads and clears the

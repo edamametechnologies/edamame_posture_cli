@@ -64,6 +64,11 @@ get_config_value() {
 edamame_user="$(get_config_value "edamame_user")"
 edamame_domain="$(get_config_value "edamame_domain")"
 edamame_pin="$(get_config_value "edamame_pin")"
+edamame_enrollment_token="$(get_config_value "edamame_enrollment_token")"
+edamame_enrollment_token_file="$(get_config_value "edamame_enrollment_token_file")"
+if [ -z "$edamame_enrollment_token" ] && [ -n "$edamame_enrollment_token_file" ] && [ -r "$edamame_enrollment_token_file" ]; then
+  edamame_enrollment_token="$(head -n 1 "$edamame_enrollment_token_file" | tr -d '[:space:]')"
+fi
 edamame_device_id="$(get_config_value "edamame_device_id")"
 start_lanscan="$(get_config_value "start_lanscan")"
 start_capture="$(get_config_value "start_capture")"
@@ -285,6 +290,17 @@ if [ -n "$edamame_user" ] && [ -n "$edamame_domain" ] && [ -n "$edamame_pin" ]; 
   echo "  Domain: $edamame_domain"
   
   # Add device ID if configured
+  if [ -n "$edamame_device_id" ]; then
+    set -- "$@" --device-id "$edamame_device_id"
+    echo "  Device ID: $edamame_device_id"
+  fi
+elif [ -n "$edamame_user" ] && [ -n "$edamame_domain" ] && [ -n "$edamame_enrollment_token" ]; then
+  # Hub enrollment token (MDM): environment only, never the command line.
+  set -- "$@" --user "$edamame_user" --domain "$edamame_domain"
+  export EDAMAME_ENROLLMENT_TOKEN="$edamame_enrollment_token"
+  echo "Starting in connected mode (Hub enrollment token):"
+  echo "  User: $edamame_user"
+  echo "  Domain: $edamame_domain"
   if [ -n "$edamame_device_id" ]; then
     set -- "$@" --device-id "$edamame_device_id"
     echo "  Device ID: $edamame_device_id"

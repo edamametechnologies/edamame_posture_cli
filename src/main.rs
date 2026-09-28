@@ -296,6 +296,15 @@ pub fn run_background(
     );
 }
 
+/// Whether an `enroll_with_token` answer (`{"success": bool, ...}`) is a
+/// success.
+pub(crate) fn enrollment_succeeded(outcome: &str) -> bool {
+    serde_json::from_str::<serde_json::Value>(outcome)
+        .ok()
+        .and_then(|v| v.get("success").and_then(|s| s.as_bool()))
+        .unwrap_or(false)
+}
+
 fn ensure_admin() {
     let admin_status = get_admin_status();
     if !admin_status {
@@ -794,6 +803,18 @@ fn run_base() {
                     std::process::exit(ERROR_CODE_PARAM);
                 }
             };
+            // The enrollment token reaches the daemon through its
+            // environment (EDAMAME_ENROLLMENT_TOKEN), never through argv.
+            match crate::cli::resolve_enrollment_token(sub_matches) {
+                Ok(token) if !token.is_empty() => {
+                    std::env::set_var(crate::cli::ENROLLMENT_TOKEN_ENV, token)
+                }
+                Ok(_) => {}
+                Err(e) => {
+                    eprintln!("{}", e);
+                    std::process::exit(ERROR_CODE_PARAM);
+                }
+            }
             let device_id = sub_matches
                 .get_one::<String>("device_id")
                 .cloned()
@@ -927,6 +948,18 @@ fn run_base() {
                     std::process::exit(ERROR_CODE_PARAM);
                 }
             };
+            // The enrollment token reaches the daemon through its
+            // environment (EDAMAME_ENROLLMENT_TOKEN), never through argv.
+            match crate::cli::resolve_enrollment_token(sub_matches) {
+                Ok(token) if !token.is_empty() => {
+                    std::env::set_var(crate::cli::ENROLLMENT_TOKEN_ENV, token)
+                }
+                Ok(_) => {}
+                Err(e) => {
+                    eprintln!("{}", e);
+                    std::process::exit(ERROR_CODE_PARAM);
+                }
+            }
             let device_id = sub_matches
                 .get_one::<String>("device_id")
                 .cloned()
