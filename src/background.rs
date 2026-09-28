@@ -2288,6 +2288,44 @@ pub fn attack_pattern_gate_refusal(status: &serde_json::Value) -> Option<String>
     None
 }
 
+/// `--agentic-mode off`: the agentic-protection switch off (the Assistant,
+/// attack pattern detection and divergence detection), sent over RPC to the
+/// daemon's own endpoint like `pin_llm_adjudication_when_auto`, so the call
+/// reaches the daemon from any process. `disabled` never calls this: it
+/// leaves the persisted state as the operator last set it.
+pub fn background_turn_agentic_protection_off() -> bool {
+    match rpc_agentic_set_protection(
+        false,
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(reply) => {
+            let ok = serde_json::from_str::<serde_json::Value>(&reply)
+                .ok()
+                .and_then(|value| value.get("success").and_then(|ok| ok.as_bool()))
+                .unwrap_or(false);
+            if ok {
+                info!("AI Assistant: agentic protection off (Assistant, attack pattern detection, divergence detection)");
+            } else {
+                error!(
+                    "AI Assistant: failed to turn agentic protection off: {}",
+                    reply
+                );
+            }
+            ok
+        }
+        Err(e) => {
+            error!(
+                "AI Assistant: could not reach the daemon to turn agentic protection off: {}",
+                e
+            );
+            false
+        }
+    }
+}
+
 /// Pin both engines to `llm` when their adjudication setting is still the
 /// core's `auto` default. The daemon calls this in-process when
 /// `--agentic-mode` asked for the LLM: strict `llm` (withhold a tick the

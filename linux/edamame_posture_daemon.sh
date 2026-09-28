@@ -14,6 +14,12 @@ if [ ! -f "$CONF" ]; then
   exit 1
 fi
 
+# Keys absent from the conf read as empty and fall back to their defaults
+# below. The packaged conf is a dpkg conffile: an upgrade that keeps an
+# operator's file (the installer rewrites it, so it always counts as modified)
+# never gains keys added after it was written -- llm_model, llm_base_url and
+# the rest must work when missing.
+
 # Extract a configuration value by key from a YAML-formatted file.
 get_config_value() {
   # Same parser as install.sh's conf_yaml_value: a double-quoted value is read
@@ -77,6 +83,10 @@ llm_api_key="$(get_config_value "llm_api_key")"
 claude_api_key="$(get_config_value "claude_api_key")"
 openai_api_key="$(get_config_value "openai_api_key")"
 ollama_base_url="$(get_config_value "ollama_base_url")"
+# Optional overrides for the BYO providers (claude, openai, ollama): the model
+# name and an alternative endpoint (an OpenAI-compatible gateway, a proxy).
+llm_model="$(get_config_value "llm_model")"
+llm_base_url="$(get_config_value "llm_base_url")"
 
 # Unified notification configuration (preferred)
 notification_provider="$(get_config_value "notification_provider")"
@@ -167,9 +177,10 @@ case "$configured_provider" in
     fi
     ;;
   ollama)
-    if [ -n "$ollama_base_url" ]; then
+    ollama_endpoint="$(first_non_empty "$ollama_base_url" "$llm_base_url")"
+    if [ -n "$ollama_endpoint" ]; then
       agentic_provider="ollama"
-      export EDAMAME_LLM_BASE_URL="$ollama_base_url"
+      export EDAMAME_LLM_BASE_URL="$ollama_endpoint"
     fi
     ;;
 esac
@@ -190,8 +201,24 @@ if [ "$agentic_provider" = "none" ] && [ -z "$configured_provider" ]; then
   fi
 fi
 
-if [ "$agentic_provider" = "ollama" ]; then
-  echo "Using Ollama as LLM provider at: $ollama_base_url"
+# Model / endpoint overrides for the BYO providers (the EDAMAME Portal picks
+# its own model). Ollama's endpoint is its credential slot, set above.
+case "$agentic_provider" in
+  claude|openai|ollama)
+    if [ -n "$llm_model" ]; then
+      export EDAMAME_LLM_MODEL="$llm_model"
+    fi
+    if [ "$agentic_provider" != "ollama" ] && [ -n "$llm_base_url" ]; then
+      export EDAMAME_LLM_BASE_URL="$llm_base_url"
+    fi
+    ;;
+esac
+
+if [ "$agentic_mode" = "off" ]; then
+  # Turning protection off needs no provider or credential.
+  echo "AI Assistant mode 'off': agentic protection will be turned off"
+elif [ "$agentic_provider" = "ollama" ]; then
+  echo "Using Ollama as LLM provider at: $EDAMAME_LLM_BASE_URL"
 elif [ "$agentic_provider" != "none" ]; then
   echo "Using $agentic_provider as LLM provider"
 elif [ "$agentic_mode" != "disabled" ]; then
@@ -248,9 +275,11 @@ fi
 # Build command arguments using set --
 set -- foreground-start -v
 
-# Add user/domain/pin if configured
+# Add user/domain if configured. The PIN goes in the environment, never on
+# the command line, where any account can read it (ps, /proc/<pid>/cmdline).
 if [ -n "$edamame_user" ] && [ -n "$edamame_domain" ] && [ -n "$edamame_pin" ]; then
-  set -- "$@" --user "$edamame_user" --domain "$edamame_domain" --pin "$edamame_pin"
+  set -- "$@" --user "$edamame_user" --domain "$edamame_domain"
+  export EDAMAME_PIN="$edamame_pin"
   echo "Starting in connected mode:"
   echo "  User: $edamame_user"
   echo "  Domain: $edamame_domain"
@@ -265,7 +294,10 @@ else
 fi
 
 # Add agentic configuration if not disabled
-if [ "$agentic_mode" != "disabled" ] && [ "$agentic_provider" != "none" ]; then
+if [ "$agentic_mode" = "off" ]; then
+  set -- "$@" --agentic-mode off
+  echo "AI Assistant: off (Assistant, attack pattern and divergence detection)"
+elif [ "$agentic_mode" != "disabled" ] && [ "$agentic_provider" != "none" ]; then
   set -- "$@" --agentic-mode "$agentic_mode"
   set -- "$@" --agentic-provider "$agentic_provider"
   set -- "$@" --agentic-interval "$agentic_interval"

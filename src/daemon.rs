@@ -163,8 +163,17 @@ pub fn background_process(
     // (already done in initialize_core via hydrate_agentic_from_persisted_config)
     // and only mutate agentic state when the operator explicitly opted in via
     // --agentic-mode <something other than "disabled">.
-    let agentic_enabled = agentic_mode != "disabled";
-    if agentic_enabled {
+    //
+    // `--agentic-mode off` is the explicit opposite: it turns agentic
+    // protection off (the Assistant and both detection engines) through the
+    // daemon's RPC, the same switch as the app's protection button.
+    let agentic_enabled = agentic_mode != "disabled" && agentic_mode != "off";
+    if agentic_mode == "off" {
+        info!("AI Assistant mode 'off': turning agentic protection off");
+        if !crate::background::background_turn_agentic_protection_off() {
+            warn!("Failed to turn agentic protection off");
+        }
+    } else if agentic_enabled {
         info!(
             "AI Assistant enabled: mode={}, provider={:?}, interval={}s",
             agentic_mode, agentic_provider, agentic_interval
@@ -633,11 +642,15 @@ pub fn background_start(
                 // So we need to fork a new process but make sure it's tied to this one
                 // Otherwise it will go defunct when terminated
                 // So we don't use spawn() but output() here
+                // The PIN travels in the child's environment, not in its
+                // argv (visible to every account through ps); always set so
+                // a disconnected start never inherits a caller's EDAMAME_PIN.
                 let output = Command::new(std::env::current_exe().unwrap())
+                    .env("EDAMAME_PIN", &pin)
                     .arg("background-process")
                     .arg(&user)
                     .arg(&domain)
-                    .arg(&pin)
+                    .arg("")
                     .arg(&device_id)
                     .arg(&lan_scanning.to_string())
                     .arg(&packet_capture.to_string())
@@ -686,14 +699,20 @@ pub fn background_start(
             .expect("Failed to get current executable path")
             .display()
             .to_string();
+        // The PIN travels in the environment the child inherits
+        // (CreateProcessW with no explicit block), not on its command line,
+        // which any account can read and which is printed below. Always set,
+        // so a disconnected start never inherits a caller's EDAMAME_PIN.
+        std::env::set_var("EDAMAME_PIN", &pin);
+
         // Format the command line string, we must quote all strings
-        // Must match the 15-arg format expected by background-process handler
+        // Must match the 17-arg format expected by background-process handler
+        // (the PIN slot stays, empty)
         let cmd = format!(
-            "\"{}\" background-process \"{}\" \"{}\" \"{}\" \"{}\" {} {} \"{}\" {} {} {} {} {} \"{}\" \"{}\" {}",
+            "\"{}\" background-process \"{}\" \"{}\" \"\" \"{}\" {} {} \"{}\" {} {} {} {} {} \"{}\" \"{}\" {}",
             exe,
             user,
             domain,
-            pin,
             device_id,
             lan_scanning.to_string(),
             packet_capture.to_string(),

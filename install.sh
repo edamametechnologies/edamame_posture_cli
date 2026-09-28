@@ -5,7 +5,9 @@
 # Connection & Device Options:
 #   --user USER                    EDAMAME Hub username
 #   --domain DOMAIN                EDAMAME Hub domain
-#   --pin PIN                      EDAMAME Hub PIN
+#   --pin PIN                      EDAMAME Hub PIN (visible in the process list:
+#                                  prefer EDAMAME_PIN or --pin-file)
+#   --pin-file PATH                Read the Hub PIN from a file (keep it 0600)
 #   --device-id ID                 Device identifier (e.g., ci-runner-123).
 #                                  On a shared host with one systemd unit,
 #                                  a device-id-only mismatch does not restart
@@ -22,11 +24,15 @@
 #   --include-local-traffic        Pass --include-local-traffic (include local traffic)
 #
 # AI Assistant Options:
-#   --agentic-mode MODE            AI mode: auto, analyze, or disabled (default: disabled)
+#   --agentic-mode MODE            AI mode: auto, analyze, off, or disabled (default: disabled)
+#                                  off turns the Assistant and both detection
+#                                  engines off; disabled leaves them as last set
 #   --agentic-provider PROVIDER    LLM provider: edamame (recommended), claude, openai, ollama
 #   --agentic-interval SECONDS     AI processing interval in seconds (default: 3600)
 #   --llm-api-key KEY              LLM API key (overrides EDAMAME_LLM_API_KEY)
-#   --llm-base-url URL             Ollama base URL (overrides EDAMAME_LLM_BASE_URL)
+#   --llm-base-url URL             Ollama base URL, or an alternative endpoint for
+#                                  claude/openai (overrides EDAMAME_LLM_BASE_URL)
+#   --llm-model MODEL              Model for claude/openai/ollama (overrides EDAMAME_LLM_MODEL)
 #   --slack-bot-token TOKEN        Slack bot token
 #   --slack-actions-channel ID     Slack actions channel ID
 #   --slack-escalations-channel ID Slack escalations channel ID
@@ -34,6 +40,11 @@
 # AI Environment Variables:
 #   EDAMAME_LLM_API_KEY            LLM API key for all providers (edamame, claude, openai)
 #   EDAMAME_LLM_BASE_URL           Ollama base URL (for agentic-provider=ollama)
+#   EDAMAME_LLM_MODEL              Model override for claude/openai/ollama
+#
+# Connection Environment Variables:
+#   EDAMAME_PIN                    Hub PIN; preferred over --pin, which any
+#                                  local account can read in the process list
 #
 #   With a managed service (APT/APK), mode, provider, interval and key are
 #   written to /etc/edamame_posture.conf (root-only, 0600), which the service
@@ -723,6 +734,31 @@ conf_yaml_value() {
         }'
 }
 
+# read_pin_file <path>: print the PIN held on the first line of <path>
+# (whitespace stripped). Fails when the file is unreadable or holds no digits
+# only PIN; warns (stderr) when other accounts can read or write it.
+read_pin_file() {
+    _rpf_path="$1"
+    if [ ! -r "$_rpf_path" ]; then
+        return 1
+    fi
+    case "$(uname -s 2>/dev/null)" in
+        MINGW*|MSYS*|CYGWIN*) ;;
+        *)
+            _rpf_mode=$(stat -c '%a' "$_rpf_path" 2>/dev/null || stat -f '%Lp' "$_rpf_path" 2>/dev/null || echo "")
+            case "$_rpf_mode" in
+                ""|600|400|700|500) ;;
+                *) printf '%s\n' "WARNING: PIN file $_rpf_path is accessible to other accounts (mode $_rpf_mode); chmod 600 it" >&2 ;;
+            esac
+            ;;
+    esac
+    _rpf_pin=$(head -n 1 "$_rpf_path" | tr -d ' \t\r\n')
+    case "$_rpf_pin" in
+        ""|*[!0-9]*) return 1 ;;
+    esac
+    printf '%s' "$_rpf_pin"
+}
+
 # Escape backslashes and double quotes for a YAML double-quoted value.
 yaml_escape() {
     printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
@@ -813,6 +849,9 @@ resolve_service_conf() {
     _rsc_prev_claude=$(_rsc_prev claude_api_key "")
     _rsc_prev_openai=$(_rsc_prev openai_api_key "")
     _rsc_prev_ollama=$(_rsc_prev ollama_base_url "")
+    # Keys added in 2.0.2: absent from older confs, so they read as empty.
+    _rsc_prev_llm_model=$(_rsc_prev llm_model "")
+    _rsc_prev_llm_base_url=$(_rsc_prev llm_base_url "")
 
     SVC_AGENTIC_MODE="$_rsc_prev_mode"
     SVC_AGENTIC_PROVIDER="$_rsc_prev_provider"
@@ -827,12 +866,18 @@ resolve_service_conf() {
     SVC_CLAUDE_API_KEY="$_rsc_prev_claude"
     SVC_OPENAI_API_KEY="$_rsc_prev_openai"
     SVC_OLLAMA_BASE_URL="$_rsc_prev_ollama"
+    SVC_LLM_MODEL="$_rsc_prev_llm_model"
+    [ -n "${CONFIG_LLM_MODEL:-}" ] && SVC_LLM_MODEL="$CONFIG_LLM_MODEL"
+    SVC_LLM_BASE_URL="$_rsc_prev_llm_base_url"
     case "$SVC_AGENTIC_PROVIDER" in
         claude)
             [ -n "${CONFIG_LLM_API_KEY:-}" ] && SVC_CLAUDE_API_KEY="$CONFIG_LLM_API_KEY"
+            # A base URL for claude/openai is an alternative endpoint.
+            [ -n "${CONFIG_LLM_BASE_URL:-}" ] && SVC_LLM_BASE_URL="$CONFIG_LLM_BASE_URL"
             ;;
         openai)
             [ -n "${CONFIG_LLM_API_KEY:-}" ] && SVC_OPENAI_API_KEY="$CONFIG_LLM_API_KEY"
+            [ -n "${CONFIG_LLM_BASE_URL:-}" ] && SVC_LLM_BASE_URL="$CONFIG_LLM_BASE_URL"
             ;;
         ollama)
             [ -n "${CONFIG_LLM_BASE_URL:-}" ] && SVC_OLLAMA_BASE_URL="$CONFIG_LLM_BASE_URL"
@@ -864,7 +909,9 @@ resolve_service_conf() {
        [ "$SVC_LLM_API_KEY" != "$_rsc_prev_llm" ] || \
        [ "$SVC_CLAUDE_API_KEY" != "$_rsc_prev_claude" ] || \
        [ "$SVC_OPENAI_API_KEY" != "$_rsc_prev_openai" ] || \
-       [ "$SVC_OLLAMA_BASE_URL" != "$_rsc_prev_ollama" ]; then
+       [ "$SVC_OLLAMA_BASE_URL" != "$_rsc_prev_ollama" ] || \
+       [ "$SVC_LLM_MODEL" != "$_rsc_prev_llm_model" ] || \
+       [ "$SVC_LLM_BASE_URL" != "$_rsc_prev_llm_base_url" ]; then
         SVC_AGENTIC_CHANGED="true"
     fi
     return 0
@@ -879,8 +926,8 @@ service_conf_has_credential() {
 # True when the resolved settings enable the AI assistant but carry no
 # credential for it: the daemon would start with nothing adjudicated.
 service_conf_agentic_without_credential() {
-    [ "$SVC_AGENTIC_MODE" != "disabled" ] && [ -n "$SVC_AGENTIC_MODE" ] && \
-        ! service_conf_has_credential
+    [ "$SVC_AGENTIC_MODE" != "disabled" ] && [ "$SVC_AGENTIC_MODE" != "off" ] && \
+        [ -n "$SVC_AGENTIC_MODE" ] && ! service_conf_has_credential
 }
 
 # True when this run asked for anything the service conf holds.
@@ -892,8 +939,16 @@ service_conf_requested() {
         [ "${CONFIG_AGENTIC_PROVIDER_SET:-false}" = "true" ] || \
         [ "${CONFIG_AGENTIC_INTERVAL_SET:-false}" = "true" ] || \
         [ -n "${CONFIG_LLM_API_KEY:-}" ] || [ -n "${CONFIG_LLM_BASE_URL:-}" ] || \
+        [ -n "${CONFIG_LLM_MODEL:-}" ] || \
         [ -n "${CONFIG_SLACK_BOT_TOKEN:-}" ] || [ -n "${CONFIG_SLACK_ACTIONS_CHANNEL:-}" ] || \
         [ -n "${CONFIG_SLACK_ESCALATIONS_CHANNEL:-}" ]
+}
+
+# True when this run asks for the AI assistant.
+agentic_requested() {
+    # `off` only turns loops off: no reason to start a daemon for it.
+    [ "$CONFIG_AGENTIC_MODE_SET" = "true" ] && [ "$CONFIG_AGENTIC_MODE" != "disabled" ] && \
+        [ "$CONFIG_AGENTIC_MODE" != "off" ] && [ -n "$CONFIG_AGENTIC_MODE" ]
 }
 
 # render_service_conf: print the conf for the SVC_* values on stdout.
@@ -931,7 +986,8 @@ include_local_traffic: "$(yaml_escape "$SVC_INCLUDE_LOCAL_TRAFFIC")"
 # Agentic Mode
 # - auto: Automatically process and resolve safe/low-risk todos; escalate high-risk items
 # - analyze: Gather recommendations without executing changes
-# - disabled: No AI processing (default)
+# - off: Turn the Assistant and both detection engines off at every start
+# - disabled: Leave them as last set (default; a fresh install has them off)
 agentic_mode: "$(yaml_escape "$SVC_AGENTIC_MODE")"
 
 # ============================================================================
@@ -953,6 +1009,11 @@ llm_api_key: "$(yaml_escape "$SVC_LLM_API_KEY")"
 claude_api_key: "$(yaml_escape "$SVC_CLAUDE_API_KEY")"
 openai_api_key: "$(yaml_escape "$SVC_OPENAI_API_KEY")"
 ollama_base_url: "$(yaml_escape "$SVC_OLLAMA_BASE_URL")"
+
+# Optional overrides for claude / openai / ollama (empty = provider default):
+# the model, and an alternative endpoint for claude / openai.
+llm_model: "$(yaml_escape "$SVC_LLM_MODEL")"
+llm_base_url: "$(yaml_escape "$SVC_LLM_BASE_URL")"
 
 # ============================================================================
 # Unified Notifications (optional, preferred)
@@ -2141,7 +2202,9 @@ fi
 # Parse command line arguments
 CONFIG_USER=""
 CONFIG_DOMAIN=""
-CONFIG_PIN=""
+# The PIN is read from EDAMAME_PIN (or --pin-file) so it never has to be on
+# a command line; --pin still works but is visible in the process list.
+CONFIG_PIN="${EDAMAME_PIN:-}"
 CONFIG_DEVICE_ID=""
 CONFIG_AGENTIC_MODE="disabled"
 CONFIG_AGENTIC_PROVIDER=""
@@ -2153,6 +2216,7 @@ CONFIG_AGENTIC_INTERVAL="3600"
 # nothing adjudicated. Seeded from the environment, overridden by the flags.
 CONFIG_LLM_API_KEY="${EDAMAME_LLM_API_KEY:-}"
 CONFIG_LLM_BASE_URL="${EDAMAME_LLM_BASE_URL:-}"
+CONFIG_LLM_MODEL="${EDAMAME_LLM_MODEL:-}"
 CONFIG_SLACK_BOT_TOKEN=""
 CONFIG_SLACK_ACTIONS_CHANNEL=""
 CONFIG_SLACK_ESCALATIONS_CHANNEL=""
@@ -2188,7 +2252,12 @@ while [ $# -gt 0 ]; do
             shift 2
             ;;
         --pin)
+            warn "Note: --pin is visible in the process list; prefer the EDAMAME_PIN env var or --pin-file"
             CONFIG_PIN="$2"
+            shift 2
+            ;;
+        --pin-file)
+            CONFIG_PIN=$(read_pin_file "$2") || error "Cannot read a PIN from $2"
             shift 2
             ;;
         --device-id)
@@ -2246,6 +2315,10 @@ while [ $# -gt 0 ]; do
             ;;
         --llm-base-url)
             CONFIG_LLM_BASE_URL="$2"
+            shift 2
+            ;;
+        --llm-model)
+            CONFIG_LLM_MODEL="$2"
             shift 2
             ;;
         # Legacy options for backwards compatibility (prefer --agentic-provider + env vars).
@@ -2472,12 +2545,6 @@ info "Architecture: $ARCH"
 if [ "$PLATFORM" = "linux" ]; then
     info "Detected OS: $ID"
 fi
-
-# True when this run asks for the AI assistant.
-agentic_requested() {
-    [ "$CONFIG_AGENTIC_MODE_SET" = "true" ] && [ "$CONFIG_AGENTIC_MODE" != "disabled" ] && \
-        [ -n "$CONFIG_AGENTIC_MODE" ]
-}
 
 # True when the Linux service conf must be (re)written for this run's agentic
 # mode / provider / interval / LLM credential: they differ from the current
@@ -3452,12 +3519,23 @@ if [ "$SHOULD_START_DAEMON" = "true" ]; then
     # line, where ps would show it); $SUDO is `sudo -E` and keeps it.
     AGENTIC_PROVIDER_NAME="$CONFIG_AGENTIC_PROVIDER"
     [ "$AGENTIC_PROVIDER_NAME" = "none" ] && AGENTIC_PROVIDER_NAME=""
-    if [ "$CONFIG_AGENTIC_MODE" != "disabled" ]; then
+    # The PIN reaches the daemon in its environment, never on its command
+    # line; like the LLM key it relies on $SUDO keeping the environment.
+    if [ "$DISCONNECTED_MODE" != "true" ] && [ -n "$CONFIG_PIN" ]; then
+        export EDAMAME_PIN="$CONFIG_PIN"
+        if [ "$SUDO" = "doas" ]; then
+            warn "doas preserves the environment only with a keepenv rule; without one the daemon will not see EDAMAME_PIN."
+        fi
+    fi
+    if [ "$CONFIG_AGENTIC_MODE" != "disabled" ] && [ "$CONFIG_AGENTIC_MODE" != "off" ]; then
         if [ -n "$CONFIG_LLM_API_KEY" ]; then
             export EDAMAME_LLM_API_KEY="$CONFIG_LLM_API_KEY"
         fi
         if [ -n "$CONFIG_LLM_BASE_URL" ]; then
             export EDAMAME_LLM_BASE_URL="$CONFIG_LLM_BASE_URL"
+        fi
+        if [ -n "$CONFIG_LLM_MODEL" ]; then
+            export EDAMAME_LLM_MODEL="$CONFIG_LLM_MODEL"
         fi
         if [ -z "$CONFIG_LLM_API_KEY" ] && [ -z "$CONFIG_LLM_BASE_URL" ]; then
             warn "Agentic mode '$CONFIG_AGENTIC_MODE' requested without EDAMAME_LLM_API_KEY / EDAMAME_LLM_BASE_URL;"
@@ -3493,10 +3571,10 @@ if [ "$SHOULD_START_DAEMON" = "true" ]; then
             set -- background-start-disconnected
         else
             # Connected mode - requires credentials
+            # The PIN is in EDAMAME_PIN (exported above), not on argv.
             set -- start \
                 --user "$CONFIG_USER" \
-                --domain "$CONFIG_DOMAIN" \
-                --pin "$CONFIG_PIN"
+                --domain "$CONFIG_DOMAIN"
             
             [ -n "$CONFIG_DEVICE_ID" ] && set -- "$@" --device-id "$CONFIG_DEVICE_ID"
         fi
@@ -3511,7 +3589,9 @@ if [ "$SHOULD_START_DAEMON" = "true" ]; then
         [ "$CONFIG_CANCEL_ON_VIOLATION" = "true" ] && set -- "$@" --cancel-on-violation
         [ "$CONFIG_INCLUDE_LOCAL_TRAFFIC" = "true" ] && set -- "$@" --include-local-traffic
         
-        if [ "$CONFIG_AGENTIC_MODE" != "disabled" ]; then
+        if [ "$CONFIG_AGENTIC_MODE" = "off" ]; then
+            set -- "$@" --agentic-mode off
+        elif [ "$CONFIG_AGENTIC_MODE" != "disabled" ]; then
             set -- "$@" --agentic-mode "$CONFIG_AGENTIC_MODE"
             [ -n "$AGENTIC_PROVIDER_NAME" ] && set -- "$@" --agentic-provider "$AGENTIC_PROVIDER_NAME"
             if [ -n "$CONFIG_AGENTIC_INTERVAL" ] && [ "$CONFIG_AGENTIC_INTERVAL" != "3600" ]; then

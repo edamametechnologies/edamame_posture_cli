@@ -247,7 +247,7 @@ In `analyze` mode, the AI assistant will:
 | `background-start-disconnected` | Run in background without connecting to EDAMAME Hub |
 | `--network-scan` | Enable LAN device discovery (find devices on your network) |
 | `--packet-capture` | Enable network traffic capture (monitor all connections) |
-| `--agentic-mode auto/analyze` | Set AI behavior (see above) |
+| `--agentic-mode auto/analyze/off` | Set AI behavior (see above); `off` turns agentic protection off, `disabled` (default) leaves it as last set |
 | `--agentic-provider edamame` | Use EDAMAME Portal LLM for AI analysis |
 | `--agentic-interval 300` | Check for new security todos every 5 minutes |
 | `--export-to-portal` | Export agentic action history to EDAMAME Portal |
@@ -718,6 +718,25 @@ Example:
 ```
 edamame_posture start --user user --domain example.com --pin 123456
 ```
+
+**Keep the PIN off the command line.** Any local account can read a process's
+arguments (`ps`, `/proc/<pid>/cmdline`, Task Manager). Since 2.0.2 the PIN can
+come from the `EDAMAME_PIN` environment variable or from a file, and `--pin`
+prints a warning:
+
+```
+# Environment variable (sudo -E keeps it)
+EDAMAME_PIN=123456 sudo -E edamame_posture start --user user --domain example.com
+
+# Owner-only file (a warning is printed if group/others can read it)
+install -m 600 /dev/null /root/edamame.pin && echo 123456 > /root/edamame.pin
+sudo edamame_posture start --user user --domain example.com --pin-file /root/edamame.pin
+```
+
+`--pin-file` and `--pin` are mutually exclusive; `EDAMAME_PIN` is used when
+neither is given. The daemon removes `EDAMAME_PIN` from its environment once
+read and hands the PIN to its background process the same way, never on its
+command line.
 
 This mode runs persistently (until stopped) and enforces policies in real-time, providing active protection of the environment.
 
@@ -1408,12 +1427,15 @@ curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamamete
 **Available Options:**
 - `--user USER` - EDAMAME user
 - `--domain DOMAIN` - EDAMAME domain
-- `--pin PIN` - EDAMAME pin
+- `--pin PIN` - EDAMAME pin (visible in the process list; prefer `EDAMAME_PIN` or `--pin-file`)
+- `--pin-file PATH` - read the EDAMAME pin from a file (keep it `0600`)
 - `--llm-api-key KEY` - LLM API key for AI assistant (all providers: edamame, claude, openai)
 - `--claude-api-key KEY` - Claude API key (for Bring Your Own LLM)
 - `--openai-api-key KEY` - OpenAI API key (for Bring Your Own LLM)
 - `--ollama-base-url URL` - Ollama base URL (for local LLM)
-- `--agentic-mode MODE` - AI mode: auto, analyze, or disabled
+- `--agentic-mode MODE` - AI mode: auto, analyze, off, or disabled
+- `--llm-model MODEL` - model override for claude/openai/ollama (or `EDAMAME_LLM_MODEL`)
+- `--llm-base-url URL` - Ollama URL, or an alternative claude/openai endpoint (or `EDAMAME_LLM_BASE_URL`)
 - `--agentic-interval SECONDS` - Processing interval
 - `--slack-bot-token TOKEN` - Slack bot token
 - `--slack-actions-channel ID` - Slack actions channel
@@ -1547,15 +1569,25 @@ If you prefer not to add a repository, you can install the Debian package manual
    **AI Assistant Configuration** (Optional):
    ```yaml
    # Enable AI Assistant
-   agentic_mode: "auto"  # or "analyze" or "disabled"
-   
+   agentic_mode: "auto"  # "analyze", "off" (turn the Assistant and both
+                         # detection engines off at every start) or
+                         # "disabled" (leave them as last set; the default)
+   agentic_provider: "edamame"  # edamame, claude, openai or ollama
+
    # Option 1: EDAMAME Portal LLM (recommended - create key at portal.edamame.tech)
-   edamame_api_key: "edm_live_..."
+   llm_api_key: "edm_live_..."
    
    # Option 2: Bring Your Own LLM (choose ONE)
    claude_api_key: "sk-ant-..."     # Anthropic Claude
    openai_api_key: "sk-proj-..."   # OpenAI GPT
    ollama_base_url: "http://localhost:11434"  # Ollama (local)
+
+   # Optional overrides for claude / openai / ollama (2.0.2)
+   llm_model: ""      # model name; empty = the provider default
+   llm_base_url: ""   # alternative claude/openai endpoint (gateway, proxy)
+
+   # Fail the service on active attack pattern findings (optional)
+   fail_on_findings: "false"
    
    # Slack Notifications (optional)
    slack_bot_token: "xoxb-..."
@@ -1568,6 +1600,12 @@ If you prefer not to add a repository, you can install the Debian package manual
 
    **Disconnected Mode** (No Hub connection):
    Leave `edamame_user`, `edamame_domain`, and `edamame_pin` empty. The service will start in disconnected mode.
+
+   Keys missing from the file read as their defaults: the packaged file is a
+   dpkg conffile, and an upgrade keeps an existing (installer-written) file as
+   it is, so keys added by a later release (`llm_model`, `llm_base_url`) are
+   simply absent until you add them. The service wrapper hands the PIN to the
+   daemon in `EDAMAME_PIN`, never on its command line.
 
 4. **Start** the service:
    ```bash
@@ -1693,8 +1731,8 @@ Once installed, EDAMAME Posture is invoked via the `edamame_posture` command. Mo
 - **background-attack-pattern-dismiss** `<FINDING_KEY>` / **background-attack-pattern-undismiss** `<FINDING_KEY>`: Dismiss or restore vulnerability findings by finding key. Same rule semantics as the divergence pair since core 1.9.1: dismiss creates a `Finding`-scope rule, undismiss removes it, and a broader covering rule is named rather than removed.
 - **check-policy** `<min_score>` `"<threat_ids>"` `"[tag_prefixes]"`: Check whether the system meets a specified security policy. You provide a minimum score threshold, a comma-separated list of critical threat IDs to ensure are not present (or have specific states), and optional tag prefixes for compliance frameworks. This command exits with code 0 if the policy is met, or non-zero if not met (making it perfect for CI gating).
 - **check-policy-for-domain** `<domain>` `<policy_name>`: Similar to check-policy, but retrieves the policy requirements from EDAMAME Hub for the given domain and policy name. This allows centralized policies to be enforced on the local machine. Requires that the machine is enrolled (or at least has a policy cached) for that domain.
-- **start** `--user <USER>` `--domain <DOMAIN>` `--pin <PIN>` `[--device-id <ID>]` `[--network-scan]` `[--packet-capture]` `[--whitelist <NAME>]` `[--fail-on-whitelist]` `[--fail-on-blacklist]` `[--fail-on-findings]` `[--include-local-traffic]` `[--cancel-on-violation]` `[--llm-api-key <KEY>]` `[--agentic-mode <MODE>]` `[--agentic-provider <PROVIDER>]` `[--agentic-interval <SECONDS>]`: Start continuous monitoring and conditional access control. Typically run as a background service or daemon. You must supply your Hub user/email, domain, and one-time PIN (from Hub) to register the device session. Optional flags enable LAN scanning, packet capture, whitelist enforcement, live vulnerability-finding enforcement, local traffic inclusion, AI Assistant automation (with EDAMAME Portal LLM via `--llm-api-key` or BYOLLM), and pipeline cancellation on violations. This will keep running until stopped and enforce policy/network rules in real-time (e.g., locking down access if posture degrades or active vulnerability findings appear).
-- **background-start-disconnected** `[--network-scan]` `[--packet-capture]` `[--whitelist <NAME>]` `[--fail-on-whitelist]` `[--fail-on-blacklist]` `[--fail-on-findings]` `[--include-local-traffic]` `[--cancel-on-violation]` `[--llm-api-key KEY]` `[--agentic-mode MODE]` `[--agentic-provider PROVIDER]` `[--agentic-interval SECONDS]`: Start the background monitoring in a local-only mode (no connection to EDAMAME Hub). Combine `--network-scan` for LAN discovery with `--packet-capture` when you need traffic capture + whitelist enforcement. Optional flags enable whitelist/blacklist/vulnerability-finding enforcement with failure conditions, local traffic inclusion, pipeline cancellation on violations, AI Assistant mode (`auto`/`analyze`/`disabled`), provider selection (`edamame`, `claude`, `openai`, `ollama`, `none`), and processing interval. For AI, use `--llm-api-key` or set `EDAMAME_LLM_API_KEY` environment variable. This is useful for CI runners or standalone usage where you want monitoring without cloud integration. This process runs until killed; typically you'd run it in a screen/tmux or as a service.
+- **start** `--user <USER>` `--domain <DOMAIN>` `--pin <PIN>` | `--pin-file <PATH>` | `EDAMAME_PIN` `[--device-id <ID>]` `[--network-scan]` `[--packet-capture]` `[--whitelist <NAME>]` `[--fail-on-whitelist]` `[--fail-on-blacklist]` `[--fail-on-findings]` `[--include-local-traffic]` `[--cancel-on-violation]` `[--llm-api-key <KEY>]` `[--agentic-mode <MODE>]` `[--agentic-provider <PROVIDER>]` `[--agentic-interval <SECONDS>]`: Start continuous monitoring and conditional access control. Typically run as a background service or daemon. You must supply your Hub user/email, domain, and one-time PIN (from Hub) to register the device session. Optional flags enable LAN scanning, packet capture, whitelist enforcement, live vulnerability-finding enforcement, local traffic inclusion, AI Assistant automation (with EDAMAME Portal LLM via `--llm-api-key` or BYOLLM), and pipeline cancellation on violations. This will keep running until stopped and enforce policy/network rules in real-time (e.g., locking down access if posture degrades or active vulnerability findings appear).
+- **background-start-disconnected** `[--network-scan]` `[--packet-capture]` `[--whitelist <NAME>]` `[--fail-on-whitelist]` `[--fail-on-blacklist]` `[--fail-on-findings]` `[--include-local-traffic]` `[--cancel-on-violation]` `[--llm-api-key KEY]` `[--agentic-mode MODE]` `[--agentic-provider PROVIDER]` `[--agentic-interval SECONDS]`: Start the background monitoring in a local-only mode (no connection to EDAMAME Hub). Combine `--network-scan` for LAN discovery with `--packet-capture` when you need traffic capture + whitelist enforcement. Optional flags enable whitelist/blacklist/vulnerability-finding enforcement with failure conditions, local traffic inclusion, pipeline cancellation on violations, AI Assistant mode (`auto`/`analyze`/`off`/`disabled`), provider selection (`edamame`, `claude`, `openai`, `ollama`, `none`), and processing interval. For AI, use `--llm-api-key` or set `EDAMAME_LLM_API_KEY` environment variable. This is useful for CI runners or standalone usage where you want monitoring without cloud integration. This process runs until killed; typically you'd run it in a screen/tmux or as a service.
 - **get-sessions** `--fail-on-whitelist` `--fail-on-blacklist` `--fail-on-anomalous` `--zeek-format` `--include-local-traffic`: Report network sessions from the background process. Use the `--fail-on-*` flags to cause a non-zero exit code when violations are detected, optionally format output as Zeek, and include local traffic if desired. Returns exit code 0 when no fatal violations are detected.
 - **flodbadd**: Perform a quick scan of the local network (LAN) to identify other devices on your subnet. This can reveal potential rogue devices or just provide situational awareness. It lists IP addresses and basic host info for devices it can detect.
 - **request-signature**: Generate a security posture signature for the current device state. The output is a cryptographic signature (token) that represents the current posture (including all threat checks and scores). This signature can be stored or embedded (for example, in a Git commit message) as proof of posture at a point in time.
@@ -1729,7 +1767,7 @@ For completeness, here is a list of EDAMAME Posture CLI subcommands with detaile
 - **check-policy** `<MINIMUM_SCORE>` `"<THREAT_IDS>"` `"[TAG_PREFIXES]"` – Local policy compliance check. *Requires admin privileges*. Returns non-zero exit code if policy not met.
 - **check-policy-for-domain** `<DOMAIN>` `<POLICY_NAME>` – Policy check against a Hub-defined domain policy. *Requires admin privileges*. Returns non-zero exit code if policy not met.
 - **check-policy-for-domain-with-signature** `"<SIGNATURE>"` `<DOMAIN>` `<POLICY_NAME>` – Verify a stored posture signature against a domain policy (for historical verification).
-- **start** (alias for **background-start**) `--user <USER>` `--domain <DOMAIN>` `--pin <PIN>` `[--device-id <ID>]` `[--network-scan]` `[--packet-capture]` `[--whitelist <NAME>]` `[--fail-on-whitelist]` `[--fail-on-blacklist]` `[--fail-on-findings]` `[--include-local-traffic]` `[--cancel-on-violation]` `[--llm-api-key <KEY>]` `[--agentic-mode <MODE>]` `[--agentic-provider <PROVIDER>]` `[--agentic-interval <SECONDS>]` – Start continuous monitoring and Hub integration as a background daemon. *Requires admin privileges*.
+- **start** (alias for **background-start**) `--user <USER>` `--domain <DOMAIN>` `--pin <PIN>` | `--pin-file <PATH>` | `EDAMAME_PIN` `[--device-id <ID>]` `[--network-scan]` `[--packet-capture]` `[--whitelist <NAME>]` `[--fail-on-whitelist]` `[--fail-on-blacklist]` `[--fail-on-findings]` `[--include-local-traffic]` `[--cancel-on-violation]` `[--llm-api-key <KEY>]` `[--agentic-mode <MODE>]` `[--agentic-provider <PROVIDER>]` `[--agentic-interval <SECONDS>]` – Start continuous monitoring and Hub integration as a background daemon. *Requires admin privileges*.
 - **foreground-start** – Start continuous monitoring in the foreground (used by systemd services). Accepts the same flags as `background-start` for device labeling, network configuration, and AI assistant behavior. *Requires admin privileges*.
 - **background-start-disconnected** `[--network-scan]` `[--packet-capture]` `[--whitelist <NAME>]` `[--fail-on-whitelist]` `[--fail-on-blacklist]` `[--fail-on-findings]` `[--include-local-traffic]` `[--cancel-on-violation]` `[--llm-api-key <KEY>]` `[--agentic-mode MODE]` `[--agentic-provider PROVIDER]` `[--agentic-interval SECONDS]` – Start continuous monitoring in offline mode without Hub connection. *Requires admin privileges*.
 - **stop** (alias for **background-stop**) – Stop a running background monitoring process.

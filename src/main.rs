@@ -190,10 +190,19 @@ fn run() {
     if args.len() > 1 && args[1] == "background-process" {
         // Don't call ensure_admin() here, the core is not initialized yet
         if args.len() == 17 {
+            // The launcher hands the PIN over in EDAMAME_PIN, never in argv
+            // (visible in the process list); args[4] stays as an empty slot
+            // so the 17-argument layout is unchanged.
+            let pin = if args[4].is_empty() {
+                std::env::var("EDAMAME_PIN").unwrap_or_default()
+            } else {
+                args[4].to_string()
+            };
+            std::env::remove_var("EDAMAME_PIN");
             run_background(
-                args[2].to_string(),            // user
-                args[3].to_string(),            // domain
-                args[4].to_string(),            // pin
+                args[2].to_string(), // user
+                args[3].to_string(), // domain
+                pin,
                 args[5].to_string(),            // device_id
                 args[6].to_string() == "true",  // lan_scanning
                 args[7].to_string() == "true",  // packet_capture
@@ -777,10 +786,13 @@ fn run_base() {
                 .get_one::<String>("domain")
                 .expect("domain not provided")
                 .to_string();
-            let pin = sub_matches
-                .get_one::<String>("pin")
-                .expect("pin not provided")
-                .to_string();
+            let pin = match crate::cli::resolve_pin(sub_matches) {
+                Ok((pin, _)) => pin,
+                Err(e) => {
+                    eprintln!("{}", e);
+                    std::process::exit(ERROR_CODE_PARAM);
+                }
+            };
             let device_id = sub_matches
                 .get_one::<String>("device_id")
                 .cloned()
@@ -907,10 +919,13 @@ fn run_base() {
                 .get_one::<String>("domain")
                 .expect("domain not provided")
                 .to_string();
-            let pin = sub_matches
-                .get_one::<String>("pin")
-                .expect("pin not provided")
-                .to_string();
+            let pin = match crate::cli::resolve_pin(sub_matches) {
+                Ok((pin, _)) => pin,
+                Err(e) => {
+                    eprintln!("{}", e);
+                    std::process::exit(ERROR_CODE_PARAM);
+                }
+            };
             let device_id = sub_matches
                 .get_one::<String>("device_id")
                 .cloned()
