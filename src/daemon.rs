@@ -64,10 +64,30 @@ pub fn background_process(
         score.model_name, score.model_date, score.model_signature
     );
 
+    // A Hub enrollment token (MDM deployment) handed over by the launcher,
+    // the service conf or the environment: read once, then gone from the
+    // environment so the daemon's children never inherit it.
+    let enrollment_token = std::env::var(crate::cli::ENROLLMENT_TOKEN_ENV).unwrap_or_default();
+    std::env::remove_var(crate::cli::ENROLLMENT_TOKEN_ENV);
+
     // Set credentials if not empty, otherwise the core will load saved credentials
     if user != "" && domain != "" {
-        info!("Setting credentials for user: {}, domain: {}", user, domain);
-        set_credentials(user, domain, pin);
+        if pin.is_empty() && !enrollment_token.trim().is_empty() {
+            // Enroll without the user's PIN; the core keeps the token and
+            // then the device credential in the OS secret store. A device
+            // already enrolled for this user reconnects without using it.
+            info!(
+                "Enrolling in the Hub with an enrollment token for user: {}, domain: {}",
+                user, domain
+            );
+            let outcome = enroll_with_token(user.clone(), domain.clone(), enrollment_token);
+            if !crate::enrollment_succeeded(&outcome) {
+                error!("Hub enrollment did not complete: {}", outcome);
+            }
+        } else {
+            info!("Setting credentials for user: {}, domain: {}", user, domain);
+            set_credentials(user, domain, pin);
+        }
     }
 
     // Initialize network to autodetect (this will allow the core to detect the network interfaces and support whitelist operations)

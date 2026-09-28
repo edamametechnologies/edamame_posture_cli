@@ -274,7 +274,21 @@ fn first_non_empty(values: &[&str]) -> String {
 impl ServiceConfig {
     /// `pin_env` is `EDAMAME_PIN` from the service environment, the last
     /// fallback after `edamame_pin` and `edamame_pin_file` in the conf.
+    #[cfg(test)]
     pub(crate) fn from_conf(text: &str, pin_env: Option<String>) -> Result<Self, String> {
+        Self::from_conf_with_env(text, pin_env, None)
+    }
+
+    /// As [`Self::from_conf`], plus `token_env`: `EDAMAME_ENROLLMENT_TOKEN`
+    /// from the service environment, the fallback after
+    /// `edamame_enrollment_token` and `edamame_enrollment_token_file`. With
+    /// no PIN, a user, a domain and a token start in connected mode: the
+    /// daemon enrolls the device in the Hub with the token (MDM deployment).
+    pub(crate) fn from_conf_with_env(
+        text: &str,
+        pin_env: Option<String>,
+        token_env: Option<String>,
+    ) -> Result<Self, String> {
         let get = |k: &str| conf_value(text, k);
         let mut cfg = ServiceConfig::default();
 
@@ -294,11 +308,40 @@ impl ServiceConfig {
         if pin.is_empty() {
             pin = pin_env.unwrap_or_default().trim().to_string();
         }
-        if !cfg.user.is_empty() && !cfg.domain.is_empty() && !pin.is_empty() {
+        let mut token = get("edamame_enrollment_token");
+        if token.is_empty() {
+            let token_file = get("edamame_enrollment_token_file");
+            if !token_file.is_empty() {
+                token = std::fs::read_to_string(&token_file)
+                    .map_err(|e| {
+                        format!(
+                            "Cannot read edamame_enrollment_token_file {}: {}",
+                            token_file, e
+                        )
+                    })?
+                    .lines()
+                    .next()
+                    .unwrap_or("")
+                    .trim()
+                    .to_string();
+            }
+        }
+        if token.is_empty() {
+            token = token_env.unwrap_or_default().trim().to_string();
+        }
+        if !cfg.user.is_empty() && !cfg.domain.is_empty() && (!pin.is_empty() || !token.is_empty())
+        {
             crate::parse_username(&cfg.user).map_err(|e| format!("edamame_user: {}", e))?;
             crate::parse_fqdn(&cfg.domain).map_err(|e| format!("edamame_domain: {}", e))?;
-            crate::parse_digits_only(&pin).map_err(|e| format!("edamame_pin: {}", e))?;
-            cfg.pin = pin;
+            if !pin.is_empty() {
+                crate::parse_digits_only(&pin).map_err(|e| format!("edamame_pin: {}", e))?;
+                cfg.pin = pin;
+            } else {
+                // Handed to the daemon through its environment, read once
+                // and removed there (never argv, never a log line).
+                cfg.env
+                    .push((crate::cli::ENROLLMENT_TOKEN_ENV.to_string(), token));
+            }
         } else {
             // Disconnected mode, as in the Linux wrapper.
             cfg.user.clear();
@@ -564,8 +607,12 @@ fn load_config(conf: &Path) -> Result<ServiceConfig, String> {
     let perm_warnings = check_conf_permissions(conf)?;
     let text = std::fs::read_to_string(conf)
         .map_err(|e| format!("Cannot read {}: {}", conf.display(), e))?;
-    let mut cfg = ServiceConfig::from_conf(&text, std::env::var("EDAMAME_PIN").ok())
-        .map_err(|e| format!("{}: {}", conf.display(), e))?;
+    let mut cfg = ServiceConfig::from_conf_with_env(
+        &text,
+        std::env::var("EDAMAME_PIN").ok(),
+        std::env::var(crate::cli::ENROLLMENT_TOKEN_ENV).ok(),
+    )
+    .map_err(|e| format!("{}: {}", conf.display(), e))?;
     cfg.warnings.extend(perm_warnings);
     Ok(cfg)
 }
@@ -1324,6 +1371,54 @@ edamame_user: \"bob\"
             (cfg.user.as_str(), cfg.domain.as_str(), cfg.pin.as_str()),
             ("alice", "example.com", "123456")
         );
+    }
+
+    #[test]
+    fn enrollment_token_starts_connected_without_a_pin() {
+        const TOKEN: &str = "edm_enr_0123456789abcdef0123456789abcdef_secretpart";
+        let base = "edamame_user: \"alice\"\nedamame_domain: \"example.com\"\n";
+        let token_env = |cfg: &ServiceConfig| {
+            cfg.env
+                .iter()
+                .find(|(k, _)| k == crate::cli::ENROLLMENT_TOKEN_ENV)
+                .map(|(_, v)| v.clone())
+        };
+
+        // Conf key.
+        let text = format!("{base}edamame_enrollment_token: \"{TOKEN}\"\n");
+        let cfg = ServiceConfig::from_conf_with_env(&text, None, None).unwrap();
+        assert_eq!((cfg.user.as_str(), cfg.pin.as_str()), ("alice", ""));
+        assert_eq!(token_env(&cfg).as_deref(), Some(TOKEN));
+
+        // Service environment fallback.
+        let cfg = ServiceConfig::from_conf_with_env(base, None, Some(TOKEN.into())).unwrap();
+        assert_eq!(cfg.user, "alice");
+        assert_eq!(token_env(&cfg).as_deref(), Some(TOKEN));
+
+        // Token file.
+        let dir = std::env::temp_dir().join(format!("posture-svc-enroll-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let file = dir.join("token");
+        std::fs::write(&file, format!("{TOKEN}\n")).unwrap();
+        let text = format!(
+            "{base}edamame_enrollment_token_file: \"{}\"\n",
+            file.display()
+        );
+        let cfg = ServiceConfig::from_conf_with_env(&text, None, None).unwrap();
+        assert_eq!(token_env(&cfg).as_deref(), Some(TOKEN));
+        let _ = std::fs::remove_dir_all(&dir);
+
+        // A PIN wins: the token is not handed over.
+        let text =
+            format!("{base}edamame_pin: \"123456\"\nedamame_enrollment_token: \"{TOKEN}\"\n");
+        let cfg = ServiceConfig::from_conf_with_env(&text, None, None).unwrap();
+        assert_eq!(cfg.pin, "123456");
+        assert_eq!(token_env(&cfg), None);
+
+        // No user: disconnected, token ignored.
+        let cfg = ServiceConfig::from_conf_with_env("", None, Some(TOKEN.into())).unwrap();
+        assert_eq!(cfg.user, "");
+        assert_eq!(token_env(&cfg), None);
     }
 
     #[test]
