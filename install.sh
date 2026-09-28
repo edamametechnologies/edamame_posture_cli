@@ -60,28 +60,29 @@
 #
 # Examples:
 #
-#   Basic installation:
+#   Basic installation (the PIN in the environment, off the process list):
+#     export EDAMAME_PIN=123456
 #     curl -sSf https://raw.githubusercontent.com/.../install.sh | sh -s -- \
-#       --user myuser --domain example.com --pin 123456
+#       --user myuser --domain example.com
 #
-#   CI/CD with network monitoring:
+#   CI/CD with network monitoring (EDAMAME_PIN exported from a secret):
 #     curl -sSf https://raw.githubusercontent.com/.../install.sh | sh -s -- \
-#       --user $USER --domain $DOMAIN --pin $PIN \
+#       --user $USER --domain $DOMAIN \
 #       --device-id "ci-runner-${RUN_ID}" \
 #       --start-lanscan --start-capture \
 #       --whitelist github_ubuntu --fail-on-whitelist
 #
 #   AI Assistant with EDAMAME Portal LLM (recommended for headless):
-#     export EDAMAME_LLM_API_KEY="edm_live_..."
+#     export EDAMAME_PIN=123456 EDAMAME_LLM_API_KEY="edm_live_..."
 #     curl -sSf https://raw.githubusercontent.com/.../install.sh | sh -s -- \
-#       --user myuser --domain example.com --pin 123456 \
+#       --user myuser --domain example.com \
 #       --agentic-mode auto --agentic-provider edamame \
 #       --start-lanscan --start-capture --whitelist builder
 #
 #   AI Assistant with Claude:
-#     export EDAMAME_LLM_API_KEY="sk-ant-..."
+#     export EDAMAME_PIN=123456 EDAMAME_LLM_API_KEY="sk-ant-..."
 #     curl -sSf https://raw.githubusercontent.com/.../install.sh | sh -s -- \
-#       --user myuser --domain example.com --pin 123456 \
+#       --user myuser --domain example.com \
 #       --agentic-mode auto --agentic-provider claude \
 #       --start-lanscan --start-capture --whitelist builder
 

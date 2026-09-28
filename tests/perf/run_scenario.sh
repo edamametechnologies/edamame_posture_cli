@@ -251,8 +251,14 @@ if [[ $WANT_HUB -eq 1 ]]; then
   START_ARGS=(background-start
     -u "$USER_SET"
     -d "$DOMAIN_SET"
-    -p "$PIN_SET"
     --device-id "perf-ci")
+  # The PIN travels in EDAMAME_PIN (kept by sudo -E), not on argv. A released
+  # binary from before 2.0.2 does not read it: -p for that one.
+  if "$BIN" background-start --help 2>/dev/null | grep -q EDAMAME_PIN; then
+    export EDAMAME_PIN="$PIN_SET"
+  else
+    START_ARGS+=(-p "$PIN_SET")
+  fi
 else
   START_ARGS=(background-start-disconnected)
 fi
