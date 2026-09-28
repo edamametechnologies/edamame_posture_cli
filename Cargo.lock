@@ -1845,7 +1845,7 @@ dependencies = [
 [[package]]
 name = "edamame_backend"
 version = "0.3.5"
-source = "git+https://github.com/edamametechnologies/edamame_backend?branch=main#177dca49435fc54efc392a79d0c7588587cc1785"
+source = "git+https://github.com/edamametechnologies/edamame_backend?branch=main#0b6c927652a706578ad19333f6639cc78356364d"
 dependencies = [
  "anyhow",
  "blake3",
@@ -1859,8 +1859,8 @@ dependencies = [
 
 [[package]]
 name = "edamame_core"
-version = "2.0.1"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#7bf06b48b648c704a3b685c232829f891ba23740"
+version = "2.0.2"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#55d288ea5c75e7fda14f7bb91d5bb17897fc326d"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -1948,8 +1948,8 @@ dependencies = [
 
 [[package]]
 name = "edamame_foundation"
-version = "2.0.1"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#f660a3ce0cc269871675a7118d2a4b1320805659"
+version = "2.0.2"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#a9b4aa6252a546ee392c154dc8c66e5be891677b"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -1959,6 +1959,8 @@ dependencies = [
  "bincode",
  "chrono",
  "console-subscriber",
+ "core-foundation 0.10.1",
+ "core-foundation-sys",
  "csv",
  "dashmap 6.2.1",
  "dirs",
@@ -1985,6 +1987,7 @@ dependencies = [
  "regex",
  "reqwest",
  "rusqlite",
+ "security-framework",
  "sentry",
  "sentry-tracing",
  "serde",
@@ -2405,8 +2408,8 @@ dependencies = [
 
 [[package]]
 name = "flodbadd"
-version = "2.0.1"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#41d59cb0114fad99fa89a94c15664df778abeaa1"
+version = "2.0.2"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#932603a56d3772f43df9d65567123ae3c041d493"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -3485,7 +3488,7 @@ dependencies = [
  "js-sys",
  "log",
  "wasm-bindgen",
- "windows-core 0.62.2",
+ "windows-core 0.58.0",
 ]
 
 [[package]]
@@ -4013,7 +4016,7 @@ dependencies = [
 [[package]]
 name = "l7_ebpf_program"
 version = "0.1.0"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#41d59cb0114fad99fa89a94c15664df778abeaa1"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#932603a56d3772f43df9d65567123ae3c041d493"
 
 [[package]]
 name = "lazy_static"
@@ -7574,13 +7577,16 @@ dependencies = [
 [[package]]
 name = "threatmodels_rs"
 version = "0.1.1"
-source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#a1b51fc5f2ee90654c55387dfbf94739b2d3b95b"
+source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#49cd810c0cc26a10719b32e0ddcdc230c1cdf537"
 dependencies = [
  "anyhow",
  "chrono",
  "reqwest",
+ "ring",
  "rustls",
  "rustls-platform-verifier",
+ "serde",
+ "serde_json",
  "serial_test",
  "tokio",
  "tracing",
