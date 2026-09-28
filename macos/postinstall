@@ -9,4 +9,19 @@ mkdir -p "$LINK_DIR"
 rm -f "$LINK_PATH"
 ln -s "$TARGET" "$LINK_PATH"
 
+# An upgrade replaces the binary in place; restart the service installed by
+# `edamame_posture install-service` (if any) so it runs the new version.
+# `brew upgrade` removes the LaunchDaemon with the old cask first: the marker
+# install-service leaves (holding the conf path) brings it back.
+PLIST="/Library/LaunchDaemons/com.edamametechnologies.edamame-posture.plist"
+MARKER="/Library/Application Support/EDAMAME/EDAMAME-Posture/service-enabled"
+if [ -f "$PLIST" ]; then
+  /bin/launchctl kickstart -k system/com.edamametechnologies.edamame-posture 2>/dev/null \
+    || /bin/launchctl bootstrap system "$PLIST" 2>/dev/null \
+    || true
+elif [ -f "$MARKER" ]; then
+  CONF="$(head -n 1 "$MARKER")"
+  "$TARGET" install-service --conf "$CONF" || true
+fi
+
 exit 0

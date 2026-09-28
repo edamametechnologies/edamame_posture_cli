@@ -287,6 +287,10 @@ pub fn build_cli() -> Command {
     )
     .subcommand(Command::new("background-stop").alias("stop").about("Stop reporting background process"))
     ////////////////
+    // Native service (LaunchDaemon / Windows service / systemd unit)
+    ////////////////
+    .subcommands(crate::service::service_subcommands())
+    ////////////////
     // MCP Server commands
     ////////////////
     .subcommand(
