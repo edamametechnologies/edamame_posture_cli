@@ -16,5 +16,12 @@ Get-ChocolateyWebFile -PackageName $packageName `
 Install-BinFile -Name $packageName `
                 -Path $fileFullPath
 
-
-
+# The service installed by `edamame_posture install-service` runs a copy in
+# %ProgramFiles%\EDAMAME\Posture; re-running install-service on upgrade
+# refreshes that copy and restarts the service (default configuration path).
+if (Get-Service -Name 'edamame_posture' -ErrorAction SilentlyContinue) {
+    & $fileFullPath install-service
+    if ($LASTEXITCODE -ne 0) {
+        Write-Warning "edamame_posture install-service failed ($LASTEXITCODE); the service still runs the previous version."
+    }
+}

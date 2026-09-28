@@ -399,6 +399,44 @@ All parameters passed to `install.sh` via flags are written to this file, and th
   - Displays Quick Start commands.
   - Shows systemd/OpenRC status if available.
 
+#### Native service on macOS, Windows and raw Linux binaries (EDAMAME >= 2.0.2)
+
+The PKG, Homebrew, Chocolatey and raw binaries install no service by
+themselves. `install-service` registers one that starts at boot and restarts
+on failure, reading the same configuration format as `/etc/edamame_posture.conf`:
+
+| Platform | Command (admin) | Service | Configuration |
+|---|---|---|---|
+| macOS | `sudo edamame_posture install-service` | LaunchDaemon `com.edamametechnologies.edamame-posture` | `/Library/Application Support/EDAMAME/EDAMAME-Posture/edamame_posture.conf` |
+| Windows | `edamame_posture install-service` | service `edamame_posture` (LocalSystem, automatic, restart on failure); binary copied to `%ProgramFiles%\EDAMAME\Posture` | `%ProgramData%\EDAMAME\Posture\edamame_posture.conf` (SYSTEM + Administrators only) |
+| Linux (raw binary, systemd) | `sudo edamame_posture install-service` | `/etc/systemd/system/edamame_posture.service` | `/etc/edamame_posture.conf` |
+
+- A missing configuration is created from the packaged template (disconnected,
+  AI assistant disabled). Edit it, then restart the service
+  (`sudo launchctl kickstart -k system/com.edamametechnologies.edamame-posture`,
+  `Restart-Service edamame_posture`, `sudo systemctl restart edamame_posture`).
+- The service runs `edamame_posture service-run --conf <path>`: the PIN and
+  API keys are read from the configuration file by the service itself and never
+  appear on a command line. The PIN can also come from a file named by
+  `edamame_pin_file` in the configuration, or from `EDAMAME_PIN` in the service
+  environment. Besides the keys of the Linux file, it reads `llm_model` and
+  `llm_base_url` (API base URL, or the Ollama URL). On macOS/Linux the service refuses a configuration that is not
+  owned by root or is writable by other users, and refuses to register a binary
+  that a non-root user could replace.
+- `--conf <path>` selects another configuration, `--no-start` registers without
+  starting. `uninstall-service [--purge]` removes the service (and the
+  configuration with `--purge`).
+- Upgrades: the macOS PKG and the Chocolatey package restart / refresh an
+  installed service. On Linux, the APT/APK packages keep their own unit and
+  `install-service` refuses to replace it.
+- Stop any daemon started with `edamame_posture start` before installing the
+  service: both would serve the same local RPC endpoint.
+- Service start errors (bad configuration) are logged to
+  `edamame_posture_service.log` in the service's working directory
+  (`/Library/Application Support/EDAMAME/EDAMAME-Posture`,
+  `%ProgramData%\EDAMAME\Posture`, `/var/lib/edamame_posture`); on macOS the
+  service's stdout/stderr go to `/var/log/edamame_posture_service.log`.
+
 ---
 
 ### Daemon Management Decision Tree

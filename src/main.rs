@@ -2,6 +2,7 @@ mod background;
 mod base;
 mod cli;
 mod daemon;
+mod service;
 use anyhow::Result;
 use background::*;
 use base::*;
@@ -1637,6 +1638,10 @@ fn run_base() {
             initialize_core("".to_string(), false, false, false, false, false, verbose);
             exit_code = background_clear_file_events();
             is_background = true;
+        }
+        // Native service: service-run / install-service / uninstall-service
+        Some((name, sub_matches)) if service::is_service_command(name) => {
+            exit_code = service::run_command(name, sub_matches, verbose);
         }
         _ => {
             // Initialize the core with all options disabled
