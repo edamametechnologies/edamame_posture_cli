@@ -276,6 +276,26 @@ jobs:
       # Release
       ############################################################################################
 
+      # Signed build provenance (Sigstore, GitHub artifact attestations) for
+      # every file this job publishes. Verify a download with:
+      #   gh attestation verify <file> --repo edamametechnologies/edamame_posture_cli
+      - name: Attest build provenance (macOS)
+        if: github.ref == 'refs/heads/main' && matrix.os == 'macos'
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: |
+            target/universal-apple-darwin/release/edamame_posture
+            target/universal-apple-darwin/debug/edamame_posture
+            target/pkg/edamame-posture-macos-*.pkg
+
+      - name: Attest build provenance (Windows)
+        if: github.ref == 'refs/heads/main' && matrix.os == 'windows'
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: |
+            target/x86_64-pc-windows-msvc/release/edamame_posture.exe
+            target/x86_64-pc-windows-msvc/debug/edamame_posture.exe
+
       # Main only
       - name: Check for existing release
         if: github.ref == 'refs/heads/main'
