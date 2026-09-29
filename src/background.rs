@@ -116,6 +116,29 @@ pub fn background_get_sessions(
     return exit_code;
 }
 
+/// The payload of a whitelist RPC's `{"success": ..., "error": ...}` answer,
+/// or its error.
+pub(crate) fn whitelist_envelope(answer: &str) -> Result<serde_json::Value, String> {
+    let value: serde_json::Value = serde_json::from_str(answer)
+        .map_err(|e| format!("unreadable answer from the daemon ({}): {}", e, answer))?;
+    if value.get("success").and_then(|success| success.as_bool()) == Some(true) {
+        Ok(value)
+    } else {
+        Err(value
+            .get("error")
+            .and_then(|error| error.as_str())
+            .unwrap_or("the daemon reported a failure without a reason")
+            .to_string())
+    }
+}
+
+/// A daemon older than 2.0.3 answers `()` (JSON `null`) to the whitelist
+/// setters, which the typed client cannot read as the newer envelope.
+fn is_legacy_unit_answer(error: &anyhow::Error) -> bool {
+    let text = error.to_string();
+    text.contains("Failed to deserialize return value") && text.trim_end().ends_with("null")
+}
+
 pub fn background_display_sessions(
     sessions: Vec<SessionInfoAPI>,
     zeek_format: bool,
@@ -565,17 +588,233 @@ pub fn background_create_custom_whitelists_with_process() -> i32 {
     }
 }
 
+/// Load a custom whitelist into the daemon. Exits non-zero when it is not
+/// loaded: the JSON is checked here first (a malformed file, an unknown
+/// field, no `custom_whitelist`, an undefined `extends` parent), then the
+/// daemon's answer is read.
 pub fn background_set_custom_whitelists(whitelist_json: String) -> i32 {
+    if !whitelist_json.is_empty() {
+        if let Err(e) = flodbadd::whitelists::parse_custom_whitelists(&whitelist_json) {
+            eprintln!("Error setting custom whitelists: {:#}", e);
+            return ERROR_CODE_PARAM;
+        }
+    }
     match rpc_set_custom_whitelists(
-        whitelist_json,
+        whitelist_json.clone(),
         &EDAMAME_CA_PEM,
         &EDAMAME_CLIENT_PEM,
         &EDAMAME_CLIENT_KEY,
         &EDAMAME_TARGET,
     ) {
-        Ok(_) => 0,
+        Ok(answer) => match whitelist_envelope(&answer) {
+            Ok(_) => 0,
+            Err(e) => {
+                eprintln!("Error setting custom whitelists: {}", e);
+                ERROR_CODE_PARAM
+            }
+        },
+        Err(e) if is_legacy_unit_answer(&e) => {
+            // An older daemon reports nothing: check what it enforces now.
+            let expected = if whitelist_json.is_empty() {
+                ""
+            } else {
+                flodbadd::whitelists::CUSTOM_WHITELIST_NAME
+            };
+            match rpc_get_whitelist_name(
+                &EDAMAME_CA_PEM,
+                &EDAMAME_CLIENT_PEM,
+                &EDAMAME_CLIENT_KEY,
+                &EDAMAME_TARGET,
+            ) {
+                Ok(name) if name == expected => 0,
+                Ok(name) => {
+                    eprintln!(
+                        "Error setting custom whitelists: the daemon enforces '{}' instead of '{}'",
+                        name, expected
+                    );
+                    ERROR_CODE_SERVER_ERROR
+                }
+                Err(e) => {
+                    eprintln!("Error checking the daemon's whitelist: {}", e);
+                    ERROR_CODE_SERVER_ERROR
+                }
+            }
+        }
         Err(e) => {
             eprintln!("Error setting custom whitelists: {}", e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+/// Enforce a named whitelist. An unknown name exits 3: the daemon enforces it
+/// as an empty list (every egress session non-conforming) and says which
+/// names exist.
+pub fn background_set_whitelist(whitelist_name: String) -> i32 {
+    match rpc_set_whitelist(
+        whitelist_name.clone(),
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(answer) => match whitelist_envelope(&answer) {
+            Ok(_) => {
+                if whitelist_name.is_empty() {
+                    println!("Whitelist checks are off");
+                } else {
+                    println!("Whitelist '{}' is enforced", whitelist_name);
+                }
+                0
+            }
+            Err(e) => {
+                eprintln!("Error setting whitelist '{}': {}", whitelist_name, e);
+                ERROR_CODE_PARAM
+            }
+        },
+        Err(e) if is_legacy_unit_answer(&e) => {
+            eprintln!(
+                "The daemon predates set-whitelist results (edamame_posture < 2.0.3); check it with get-whitelist-name"
+            );
+            ERROR_CODE_SERVER_ERROR
+        }
+        Err(e) => {
+            eprintln!("Error setting whitelist '{}': {}", whitelist_name, e);
+            ERROR_CODE_SERVER_ERROR
+        }
+    }
+}
+
+/// Check the observed egress sessions (active since `since`, when given)
+/// against the custom whitelist in `whitelist_json`, not the one the daemon
+/// has loaded. Exit 0: all conform; 1: some do not; 2: nothing could be
+/// checked; 3: the whitelist does not load. With `json_output`, the daemon's
+/// JSON answer is printed as it is (on every exit code).
+pub fn background_evaluate_custom_whitelists(
+    whitelist_json: String,
+    since: String,
+    json_output: bool,
+) -> i32 {
+    if let Err(e) = flodbadd::whitelists::parse_custom_whitelists(&whitelist_json) {
+        let error = format!("{:#}", e);
+        if json_output {
+            println!("{}", serde_json::json!({"success": false, "error": error}));
+        }
+        eprintln!("Error loading the whitelist: {}", error);
+        return ERROR_CODE_PARAM;
+    }
+    let answer = match rpc_evaluate_custom_whitelists(
+        whitelist_json,
+        since,
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(answer) => answer,
+        Err(e) => {
+            let error = format!("the daemon did not check the traffic: {}", e);
+            if json_output {
+                println!("{}", serde_json::json!({"success": false, "error": error}));
+            }
+            eprintln!("Error: {}", error);
+            return ERROR_CODE_SERVER_ERROR;
+        }
+    };
+    if json_output {
+        println!("{}", answer);
+    }
+    let result = match whitelist_envelope(&answer) {
+        Ok(result) => result,
+        Err(e) => {
+            eprintln!("The traffic could not be checked: {}", e);
+            return ERROR_CODE_SERVER_ERROR;
+        }
+    };
+    let evaluated = result
+        .get("evaluated")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+    let non_conforming = result
+        .get("non_conforming")
+        .and_then(|v| v.as_array())
+        .cloned()
+        .unwrap_or_default();
+    if !json_output {
+        for session in &non_conforming {
+            println!(
+                "{} {}:{} -> {}:{} {} process={} AS{} {}: {}",
+                session["protocol"].as_str().unwrap_or("?"),
+                session["src_ip"].as_str().unwrap_or("?"),
+                session["src_port"],
+                session["dst_ip"].as_str().unwrap_or("?"),
+                session["dst_port"],
+                session["dst_domain"].as_str().unwrap_or("(no name)"),
+                session["process"].as_str().unwrap_or("?"),
+                session["as_number"],
+                session["as_owner"].as_str().unwrap_or(""),
+                session["reason"].as_str().unwrap_or(""),
+            );
+        }
+    }
+    eprintln!(
+        "{} egress session(s) checked, {} not in the whitelist",
+        evaluated,
+        non_conforming.len()
+    );
+    if non_conforming.is_empty() {
+        0
+    } else {
+        ERROR_CODE_MISMATCH
+    }
+}
+
+/// Print (JSON) the custom whitelist in `whitelist_json` plus an entry for
+/// every observed egress session (active since `since`, when given) that does
+/// not conform to it: `{"success", "whitelist", "added", "evaluated",
+/// "non_conforming"}`. The file is the base, never the daemon's live
+/// whitelist. Exit 2 when nothing could be observed, 3 when the file does not
+/// load.
+pub fn background_augment_custom_whitelists_from(whitelist_json: String, since: String) -> i32 {
+    if let Err(e) = flodbadd::whitelists::parse_custom_whitelists(&whitelist_json) {
+        let error = format!("{:#}", e);
+        println!("{}", serde_json::json!({"success": false, "error": error}));
+        eprintln!("Error loading the whitelist: {}", error);
+        return ERROR_CODE_PARAM;
+    }
+    match rpc_augment_custom_whitelists_from(
+        whitelist_json,
+        since,
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(answer) => {
+            println!("{}", answer);
+            match whitelist_envelope(&answer) {
+                Ok(result) => {
+                    eprintln!(
+                        "{} egress session(s) checked, {} outside the whitelist, {} entr(y/ies) added",
+                        result.get("evaluated").and_then(|v| v.as_u64()).unwrap_or(0),
+                        result.get("non_conforming").and_then(|v| v.as_u64()).unwrap_or(0),
+                        result
+                            .get("added")
+                            .and_then(|v| v.as_array())
+                            .map_or(0, |added| added.len())
+                    );
+                    0
+                }
+                Err(e) => {
+                    eprintln!("Nothing was learned: {}", e);
+                    ERROR_CODE_SERVER_ERROR
+                }
+            }
+        }
+        Err(e) => {
+            let error = format!("the daemon did not learn from the traffic: {}", e);
+            println!("{}", serde_json::json!({"success": false, "error": error}));
+            eprintln!("Error: {}", error);
             ERROR_CODE_SERVER_ERROR
         }
     }
@@ -4000,6 +4239,36 @@ pub fn background_clear_file_events() -> i32 {
             eprintln!("Error clearing file events: {}", e);
             ERROR_CODE_SERVER_ERROR
         }
+    }
+}
+
+#[cfg(test)]
+mod whitelist_tests {
+    use super::*;
+
+    #[test]
+    fn whitelist_envelope_reads_success_and_errors() {
+        assert!(whitelist_envelope(r#"{"success":true}"#).is_ok());
+        assert_eq!(
+            whitelist_envelope(r#"{"success":false,"error":"unknown whitelist 'github_Linux'"}"#)
+                .unwrap_err(),
+            "unknown whitelist 'github_Linux'"
+        );
+        assert!(whitelist_envelope("null").is_err());
+        assert!(whitelist_envelope("not json").is_err());
+        let evaluated = whitelist_envelope(
+            r#"{"success":true,"evaluated":3,"non_conforming":[{"dst_domain":"gist.githubusercontent.com"}]}"#,
+        )
+        .unwrap();
+        assert_eq!(evaluated["evaluated"], 3);
+    }
+
+    #[test]
+    fn legacy_unit_answer_is_recognized() {
+        let legacy = anyhow::anyhow!("Failed to deserialize return value: invalid type: null, expected a string at line 1 column 4 - null");
+        assert!(is_legacy_unit_answer(&legacy));
+        let other = anyhow::anyhow!("transport error");
+        assert!(!is_legacy_unit_answer(&other));
     }
 }
 

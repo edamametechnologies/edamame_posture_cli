@@ -997,6 +997,55 @@ pub fn build_cli() -> Command {
             .about("Create custom whitelists from current sessions and set them")
     )
     .subcommand(
+        Command::new("background-set-whitelist")
+            .alias("set-whitelist")
+            .about("Enforce a named whitelist (github_ubuntu, github_macos, github_windows, github, builder, edamame); an empty name turns whitelist checks off. An unknown name exits 3: it is enforced as an empty list, so every egress session is non-conforming")
+            .arg(
+                arg!(<WHITELIST_NAME> "Name of the whitelist")
+                    .required(true)
+                    .value_parser(clap::value_parser!(String)),
+            ),
+    )
+    .subcommand(
+        Command::new("background-evaluate-custom-whitelists-from-file")
+            .alias("evaluate-custom-whitelists-from-file")
+            .about("Check the observed egress sessions against the custom whitelist in a file (not the one the daemon has loaded). Exit 0: all conform; 1: some do not; 2: nothing could be checked (capture not running, daemon error); 3: the file does not load")
+            .arg(
+                arg!(<WHITELIST_FILE> "The path to the whitelist file")
+                    .required(true)
+                    .value_parser(clap::value_parser!(String)),
+            )
+            .arg(
+                Arg::new("since")
+                    .long("since")
+                    .value_name("RFC3339")
+                    .help("Only sessions active at or after this time (e.g. 2026-09-29T08:00:00Z, the CI job's start)")
+                    .value_parser(clap::value_parser!(String)),
+            )
+            .arg(
+                arg!(--"json" "Print the daemon's JSON result instead of a session list")
+                    .required(false)
+                    .action(ArgAction::SetTrue),
+            ),
+    )
+    .subcommand(
+        Command::new("background-augment-custom-whitelists-from-file")
+            .alias("augment-custom-whitelists-from-file")
+            .about("Print, as JSON, the custom whitelist in a file plus an entry for every observed egress session that does not conform to it (\"whitelist\", \"added\", \"evaluated\", \"non_conforming\"). The file is the base, not the daemon's live whitelist. Exit 2 when nothing could be observed, 3 when the file does not load")
+            .arg(
+                arg!(<WHITELIST_FILE> "The path to the whitelist file")
+                    .required(true)
+                    .value_parser(clap::value_parser!(String)),
+            )
+            .arg(
+                Arg::new("since")
+                    .long("since")
+                    .value_name("RFC3339")
+                    .help("Only sessions active at or after this time (e.g. the CI job's start)")
+                    .value_parser(clap::value_parser!(String)),
+            ),
+    )
+    .subcommand(
         Command::new("background-set-custom-blacklists")
             .alias("set-custom-blacklists")
             .about("Set custom blacklists from JSON")
