@@ -189,6 +189,15 @@ fn print_completions<G: Generator>(gen: G, cmd: &mut Command) {
 fn run() {
     let args: Vec<String> = std::env::args().collect();
 
+    // The detached supervisor `background-start` spawns (Unix): it runs
+    // `background-process` with the same arguments and never returns.
+    #[cfg(unix)]
+    {
+        if args.len() > 1 && args[1] == daemon::DAEMON_SUPERVISOR_COMMAND {
+            daemon::run_daemon_supervisor(&args[2..]);
+        }
+    }
+
     if args.len() > 1 && args[1] == "background-process" {
         // Don't call ensure_admin() here, the core is not initialized yet
         if args.len() == 17 {
