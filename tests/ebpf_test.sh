@@ -521,7 +521,22 @@ if [[ -n "$EBPF_DETAIL" ]]; then
 fi
 echo ""
 
-# Exit code based on status and environment
+# Exit code based on status. Only a verified runtime passes (or a platform
+# without eBPF). An inconclusive run used to exit 0, which let the same
+# script in edamame_core and flodbadd pass CI for months without testing
+# anything (a `cargo run -p` on a dependency; `sudo: cargo: command not
+# found`).
+#   0  eBPF verified; kernel_restricted also passes (the build is verified and
+#      a restricted kernel is expected in some containers) with a warning
+#   1  eBPF not working: not compiled in, disabled
+#   2  inconclusive or skipped: no verdict, which is not a pass
+annotate() {
+    # Annotation on the GitHub Actions run summary; plain output elsewhere.
+    if [[ -n "${GITHUB_ACTIONS:-}" ]]; then
+        echo "::$1 title=eBPF diagnostic::$2"
+    fi
+    return 0
+}
 case "$EBPF_STATUS" in
     enabled)
         echo "✅ eBPF is fully functional"
@@ -534,39 +549,28 @@ case "$EBPF_STATUS" in
         else
             echo "   This is expected in containers"
         fi
+        annotate warning "eBPF built, but the kernel refused to load it ($CONTAINER_TYPE): the runtime path was not exercised"
         exit 0  # Not a failure - build is correct, kernel prevented loading
         ;;
     not_embedded)
         echo "❌ eBPF was NOT compiled into the binary"
         echo "   Ensure clang and llvm are installed BEFORE cargo build"
-        if [[ "$CONTAINER_TYPE" == "native" ]]; then
-            echo ""
-            echo "   🔴 FAILURE: On native Linux, eBPF should be embedded!"
-            echo "      This is a BUILD failure - clang was not available or failed"
-            exit 1
-        else
-            echo ""
-            echo "   ⚠️  In container environment - this is a build failure"
-            exit 1  # Fail - clang should be installed
-        fi
+        annotate error "eBPF was not compiled into the binary ($CONTAINER_TYPE)"
+        exit 1
+        ;;
+    load_failed|disabled)
+        echo "❌ eBPF is embedded but not running (status: $EBPF_STATUS)"
+        annotate error "eBPF is embedded but not running (status: $EBPF_STATUS)"
+        exit 1
         ;;
     not_supported)
         echo "⏭️  eBPF not supported on this platform"
         exit 0
         ;;
-    skipped|no_binary)
-        echo "⏭️  Runtime test was skipped"
-        exit 0
-        ;;
-    no_output)
-        echo "⚠️  Could not get eBPF status - binary produced no output"
-        exit 0  # Don't fail - might be a transient issue
-        ;;
     *)
-        echo "⚠️  eBPF status inconclusive: $EBPF_STATUS"
-        if [[ "$CONTAINER_TYPE" == "native" ]]; then
-            echo "   On native Linux - this may indicate a problem"
-        fi
-        exit 0  # Don't fail on inconclusive
+        # skipped, no_binary, no_output, unknown, unknown_embedded: no verdict.
+        echo "❌ eBPF status inconclusive: $EBPF_STATUS (no verdict is not a pass)"
+        annotate error "no verdict (status: $EBPF_STATUS); an inconclusive run fails"
+        exit 2
         ;;
 esac
