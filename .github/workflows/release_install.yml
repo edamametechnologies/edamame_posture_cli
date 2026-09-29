@@ -29,8 +29,13 @@ jobs:
           auto_whitelist: true
           auto_whitelist_artifact_name: edamame-auto-whitelist-ubuntu-latest
           checkout: true
-          # Wait for the API to be ready
+          # The release lookup and upload below call the GitHub API, which the
+          # org IP allow list refuses from a hosted runner until the Hub has
+          # listed its IP. This repository is public, so the default probe
+          # answers at once and proves nothing: probe a private one.
+          token: ${{ secrets.DEV_GITHUB_TOKEN }}
           wait_for_api: true
+          wait_repository: edamametechnologies/edamame_core
           packet_capture: true
           vulnerability_detection: true
           vulnerability_detection_interval: "60"
@@ -54,24 +59,24 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
+      # exists=false only on a definite HTTP 404: any other lookup failure (the
+      # org IP allow list, a token, a 5xx) fails the job instead of being read
+      # as "no release".
       - name: Check for existing release
+        if: github.ref == 'refs/heads/main'
         id: release_lookup
+        shell: bash
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           TAG="${{ steps.version.outputs.tag }}"
           VERSION="${{ steps.version.outputs.version }}"
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-          RELEASE_JSON=$(gh release view "$TAG" --repo "${{ github.repository }}" --json id,uploadUrl 2>/dev/null || true)
-          if [[ -n "$RELEASE_JSON" ]]; then
-            echo "exists=true" >> "$GITHUB_OUTPUT"
-            UPLOAD_URL=$(echo "$RELEASE_JSON" | jq -r '.uploadUrl')
-            echo "upload_url=$UPLOAD_URL" >> "$GITHUB_OUTPUT"
-          else
-            echo "exists=false" >> "$GITHUB_OUTPUT"
-          fi
+          {
+            echo "version=$VERSION"
+            echo "tag=$TAG"
+            bash .github/scripts/release_lookup.sh release "${{ github.repository }}" "$TAG"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Update the tag if it exists and points to a different commit
         if: github.ref == 'refs/heads/main' && steps.release_lookup.outputs.exists == 'true'

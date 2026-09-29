@@ -296,24 +296,22 @@ jobs:
             target/x86_64-pc-windows-msvc/release/edamame_posture.exe
             target/x86_64-pc-windows-msvc/debug/edamame_posture.exe
 
-      # Main only
+      # Main only. exists=false only on a definite HTTP 404: any other lookup
+      # failure (the org IP allow list, a token, a 5xx) fails the job instead
+      # of being read as "no release".
       - name: Check for existing release
         if: github.ref == 'refs/heads/main'
         id: get_release
         shell: bash
         run: |
+          set -euo pipefail
           VERSION=$(grep '^version =' ./Cargo.toml | awk '{print $3}' | tr -d '"')
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           VERSION_TAG=v${VERSION}
           echo "tag=$VERSION_TAG" >> "$GITHUB_OUTPUT"
-          if [[ -n "$(gh release view $VERSION_TAG --repo ${{ github.repository }} --json id -q .id)" ]]; then
-            echo "exists=true" >> "$GITHUB_OUTPUT"
-            echo "upload_url=$(gh release view $VERSION_TAG --json uploadUrl -q .uploadUrl)" >> "$GITHUB_OUTPUT"
-          else
-            echo "exists=false" >> "$GITHUB_OUTPUT"
-          fi
+          bash .github/scripts/release_lookup.sh release "${{ github.repository }}" "$VERSION_TAG" >> "$GITHUB_OUTPUT"
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # Update the tag if it exists and points to a different commit
       - name: Update the tag if it exists and points to a different commit
@@ -386,6 +384,8 @@ jobs:
       # ADD what is missing, never replace what is there. Exact-match (grep -qxF)
       # rather than substring: the bare asset name is a PREFIX of its own -debug
       # sibling, so a `contains()` test would wrongly skip the bare upload.
+      # A failed listing fails the job: read as "nothing published", it made
+      # every upload below replace a published asset (overwrite: true).
       - name: Determine already-published assets (macOS)
         id: published_macos
         if: github.ref == 'refs/heads/main' && matrix.os == 'macos'
@@ -397,8 +397,7 @@ jobs:
           TAG="${{ steps.get_release.outputs.tag }}"
           V="${{ steps.get_release.outputs.version }}"
           T="${{ matrix.target }}"
-          NAMES="$(gh release view "$TAG" --repo "${{ github.repository }}" \
-            --json assets --jq '.assets[].name' 2>/dev/null || true)"
+          NAMES="$(bash .github/scripts/release_lookup.sh assets "${{ github.repository }}" "$TAG")"
           has() { printf '%s\n' "$NAMES" | grep -qxF "$1" && echo true || echo false; }
           {
             echo "bare=$(has "edamame_posture-${V}-${T}")"
@@ -498,9 +497,9 @@ jobs:
           # missing, never replace what is already there. `gh release upload`
           # without --clobber fails on an existing asset, so skip those
           # explicitly and keep the run green -- the retry's job is to close
-          # the gap, not to republish.
-          EXISTING="$(gh release view "$TAG" --repo "${{ github.repository }}" \
-            --json assets --jq '.assets[].name' 2>/dev/null || true)"
+          # the gap, not to republish. A failed listing fails the step rather
+          # than reading as "nothing published".
+          EXISTING="$(bash .github/scripts/release_lookup.sh assets "${{ github.repository }}" "$TAG")"
 
           TO_UPLOAD=()
           for ASSET in "$RELEASE_NAME" "$DEBUG_NAME"; do
@@ -519,7 +518,7 @@ jobs:
             echo "All Windows assets for $VERSION already published; nothing to upload."
           fi
 
-          ASSET_NAMES="$(gh release view "$TAG" --repo "${{ github.repository }}" --json assets --jq '.assets[].name')"
+          ASSET_NAMES="$(bash .github/scripts/release_lookup.sh assets "${{ github.repository }}" "$TAG")"
           echo "$ASSET_NAMES"
 
           for EXPECTED in "$RELEASE_NAME" "$DEBUG_NAME"; do
