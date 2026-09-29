@@ -1867,8 +1867,8 @@ jobs:
           echo "EDAMAME_CLI=$EC" >> "$GITHUB_ENV"
           "$EC" --version
           # Drop any findings from the install curl itself before the idle baseline.
-          "$EC" rpc clear_vulnerability_history || true
-          "$EC" rpc reset_vulnerability_suppressions || true
+          "$EC" rpc clear_attack_pattern_history || true
+          "$EC" rpc reset_attack_pattern_suppressions || true
 
       - name: Verify daemon and capture readiness
         shell: bash
@@ -2104,10 +2104,10 @@ jobs:
             exit 0
           fi
           echo "Clearing all runtime vulnerability findings (test scenarios)..."
-          "$EDAMAME_CLI" rpc clear_vulnerability_history || true
-          "$EDAMAME_CLI" rpc reset_vulnerability_suppressions || true
+          "$EDAMAME_CLI" rpc clear_attack_pattern_history || true
+          "$EDAMAME_CLI" rpc reset_attack_pattern_suppressions || true
           echo "After cleanup:"
-          "$EDAMAME_CLI" rpc get_vulnerability_detector_status --pretty || true
+          "$EDAMAME_CLI" rpc get_attack_pattern_detector_status --pretty || true
 
       - name: Upload platform results
         if: always()
@@ -2518,8 +2518,8 @@ jobs:
           fi
           echo "EDAMAME_CLI=$EC" >> "$GITHUB_ENV"
           "$EC" --version
-          "$EC" rpc clear_vulnerability_history || true
-          "$EC" rpc reset_vulnerability_suppressions || true
+          "$EC" rpc clear_attack_pattern_history || true
+          "$EC" rpc reset_attack_pattern_suppressions || true
 
       - name: Run warm-host false-positive baseline (60 min idle)
         id: baseline
@@ -2555,8 +2555,8 @@ jobs:
             echo "edamame_cli not available; skipping runtime cleanup."
             exit 0
           fi
-          "$EDAMAME_CLI" rpc clear_vulnerability_history || true
-          "$EDAMAME_CLI" rpc reset_vulnerability_suppressions || true
+          "$EDAMAME_CLI" rpc clear_attack_pattern_history || true
+          "$EDAMAME_CLI" rpc reset_attack_pattern_suppressions || true
 
       - name: Upload warm-baseline results
         if: always()

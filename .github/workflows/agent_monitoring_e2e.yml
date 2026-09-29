@@ -393,11 +393,11 @@ jobs:
           EC="${EDAMAME_CLI:-edamame_cli}"
           command -v "$EC" >/dev/null 2>&1 || EC=edamame_cli
           echo "--- findings produced during the fleet run ---"
-          "$EC" rpc get_vulnerability_findings --pretty || true
-          "$EC" rpc clear_vulnerability_history || true
-          "$EC" rpc reset_vulnerability_suppressions || true
+          "$EC" rpc get_attack_pattern_findings --pretty || true
+          "$EC" rpc clear_attack_pattern_history || true
+          "$EC" rpc reset_attack_pattern_suppressions || true
           echo "--- detector state after clear ---"
-          "$EC" rpc get_vulnerability_detector_status --pretty || true
+          "$EC" rpc get_attack_pattern_detector_status --pretty || true
 
       - name: Dump EDAMAME Posture vulnerability findings
         if: always()
