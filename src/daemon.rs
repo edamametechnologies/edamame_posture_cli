@@ -377,7 +377,7 @@ fn collect_policy_violations(
 /// Alertable attack pattern findings for the live gate, with the label to
 /// print, or why the detector's count certifies nothing this cycle.
 fn attack_pattern_findings_for_gate() -> Result<(u64, &'static str), String> {
-    let status = edamame_core::api::api_agentic::get_vulnerability_detector_status();
+    let status = edamame_core::api::api_agentic::get_attack_pattern_detector_status();
     let status_json: serde_json::Value = serde_json::from_str(&status)
         .map_err(|e| format!("Error parsing vulnerability detector status: {}", e))?;
 
