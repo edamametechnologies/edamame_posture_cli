@@ -45,6 +45,14 @@ jobs:
         # the background-daemon path the action takes in containers and on
         # self-hosted Linux runners -- the path the 2026-09-28 break hit.
         method: [package, binary]
+        exclude:
+          # The raw macOS binary carries the Endpoint Security entitlement,
+          # which macOS only honours with the provisioning profile embedded in
+          # the PKG's app bundle: run bare on a clean Mac it is killed at
+          # launch (SIGKILL, exit 137), a known limitation independent of
+          # install.sh. The macOS package path (PKG / Homebrew) is covered.
+          - os: macos-latest
+            method: binary
     defaults:
       run:
         shell: bash
