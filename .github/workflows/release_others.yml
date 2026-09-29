@@ -659,7 +659,11 @@ jobs:
               }
             }
           } else {
-            Write-Host "Skipping Chocolatey publish: CHOCOLATEY_API_KEY not set"
+            # A release on main without the key is a broken publish, not a skip:
+            # the app package went unpublished from 1.1.2 to 2.0.2 behind a green
+            # "Skipping" line (the org secret was not shared with edamame_app).
+            Write-Host "ERROR: CHOCOLATEY_API_KEY is not available to this repository; the Chocolatey package was not published"
+            exit 1
           }
 
       - name: Check job status before posture dump
