@@ -1,0 +1,88 @@
+name: install.sh x released binary
+
+# The posture action runs install.sh from raw main against the LATEST RELEASE
+# binary, so an install.sh change goes live for every action user the moment
+# it is pushed -- before the binary it may need is released. On 2026-09-28 the
+# 2.0.2 install.sh handed the PIN to the daemon only through EDAMAME_PIN,
+# which released binaries ignore: every connected action run started an
+# unconnected daemon and sat in the connection wait for 15-90 minutes.
+#
+# This job runs the pushed install.sh against the latest release in connected
+# mode, with the PIN on argv (what the action passes) and in EDAMAME_PIN, and
+# fails when the daemon does not connect to the Hub.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'install.sh'
+      - 'linux/**'
+      - '.github/workflows/install_compat.yml'
+  pull_request:
+    paths:
+      - 'install.sh'
+      - 'linux/**'
+      - '.github/workflows/install_compat.yml'
+  schedule:
+    - cron: '30 */6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compat:
+    name: install.sh x latest release (${{ matrix.os }}, PIN via ${{ matrix.pin_source }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        pin_source: [argv, env]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install the latest release with this install.sh (connected mode)
+        env:
+          PIN_SECRET: ${{ secrets.EDAMAME_POSTURE_PIN }}
+          HUB_USER: ${{ vars.EDAMAME_POSTURE_USER }}
+          HUB_DOMAIN: ${{ vars.EDAMAME_POSTURE_DOMAIN }}
+          DEVICE_ID: install-compat-${{ github.run_id }}-${{ matrix.os }}-${{ matrix.pin_source }}
+          PIN_SOURCE: ${{ matrix.pin_source }}
+        run: |
+          set -euo pipefail
+          args=(--user "$HUB_USER" --domain "$HUB_DOMAIN" --device-id "$DEVICE_ID" \
+                --state-file "$RUNNER_TEMP/edamame_install_state")
+          if [ "$PIN_SOURCE" = "argv" ]; then
+            args+=(--pin "$PIN_SECRET")
+          else
+            export EDAMAME_PIN="$PIN_SECRET"
+          fi
+          sh ./install.sh "${args[@]}"
+
+      - name: The daemon connects to the Hub
+        run: |
+          set -euo pipefail
+          bin=$(sed -n 's/^binary_path=//p' "$RUNNER_TEMP/edamame_install_state")
+          echo "installed binary: $bin"
+          "$bin" --version || true
+          sudo_cmd=""
+          if [ "$RUNNER_OS" != "Windows" ]; then sudo_cmd="sudo"; fi
+          if $sudo_cmd "$bin" background-wait-for-connection 300; then
+            echo "connected"
+          else
+            echo "::error::install.sh from this commit did not get the latest released binary connected to the Hub. The posture action runs exactly this pair: an install.sh change that needs an unreleased binary breaks every action user as soon as it is pushed."
+            $sudo_cmd "$bin" background-logs 2>/dev/null | tail -60 || true
+            exit 1
+          fi
+
+      - name: Stop the daemon
+        if: always()
+        run: |
+          bin=$(sed -n 's/^binary_path=//p' "$RUNNER_TEMP/edamame_install_state" 2>/dev/null || true)
+          [ -n "$bin" ] || exit 0
+          if [ "$RUNNER_OS" != "Windows" ]; then sudo "$bin" background-stop || true; else "$bin" background-stop || true; fi
