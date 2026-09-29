@@ -121,9 +121,9 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      # Plain release URLs, not the GitHub API: the org's IP allow list
+      # refuses API calls from hosted runners (HTTP 403).
       - name: Install 2.0.1 from the EDAMAME repository setup, then mark its conf as locally written
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           wget -q -O - https://edamame.s3.eu-west-1.amazonaws.com/repo/public.key \
@@ -131,8 +131,8 @@ jobs:
           echo "deb [arch=amd64 signed-by=/usr/share/keyrings/edamame.gpg] https://edamame.s3.eu-west-1.amazonaws.com/repo stable main" \
             | sudo tee /etc/apt/sources.list.d/edamame.list > /dev/null
           sudo apt-get update -qq
-          gh release download v2.0.1 --repo edamametechnologies/edamame_posture_cli \
-            -p 'edamame-posture_2.0.1-1_amd64.deb' -D "$RUNNER_TEMP"
+          curl -fsSL -o "$RUNNER_TEMP/edamame-posture_2.0.1-1_amd64.deb" \
+            https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v2.0.1/edamame-posture_2.0.1-1_amd64.deb
           sudo apt-get install -y "$RUNNER_TEMP/edamame-posture_2.0.1-1_amd64.deb"
           echo '# written by an earlier install.sh run' | sudo tee -a /etc/edamame_posture.conf > /dev/null
           dpkg-query -W -f='installed: ${Version} ${db:Status-Abbrev}\n' edamame-posture
@@ -149,11 +149,11 @@ jobs:
             --device-id "$DEVICE_ID" --state-file "$RUNNER_TEMP/edamame_install_state"
 
       - name: The package is the latest release and the daemon connects
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          latest=$(gh release view --repo edamametechnologies/edamame_posture_cli --json tagName --jq .tagName)
+          latest=$(curl -fsSI https://github.com/edamametechnologies/edamame_posture_cli/releases/latest \
+            | tr -d '\r' | sed -n 's|^[Ll]ocation: .*/releases/tag/||p')
+          [ -n "$latest" ] || { echo "::error::could not resolve the latest release"; exit 1; }
           installed=$(dpkg-query -W -f='${Version} ${db:Status-Abbrev}' edamame-posture)
           echo "latest release: $latest, installed: $installed"
           case "$installed" in
