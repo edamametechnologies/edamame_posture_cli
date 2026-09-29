@@ -115,9 +115,13 @@ if [ ! -s "$WORK/new.unsorted" ]; then
 fi
 LC_ALL=C sort -k2 "$WORK/new.unsorted" > "$WORK/$SUMS"
 
-# Compare with the published file, if any.
+# Compare with the published file, if any. The asset list above says whether
+# there is one: a failed download of a listed SHA256SUMS exits 1, it is not
+# "nothing published yet" (read that way, it skipped the replaced-asset check
+# below and published the new digests with exit 0).
 REPLACED=""
-if gh release download "$TAG" --repo "$REPO" --pattern "$SUMS" --dir "$WORK/old" >/dev/null 2>&1; then
+if awk -F '\t' -v n="$SUMS" '$1 == n { found = 1 } END { exit !found }' "$WORK/assets.tsv"; then
+  gh release download "$TAG" --repo "$REPO" --pattern "$SUMS" --dir "$WORK/old" >/dev/null
   if cmp -s "$WORK/old/$SUMS" "$WORK/$SUMS"; then
     echo "${SUMS} on ${REPO}@${TAG} is already up to date ($(wc -l < "$WORK/$SUMS" | tr -d ' ') assets)."
     exit 0
