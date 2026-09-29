@@ -203,9 +203,8 @@ jobs:
           echo ${{ secrets.APPLE_APPSTORE_CONNECT_API_KEY }} | base64 --decode > appstore_connect_api_key.p8
           xcrun notarytool store-credentials -k appstore_connect_api_key.p8 -d ${{ secrets.APPLE_APPSTORE_CONNECT_API_KEY_ID }} -i ${{ secrets.APPLE_APPSTORE_CONNECT_API_ISSUER_ID }} Edamame
 
-          # Sign + hardened runtime (for direct binary distribution)
-          ./macos/sign.sh ./target/universal-apple-darwin/release/edamame_posture
-          ./macos/sign.sh ./target/universal-apple-darwin/debug/edamame_posture
+          # No raw binary is published (see the PKG-only note at the uploads):
+          # make-pkg.sh signs the binary inside the PKG's app bundle.
 
       # notarization.sh fails on any verdict but Accepted and staples the
       # ticket into the PKG it notarized, so Gatekeeper accepts it offline too.
@@ -292,8 +291,6 @@ jobs:
         uses: actions/attest-build-provenance@v4
         with:
           subject-path: |
-            target/universal-apple-darwin/release/edamame_posture
-            target/universal-apple-darwin/debug/edamame_posture
             target/pkg/edamame-posture-macos-*.pkg
 
       - name: Attest build provenance (Windows)
@@ -397,8 +394,7 @@ jobs:
       # invalidates every checksum derived from the first publish (Homebrew
       # formula, Chocolatey nuspec, install.sh). A retry after a partial run must
       # ADD what is missing, never replace what is there. Exact-match (grep -qxF)
-      # rather than substring: the bare asset name is a PREFIX of its own -debug
-      # sibling, so a `contains()` test would wrongly skip the bare upload.
+      # rather than substring, so an asset name never matches another one.
       # A failed listing fails the job: read as "nothing published", it made
       # every upload below replace a published asset (overwrite: true).
       - name: Determine already-published assets (macOS)
@@ -411,28 +407,19 @@ jobs:
           set -euo pipefail
           TAG="${{ steps.get_release.outputs.tag }}"
           V="${{ steps.get_release.outputs.version }}"
-          T="${{ matrix.target }}"
           NAMES="$(bash .github/scripts/release_lookup.sh assets "${{ github.repository }}" "$TAG")"
           has() { printf '%s\n' "$NAMES" | grep -qxF "$1" && echo true || echo false; }
           {
-            echo "bare=$(has "edamame_posture-${V}-${T}")"
             echo "pkg=$(has "edamame-posture-macos-${V}.pkg")"
-            echo "bare_debug=$(has "edamame_posture-${V}-${T}-debug")"
             echo "pkg_debug=$(has "edamame-posture-macos-${V}-debug.pkg")"
           } >> "$GITHUB_OUTPUT"
 
-      # Main only - macOS bare binary upload (legacy, no ES entitlement)
-      - name: Upload asset to release (macOS)
-        if: github.ref == 'refs/heads/main' && matrix.os == 'macos' && steps.published_macos.outputs.bare != 'true'
-        uses: shogo82148/actions-upload-release-asset@v1
-        with:
-          upload_url: ${{ steps.get_release.outputs.exists == 'true' && steps.get_release.outputs.upload_url || steps.create_release.outputs.upload_url }}
-          asset_path: target/${{ matrix.target }}/release/edamame_posture
-          asset_name: edamame_posture-${{ steps.get_release.outputs.version }}-${{ matrix.target }}
-          asset_content_type: application/octet-stream
-          overwrite: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # macOS publishes the PKGs only. The raw universal binaries carry the
+      # Endpoint Security entitlement, which macOS honours only with the
+      # provisioning profile embedded in the PKG's app bundle: run bare they
+      # are killed at launch (SIGKILL, exit 137, run 36508531168), so they are
+      # not published from 2.0.3. install.sh installs the PKG (the debug PKG
+      # for --debug-build) on macOS.
 
       # Main only - macOS .pkg upload (includes provisioning profile for ES entitlement)
       - name: Upload pkg to release (macOS)
@@ -447,19 +434,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # Main only - macOS debug uploads
-      - name: Upload debug asset to release (macOS)
-        if: github.ref == 'refs/heads/main' && matrix.os == 'macos' && steps.published_macos.outputs.bare_debug != 'true'
-        uses: shogo82148/actions-upload-release-asset@v1
-        with:
-          upload_url: ${{ steps.get_release.outputs.exists == 'true' && steps.get_release.outputs.upload_url || steps.create_release.outputs.upload_url }}
-          asset_path: target/${{ matrix.target }}/debug/edamame_posture
-          asset_name: edamame_posture-${{ steps.get_release.outputs.version }}-${{ matrix.target }}-debug
-          asset_content_type: application/octet-stream
-          overwrite: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
+      # Main only - macOS debug upload
       - name: Upload debug pkg to release (macOS)
         if: github.ref == 'refs/heads/main' && matrix.os == 'macos' && steps.published_macos.outputs.pkg_debug != 'true'
         uses: shogo82148/actions-upload-release-asset@v1
