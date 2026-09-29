@@ -512,5 +512,205 @@ if macos_binary_is_from_pkg "$WORK/bin/edamame_posture_raw"; then not_ok "a raw 
 rm -f "$MACOS_PKG_BINARY"
 if macos_binary_is_from_pkg "$WORK/bin/edamame_posture"; then not_ok "a dangling link is not the PKG"; else ok "a dangling link is not the PKG"; fi
 
+# --- No fallback version (2.0.3) -------------------------------------------
+# When the latest release could not be determined, a binary install used to
+# install a hardcoded 1.3.18 behind a warning (and did the same when the
+# latest release's binary would not download). It now stops and names what
+# did not answer. A stand-in curl first on PATH plays GitHub: the releases/
+# latest redirect (MOCK_REDIRECT: 302:<tag>, an HTTP status, or 000 for no
+# network), the API (MOCK_API: ok, a status, 000) and the release downloads,
+# which answer for any version except those in MOCK_MISSING -- 1.3.18
+# included, so an install of it would show.
+# The stand-ins above replaced some installer functions: load them again.
+# shellcheck disable=SC1090
+EDAMAME_INSTALL_SH_LIB=1 . "$INSTALL_SH"
+set +e
+NET_BIN="$WORK/net_bin"
+MOCK_LOG="$WORK/net_calls"
+mkdir -p "$NET_BIN"
+cat > "$NET_BIN/curl" <<'STUB'
+#!/bin/sh
+# Stand-in curl for install.sh's GitHub calls.
+url=""; out=""; fmt=""; fail=false
+while [ $# -gt 0 ]; do
+    case "$1" in
+        -o) out="$2"; shift 2 ;;
+        -w) fmt="$2"; shift 2 ;;
+        -H|--connect-timeout|--max-time|--proto) shift 2 ;;
+        --*) shift ;;
+        -*) case "$1" in *f*) fail=true ;; esac; shift ;;
+        *) url="$1"; shift ;;
+    esac
+done
+echo "curl $url" >> "$MOCK_LOG"
+status=""; body=""; location=""
+case "$url" in
+    https://github.com/*/releases/latest)
+        case "$MOCK_REDIRECT" in
+            302:*) status=302; location="https://github.com/edamametechnologies/edamame_posture_cli/releases/tag/${MOCK_REDIRECT#302:}" ;;
+            *) status="$MOCK_REDIRECT" ;;
+        esac ;;
+    https://api.github.com/*)
+        status="$MOCK_API"
+        [ "$status" = "ok" ] && { status=200; body='[
+  {
+    "tag_name": "v2.0.3",
+    "name": "Release v2.0.3"
+  },
+  {
+    "tag_name": "v2.0.2",
+    "name": "Release v2.0.2"
+  }
+]'; } ;;
+    https://github.com/*/releases/download/v*)
+        version="${url#*/releases/download/v}"; version="${version%%/*}"
+        status=200
+        for missing in $MOCK_MISSING; do
+            [ "$missing" = "$version" ] && status=404
+        done
+        [ "$status" = 200 ] && body="$(printf '#!/bin/sh\necho "edamame_posture %s"' "$version")" ;;
+    *) status=000 ;;
+esac
+if [ "$status" = "000" ]; then
+    [ -n "$fmt" ] && printf '000'
+    exit 6
+fi
+if [ -n "$location" ] || [ -z "$body" ]; then
+    headers="$(printf 'HTTP/2 %s\r\n' "$status")"
+    [ -n "$location" ] && headers="$(printf '%s\nlocation: %s\r' "$headers" "$location")"
+    [ -n "$out" ] && printf '%s\n' "$headers" > "$out"
+fi
+if [ "$fail" = true ] && [ "$status" -ge 400 ]; then
+    exit 22
+fi
+if [ -n "$body" ]; then
+    if [ -n "$out" ]; then printf '%s\n' "$body" > "$out"; else printf '%s\n' "$body"; fi
+fi
+[ -n "$fmt" ] && printf '%s' "$status"
+exit 0
+STUB
+chmod +x "$NET_BIN/curl"
+export MOCK_LOG MOCK_REDIRECT MOCK_API MOCK_MISSING
+NET_SAVED_PATH="$PATH"
+PATH="$NET_BIN:$PATH"
+
+# One binary install (or a macOS PKG install) in a subshell: an `error` exits
+# only the subshell. NET_RC is its exit status, NET_OUT its output.
+net_run() {
+    : > "$MOCK_LOG"
+    rm -rf "$WORK/net_inst"
+    mkdir -p "$WORK/net_inst"
+    NET_OUT="$(
+        INSTALL_DIR="$WORK/net_inst"; PLATFORM=linux; LINUX_ARCH_NORMALIZED=x86_64
+        CONFIG_DEBUG_BUILD=false; SUDO=""; INSTALL_METHOD=""; GITHUB_TOKEN=""
+        LATEST_RELEASE_TAG_PRIMARY=""; LATEST_RELEASE_TAG_SECONDARY=""; GITHUB_RELEASES_RESPONSE=""
+        "$@"
+        rc=$?
+        printf 'RC=%s BINARY_INSTALL_ERROR=%s MACOS_PKG_ERROR=%s\n' "$rc" "${BINARY_INSTALL_ERROR:-}" "${MACOS_PKG_ERROR:-}"
+        exit "$rc"
+    )"
+    NET_RC=$?
+}
+downloads() { grep -c '/releases/download/' "$MOCK_LOG"; }
+installed_version() { sh "$WORK/net_inst/edamame_posture" 2>/dev/null; }
+
+MOCK_REDIRECT="302:v2.0.3"; MOCK_API=ok; MOCK_MISSING=""
+net_run install_binary_release linux gnu
+assert_eq "latest release: installs" "$NET_RC" "0"
+assert_eq "latest release: the latest binary" "$(installed_version)" "edamame_posture 2.0.3"
+
+MOCK_REDIRECT="302:v2.0.3"; MOCK_API=403; MOCK_MISSING=""
+net_run install_binary_release linux gnu
+assert_eq "API refused (403), the redirect answers: installs the latest" "$(installed_version)" "edamame_posture 2.0.3"
+
+MOCK_REDIRECT="302:v2.0.3"; MOCK_API=ok; MOCK_MISSING="2.0.3"
+net_run install_binary_release linux gnu
+assert_eq "latest binary missing (404), the API named the previous release: installs it" "$(installed_version)" "edamame_posture 2.0.2"
+
+for case_spec in "404:404:answered HTTP 404" "403:403:answered HTTP 403" "000:000:did not answer (no network, or a proxy or firewall refused the connection)"; do
+    MOCK_REDIRECT="${case_spec%%:*}"; rest="${case_spec#*:}"; MOCK_API="${rest%%:*}"; want="${rest#*:}"; MOCK_MISSING=""
+    net_run install_binary_release linux gnu
+    assert_eq "lookup $MOCK_REDIRECT: the install stops" "$NET_RC" "1"
+    case "$NET_OUT" in
+        *"[ERROR]"*"Could not determine the latest EDAMAME Posture release: https://github.com/edamametechnologies/edamame_posture_cli/releases/latest ${want}, and the GitHub API (api.github.com) returned no release."*"no option to pin a version"*"/releases."*)
+            ok "lookup $MOCK_REDIRECT: the message names what did not answer" ;;
+        *) not_ok "lookup $MOCK_REDIRECT: the message names what did not answer: $NET_OUT" ;;
+    esac
+    assert_eq "lookup $MOCK_REDIRECT: no download, 1.3.18 or other" "$(downloads)" "0"
+    assert_eq "lookup $MOCK_REDIRECT: nothing installed" "$(installed_version)" ""
+done
+case "$(cat "$MOCK_LOG")" in
+    *"curl https://github.com/edamametechnologies/edamame_posture_cli/releases/latest"*"curl https://api.github.com/repos/edamametechnologies/edamame_posture_cli/releases"*) ok "the lookup tried the redirect and the API" ;;
+    *) not_ok "the lookup tried the redirect and the API: $(cat "$MOCK_LOG")" ;;
+esac
+
+# The regression itself: the lookup does not answer while the downloads
+# would, 1.3.18 included. The old installer installed 1.3.18 with exit 0.
+MOCK_REDIRECT="000"; MOCK_API="000"; MOCK_MISSING=""
+net_run install_binary_release linux gnu
+assert_eq "no lookup, downloads available: the install stops" "$NET_RC" "1"
+if grep -q '1\.3\.18' "$MOCK_LOG"; then not_ok "no lookup: 1.3.18 is never fetched"; else ok "no lookup: 1.3.18 is never fetched"; fi
+
+MOCK_REDIRECT="302:v2.0.3"; MOCK_API=403; MOCK_MISSING="2.0.3"
+net_run install_binary_release linux gnu
+assert_eq "latest binary missing, no previous release known: the install stops" "$NET_RC" "1"
+case "$NET_OUT" in
+    *"[ERROR]"*"Failed to download EDAMAME Posture 2.0.3 from https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v2.0.3/edamame_posture-2.0.3-x86_64-unknown-linux-gnu."*)
+        ok "latest binary missing: the message names the URL" ;;
+    *) not_ok "latest binary missing: the message names the URL: $NET_OUT" ;;
+esac
+if grep -q '1\.3\.18' "$MOCK_LOG"; then not_ok "latest binary missing: 1.3.18 is never fetched"; else ok "latest binary missing: 1.3.18 is never fetched"; fi
+
+MOCK_REDIRECT="302:v2.0.3"; MOCK_API=ok; MOCK_MISSING="2.0.3 2.0.2"
+net_run install_binary_release linux gnu
+case "$NET_RC:$NET_OUT" in
+    1:*"Failed to download EDAMAME Posture 2.0.3 from "*", or the previous release from https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v2.0.2/"*)
+        ok "latest and previous binaries missing: stops naming both URLs" ;;
+    *) not_ok "latest and previous binaries missing: stops naming both URLs (rc=$NET_RC): $NET_OUT" ;;
+esac
+
+# Windows falls back to Chocolatey, which needs no version: the binary step
+# warns and returns 1 instead of stopping the installer.
+MOCK_REDIRECT="000"; MOCK_API="000"; MOCK_MISSING=""
+net_run install_binary_release windows "" fallback
+case "$NET_RC:$NET_OUT" in
+    1:*"[WARN]"*"Could not determine the latest EDAMAME Posture release"*"RC=1 BINARY_INSTALL_ERROR=Could not determine the latest EDAMAME Posture release"*)
+        ok "fallback mode: warns and returns 1 for the package manager to try" ;;
+    *) not_ok "fallback mode: warns and returns 1 for the package manager to try (rc=$NET_RC): $NET_OUT" ;;
+esac
+case "$NET_OUT" in
+    *"[ERROR]"*) not_ok "fallback mode: no [ERROR]" ;;
+    *) ok "fallback mode: no [ERROR]" ;;
+esac
+
+# Keeping an installed binary needs no version: the lookup failure is
+# reported to the caller, which does not stop.
+net_run prepare_binary_artifact linux gnu
+case "$NET_RC:$NET_OUT" in
+    1:*"RC=1 "*) ok "prepare_binary_artifact returns 1 on a failed lookup, without stopping" ;;
+    *) not_ok "prepare_binary_artifact returns 1 on a failed lookup, without stopping (rc=$NET_RC): $NET_OUT" ;;
+esac
+
+# The macOS PKG: the same lookup failure is named, and no PKG of an older
+# hardcoded release is tried.
+# shellcheck disable=SC2329 # invoked by install_macos_via_pkg
+installer() { printf 'installer %s\n' "$*" >> "$MOCK_LOG"; return 0; }
+MOCK_REDIRECT="403"; MOCK_API="403"; MOCK_MISSING=""
+net_run install_macos_via_pkg
+case "$NET_RC:$NET_OUT" in
+    1:*"MACOS_PKG_ERROR=Could not determine the latest EDAMAME Posture release: https://github.com/edamametechnologies/edamame_posture_cli/releases/latest answered HTTP 403"*)
+        ok "macOS PKG: a failed lookup is named" ;;
+    *) not_ok "macOS PKG: a failed lookup is named (rc=$NET_RC): $NET_OUT" ;;
+esac
+MOCK_REDIRECT="302:v2.0.3"; MOCK_API=403; MOCK_MISSING="2.0.3"
+net_run install_macos_via_pkg
+case "$NET_RC:$(downloads):$NET_OUT" in
+    1:1:*"MACOS_PKG_ERROR=No .pkg could be downloaded (tried https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v2.0.3/edamame-posture-macos-2.0.3.pkg)."*)
+        ok "macOS PKG: only the latest release's PKG is tried when no previous one is known" ;;
+    *) not_ok "macOS PKG: only the latest release's PKG is tried when no previous one is known (rc=$NET_RC): $(cat "$MOCK_LOG") $NET_OUT" ;;
+esac
+unset -f installer
+PATH="$NET_SAVED_PATH"
+
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

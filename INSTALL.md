@@ -284,7 +284,7 @@ This early check ensures:
 macOS runs EDAMAME Posture only from its PKG: the binary carries the Endpoint Security entitlement, which macOS honours only with the provisioning profile embedded in the PKG's app bundle, and kills a bare copy at launch (exit 137). The raw macOS binaries are not published from 2.0.3.
 
 1. **Pre-check** (see above): If existing installation is up-to-date with matching credentials → skip everything. Without the Homebrew cask, the installed PKG's receipt (`pkgutil --pkg-info com.edamametechnologies.edamame-posture`) is compared with the latest release; a binary that is not the PKG's (a raw copy from an older installer) is replaced by the PKG.
-2. Try downloading the notarized, stapled `.pkg` from the GitHub release and installing it via `sudo installer -pkg`. The `.pkg` installs `edamame_posture` as an app-like bundle with `Contents/embedded.provisionprofile`, then exposes `/usr/local/bin/edamame_posture` as a symlink into that bundle so the Endpoint Security entitlement remains authorized at runtime. When the latest release has no `.pkg` yet, the previous release's and then the pinned fallback's stand in.
+2. Try downloading the notarized, stapled `.pkg` from the GitHub release and installing it via `sudo installer -pkg`. The `.pkg` installs `edamame_posture` as an app-like bundle with `Contents/embedded.provisionprofile`, then exposes `/usr/local/bin/edamame_posture` as a symlink into that bundle so the Endpoint Security entitlement remains authorized at runtime. When the latest release has no `.pkg` yet, the previous release's stands in (when the GitHub API named it).
 3. If no `.pkg` can be installed, fall back to the Homebrew cask (`edamametechnologies/tap`), which installs the same `.pkg`.
 4. `--force-binary` installs the `.pkg` and never Homebrew; `--debug-build` installs the debug `.pkg`. If nothing can be installed, the installer stops with the reason: there is no binary fallback on macOS.
 5. **Daemon management**: No system service; daemon started as background process when credentials provided
@@ -306,7 +306,7 @@ macOS runs EDAMAME Posture only from its PKG: the binary carries the Endpoint Se
 - The installer inspects architecture and GLIBC (`getconf GNU_LIBC_VERSION`) to select the correct artifact:
   - `x86_64-unknown-linux-gnu` (default) vs `x86_64-unknown-linux-musl` when GLIBC < 2.29 or running on Alpine.
   - `aarch64`, `armv7`, and `i686` variants are also supported.
-- Debug builds pull versioned assets (`edamame_posture-<version>-<triple>-debug`), otherwise the installer uses the "latest release" redirect first and falls back to a pinned version.
+- Debug builds pull versioned assets (`edamame_posture-<version>-<triple>-debug`) of the latest release too.
 
 #### Binary Version/SHA Verification
 - **Pre-installation SHA check** (new optimization):
@@ -324,8 +324,9 @@ macOS runs EDAMAME Posture only from its PKG: the binary carries the Endpoint Se
   - No corrupted binaries (SHA verified after download)
   - Minimal disk writes (only replace if different)
 
-- Download resolution order (non-debug builds): latest GitHub release tag → previous release tag → pinned fallback (`v0.9.75`). Windows adds one more safety net by retrying Chocolatey if every download attempt fails.
-- Each download path has a hard-coded fallback (`v0.9.75`) to avoid transient release issues.
+- Version resolution: the GitHub releases API (which also names the previous release), then the `releases/latest` redirect of github.com. There is no pinned fallback version, and `install.sh` has no option to pin one: when neither answers, a binary install stops and names what did not answer; run it again later, or install a release by hand from the releases page. Package-manager installs (APT, APK, Homebrew, Chocolatey) do not need the version and proceed.
+- Download resolution order (non-debug builds): the latest release's binary → the previous release's (when the API named it, e.g. while the latest release is still uploading its assets). If neither downloads, the install stops with the URLs it tried; Windows first retries through Chocolatey.
+- An existing binary is kept, its version check skipped, when the latest release cannot be determined.
 
 ---
 
