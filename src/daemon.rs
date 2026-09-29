@@ -47,7 +47,7 @@ pub fn background_process(
         error!(
             "Whitelist fail handling requires a whitelist name. Provide --whitelist <NAME> when enabling --fail-on-whitelist."
         );
-        std::process::exit(ERROR_CODE_PARAM);
+        crate::exit_process(ERROR_CODE_PARAM);
     }
 
     // Before anything starts: a mode the organization's lock refuses is an
@@ -292,7 +292,7 @@ pub fn background_process(
                         if let Err(e) = halt_ci_pipeline(reason) {
                             eprintln!("Failed to cancel pipeline: {}", e);
                         }
-                        std::process::exit(ERROR_CODE_MISMATCH);
+                        crate::exit_process(ERROR_CODE_MISMATCH);
                     }
                 }
                 Err(e) => {
@@ -311,7 +311,7 @@ fn exit_if_managed_policy_refuses(agentic_mode: &str) {
     if let Some(refusal) = crate::background::agentic_mode_managed_refusal(agentic_mode) {
         error!("{}", refusal);
         eprintln!("{}", refusal);
-        std::process::exit(ERROR_CODE_PARAM);
+        crate::exit_process(ERROR_CODE_PARAM);
     }
 }
 
