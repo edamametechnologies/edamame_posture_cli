@@ -2,6 +2,11 @@ name: Build and publish for linux apks
 
 on:
   workflow_dispatch:
+    inputs:
+      generic_release_notes:
+        description: 'Publish "Bug fixes" as the release notes when release_notes/<version>.md does not exist (release_all.sh --generic-release-notes). Without it a release with no notes is refused.'
+        type: boolean
+        default: false
 
 # Auto cancel previous runs if they were not completed.
 concurrency:
@@ -72,6 +77,27 @@ jobs:
           agentic_interval: 600
         env:
           EDAMAME_LLM_API_KEY: ${{ secrets.EDAMAME_LLM_API_KEY }}
+
+      # The release body: release_notes/<version>.md, or the generic text when
+      # the dispatch asks for it (generic_release_notes). A release without
+      # notes is refused here, before anything is built or published.
+      - name: Resolve the release notes
+        if: github.ref == 'refs/heads/main'
+        id: notes
+        shell: bash
+        env:
+          GENERIC_RELEASE_NOTES: ${{ inputs.generic_release_notes }}
+        run: |
+          set -euo pipefail
+          VERSION=$(grep '^version =' ./Cargo.toml | awk '{print $3}' | tr -d '"')
+          NOTES_FILE="$RUNNER_TEMP/release_notes.md"
+          args=("$VERSION" "$NOTES_FILE")
+          if [ "$GENERIC_RELEASE_NOTES" = "true" ]; then
+            args+=(--generic)
+          fi
+          bash .github/scripts/release_notes.sh "${args[@]}"
+          echo "path=$NOTES_FILE" >> "$GITHUB_OUTPUT"
+
       ############################################################################################
       # Setup
       ############################################################################################
@@ -332,7 +358,7 @@ jobs:
       - name: Update the tag if it exists
         if: github.ref == 'refs/heads/main' && steps.get_release.outputs.exists == 'true'
         run: |
-          gh release edit ${{ steps.get_release.outputs.tag }} --repo ${{ github.repository }} --target ${{ github.sha }}
+          gh release edit ${{ steps.get_release.outputs.tag }} --repo ${{ github.repository }} --target ${{ github.sha }} --notes-file "${{ steps.notes.outputs.path }}"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
@@ -345,8 +371,25 @@ jobs:
         with:
           tag_name: ${{ steps.get_release.outputs.tag }}
           release_name: Release ${{ steps.get_release.outputs.tag }}
+          body_path: ${{ steps.notes.outputs.path }}
           draft: false
           prerelease: false
+
+      # Never an empty release body (release_notes.sh refuses to produce one;
+      # this checks what GitHub now holds).
+      - name: The release carries its notes
+        if: github.ref == 'refs/heads/main'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG="${{ steps.get_release.outputs.tag }}"
+          BODY=$(gh api "repos/${{ github.repository }}/releases/tags/$TAG" --jq '.body // ""')
+          if [ -z "$(printf '%s' "$BODY" | tr -d '[:space:]')" ]; then
+            echo "::error::Release $TAG has no notes"
+            exit 1
+          fi
 
       # Published assets are IMMUTABLE for a given version -- see the same
       # guard in release_others.yml. A retry after a partial run must ADD the

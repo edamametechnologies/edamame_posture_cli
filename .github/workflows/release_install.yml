@@ -2,6 +2,11 @@ name: Release install script
 
 on:
   workflow_dispatch:
+    inputs:
+      generic_release_notes:
+        description: 'Publish "Bug fixes" as the release notes when release_notes/<version>.md does not exist (release_all.sh --generic-release-notes). Without it a release with no notes is refused.'
+        type: boolean
+        default: false
 
 # Auto cancel previous runs if they were not completed.
 concurrency:
@@ -59,6 +64,26 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
+      # The release body: release_notes/<version>.md, or the generic text when
+      # the dispatch asks for it (generic_release_notes). A release without
+      # notes is refused here, before anything is built or published.
+      - name: Resolve the release notes
+        if: github.ref == 'refs/heads/main'
+        id: notes
+        shell: bash
+        env:
+          GENERIC_RELEASE_NOTES: ${{ inputs.generic_release_notes }}
+        run: |
+          set -euo pipefail
+          VERSION=$(grep '^version =' ./Cargo.toml | awk '{print $3}' | tr -d '"')
+          NOTES_FILE="$RUNNER_TEMP/release_notes.md"
+          args=("$VERSION" "$NOTES_FILE")
+          if [ "$GENERIC_RELEASE_NOTES" = "true" ]; then
+            args+=(--generic)
+          fi
+          bash .github/scripts/release_notes.sh "${args[@]}"
+          echo "path=$NOTES_FILE" >> "$GITHUB_OUTPUT"
+
       # exists=false only on a definite HTTP 404: any other lookup failure (the
       # org IP allow list, a token, a 5xx) fails the job instead of being read
       # as "no release".
@@ -83,7 +108,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release edit ${{ steps.version.outputs.tag }} --repo ${{ github.repository }} --target ${{ github.sha }}
+          gh release edit ${{ steps.version.outputs.tag }} --repo ${{ github.repository }} --target ${{ github.sha }} --notes-file "${{ steps.notes.outputs.path }}"
 
       - name: Create release if it doesn't exist
         if: github.ref == 'refs/heads/main' && steps.release_lookup.outputs.exists != 'true'
@@ -94,8 +119,25 @@ jobs:
         with:
           tag_name: ${{ steps.version.outputs.tag }}
           release_name: Release ${{ steps.version.outputs.tag }}
+          body_path: ${{ steps.notes.outputs.path }}
           draft: false
           prerelease: false
+
+      # Never an empty release body (release_notes.sh refuses to produce one;
+      # this checks what GitHub now holds).
+      - name: The release carries its notes
+        if: github.ref == 'refs/heads/main'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG="${{ steps.version.outputs.tag }}"
+          BODY=$(gh api "repos/${{ github.repository }}/releases/tags/$TAG" --jq '.body // ""')
+          if [ -z "$(printf '%s' "$BODY" | tr -d '[:space:]')" ]; then
+            echo "::error::Release $TAG has no notes"
+            exit 1
+          fi
 
       # Verify with: gh attestation verify install.sh --repo edamametechnologies/edamame_posture_cli
       - name: Attest build provenance
