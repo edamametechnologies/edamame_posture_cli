@@ -717,7 +717,9 @@ mod windows_service_host {
     }
 
     /// Stop / shutdown: report STOPPED before exiting, otherwise the SCM
-    /// counts the exit as a failure and applies the restart actions.
+    /// counts the exit as a failure and applies the restart actions. The ETW
+    /// sessions stop first: `std::process::exit` skips flodbadd's exit hook,
+    /// and they would outlive the service.
     fn stop() {
         set_status(
             ServiceState::StopPending,
@@ -727,6 +729,7 @@ mod windows_service_host {
         if edamame_foundation::runtime::is_initialized() {
             edamame_core::api::api_core::terminate(false);
         }
+        crate::stop_etw_sessions();
         set_status(
             ServiceState::Stopped,
             ServiceExitCode::Win32(0),

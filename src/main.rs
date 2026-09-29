@@ -310,8 +310,25 @@ fn ensure_admin() {
     let admin_status = get_admin_status();
     if !admin_status {
         eprintln!("This command requires admin privileges, exiting...");
-        std::process::exit(1);
+        exit_process(1);
     }
+}
+
+/// Stop the ETW trace sessions this process started (Windows). They are
+/// kernel objects that outlive their process: flodbadd stops them from the
+/// CRT exit hook when `main` returns, which `std::process::exit`
+/// (`ExitProcess`) skips. A no-op when ETW never started in this process.
+/// Windows only: posture builds flodbadd with `etw` there and nowhere else.
+pub(crate) fn stop_etw_sessions() {
+    #[cfg(target_os = "windows")]
+    flodbadd::l7_etw::shutdown();
+}
+
+/// `std::process::exit` for a process that may run capture or the file
+/// monitor (a daemon, a one-shot capture): the ETW sessions stop first.
+pub(crate) fn exit_process(code: i32) -> ! {
+    stop_etw_sessions();
+    exit(code)
 }
 
 fn run_base() {
@@ -1776,7 +1793,7 @@ fn run_base() {
         terminate(false);
     }
 
-    exit(exit_code);
+    exit_process(exit_code);
 }
 
 fn initialize_pcap() {
