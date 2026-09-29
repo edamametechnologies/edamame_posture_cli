@@ -207,20 +207,28 @@ jobs:
           ./macos/sign.sh ./target/universal-apple-darwin/release/edamame_posture
           ./macos/sign.sh ./target/universal-apple-darwin/debug/edamame_posture
 
+      # notarization.sh fails on any verdict but Accepted and staples the
+      # ticket into the PKG it notarized, so Gatekeeper accepts it offline too.
+      # The versioned copies are the files that are published (the release,
+      # the Homebrew cask, the attestation): they are taken after stapling and
+      # validated themselves.
       - name: Package, sign and notarize macOS binaries
         if: matrix.os == 'macos'
         shell: bash
         run: |
+          set -euo pipefail
           VERSION=$(grep '^version =' ./Cargo.toml | awk '{print $3}' | tr -d '"')
           # Release binary
           ./macos/make-pkg.sh --provisioning-profile /tmp/EDAMAME_Posture.provisionprofile ./target/universal-apple-darwin/release/edamame_posture
           ./macos/notarization.sh ./target/pkg/edamame-posture.pkg
-          cp ./target/pkg/edamame-posture.pkg ./target/pkg/edamame-posture-macos-${VERSION}.pkg
+          cp ./target/pkg/edamame-posture.pkg "./target/pkg/edamame-posture-macos-${VERSION}.pkg"
+          xcrun stapler validate "./target/pkg/edamame-posture-macos-${VERSION}.pkg"
           # Debug binary
           rm -rf ./target/pkg/ROOT ./target/pkg/pkg
           ./macos/make-pkg.sh --provisioning-profile /tmp/EDAMAME_Posture.provisionprofile ./target/universal-apple-darwin/debug/edamame_posture
           ./macos/notarization.sh ./target/pkg/edamame-posture.pkg
-          cp ./target/pkg/edamame-posture.pkg ./target/pkg/edamame-posture-macos-${VERSION}-debug.pkg
+          cp ./target/pkg/edamame-posture.pkg "./target/pkg/edamame-posture-macos-${VERSION}-debug.pkg"
+          xcrun stapler validate "./target/pkg/edamame-posture-macos-${VERSION}-debug.pkg"
 
       # Windows
       - name: Signing for Windows
