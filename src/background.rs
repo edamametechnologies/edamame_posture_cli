@@ -3788,6 +3788,34 @@ pub fn background_process_agentic(mode: &str) {
     }
 }
 
+/// The organization's locked protection policy (MDM `LockProtection`) against
+/// `--agentic-mode <mode>`: the message to print when the lock refuses the
+/// mode, `None` when it is allowed. The lock wins (decided 2026-09-29): the
+/// caller exits non-zero instead of starting, or running on, without the
+/// loops the operator asked for. `disabled` leaves the loops as they are and
+/// is never refused. In-process, and the core reads the OS policy store
+/// itself, so the launcher can check before it starts the daemon and the
+/// daemon before it applies the mode.
+pub fn agentic_mode_managed_refusal(mode: &str) -> Option<String> {
+    let (enabled, auto_level) = match mode {
+        "off" => (false, false),
+        _ => match agentic_level_for_mode(mode) {
+            Some(level) => (true, level == ConfirmationLevel::Auto as i32),
+            None => return None,
+        },
+    };
+    edamame_core::api::api_managed::managed_agentic_protection_refusal(enabled, auto_level).map(
+        |reason| {
+            format!(
+                "--agentic-mode {} is refused by this device's managed configuration ({}). \
+                 The organization's lock wins: drop --agentic-mode (agentic_mode: \"disabled\" \
+                 in the service configuration) on this device, or change the policy.",
+                mode, reason
+            )
+        },
+    )
+}
+
 /// `--agentic-mode analyze|auto`: the Assistant's level and cadence, then the
 /// agentic-protection switch, which turns the Assistant, the attack pattern
 /// detector and the divergence engine on together (core 2.0: all three are off
@@ -4004,6 +4032,15 @@ mod tests {
                 mode
             );
         }
+    }
+
+    #[test]
+    fn a_disabled_agentic_mode_is_never_refused_by_the_protection_lock() {
+        // `disabled` (the service default) leaves the loops as they are, so
+        // no organization lock can refuse it and a daemon started with it
+        // never exits on one; the core is not even asked.
+        assert_eq!(agentic_mode_managed_refusal("disabled"), None);
+        assert_eq!(agentic_mode_managed_refusal("not-a-mode"), None);
     }
 
     #[test]
