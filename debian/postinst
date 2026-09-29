@@ -3,11 +3,28 @@ set -e
 
 #DEBHELPER#
 
+CONF=/etc/edamame_posture.conf
+CONF_TEMPLATE=/usr/share/edamame_posture/edamame_posture.conf
+
 case "$1" in
     configure)
+        # The conf holds the Hub credentials and the LLM key that install.sh or
+        # the operator wrote: it is created here when it is missing and never
+        # replaced. It is not a dpkg conffile, so an upgrade never stops at
+        # dpkg's conffile question. Up to 2.0.2 it was one: on a host upgraded
+        # from those, dpkg keeps it as an obsolete conffile and leaves the file
+        # as it is, asking nothing (a purge still removes it).
+        if [ ! -e "$CONF" ] && [ ! -L "$CONF" ]; then
+            install -m 0600 -o root -g root "$CONF_TEMPLATE" "$CONF"
+        fi
+        # An upgrade to 2.0.2 that stopped at that question left 2.0.2's
+        # packaged conf unpacked next to the real one, and dpkg no longer
+        # tracks it now that the conffile is obsolete.
+        rm -f "$CONF.dpkg-new"
+
         # Remind about configuration
-        echo "Please configure /etc/edamame_posture.conf and restart the service"
-        
+        echo "Please configure $CONF and restart the service"
+
         # Enable and start the service
         systemctl daemon-reload
         systemctl enable edamame_posture.service

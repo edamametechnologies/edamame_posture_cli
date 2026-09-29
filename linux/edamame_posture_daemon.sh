@@ -15,10 +15,11 @@ if [ ! -f "$CONF" ]; then
 fi
 
 # Keys absent from the conf read as empty and fall back to their defaults
-# below. The packaged conf is a dpkg conffile: an upgrade that keeps an
-# operator's file (the installer rewrites it, so it always counts as modified)
-# never gains keys added after it was written -- llm_model, llm_base_url and
-# the rest must work when missing.
+# below. An upgrade never rewrites an existing conf (the package creates it
+# only when it is missing; up to 2.0.2 it was a dpkg conffile, and an
+# installer-written one always counted as modified), so it never gains keys
+# added after it was written -- llm_model, llm_base_url and the rest must work
+# when missing.
 
 # Extract a configuration value by key from a YAML-formatted file.
 get_config_value() {
