@@ -344,12 +344,19 @@ fi
 # dpkg's conffile prompt read EOF on a host whose conf an earlier run wrote,
 # the upgrade failed, the rollback purged the conf with the credentials in it
 # and the binary fallback was verified through dash's stale path cache.
+# apt-get and dpkg are stand-in executables first on PATH: dash rejects a
+# function named apt-get ("Bad function name"), which stopped this file there.
 APT_ARGS_LOG="$WORK/apt_args"
-apt-get() { printf '%s\n' "$*" >> "$APT_ARGS_LOG"; }
-dpkg() {
-    case "$*" in *--purge*) rm -f "$SERVICE_CONF_PATH" ;; esac
-    return 0
-}
+MOCK_BIN="$WORK/mock_bin"
+mkdir -p "$MOCK_BIN"
+# shellcheck disable=SC2016 # expanded by the stand-ins, not here
+printf '#!/bin/sh\nprintf "%%s\\n" "$*" >> "$APT_ARGS_LOG"\n' > "$MOCK_BIN/apt-get"
+# shellcheck disable=SC2016
+printf '#!/bin/sh\ncase "$*" in *--purge*) rm -f "$SERVICE_CONF_PATH" ;; esac\nexit 0\n' > "$MOCK_BIN/dpkg"
+chmod +x "$MOCK_BIN/apt-get" "$MOCK_BIN/dpkg"
+export APT_ARGS_LOG SERVICE_CONF_PATH
+SAVED_PATH="$PATH"
+PATH="$MOCK_BIN:$PATH"
 : > "$APT_ARGS_LOG"
 apt_install_posture_package
 case "$(cat "$APT_ARGS_LOG")" in
@@ -374,7 +381,7 @@ if [ -e "$SERVICE_CONF_PATH" ]; then
 else
     ok "the rollback creates no conf when there was none"
 fi
-unset -f apt-get dpkg
+PATH="$SAVED_PATH"
 
 if command -v dash >/dev/null 2>&1; then
     mkdir -p "$WORK/usr_bin" "$WORK/usr_local_bin"
