@@ -429,6 +429,9 @@ download_file() {
 }
 # shellcheck disable=SC2329
 installer() { printf 'installer %s\n' "$*" >> "$PKG_LOG"; return "${INSTALLER_RC:-0}"; }
+# The checksum check has its own tests below (a stand-in curl plays GitHub).
+# shellcheck disable=SC2329
+verify_release_download() { printf 'verify %s %s\n' "$1" "$2" >> "$PKG_LOG"; return 0; }
 SUDO=""
 reset_pkg() { : > "$PKG_LOG"; INSTALL_METHOD=""; BINARY_PATH=""; PKG_MISSING=""; INSTALLER_RC=0; }
 
@@ -498,7 +501,7 @@ case "$FAIL_RC:$FAIL_OUT" in
     1:*"Could not install the debug PKG (--debug-build) on macOS"*"provisioning profile"*) ok "a failed macOS install explains why there is no binary fallback" ;;
     *) not_ok "a failed macOS install explains why there is no binary fallback (rc=$FAIL_RC: $FAIL_OUT)" ;;
 esac
-unset -f fetch_latest_release_tag download_file installer
+unset -f fetch_latest_release_tag download_file installer verify_release_download
 
 # Only the PKG's bundle binary, or the /usr/local/bin link to it, is the PKG.
 MACOS_PKG_BINARY="$WORK/bundle/edamame_posture"
@@ -530,7 +533,11 @@ MOCK_LOG="$WORK/net_calls"
 mkdir -p "$NET_BIN"
 cat > "$NET_BIN/curl" <<'STUB'
 #!/bin/sh
-# Stand-in curl for install.sh's GitHub calls.
+# Stand-in curl for install.sh's GitHub calls. Every release asset has known
+# bytes (content); its SHA256SUMS (MOCK_SUMS: ok, unlisted, garbage, or a
+# status; 404 for the versions in MOCK_NO_SUMS) and GitHub's digests
+# (MOCK_API: ok, nodigest, wrongdigest, or a status) describe those bytes,
+# and MOCK_TAMPER=1 serves other bytes.
 url=""; out=""; fmt=""; fail=false
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -543,6 +550,36 @@ while [ $# -gt 0 ]; do
     esac
 done
 echo "curl $url" >> "$MOCK_LOG"
+sha() { if command -v sha256sum >/dev/null 2>&1; then sha256sum | cut -d' ' -f1; else shasum -a 256 | cut -d' ' -f1; fi; }
+content() {
+    printf '#!/bin/sh\necho "edamame_posture %s"\n# %s\n' "$1" "$2"
+    [ "${3:-}" = tampered ] && printf '# tampered\n'
+    return 0
+}
+assets() {
+    for a in "edamame_posture-$1-x86_64-unknown-linux-gnu" "edamame_posture-$1-x86_64-unknown-linux-gnu-debug" \
+             "edamame_posture-$1-x86_64-pc-windows-msvc.exe" "edamame-posture-macos-$1.pkg" "edamame-posture-macos-$1-debug.pkg"; do
+        echo "$a"
+    done
+}
+listed() { case " $2 " in *" $1 "*) return 0 ;; esac; return 1; }
+# One release object laid out like GitHub's (an uploader without a name
+# between an asset's name and its digest).
+release_json() {
+    printf '  {\n    "tag_name": "v%s",\n    "name": "Release v%s",\n    "assets": [\n' "$1" "$1"
+    first=true
+    for a in $(assets "$1"); do
+        $first || printf ',\n'
+        first=false
+        printf '      {\n        "name": "%s",\n        "uploader": {\n          "login": "github-actions[bot]",\n          "type": "Bot"\n        },\n        "size": 42' "$a"
+        case "$2" in
+            ok) printf ',\n        "digest": "sha256:%s"' "$(content "$1" "$a" | sha)" ;;
+            wrong) printf ',\n        "digest": "sha256:%s"' "$(printf 'other %s' "$a" | sha)" ;;
+        esac
+        printf ',\n        "browser_download_url": "https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v%s/%s"\n      }' "$1" "$a"
+    done
+    printf '\n    ]\n  }'
+}
 status=""; body=""; location=""
 case "$url" in
     https://github.com/*/releases/latest)
@@ -551,24 +588,35 @@ case "$url" in
             *) status="$MOCK_REDIRECT" ;;
         esac ;;
     https://api.github.com/*)
-        status="$MOCK_API"
-        [ "$status" = "ok" ] && { status=200; body='[
-  {
-    "tag_name": "v2.0.3",
-    "name": "Release v2.0.3"
-  },
-  {
-    "tag_name": "v2.0.2",
-    "name": "Release v2.0.2"
-  }
-]'; } ;;
-    https://github.com/*/releases/download/v*)
+        case "$MOCK_API" in
+            ok|nodigest|wrongdigest)
+                status=200
+                mode=ok
+                [ "$MOCK_API" = nodigest ] && mode=none
+                [ "$MOCK_API" = wrongdigest ] && mode=wrong
+                case "$url" in
+                    */releases/latest) body="$(release_json 2.0.3 "$mode")" ;;
+                    *) body="$(printf '[\n%s,\n%s\n]' "$(release_json 2.0.3 "$mode")" "$(release_json 2.0.2 "$mode")")" ;;
+                esac ;;
+            *) status="$MOCK_API" ;;
+        esac ;;
+    https://github.com/*/releases/download/v*/SHA256SUMS)
         version="${url#*/releases/download/v}"; version="${version%%/*}"
-        status=200
-        for missing in $MOCK_MISSING; do
-            [ "$missing" = "$version" ] && status=404
-        done
-        [ "$status" = 200 ] && body="$(printf '#!/bin/sh\necho "edamame_posture %s"' "$version")" ;;
+        status="${MOCK_SUMS:-ok}"
+        listed "$version" "${MOCK_NO_SUMS:-}" && status=404
+        case "$status" in
+            ok) status=200; body="$(for a in $(assets "$version"); do printf '%s  %s\n' "$(content "$version" "$a" | sha)" "$a"; done)" ;;
+            unlisted) status=200; body="$(printf '%s  edamame_posture-%s-some-other-target\n' "$(printf x | sha)" "$version")" ;;
+            garbage) status=200; body='<html><body>Proxy error</body></html>' ;;
+        esac ;;
+    https://github.com/*/releases/download/v*)
+        version="${url#*/releases/download/v}"; name="${version#*/}"; version="${version%%/*}"
+        if listed "$version" "$MOCK_MISSING"; then
+            status=404
+        else
+            status=200
+            body="$(content "$version" "$name" "${MOCK_TAMPER:+tampered}")"
+        fi ;;
     *) status=000 ;;
 esac
 if [ "$status" = "000" ]; then
@@ -590,7 +638,8 @@ fi
 exit 0
 STUB
 chmod +x "$NET_BIN/curl"
-export MOCK_LOG MOCK_REDIRECT MOCK_API MOCK_MISSING
+MOCK_SUMS=ok; MOCK_NO_SUMS=""; MOCK_TAMPER=""
+export MOCK_LOG MOCK_REDIRECT MOCK_API MOCK_MISSING MOCK_SUMS MOCK_NO_SUMS MOCK_TAMPER
 NET_SAVED_PATH="$PATH"
 PATH="$NET_BIN:$PATH"
 
@@ -604,6 +653,7 @@ net_run() {
         INSTALL_DIR="$WORK/net_inst"; PLATFORM=linux; LINUX_ARCH_NORMALIZED=x86_64
         CONFIG_DEBUG_BUILD=false; SUDO=""; INSTALL_METHOD=""; GITHUB_TOKEN=""
         LATEST_RELEASE_TAG_PRIMARY=""; LATEST_RELEASE_TAG_SECONDARY=""; GITHUB_RELEASES_RESPONSE=""
+        RELEASE_SUMS_VERSION=""
         "$@"
         rc=$?
         printf 'RC=%s BINARY_INSTALL_ERROR=%s MACOS_PKG_ERROR=%s\n' "$rc" "${BINARY_INSTALL_ERROR:-}" "${MACOS_PKG_ERROR:-}"
@@ -611,7 +661,8 @@ net_run() {
     )"
     NET_RC=$?
 }
-downloads() { grep -c '/releases/download/' "$MOCK_LOG"; }
+# Release downloads other than SHA256SUMS.
+downloads() { grep '/releases/download/' "$MOCK_LOG" | grep -vc '/SHA256SUMS$'; }
 installed_version() { sh "$WORK/net_inst/edamame_posture" 2>/dev/null; }
 
 MOCK_REDIRECT="302:v2.0.3"; MOCK_API=ok; MOCK_MISSING=""
@@ -709,10 +760,13 @@ case "$NET_RC:$(downloads):$NET_OUT" in
         ok "macOS PKG: only the latest release's PKG is tried when no previous one is known" ;;
     *) not_ok "macOS PKG: only the latest release's PKG is tried when no previous one is known (rc=$NET_RC): $(cat "$MOCK_LOG") $NET_OUT" ;;
 esac
-# --- The release digest parser is POSIX awk (2.0.3) -------------------------
-# get_asset_digest_from_json runs here under every awk found (awk, gawk,
-# mawk, busybox awk, original-awk), on the real v2.0.2 release JSON in
-# fixtures/, pretty-printed and compact.
+
+# --- Downloads are verified, and fail closed (2.0.3) -------------------------
+# A download is checked against the release's SHA256SUMS (a public asset
+# since 2.0.2) and GitHub's asset digest; it installs only when it matches,
+# or when the release publishes no checksum. The digest parsers are POSIX
+# awk: they run here under every awk found (awk, gawk, mawk, busybox awk,
+# original-awk), on the real v2.0.2 release JSON and SHA256SUMS in fixtures/.
 FIXTURES="$REPO_ROOT/tests/installer/fixtures"
 REAL_JSON="$(cat "$FIXTURES/release-v2.0.2-excerpt.json")"
 COMPACT_JSON="$(printf '%s' "$REAL_JSON" | tr -d '\n' | sed 's/:  */:/g; s/,  */,/g; s/{  */{/g; s/\[  */[/g; s/  *}/}/g; s/  *]/]/g')"
@@ -747,10 +801,107 @@ for impl in awk gawk mawk "busybox awk" original-awk nawk; do
             ok "$impl, $json_label v2.0.2 JSON: an unlisted asset has no digest"
         fi
     done
+    if json_has_asset_digests "$REAL_JSON"; then ok "$impl: v2.0.2 JSON reports digests"; else not_ok "$impl: v2.0.2 JSON reports digests"; fi
+    RELEASE_SUMS="$(cat "$FIXTURES/SHA256SUMS-v2.0.2")"
+    assert_eq "$impl, v2.0.2 SHA256SUMS: the linux-gnu line" \
+        "$(release_sums_digest edamame_posture-2.0.2-x86_64-unknown-linux-gnu)" \
+        "fd301bbbcbd53736a0005753039e414e86589642c5547a52b54cd48ccce3d5e3"
+    assert_eq "$impl, v2.0.2 SHA256SUMS: the debug PKG line, not the release PKG's" \
+        "$(release_sums_digest edamame-posture-macos-2.0.2-debug.pkg)" \
+        "eb8afa2067b10e140ab5328219b573c398d716520806bc2703a6c0143dd80949"
+    RELEASE_SUMS="$(printf 'ABCDEF0123456789abcdef0123456789abcdef0123456789abcdef0123456789 *edamame_posture-x\n')"
+    assert_eq "$impl, SHA256SUMS: a binary-mode line, lowercased" "$(release_sums_digest edamame_posture-x)" \
+        "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
+    assert_eq "$impl, SHA256SUMS: an unlisted asset" "$(release_sums_digest edamame_posture-y)" ""
 done
 PATH="$AWK_SAVED_PATH"
-if [ "$awk_count" -ge 1 ]; then ok "the digest parser ran under $awk_count awk implementation(s)"; else not_ok "no awk found for the digest parser"; fi
+RELEASE_SUMS=""
+if [ "$awk_count" -ge 1 ]; then ok "the digest parsers ran under $awk_count awk implementation(s)"; else not_ok "no awk found for the digest parsers"; fi
 
+# check_verified <label> <expected rc> <pattern in the output>: the pattern
+# is a shell pattern (* matches anything); brackets are left out of it.
+check_verified() {
+    case "$NET_RC:$NET_OUT" in
+        $2:*$3*) ok "$1" ;;
+        *) not_ok "$1 (rc=$NET_RC): $NET_OUT" ;;
+    esac
+}
+BIN="edamame_posture-2.0.3-x86_64-unknown-linux-gnu"
+reset_net() { MOCK_REDIRECT="302:v2.0.3"; MOCK_API=ok; MOCK_SUMS=ok; MOCK_NO_SUMS=""; MOCK_MISSING=""; MOCK_TAMPER=""; }
+
+reset_net
+net_run install_binary_release linux gnu
+check_verified "SHA256SUMS and GitHub agree: verified, installed" 0 "Release checksum verified for latest release artifact ${BIN} (SHA256SUMS of v2.0.3 lists it; GitHub reports its digest)"
+assert_eq "verified: the latest binary is installed" "$(installed_version)" "edamame_posture 2.0.3"
+
+reset_net; MOCK_API=403
+net_run install_binary_release linux gnu
+check_verified "API refused (hosted runner, IP allow list): verified from SHA256SUMS" 0 "Release checksum verified for latest release artifact ${BIN} (SHA256SUMS of v2.0.3 lists it; the GitHub releases API did not answer)"
+
+reset_net; MOCK_NO_SUMS="2.0.3"
+net_run install_binary_release linux gnu
+check_verified "no SHA256SUMS (a release before 2.0.2): verified from GitHub's digest" 0 "Release checksum verified for latest release artifact ${BIN} (v2.0.3 publishes no SHA256SUMS; GitHub reports its digest)"
+
+reset_net; MOCK_SUMS=000
+net_run install_binary_release linux gnu
+check_verified "SHA256SUMS unreachable, GitHub's digest read: verified" 0 "(the SHA256SUMS of v2.0.3 could not be read; GitHub reports its digest)"
+
+reset_net; MOCK_TAMPER=1
+net_run install_binary_release linux gnu
+check_verified "a download that matches neither: stops" 1 "ERROR]*Checksum verification failed for latest release artifact ${BIN}: the download's sha256 is "
+assert_eq "a download that matches neither: nothing installed" "$(installed_version)" ""
+
+reset_net; MOCK_TAMPER=1; MOCK_API=403
+net_run install_binary_release linux gnu
+check_verified "a download that does not match SHA256SUMS (API refused): stops" 1 "ERROR]*Checksum verification failed"
+
+reset_net; MOCK_API=wrongdigest
+net_run install_binary_release linux gnu
+check_verified "SHA256SUMS and GitHub disagree: stops" 1 "ERROR]*publishes two different checksums for ${BIN}"
+assert_eq "SHA256SUMS and GitHub disagree: nothing installed" "$(installed_version)" ""
+
+for spec in "404:403:v2.0.3 publishes no SHA256SUMS; the GitHub releases API did not answer" \
+            "unlisted:403:SHA256SUMS of v2.0.3 does not list it; the GitHub releases API did not answer" \
+            "garbage:403:the SHA256SUMS of v2.0.3 could not be read; the GitHub releases API did not answer" \
+            "403:000:the SHA256SUMS of v2.0.3 could not be read; the GitHub releases API did not answer" \
+            "unlisted:nodigest:SHA256SUMS of v2.0.3 does not list it; the GitHub releases API reports no digest for it"; do
+    reset_net
+    MOCK_SUMS="${spec%%:*}"; rest="${spec#*:}"; MOCK_API="${rest%%:*}"; detail="${rest#*:}"
+    net_run install_binary_release linux gnu
+    check_verified "SHA256SUMS $MOCK_SUMS, API $MOCK_API: no checksum to check against, stops" 1 "ERROR]*Cannot verify ${BIN} of v2.0.3: ${detail}. Not installing"
+    assert_eq "SHA256SUMS $MOCK_SUMS, API $MOCK_API: nothing installed" "$(installed_version)" ""
+done
+
+reset_net; MOCK_NO_SUMS="2.0.3"; MOCK_API=nodigest
+net_run install_binary_release linux gnu
+check_verified "a release that publishes no checksum at all: installs, and says so" 0 "WARN]*Release v2.0.3 publishes no checksum for ${BIN} (no SHA256SUMS, no GitHub asset digest): installing it unverified."
+assert_eq "no checksum published: installed" "$(installed_version)" "edamame_posture 2.0.3"
+
+reset_net; MOCK_MISSING="2.0.3"; MOCK_NO_SUMS="2.0.2"
+net_run install_binary_release linux gnu
+check_verified "the previous release (no SHA256SUMS, like 2.0.1): verified from GitHub's digest" 0 "Release checksum verified for previous release artifact edamame_posture-2.0.2-x86_64-unknown-linux-gnu (v2.0.2 publishes no SHA256SUMS; GitHub reports its digest)"
+assert_eq "the previous release is installed" "$(installed_version)" "edamame_posture 2.0.2"
+
+reset_net; MOCK_NO_SUMS="2.0.3"; MOCK_API=403
+net_run install_binary_release windows "" fallback
+check_verified "fallback mode, no checksum to check against: warns and returns 1 (Chocolatey next)" 1 "WARN]*Cannot verify edamame_posture-2.0.3-x86_64-pc-windows-msvc.exe of v2.0.3*RC=1 BINARY_INSTALL_ERROR=Cannot verify"
+case "$NET_OUT" in *"[ERROR]"*) not_ok "fallback mode, no checksum: no [ERROR]" ;; *) ok "fallback mode, no checksum: no [ERROR]" ;; esac
+reset_net; MOCK_TAMPER=1
+net_run install_binary_release windows "" fallback
+check_verified "fallback mode, a mismatch: stops (never falls back)" 1 "ERROR]*Checksum verification failed"
+
+reset_net
+net_run install_macos_via_pkg
+check_verified "macOS PKG verified: installer runs it" 0 "Release checksum verified for .pkg artifact edamame-posture-macos-2.0.3.pkg (SHA256SUMS of v2.0.3 lists it; GitHub reports its digest)"
+if grep -q '^installer ' "$MOCK_LOG"; then ok "macOS PKG verified: installer called"; else not_ok "macOS PKG verified: installer called"; fi
+reset_net; MOCK_TAMPER=1
+net_run install_macos_via_pkg
+check_verified "macOS PKG that does not match: stops" 1 "ERROR]*Checksum verification failed for .pkg artifact edamame-posture-macos-2.0.3.pkg"
+if grep -q '^installer ' "$MOCK_LOG"; then not_ok "macOS PKG that does not match: installer never runs"; else ok "macOS PKG that does not match: installer never runs"; fi
+reset_net; MOCK_NO_SUMS="2.0.3"; MOCK_API=403
+net_run install_macos_via_pkg
+check_verified "macOS PKG with no checksum to check against: this path fails, with the reason" 1 "MACOS_PKG_ERROR=Cannot verify edamame-posture-macos-2.0.3.pkg of v2.0.3: v2.0.3 publishes no SHA256SUMS; the GitHub releases API did not answer."
+if grep -q '^installer ' "$MOCK_LOG"; then not_ok "macOS PKG with no checksum: installer never runs"; else ok "macOS PKG with no checksum: installer never runs"; fi
 
 unset -f installer
 PATH="$NET_SAVED_PATH"

@@ -309,20 +309,18 @@ macOS runs EDAMAME Posture only from its PKG: the binary carries the Endpoint Se
 - Debug builds pull versioned assets (`edamame_posture-<version>-<triple>-debug`) of the latest release too.
 
 #### Binary Version/SHA Verification
-- **Pre-installation SHA check** (new optimization):
-  - Before any download, the installer fetches the expected SHA256 digest from GitHub releases API
+- **Where the expected SHA256 comes from**: the release's `SHA256SUMS` (a release asset since 2.0.2, read from its public download URL like the binary, so the org IP allow list and the API rate limit do not apply), and the digest GitHub computes for every asset (from the releases API). When both are read they must agree.
+- **Pre-installation SHA check**:
+  - Before any download, the installer reads the expected SHA256 of the latest release's binary
   - Computes SHA256 of the existing binary (if present)
   - If SHAs match → **reuses existing binary**, skips download entirely
-  - If SHAs differ or binary doesn't exist → proceeds with download
-- **Post-download SHA verification**:
-  - After downloading, verifies the downloaded binary against the expected SHA
-  - If verification fails → aborts with error
+  - If SHAs differ or binary doesn't exist → proceeds with download (when no expected SHA can be read, an existing binary is kept and the version check skipped: nothing is downloaded)
+- **Post-download SHA verification** (binaries and the macOS PKG), fail closed:
+  - The download must match the SHA256 its release publishes; a mismatch, or `SHA256SUMS` and GitHub disagreeing, aborts with an error and deletes the download
+  - When the release publishes a checksum that cannot be read (for example `SHA256SUMS` does not list a just-uploaded asset yet and the API refuses the call), the install stops too and says what could not be read; on Windows the Chocolatey fallback is tried instead, and on macOS Homebrew (unless `--force-binary` / `--debug-build` asked for the PKG)
+  - Only a release that publishes no checksum at all (no `SHA256SUMS`, no GitHub digest) installs unverified, with a warning
   - If verification succeeds → compares with existing binary one more time
   - Only replaces existing binary if they differ
-- This two-stage verification ensures:
-  - No unnecessary downloads (SHA checked before download)
-  - No corrupted binaries (SHA verified after download)
-  - Minimal disk writes (only replace if different)
 
 - Version resolution: the GitHub releases API (which also names the previous release), then the `releases/latest` redirect of github.com. There is no pinned fallback version, and `install.sh` has no option to pin one: when neither answers, a binary install stops and names what did not answer; run it again later, or install a release by hand from the releases page. Package-manager installs (APT, APK, Homebrew, Chocolatey) do not need the version and proceed.
 - Download resolution order (non-debug builds): the latest release's binary → the previous release's (when the API named it, e.g. while the latest release is still uploading its assets). If neither downloads, the install stops with the URLs it tried; Windows first retries through Chocolatey.

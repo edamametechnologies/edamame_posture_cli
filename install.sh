@@ -503,7 +503,7 @@ compute_sha256() {
         shasum -a 256 "$file" | awk '{print $1}'
         return 0
     elif command -v certutil >/dev/null 2>&1; then
-        certutil -hashfile "$file" SHA256 2>/dev/null | sed -n '2p' | tr -d '\r'
+        certutil -hashfile "$file" SHA256 2>/dev/null | sed -n '2p' | tr -d '\r ' | tr 'A-F' 'a-f'
         return 0
     fi
     echo ""
@@ -685,7 +685,6 @@ ARTIFACT_SECONDARY_URL=""
 GITHUB_RELEASES_RESPONSE=""
 ARTIFACT_SECONDARY_NAME=""
 ARTIFACT_DIGEST=""
-ARTIFACT_SECONDARY_DIGEST=""
 BINARY_INSTALL_ERROR=""
 
 systemd_available() {
@@ -1372,21 +1371,176 @@ get_asset_digest_from_json() {
         END { exit !found }'
 }
 
-get_release_asset_digest() {
-    local asset_name="$1"
-    if [ -z "$asset_name" ]; then
+# True when the releases API JSON reports a sha256 digest for any asset.
+json_has_asset_digests() {
+    # shellcheck disable=SC2020 # three characters, each to a newline
+    printf '%s\n' "$1" | tr ',{}' '\n\n\n' | grep -Eq '^[[:space:]]*"digest"[[:space:]]*:[[:space:]]*"sha256:[0-9a-fA-F]{64}"'
+}
+
+# --- Release checksums --------------------------------------------------------
+# A downloaded release asset is checked against what its release publishes:
+#   1. SHA256SUMS, a release asset since 2.0.2 (release_checksums.yml), read
+#      from its public download URL like the binary itself, so neither the
+#      org IP allow list nor the API rate limit gets in the way;
+#   2. the digest GitHub computes for every asset, from the releases API.
+# The download must match every digest that could be read. When the release
+# publishes a checksum that cannot be read or does not match, the install
+# stops; only a release that publishes no checksum at all (no SHA256SUMS,
+# no GitHub digest) installs unverified, and says so.
+RELEASE_SUMS_VERSION=""
+RELEASE_SUMS_STATE=""
+RELEASE_SUMS=""
+ASSET_DIGEST=""
+ASSET_DIGEST_STATE=""
+ASSET_DIGEST_DETAIL=""
+VERIFY_ERROR=""
+
+# load_release_sums <version>: the release's SHA256SUMS into RELEASE_SUMS,
+# once per version. RELEASE_SUMS_STATE: found, absent (HTTP 404: the release
+# publishes none) or unavailable (it could not be read, or is not a
+# SHA256SUMS file).
+load_release_sums() {
+    [ "$RELEASE_SUMS_VERSION" = "$1" ] && return 0
+    RELEASE_SUMS_VERSION="$1"
+    RELEASE_SUMS=""
+    RELEASE_SUMS_STATE="unavailable"
+    local url="${REPO_BASE_URL}/releases/download/v$1/SHA256SUMS"
+    local tmp code=""
+    tmp=$(mktemp) || return 0
+    if command -v curl >/dev/null 2>&1; then
+        code=$(curl --connect-timeout 10 --max-time 60 -sSL -o "$tmp" -w '%{http_code}' "$url" 2>/dev/null) || code="000"
+    elif command -v wget >/dev/null 2>&1; then
+        if wget -q --timeout=60 -O "$tmp" "$url" 2>/dev/null; then
+            code="200"
+        else
+            code=$(wget --server-response --spider --timeout=30 "$url" 2>&1 | awk '/HTTP\//{print $2}' | tail -1)
+        fi
+    fi
+    case "$code" in
+        200)
+            # sha256sum lines only ("<64 hex>  <name>"); anything else (a
+            # proxy's error page) is not read as a checksum file.
+            if grep -Eq '^[0-9a-fA-F]{64}[[:space:]]+[*]?[^[:space:]]+$' "$tmp" && \
+               ! grep -Evq '^[0-9a-fA-F]{64}[[:space:]]+[*]?[^[:space:]]+$|^$' "$tmp"; then
+                RELEASE_SUMS=$(cat "$tmp")
+                RELEASE_SUMS_STATE="found"
+            fi
+            ;;
+        404) RELEASE_SUMS_STATE="absent" ;;
+    esac
+    rm -f "$tmp"
+    return 0
+}
+
+# release_sums_digest <asset>: the asset's sha256 in RELEASE_SUMS, lowercase;
+# nothing when it is not listed.
+release_sums_digest() {
+    printf '%s\n' "$RELEASE_SUMS" | awk -v n="$1" '
+        { name = $2; sub(/^\*/, "", name) }
+        name == n { print tolower($1); exit }'
+}
+
+# resolve_asset_digest <version> <asset>
+#   What release v<version> publishes for one of its assets. Sets
+#   ASSET_DIGEST (the expected sha256, lowercase; empty unless found),
+#   ASSET_DIGEST_DETAIL (where each source stood, for the messages) and
+#   ASSET_DIGEST_STATE:
+#     found     from SHA256SUMS or GitHub (both must agree when both are read)
+#     conflict  SHA256SUMS and GitHub's digest disagree
+#     none      the release publishes no checksum: no SHA256SUMS (HTTP 404)
+#               and GitHub reports no digest for its assets
+#     unknown   a checksum may be published but could not be read
+resolve_asset_digest() {
+    local version="$1"
+    local asset="$2"
+    local sums_digest="" sums_note="" api_digest="" api_note=""
+    ASSET_DIGEST=""
+    ASSET_DIGEST_STATE="unknown"
+    load_release_sums "$version"
+    case "$RELEASE_SUMS_STATE" in
+        found)
+            sums_digest=$(release_sums_digest "$asset")
+            if [ -n "$sums_digest" ]; then
+                sums_note="SHA256SUMS of v${version} lists it"
+            else
+                sums_note="SHA256SUMS of v${version} does not list it"
+            fi
+            ;;
+        absent) sums_note="v${version} publishes no SHA256SUMS" ;;
+        *) sums_note="the SHA256SUMS of v${version} could not be read" ;;
+    esac
+    if fetch_release_feed; then
+        api_digest=$(get_asset_digest_from_json "$GITHUB_RELEASES_RESPONSE" "$asset" 2>/dev/null || true)
+        if [ -n "$api_digest" ]; then
+            api_note="GitHub reports its digest"
+        else
+            api_note="the GitHub releases API reports no digest for it"
+        fi
+    else
+        api_note="the GitHub releases API did not answer"
+    fi
+    ASSET_DIGEST_DETAIL="${sums_note}; ${api_note}"
+    if [ -n "$sums_digest" ] && [ -n "$api_digest" ] && [ "$sums_digest" != "$api_digest" ]; then
+        ASSET_DIGEST_STATE="conflict"
+    elif [ -n "$sums_digest" ]; then
+        ASSET_DIGEST="$sums_digest"
+        ASSET_DIGEST_STATE="found"
+    elif [ -n "$api_digest" ]; then
+        ASSET_DIGEST="$api_digest"
+        ASSET_DIGEST_STATE="found"
+    elif [ "$RELEASE_SUMS_STATE" = "absent" ] && [ -n "$GITHUB_RELEASES_RESPONSE" ] && \
+         ! json_has_asset_digests "$GITHUB_RELEASES_RESPONSE"; then
+        ASSET_DIGEST_STATE="none"
+    fi
+    return 0
+}
+
+# verify_release_download <version> <asset> <file> <label> [fallback]
+#   Checks a downloaded asset of release v<version> against what the release
+#   publishes for it. A digest that does not match, or two sources that
+#   disagree, stop the installer (the file is deleted). A checksum that
+#   cannot be read stops it too -- or, with "fallback", sets VERIFY_ERROR and
+#   returns 1 for a caller that has another way to install. A release that
+#   publishes no checksum returns 0 with a warning.
+verify_release_download() {
+    local version="$1"
+    local asset="$2"
+    local file="$3"
+    local label="$4"
+    local on_failure="${5:-stop}"
+    local actual=""
+    VERIFY_ERROR=""
+    resolve_asset_digest "$version" "$asset"
+    case "$ASSET_DIGEST_STATE" in
+        found)
+            actual=$(compute_sha256 "$file" 2>/dev/null | tr 'A-F' 'a-f' | tr -d ' ' || true)
+            if [ -z "$actual" ]; then
+                rm -f "$file"
+                error "Cannot compute the sha256 of the ${label} download ${asset} (no sha256sum, shasum or certutil): not installing an unverified file."
+            fi
+            if [ "$actual" != "$ASSET_DIGEST" ]; then
+                rm -f "$file"
+                error "Checksum verification failed for ${label} artifact ${asset}: the download's sha256 is ${actual}, release v${version} publishes ${ASSET_DIGEST} (${ASSET_DIGEST_DETAIL}). Not installing it."
+            fi
+            info "Release checksum verified for ${label} artifact ${asset} (${ASSET_DIGEST_DETAIL})."
+            return 0
+            ;;
+        conflict)
+            rm -f "$file"
+            error "Release v${version} publishes two different checksums for ${asset}: its SHA256SUMS and GitHub's asset digest disagree (the asset may have been replaced after its checksum was published). Not installing it."
+            ;;
+        none)
+            warn "Release v${version} publishes no checksum for ${asset} (no SHA256SUMS, no GitHub asset digest): installing it unverified."
+            return 0
+            ;;
+    esac
+    rm -f "$file"
+    VERIFY_ERROR="Cannot verify ${asset} of v${version}: ${ASSET_DIGEST_DETAIL}. Not installing a download that cannot be checked against the checksum its release publishes; run the installer again in a few minutes (a release that is still being published lists a new asset in its SHA256SUMS shortly after uploading it)."
+    if [ "$on_failure" = "fallback" ]; then
+        warn "$VERIFY_ERROR"
         return 1
     fi
-    if [ -z "$GITHUB_RELEASES_RESPONSE" ]; then
-        fetch_release_feed || return 1
-    fi
-    local digest
-    digest=$(get_asset_digest_from_json "$GITHUB_RELEASES_RESPONSE" "$asset_name")
-    if [ -n "$digest" ]; then
-        printf '%s\n' "$digest"
-        return 0
-    fi
-    return 1
+    error "$VERIFY_ERROR"
 }
 
 check_file_checksum() {
@@ -1412,7 +1566,9 @@ check_file_checksum() {
 # prepare_binary_artifact <platform> <libc flavor>
 #   Sets ARTIFACT_VERSION, ARTIFACT_NAME, ARTIFACT_URL, ARTIFACT_EXT, the
 #   previous release's ARTIFACT_SECONDARY_NAME / ARTIFACT_SECONDARY_URL when
-#   the release feed named it, and the digests the feed carries. Returns 1,
+#   the release feed named it, and ARTIFACT_DIGEST, the sha256 the latest
+#   release publishes for its binary (resolve_asset_digest; empty when it
+#   cannot be read, which a download then refuses). Returns 1,
 #   with LATEST_LOOKUP_ERROR saying what did not answer, when the latest
 #   release cannot be determined: the caller decides whether that stops the
 #   install (a binary download) or not (reusing an installed binary).
@@ -1447,7 +1603,6 @@ prepare_binary_artifact() {
     ARTIFACT_SECONDARY_URL=""
     ARTIFACT_SECONDARY_NAME=""
     ARTIFACT_DIGEST=""
-    ARTIFACT_SECONDARY_DIGEST=""
     LATEST_LOOKUP_ERROR=""
     # All binaries include version number in the filename
     if fetch_latest_release_tag && [ -n "$LATEST_RELEASE_TAG_PRIMARY" ]; then
@@ -1475,10 +1630,8 @@ prepare_binary_artifact() {
         fi
     fi
 
-    ARTIFACT_DIGEST=$(get_release_asset_digest "$ARTIFACT_NAME" 2>/dev/null || true)
-    if [ -n "$ARTIFACT_SECONDARY_NAME" ]; then
-        ARTIFACT_SECONDARY_DIGEST=$(get_release_asset_digest "$ARTIFACT_SECONDARY_NAME" 2>/dev/null || true)
-    fi
+    resolve_asset_digest "$version" "$ARTIFACT_NAME"
+    ARTIFACT_DIGEST="$ASSET_DIGEST"
     return 0
 }
 
@@ -1523,6 +1676,8 @@ install_binary_release() {
     local target_path="$target_dir/$target_name"
     local download_digest="$ARTIFACT_DIGEST"
     local download_label="latest release"
+    local download_version="$ARTIFACT_VERSION"
+    local download_name="$ARTIFACT_NAME"
     local compare_existing_with_download="true"
 
     local existing_binary_mode="none"
@@ -1568,7 +1723,9 @@ install_binary_release() {
             if download_file "$ARTIFACT_SECONDARY_URL" "$tmp_bin"; then
                 info "Downloaded EDAMAME Posture from previous release tag."
                 download_label="previous release"
-                download_digest="$ARTIFACT_SECONDARY_DIGEST"
+                download_digest=""
+                download_version="$LATEST_RELEASE_TAG_SECONDARY"
+                download_name="$ARTIFACT_SECONDARY_NAME"
                 downloaded="true"
             else
                 warn "Previous release tag download failed (URL: ${ARTIFACT_SECONDARY_URL})"
@@ -1589,20 +1746,11 @@ install_binary_release() {
 
     log_file_metadata "$tmp_bin" "downloaded ${download_label} binary" "$download_digest"
 
-    if [ -n "$download_digest" ]; then
-        if check_file_checksum "$tmp_bin" "$download_digest"; then
-            info "Release checksum verified for ${download_label} artifact."
-        else
-            local download_checksum_status=$?
-            if [ "$download_checksum_status" -eq 1 ]; then
-                rm -f "$tmp_bin"
-                error "Checksum verification failed for ${download_label} artifact."
-            else
-                warn "Unable to verify downloaded binary checksum for ${download_label} artifact."
-            fi
-        fi
-    else
-        warn "No release checksum available for ${download_label} artifact; skipping verification."
+    # Against the SHA256SUMS or GitHub digest the release publishes: a
+    # mismatch stops, and so does a checksum that cannot be read.
+    if ! verify_release_download "$download_version" "$download_name" "$tmp_bin" "$download_label" "$on_failure"; then
+        BINARY_INSTALL_ERROR="$VERIFY_ERROR"
+        return 1
     fi
 
     if [ "$platform" != "windows" ]; then
@@ -2273,6 +2421,16 @@ install_macos_via_pkg() {
         return 1
     fi
 
+    # The PKG is checked against the checksum its release publishes before
+    # installer runs it as root: a mismatch stops the installer, a checksum
+    # that cannot be read fails this path (Homebrew is tried next, unless
+    # --force-binary / --debug-build asked for the PKG).
+    if ! verify_release_download "$candidate" "$pkg_name" "$tmp_pkg" "$label" fallback; then
+        rm -rf "$tmp_dir"
+        MACOS_PKG_ERROR="$VERIFY_ERROR"
+        return 1
+    fi
+
     info "Installing ${pkg_name} (requires admin privileges)..."
     # Checked explicitly: called in an `if`/`||` list, this function runs
     # without `set -e`, so a failed installer used to read as installed.
@@ -2900,8 +3058,9 @@ check_existing_installation() {
                 return 1  # Cannot verify, reinstall
             fi
         else
-            warn "Cannot fetch latest release SHA, will skip version check"
-            # If we can't verify, assume it's ok (fail open for version check)
+            warn "Cannot read the checksum of the latest release's binary (${ASSET_DIGEST_DETAIL:-no detail}), will skip version check"
+            # Reusing the installed binary downloads nothing: fail open for
+            # the version check only (a download is always verified).
             VERSION_CHECK_PASSED="true"
         fi
     fi
