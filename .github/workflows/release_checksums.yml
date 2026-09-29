@@ -49,7 +49,9 @@ jobs:
       github.event_name == 'workflow_dispatch' ||
       (github.event.workflow_run.head_branch == 'main' &&
        (github.event.workflow_run.conclusion == 'success' || github.event.workflow_run.conclusion == 'failure'))
-    runs-on: ubuntu-latest
+    # Self-hosted: the org IP allow list refuses GitHub API calls (and the
+    # private checkout) from hosted runners.
+    runs-on: vm-runner-linux
     timeout-minutes: 30
     steps:
       # The script always comes from the default branch; only the version is
