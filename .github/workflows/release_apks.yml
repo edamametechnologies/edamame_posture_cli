@@ -304,23 +304,22 @@ jobs:
             target/${{ matrix.target }}/debug/edamame_posture
             target/${{ matrix.target }}/apk/edamame-posture-*-r1.apk
 
+      # exists=false only on a definite HTTP 404: any other lookup failure (the
+      # org IP allow list, a token, a 5xx) fails the job instead of being read
+      # as "no release".
       - name: Check for existing release
         if: github.ref == 'refs/heads/main'
         id: get_release
         shell: bash
         run: |
+          set -euo pipefail
           VERSION=$(grep '^version =' ./Cargo.toml | awk '{print $3}' | tr -d '"')
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           VERSION_TAG=v${VERSION}
-          echo "tag=$VERSION_TAG" >> $GITHUB_OUTPUT
-          if gh release view $VERSION_TAG --repo ${{ github.repository }} --json id -q .id 2>/dev/null; then
-            echo "exists=true" >> $GITHUB_OUTPUT
-            echo "upload_url=$(gh release view $VERSION_TAG --json uploadUrl -q .uploadUrl)" >> $GITHUB_OUTPUT
-          else
-            echo "exists=false" >> $GITHUB_OUTPUT
-          fi
+          echo "tag=$VERSION_TAG" >> "$GITHUB_OUTPUT"
+          bash .github/scripts/release_lookup.sh release "${{ github.repository }}" "$VERSION_TAG" >> "$GITHUB_OUTPUT"
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Update the tag if it exists
         if: github.ref == 'refs/heads/main' && steps.get_release.outputs.exists == 'true'
@@ -344,7 +343,8 @@ jobs:
       # Published assets are IMMUTABLE for a given version -- see the same
       # guard in release_others.yml. A retry after a partial run must ADD the
       # missing target, never re-upload one that already published with a
-      # checksum consumers have pinned.
+      # checksum consumers have pinned. A failed listing fails the job: read
+      # as "not published", it re-uploaded the asset with overwrite: true.
       - name: Determine already-published asset
         id: published
         if: github.ref == 'refs/heads/main'
@@ -355,8 +355,7 @@ jobs:
           set -euo pipefail
           TAG="${{ steps.get_release.outputs.tag }}"
           ASSET="edamame_posture-${{ steps.get_release.outputs.version }}-${{ matrix.target }}"
-          NAMES="$(gh release view "$TAG" --repo "${{ github.repository }}" \
-            --json assets --jq '.assets[].name' 2>/dev/null || true)"
+          NAMES="$(bash .github/scripts/release_lookup.sh assets "${{ github.repository }}" "$TAG")"
           if printf '%s\n' "$NAMES" | grep -qxF "$ASSET"; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
             echo "SKIP (already published, checksum is fixed): $ASSET"

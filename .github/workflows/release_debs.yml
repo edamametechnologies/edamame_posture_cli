@@ -314,24 +314,22 @@ jobs:
             target/${{ matrix.target }}/debug/edamame_posture
             target/${{ matrix.target }}/debian/edamame-posture_*.deb
 
-      # Main only
+      # Main only. exists=false only on a definite HTTP 404: any other lookup
+      # failure (the org IP allow list, a token, a 5xx) fails the job instead
+      # of being read as "no release".
       - name: Check for existing release
         if: github.ref == 'refs/heads/main'
         id: get_release
         shell: bash
         run: |
+          set -euo pipefail
           VERSION=$(grep '^version =' ./Cargo.toml | awk '{print $3}' | tr -d '"')
-          echo "::set-output name=version::$VERSION"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           VERSION_TAG=v${VERSION}
-          echo "::set-output name=tag::$VERSION_TAG"
-          if [[ -n "$(gh release view $VERSION_TAG --repo ${{ github.repository }} --json id -q .id)" ]]; then
-            echo "::set-output name=exists::true"
-            echo "::set-output name=upload_url::$(gh release view $VERSION_TAG --json uploadUrl -q .uploadUrl )"
-          else
-            echo "::set-output name=exists::false"
-          fi
+          echo "tag=$VERSION_TAG" >> "$GITHUB_OUTPUT"
+          bash .github/scripts/release_lookup.sh release "${{ github.repository }}" "$VERSION_TAG" >> "$GITHUB_OUTPUT"
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # Update the tag if it exists and points to a different commit
       - name: Update the tag if it exists and points to a different commit
