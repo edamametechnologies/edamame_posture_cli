@@ -61,11 +61,23 @@ WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
 # A release workflow that failed before creating the release triggers this
-# too: nothing to do then.
-if ! RELEASE_ID="$(gh api "repos/${REPO}/releases/tags/${TAG}" --jq '.id' 2>/dev/null)" \
-  || ! printf '%s' "$RELEASE_ID" | grep -Eq '^[0-9]+$'; then
-  echo "::notice::Release ${TAG} not found in ${REPO}; nothing to checksum."
-  exit 0
+# too: nothing to do then. Only a real 404 means that. Any other failure (the
+# org IP allow list refusing a hosted runner, an expired token, a 5xx) exits
+# 1: reading it as "no release" left all of 2.0.2 without SHA256SUMS behind
+# green runs.
+if ! RELEASE_ID="$(gh api "repos/${REPO}/releases/tags/${TAG}" --jq '.id' 2>&1)"; then
+  case "$RELEASE_ID" in
+    *"HTTP 404"*)
+      echo "::notice::Release ${TAG} not found in ${REPO}; nothing to checksum."
+      exit 0
+      ;;
+  esac
+  echo "ERROR: looking up release ${TAG} of ${REPO} failed: ${RELEASE_ID}" >&2
+  exit 1
+fi
+if ! printf '%s' "$RELEASE_ID" | grep -Eq '^[0-9]+$'; then
+  echo "ERROR: unexpected release id '${RELEASE_ID}' for ${TAG} of ${REPO}" >&2
+  exit 1
 fi
 
 # name<TAB>digest (digest may be empty on assets uploaded before GitHub
