@@ -584,7 +584,11 @@ jobs:
               echo "No changes to commit"
             fi
           else
-            echo "Skipping Homebrew publish: DEV_GITHUB_TOKEN not set"
+            # A release on main without the token is a broken publish, not a
+            # skip: the cask would keep pointing at the previous PKG behind a
+            # green run (same rule as the Chocolatey step below).
+            echo "ERROR: DEV_GITHUB_TOKEN is not available to this repository; the Homebrew cask was not published"
+            exit 1
           fi
 
       # Windows - Publish to Chocolatey with resolved version (may include .N suffix)

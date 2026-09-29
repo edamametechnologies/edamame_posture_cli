@@ -257,6 +257,14 @@ jobs:
             chmod 600 "$KEY_PATH"
             echo "$ABUILD_PUBLIC_KEY_B64" | base64 -d > "${KEY_PATH}.pub"
           else
+            # A throwaway key only builds. On main the publish step would sign
+            # the repository index with it and replace the published
+            # edamame.rsa.pub, so every installed system would refuse the
+            # repository: a missing key fails the release instead.
+            if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+              echo "ERROR: ABUILD_PRIVATE_KEY_B64 / ABUILD_PUBLIC_KEY_B64 are not available to this repository; refusing to publish APKs signed with a throwaway key"
+              exit 1
+            fi
             abuild-keygen -a -i -n
             NEW_KEY=$(find "$HOME/.abuild" -name "*.rsa" ! -name "edamame.rsa" -type f | head -1)
             if [ -n "$NEW_KEY" ]; then
