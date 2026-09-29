@@ -451,15 +451,40 @@ jobs:
           # === Acquire S3 lock for APKINDEX update ===
           # Multiple repos (edamame_cli, edamame_posture) share the same APKINDEX per arch.
           # Without locking, concurrent workflows can overwrite each other's index updates.
+          # A lock that cannot be read or taken stops the rebuild: only a definite
+          # "no such key" means nobody holds it. A failed read used to count as "no
+          # lock", and a lock not taken within MAX_WAIT as a reason to proceed
+          # anyway, i.e. to race the other repository's rebuild and publish an
+          # index without its packages.
           LOCK_KEY="${REPO_MAIN_PATH}/.apkindex.lock"
           LOCK_S3="s3://edamame/${LOCK_KEY}"
           LOCK_ID="edamame_posture-${GITHUB_RUN_ID}"
+          LOCK_ERR="$(mktemp)"
           MAX_WAIT=300
           waited=0
+          acquired=false
+
+          # Prints the lock; returns 1 when there is none (S3 404 / NoSuchKey)
+          # and 2 when it could not be read.
+          read_lock() {
+            if aws s3 cp "$LOCK_S3" - 2>"$LOCK_ERR"; then
+              return 0
+            fi
+            if grep -qE '\((404|NoSuchKey)\)' "$LOCK_ERR"; then
+              return 1
+            fi
+            echo "ERROR: could not read the APKINDEX lock ${LOCK_S3}: $(cat "$LOCK_ERR")" >&2
+            return 2
+          }
           
           while [ $waited -lt $MAX_WAIT ]; do
             # Check for existing lock
-            if LOCK_CONTENT=$(aws s3 cp "$LOCK_S3" - 2>/dev/null); then
+            rc=0
+            LOCK_CONTENT=$(read_lock) || rc=$?
+            if [ "$rc" -eq 2 ]; then
+              exit 1
+            fi
+            if [ "$rc" -eq 0 ]; then
               LOCK_TIME=$(echo "$LOCK_CONTENT" | cut -d'|' -f1)
               LOCK_OWNER=$(echo "$LOCK_CONTENT" | cut -d'|' -f2-)
               NOW=$(date +%s)
@@ -483,9 +508,14 @@ jobs:
             sleep 2
             
             # Verify we hold the lock (handles near-simultaneous writes)
-            VERIFY=$(aws s3 cp "$LOCK_S3" - 2>/dev/null || echo "")
-            if echo "$VERIFY" | grep -q "${LOCK_ID}"; then
+            rc=0
+            VERIFY=$(read_lock) || rc=$?
+            if [ "$rc" -eq 2 ]; then
+              exit 1
+            fi
+            if [ "$rc" -eq 0 ] && echo "$VERIFY" | grep -q "${LOCK_ID}"; then
               echo "APKINDEX lock acquired"
+              acquired=true
               break
             fi
             
@@ -494,8 +524,9 @@ jobs:
             waited=$((waited + 5))
           done
           
-          if [ $waited -ge $MAX_WAIT ]; then
-            echo "WARNING: Could not acquire APKINDEX lock after ${MAX_WAIT}s, proceeding anyway"
+          if [ "$acquired" != true ]; then
+            echo "ERROR: could not acquire the APKINDEX lock after ${MAX_WAIT}s; the index is not rebuilt without it" >&2
+            exit 1
           fi
           
           # Ensure lock is always released (even on failure)
@@ -506,7 +537,10 @@ jobs:
           mkdir -p "$WORK_DIR"
           cd "$WORK_DIR"
           
-          aws s3 sync s3://edamame/${REPO_MAIN_PATH}/ . --exclude "*" --include "*.apk" || true
+          # The index is rebuilt from the packages downloaded here, so a failed
+          # sync must fail the step: read as "nothing published" (`|| true`),
+          # it would publish an index without the packages it did not get.
+          aws s3 sync s3://edamame/${REPO_MAIN_PATH}/ . --exclude "*" --include "*.apk"
           
           PKG_COUNT=$(ls -1 *.apk 2>/dev/null | wc -l)
           if [ "$PKG_COUNT" -gt 0 ]; then
