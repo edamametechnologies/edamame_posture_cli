@@ -69,10 +69,9 @@ flodbadd = { git = "https://github.com/edamametechnologies/flodbadd", branch = "
 # Local copy in order to allow rapid development/debug
 #edamame_foundation = { path = "../edamame_foundation", features = [ "packetcapture" ] }
 edamame_foundation = { git = "https://github.com/edamametechnologies/edamame_foundation", branch = "main", features = [ "packetcapture" ] }
-# Process
-daemonize = "0.5.0"
 
-# Native service support (src/service.rs)
+# Native service support (src/service.rs) and the daemon's detach (setsid,
+# src/daemon.rs)
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
 
