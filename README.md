@@ -926,6 +926,7 @@ edamame_posture start \
 **Exit Codes**:
 - `0`: No violations detected
 - `1`: Violation detected (whitelist/blacklist/anomalous as specified)
+- `2`: `--fail-on-whitelist` with a whitelist active but the capture not running: conformance cannot be certified
 - `3`: No active sessions available
 
 **Best for**:
@@ -1729,18 +1730,21 @@ Once installed, EDAMAME Posture is invoked via the `edamame_posture` command. Mo
 - **check-policy-for-domain** `<domain>` `<policy_name>`: Similar to check-policy, but retrieves the policy requirements from EDAMAME Hub for the given domain and policy name. This allows centralized policies to be enforced on the local machine. Requires that the machine is enrolled (or at least has a policy cached) for that domain.
 - **start** `--user <USER>` `--domain <DOMAIN>` `--pin <PIN>` | `--pin-file <PATH>` | `EDAMAME_PIN` `[--device-id <ID>]` `[--network-scan]` `[--packet-capture]` `[--whitelist <NAME>]` `[--fail-on-whitelist]` `[--fail-on-blacklist]` `[--fail-on-findings]` `[--include-local-traffic]` `[--cancel-on-violation]` `[--llm-api-key <KEY>]` `[--agentic-mode <MODE>]` `[--agentic-provider <PROVIDER>]` `[--agentic-interval <SECONDS>]`: Start continuous monitoring and conditional access control. Typically run as a background service or daemon. You must supply your Hub user/email, domain, and one-time PIN (from Hub) to register the device session. Optional flags enable LAN scanning, packet capture, whitelist enforcement, live vulnerability-finding enforcement, local traffic inclusion, AI Assistant automation (with EDAMAME Portal LLM via `--llm-api-key` or BYOLLM), and pipeline cancellation on violations. This will keep running until stopped and enforce policy/network rules in real-time (e.g., locking down access if posture degrades or active vulnerability findings appear).
 - **background-start-disconnected** `[--network-scan]` `[--packet-capture]` `[--whitelist <NAME>]` `[--fail-on-whitelist]` `[--fail-on-blacklist]` `[--fail-on-findings]` `[--include-local-traffic]` `[--cancel-on-violation]` `[--llm-api-key KEY]` `[--agentic-mode MODE]` `[--agentic-provider PROVIDER]` `[--agentic-interval SECONDS]`: Start the background monitoring in a local-only mode (no connection to EDAMAME Hub). Combine `--network-scan` for LAN discovery with `--packet-capture` when you need traffic capture + whitelist enforcement. Optional flags enable whitelist/blacklist/vulnerability-finding enforcement with failure conditions, local traffic inclusion, pipeline cancellation on violations, AI Assistant mode (`auto`/`analyze`/`off`/`disabled`), provider selection (`edamame`, `claude`, `openai`, `ollama`, `none`), and processing interval. For AI, use `--llm-api-key` or set `EDAMAME_LLM_API_KEY` environment variable. This is useful for CI runners or standalone usage where you want monitoring without cloud integration. This process runs until killed; typically you'd run it in a screen/tmux or as a service.
-- **get-sessions** `--fail-on-whitelist` `--fail-on-blacklist` `--fail-on-anomalous` `--zeek-format` `--include-local-traffic`: Report network sessions from the background process. Use the `--fail-on-*` flags to cause a non-zero exit code when violations are detected, optionally format output as Zeek, and include local traffic if desired. Returns exit code 0 when no fatal violations are detected.
+- **get-sessions** `--fail-on-whitelist` `--fail-on-blacklist` `--fail-on-anomalous` `--zeek-format` `--include-local-traffic`: Report network sessions from the background process. Use the `--fail-on-*` flags to cause a non-zero exit code when violations are detected, optionally format output as Zeek, and include local traffic if desired. Returns exit code 0 when no fatal violations are detected. `--fail-on-whitelist` checks the whitelist active in the daemon: with none active there is nothing to check, and an active whitelist whose capture is not running exits 2 (its conformance cannot be certified).
 - **flodbadd**: Perform a quick scan of the local network (LAN) to identify other devices on your subnet. This can reveal potential rogue devices or just provide situational awareness. It lists IP addresses and basic host info for devices it can detect.
 - **request-signature**: Generate a security posture signature for the current device state. The output is a cryptographic signature (token) that represents the current posture (including all threat checks and scores). This signature can be stored or embedded (for example, in a Git commit message) as proof of posture at a point in time.
 - **get-last-report-signature**: If the background process (start or background-start-disconnected) is running, this command fetches the most recently generated posture signature from that background monitor. This is useful to avoid generating a new one if one was already produced at the end of a build or a scheduled interval.
 - **request-report**: Generate a full security report of the current system. This might output a file (e.g., PDF or JSON) containing the detailed posture assessment, including all findings and the signature. The report is signed so it can be verified later. Use this when you need to provide evidence of compliance or for auditing purposes.
 - **create-custom-whitelists**: Outputs the current active whitelist definitions in JSON format to stdout. You can redirect this to a file to use as a base for a custom whitelist. This is often run at the end of a "learning mode" pipeline to capture allowed endpoints observed.
-- **set-custom-whitelists** `"<json_string>"`: Loads a custom whitelist from a JSON string (or file content). Use this to apply a tailored whitelist (perhaps one created and edited from create-custom-whitelists) before running get-sessions. In practice, you might store a whitelist file in your repo and then do: `edamame_posture set-custom-whitelists "$(cat whitelist.json)"` to load it. The custom whitelist will override the default for the remainder of the session.
-- **set-custom-whitelists-from-file** `<file_path>`: Loads a custom whitelist directly from a JSON file. This is more convenient than the string version when you have whitelist configuration files: `edamame_posture set-custom-whitelists-from-file whitelist.json`.
+- **set-custom-whitelists** `"<json_string>"`: Loads a custom whitelist from a JSON string (or file content). Use this to apply a tailored whitelist (perhaps one created and edited from create-custom-whitelists) before running get-sessions. In practice, you might store a whitelist file in your repo and then do: `edamame_posture set-custom-whitelists "$(cat whitelist.json)"` to load it. The custom whitelist will override the default for the remainder of the session. *Requires admin privileges*. The JSON is checked first: a malformed JSON, an unknown field, no whitelist named `custom_whitelist`, or an `extends` parent the JSON does not define is refused with a non-zero exit code, and the active whitelist stays.
+- **set-custom-whitelists-from-file** `<file_path>`: Loads a custom whitelist directly from a JSON file. This is more convenient than the string version when you have whitelist configuration files: `edamame_posture set-custom-whitelists-from-file whitelist.json`. Same checks and exit codes as set-custom-whitelists.
+- **set-whitelist** `<WHITELIST_NAME>`: Enforces a named whitelist (`github_ubuntu`, `github_macos`, `github_windows`, `github`, `builder`, `edamame`, or `custom_whitelist` once one is loaded) in the background process; an empty name turns whitelist checks off. *Requires admin privileges*. An unknown name exits 3 and lists the names that exist; the daemon then enforces it as an empty list, so every egress session is non-conforming.
+- **evaluate-custom-whitelists-from-file** `<file_path>` `[--since <RFC3339>]` `[--json]`: Checks the egress sessions the background process observed against the custom whitelist in a file, not the one the daemon has loaded, so a CI job is checked against its own reviewed list. `--since` keeps the sessions active at or after that time (for example the job's start on a runner that outlives jobs). Prints each session outside the whitelist and why (or the JSON result with `--json`). Exit codes: `0` all sessions conform, `1` some do not, `2` nothing could be checked (capture not running, daemon error), `3` the file does not load.
+- **augment-custom-whitelists-from-file** `<file_path>` `[--since <RFC3339>]`: Prints, as JSON, the custom whitelist in the file plus an entry for every observed egress session outside it (`whitelist`, `added`, `evaluated`, `non_conforming`). The file is the base, never the daemon's live whitelist. Exit codes: `2` nothing could be observed, `3` the file does not load.
 - **set-custom-blacklists-from-file** `<file_path>`: Loads a custom blacklist directly from a JSON file, similar to the whitelist file command.
 - **merge-custom-whitelists-from-files** `<file1>` `<file2>`: Merges two whitelist JSON files into one consolidated whitelist, outputting the result to stdout. This is useful for combining base whitelists with environment-specific additions.
-- **compare-custom-whitelists** `<whitelist_json_1>` `<whitelist_json_2>`: Compares two whitelist JSON strings and outputs the percentage difference. Returns 0 exit code. Useful for detecting whitelist stability during iterative refinement.
-- **compare-custom-whitelists-from-files** `<file1>` `<file2>`: Compares two whitelist JSON files and outputs the percentage difference. Returns 0 exit code. Used by auto-whitelist mode to determine when baseline is stable.
+- **compare-custom-whitelists** `<whitelist_json_1>` `<whitelist_json_2>`: Compares two whitelist JSON strings and outputs the percentage of the second whitelist's entries that allow something the first one's do not. Exits 3 when a whitelist does not parse. Useful for reviewing how much a whitelist changed.
+- **compare-custom-whitelists-from-files** `<file1>` `<file2>`: Compares two whitelist JSON files the same way. Exits 3 when a file does not parse.
 - **get-anomalous-sessions** `[ZEEK_FORMAT]`: Display only anomalous network connections detected by the NBAD system. Returns non-zero exit code if anomalous sessions are found.
 - **get-blacklisted-sessions** `[ZEEK_FORMAT]`: Display only blacklisted network connections. Returns non-zero exit code if blacklisted sessions are found.
 
@@ -1769,13 +1773,16 @@ For completeness, here is a list of EDAMAME Posture CLI subcommands with detaile
 - **stop** (alias for **background-stop**) – Stop a running background monitoring process.
 - **status** (alias for **background-status**) – Check the status of the background monitoring process.
 - **logs** (alias for **background-logs**) – Display logs from the background process.
-- **get-sessions** (alias for **background-get-sessions**) `--fail-on-whitelist` `--fail-on-blacklist` `--fail-on-anomalous` – Report network sessions and optionally fail the command when violations are detected. Combine with `--zeek-format` or `--include-local-traffic` to adjust output. Returns exit code 0 when no fatal violations are detected, 1 when any selected fail-on condition is met, and 3 if no active sessions are available.
+- **get-sessions** (alias for **background-get-sessions**) `--fail-on-whitelist` `--fail-on-blacklist` `--fail-on-anomalous` – Report network sessions and optionally fail the command when violations are detected. Combine with `--zeek-format` or `--include-local-traffic` to adjust output. Returns exit code 0 when no fatal violations are detected, 1 when any selected fail-on condition is met, 2 when `--fail-on-whitelist` finds a whitelist active while the capture is not running, and 3 if no active sessions are available.
 - **get-exceptions** (alias for **background-get-exceptions**) `[ZEEK_FORMAT]` `[LOCAL_TRAFFIC]` – Report network sessions that don't conform to whitelist rules.
 - **get-background-score** (alias for **background-score**) – Get the current security score from the background process.
 - **create-custom-whitelists** (alias for **background-create-custom-whitelists**) – Output template or current whitelist JSON.
-- **set-custom-whitelists** (alias for **background-set-custom-whitelists**) `"<WHITELIST_JSON>"` – Load custom whitelist rules from input JSON.
-- **set-custom-whitelists-from-file** (alias for **background-set-custom-whitelists-from-file**) `<WHITELIST_FILE>` – Load custom whitelist rules from a JSON file.
-- **create-and-set-custom-whitelists** (alias for **background-create-and-set-custom-whitelists**) – Create custom whitelists from current sessions and apply them in one step.
+- **set-custom-whitelists** (alias for **background-set-custom-whitelists**) `"<WHITELIST_JSON>"` – Load custom whitelist rules from input JSON. *Requires admin privileges*. A whitelist the daemon refuses exits non-zero and the active whitelist stays.
+- **set-custom-whitelists-from-file** (alias for **background-set-custom-whitelists-from-file**) `<WHITELIST_FILE>` – Load custom whitelist rules from a JSON file. *Requires admin privileges*.
+- **create-and-set-custom-whitelists** (alias for **background-create-and-set-custom-whitelists**) – Create custom whitelists from current sessions and apply them in one step. *Requires admin privileges*.
+- **set-whitelist** (alias for **background-set-whitelist**) `<WHITELIST_NAME>` – Enforce a named whitelist; an empty name turns whitelist checks off. *Requires admin privileges*. An unknown name exits 3.
+- **evaluate-custom-whitelists-from-file** (alias for **background-evaluate-custom-whitelists-from-file**) `<WHITELIST_FILE>` `[--since <RFC3339>]` `[--json]` – Check the observed egress sessions against the custom whitelist in a file. Exit 0: all conform; 1: some do not; 2: nothing could be checked; 3: the file does not load.
+- **augment-custom-whitelists-from-file** (alias for **background-augment-custom-whitelists-from-file**) `<WHITELIST_FILE>` `[--since <RFC3339>]` – Print the file's whitelist plus an entry for every observed egress session outside it, as JSON.
 - **set-custom-blacklists** (alias for **background-set-custom-blacklists**) `"<BLACKLIST_JSON>"` – Load custom blacklist rules from input JSON.
 - **set-custom-blacklists-from-file** (alias for **background-set-custom-blacklists-from-file**) `<BLACKLIST_FILE>` – Load custom blacklist rules from a JSON file.
 - **get-anomalous-sessions** (alias for **background-get-anomalous-sessions**) `[ZEEK_FORMAT]` – Display only anomalous network connections detected by the NBAD system. Returns non-zero exit code if anomalous sessions are found.
@@ -1807,8 +1814,8 @@ For completeness, here is a list of EDAMAME Posture CLI subcommands with detaile
 - **augment-custom-whitelists** – Augment the current custom whitelist locally using current whitelist exceptions. Outputs JSON to stdout. *Requires admin privileges*.
 - **merge-custom-whitelists** `<WHITELIST_JSON_1>` `<WHITELIST_JSON_2>` – Merge two custom whitelist JSON strings into one consolidated whitelist.
 - **merge-custom-whitelists-from-files** `<WHITELIST_FILE_1>` `<WHITELIST_FILE_2>` – Merge two custom whitelist JSON files into one consolidated whitelist.
-- **compare-custom-whitelists** `<WHITELIST_JSON_1>` `<WHITELIST_JSON_2>` – Compare two custom whitelist JSON strings and output percentage difference.
-- **compare-custom-whitelists-from-files** `<WHITELIST_FILE_1>` `<WHITELIST_FILE_2>` – Compare two custom whitelist JSON files and output percentage difference.
+- **compare-custom-whitelists** `<WHITELIST_JSON_1>` `<WHITELIST_JSON_2>` – Compare two custom whitelist JSON strings and output percentage difference. Exits 3 when a whitelist does not parse.
+- **compare-custom-whitelists-from-files** `<WHITELIST_FILE_1>` `<WHITELIST_FILE_2>` – Compare two custom whitelist JSON files and output percentage difference. Exits 3 when a file does not parse.
 - **request-pin** `<USER>` `<DOMAIN>` – Request a PIN for domain connection. Returns non-zero exit code for invalid parameters.
 - **wait-for-connection** (alias for **background-wait-for-connection**) `[TIMEOUT]` – Wait for connection of the background process with optional timeout. Returns exit code 4 for timeout.
 - **completion** `<SHELL>` – Generate shell completion scripts for various shells (bash, zsh, fish, etc.).
@@ -2742,115 +2749,51 @@ $ edamame_posture get-sessions
 
 #### Automated Baseline Building with GitHub Actions (Auto-Whitelist Mode)
 
-The EDAMAME Posture GitHub Action includes an **auto-whitelist mode** that fully automates the baseline building process. This feature:
+The EDAMAME Posture GitHub Action's **auto-whitelist mode** builds a whitelist for each runner pool, OS and architecture across workflow runs, stores it as a workflow artifact, and then enforces it. The [action's README](https://github.com/edamametechnologies/edamame_posture_action#automated-whitelist-lifecycle-auto-whitelist-mode) describes it in full; in short:
 
-- **First run**: Operates in listen-only mode, capturing all network traffic without enforcement
-- **Subsequent runs**: Automatically refines the whitelist by adding newly discovered endpoints
-- **Stability detection**: Compares iterations and declares the whitelist stable when changes fall below a threshold
-- **Enforcement**: Once stable, automatically enforces the whitelist and fails on violations
+- **Mode decided at setup**: each run starts learning or enforcing, as the whitelist's saved state says.
+- **Learning runs**: the job's egress traffic is checked against the whitelist file the job downloaded, and what is outside it is learned (`augment-custom-whitelists-from-file --since <job start>`). A learning run that saw nothing outside the whitelist counts toward stability.
+- **Enforcing runs**: after `auto_whitelist_stability_consecutive_runs` stable learning runs in a row (default 3), or `auto_whitelist_max_iterations` learning runs (default 25, with a warning), a job that contacts an endpoint outside the whitelist fails (`evaluate-custom-whitelists-from-file --since <job start>`), and the endpoint is not learned. `promote_exceptions: true` adds and lists it instead of failing.
+- **Verdict**: each run records its result in `auto_whitelist_verdict.json`, in the artifact and the job summary.
 
 **Example GitHub Actions Workflow**:
 
 ```yaml
 name: Build with Auto-Whitelist
 
-on: [push, pull_request]
+on: [push]
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Setup EDAMAME with Auto-Whitelist
-        uses: edamametechnologies/edamame_posture_action@main
+        uses: edamametechnologies/edamame_posture_action@v1
         with:
           disconnected_mode: true
           network_scan: true
           packet_capture: true
           auto_whitelist: true
           auto_whitelist_artifact_name: my-project-whitelist
-          # auto_whitelist_stability_threshold: 0  # Default: 0% (no new endpoints)
-          # auto_whitelist_max_iterations: 10      # Default: 10 iterations
-          dump_sessions_log: true
-      
+          # auto_whitelist_stability_consecutive_runs: "3"
+          # auto_whitelist_max_iterations: "25"
+
       - name: Build and Test
         run: |
           npm install
           npm run build
           npm test
+
+      - name: Check and learn the auto-whitelist
+        if: always()
+        uses: edamametechnologies/edamame_posture_action@v1
+        with:
+          dump_sessions_log: true
 ```
 
-**How it works**:
-
-1. **Run 1** (Listen-Only):
-   - Captures all network traffic during your build
-   - Creates initial whitelist with all observed endpoints
-   - Saves to GitHub artifact: `my-project-whitelist`
-   - Does NOT enforce violations (exit code 0)
-
-2. **Run 2-N** (Refinement):
-   - Downloads previous whitelist from artifact
-   - Applies it before your build starts
-   - Captures traffic and discovers any new endpoints
-   - Augments whitelist with new discoveries
-   - Compares with previous iteration: `compare-custom-whitelists`
-   - If difference > 0%: saves updated whitelist, resets stability counter, continues refining
-   - If difference = 0%: increments consecutive stable runs counter
-   - Declares stable only after N consecutive runs with 0% change (default: 3 runs)
-
-3. **Stable State**:
-   - Enforces whitelist with `--fail-on-whitelist`
-   - Fails workflow on any unauthorized connections
-   - Provides supply chain attack protection
-
-**Configuration Options**:
-
-| Parameter | Description | Default |
-|-----------|-------------|---------|
-| `auto_whitelist` | Enable auto-whitelist mode | `false` |
-| `auto_whitelist_artifact_name` | GitHub artifact name for storing state | `edamame-auto-whitelist` |
-| `auto_whitelist_stability_threshold` | Percentage change threshold for stability (0 = no new endpoints) | `0` |
-| `auto_whitelist_stability_consecutive_runs` | Number of consecutive runs with 0% change required for stability | `3` |
-| `auto_whitelist_max_iterations` | Maximum refinement iterations | `10` |
-
-**Monitoring Progress**:
-
-The action provides clear console output showing the progression to stability:
-
-```
-=== Iteration 5 ===
-Whitelist difference: 0.00%
-Whitelist is STABLE for this run (diff: 0.00% <= threshold: 0%)
-   Consecutive stable runs: 1 / 3 required
-Whitelist is stable for this run, but needs more consecutive confirmations
-
-=== Iteration 6 ===
-Whitelist difference: 0.00%
-Whitelist is STABLE for this run (diff: 0.00% <= threshold: 0%)
-   Consecutive stable runs: 2 / 3 required
-Whitelist is stable for this run, but needs more consecutive confirmations
-
-=== Iteration 7 ===
-Whitelist difference: 0.00%
-Whitelist is STABLE for this run (diff: 0.00% <= threshold: 0%)
-   Consecutive stable runs: 3 / 3 required
-Whitelist is FULLY STABLE (3 consecutive runs with no changes)
-
-Whitelist has stabilized.
-   Achieved 3 consecutive runs with no changes.
-   Future runs will enforce this whitelist and fail on violations.
-```
-
-**Advantages over Manual Baseline Building**:
-
-- **Zero manual intervention**: Fully automated from first run to enforcement
-- **Artifact-based storage**: No repository commits needed during learning phase
-- **Per-workflow isolation**: Different workflows can have different whitelists
-- **Automatic stability detection**: Requires multiple consecutive runs with 0% change for true stability
-- **Gradual enforcement**: Only enforces after high confidence is established
-- **False positive prevention**: Consecutive runs requirement prevents premature enforcement
-- **Deterministic behavior**: Only stable when network patterns are truly consistent
+The same commands work outside GitHub Actions: keep the whitelist file, record the job's start time, then run `edamame_posture evaluate-custom-whitelists-from-file whitelist.json --since <start>` to enforce it, or `augment-custom-whitelists-from-file` to learn from the job.
 
 #### Best Practices for Baseline Management
 
