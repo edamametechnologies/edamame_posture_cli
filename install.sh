@@ -1720,14 +1720,61 @@ package_state_is_broken() {
     esac
 }
 
-# Remove any partially installed Debian package and repair dpkg/apt state
+# The Linux service conf. A variable so the tests can point it elsewhere.
+SERVICE_CONF_PATH="/etc/edamame_posture.conf"
+
+# Remove any partially installed Debian package and repair dpkg/apt state.
+# The purge deletes the conffile, which holds the Hub credentials and the LLM
+# key an earlier run wrote: keep a root-only copy next to it and put it back,
+# so falling back to the binary does not leave the host unconfigured.
 rollback_broken_deb_package() {
     warn "Removing broken edamame-posture package state..."
+    _conf_backup=""
+    if [ -f "$SERVICE_CONF_PATH" ]; then
+        _conf_backup=$($SUDO mktemp "$SERVICE_CONF_PATH.rollback.XXXXXX" 2>/dev/null) || _conf_backup=""
+        if [ -n "$_conf_backup" ] && ! $SUDO cp -p "$SERVICE_CONF_PATH" "$_conf_backup" 2>/dev/null; then
+            $SUDO rm -f "$_conf_backup" 2>/dev/null || true
+            _conf_backup=""
+        fi
+    fi
     $SUDO dpkg --remove --force-remove-reinstreq edamame-posture 2>/dev/null || true
     $SUDO dpkg --purge --force-remove-reinstreq edamame-posture 2>/dev/null || true
     $SUDO apt-get remove -y --purge edamame-posture 2>/dev/null || true
     $SUDO dpkg --configure -a 2>/dev/null || true
     $SUDO apt-get install -f -y 2>/dev/null || true
+    if [ -n "$_conf_backup" ]; then
+        if $SUDO mv -f "$_conf_backup" "$SERVICE_CONF_PATH" 2>/dev/null; then
+            info "Kept the existing $SERVICE_CONF_PATH"
+        else
+            $SUDO rm -f "$_conf_backup" 2>/dev/null || true
+        fi
+    fi
+}
+
+# Install or upgrade the edamame-posture package without a terminal.
+# --force-confdef/--force-confold: when the packaged /etc/edamame_posture.conf
+# changed (2.0.2 added keys) and the local one was written by an earlier run,
+# keep the local one. Without them dpkg stops at its conffile prompt, reads EOF
+# from /dev/null and fails the upgrade, leaving the service disabled (2.0.1 ->
+# 2.0.2 on self-hosted runners, 2026-09-29). configure_service rewrites the
+# whole conf afterwards and the daemon reads a missing key as its default.
+apt_install_posture_package() {
+    $SUDO apt-get install -y \
+        -o Dpkg::Options::=--force-confdef \
+        -o Dpkg::Options::=--force-confold \
+        edamame-posture < /dev/null
+}
+
+# Refresh the EDAMAME source alone, so the up-to-date check sees a release
+# published since the host's last `apt-get update` (a self-hosted runner or a
+# server can hold a day-old list and stay on the previous release). Never
+# fails the install.
+refresh_edamame_apt_source() {
+    [ -f /etc/apt/sources.list.d/edamame.list ] || return 0
+    $SUDO apt-get update -qq \
+        -o Dir::Etc::sourcelist=sources.list.d/edamame.list \
+        -o Dir::Etc::sourceparts=- \
+        -o APT::Get::List-Cleanup=0 < /dev/null >/dev/null 2>&1 || true
 }
 
 apt_package_installed() {
@@ -2010,7 +2057,7 @@ install_linux_via_apt() {
     # Run apt-get install and capture output
     # Note: apt-get may return 0 even if dpkg configuration fails
     set +e
-    INSTALL_OUTPUT=$($SUDO apt-get install -y edamame-posture 2>&1 < /dev/null)
+    INSTALL_OUTPUT=$(apt_install_posture_package 2>&1)
     INSTALL_EXIT_CODE=$?
     set -e
     
@@ -2643,6 +2690,7 @@ check_existing_installation() {
         if [ "$PLATFORM" = "linux" ]; then
             if command -v apt-get >/dev/null 2>&1; then
                 # Check if apt upgrade would upgrade edamame-posture
+                refresh_edamame_apt_source
                 if apt list --upgradable 2>/dev/null | grep -q "edamame-posture"; then
                     info "Newer version available via APT"
                     NEEDS_UPGRADE="true"
@@ -3400,6 +3448,11 @@ configure_service() {
 # Verify installation
 info ""
 info "Verifying installation..."
+# dash and ash cache the path of a command they already looked up. After the
+# APT rollback purged /usr/bin/edamame_posture and the binary fallback
+# installed /usr/local/bin/edamame_posture, `command -v` still answered the
+# purged path and the verification failed with 127 on a working install.
+hash -r 2>/dev/null || true
 RESOLVED_BINARY_PATH=$(command -v edamame_posture 2>/dev/null || true)
 if [ -z "$RESOLVED_BINARY_PATH" ] && [ -n "$BINARY_PATH" ] && [ -x "$BINARY_PATH" ]; then
     RESOLVED_BINARY_PATH="$BINARY_PATH"

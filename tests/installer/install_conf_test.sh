@@ -340,5 +340,58 @@ if [ -n "${EDAMAME_POSTURE_OLD_BINARY:-}" ] && [ -x "$EDAMAME_POSTURE_OLD_BINARY
     fi
 fi
 
+# --- An upgrade keeps a locally written conf (2.0.1 -> 2.0.2, 2026-09-29) ---
+# dpkg's conffile prompt read EOF on a host whose conf an earlier run wrote,
+# the upgrade failed, the rollback purged the conf with the credentials in it
+# and the binary fallback was verified through dash's stale path cache.
+APT_ARGS_LOG="$WORK/apt_args"
+apt-get() { printf '%s\n' "$*" >> "$APT_ARGS_LOG"; }
+dpkg() {
+    case "$*" in *--purge*) rm -f "$SERVICE_CONF_PATH" ;; esac
+    return 0
+}
+: > "$APT_ARGS_LOG"
+apt_install_posture_package
+case "$(cat "$APT_ARGS_LOG")" in
+    *"install -y -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold edamame-posture"*)
+        ok "the package install keeps a locally modified conf without prompting" ;;
+    *) not_ok "the package install keeps a locally modified conf without prompting (got: $(cat "$APT_ARGS_LOG"))" ;;
+esac
+
+SERVICE_CONF_PATH="$WORK/rollback.conf"
+printf 'edamame_user: "runner"\nedamame_pin: "1234567"\n' > "$SERVICE_CONF_PATH"
+chmod 600 "$SERVICE_CONF_PATH"
+rollback_broken_deb_package > /dev/null 2>&1
+assert_eq "the rollback keeps the conf the purge deleted" \
+    "$(cat "$SERVICE_CONF_PATH" 2>/dev/null)" "$(printf 'edamame_user: "runner"\nedamame_pin: "1234567"')"
+assert_eq "the kept conf stays 0600" "$(file_mode "$SERVICE_CONF_PATH")" "600"
+assert_eq "the rollback leaves no copy behind" \
+    "$(find "$WORK" -name 'rollback.conf.rollback.*' | wc -l | tr -d ' ')" "0"
+rm -f "$SERVICE_CONF_PATH"
+rollback_broken_deb_package > /dev/null 2>&1
+if [ -e "$SERVICE_CONF_PATH" ]; then
+    not_ok "the rollback creates no conf when there was none"
+else
+    ok "the rollback creates no conf when there was none"
+fi
+unset -f apt-get dpkg
+
+if command -v dash >/dev/null 2>&1; then
+    mkdir -p "$WORK/usr_bin" "$WORK/usr_local_bin"
+    printf '#!/bin/sh\necho old\n' > "$WORK/usr_bin/edamame_posture"
+    printf '#!/bin/sh\necho new\n' > "$WORK/usr_local_bin/edamame_posture"
+    chmod +x "$WORK/usr_bin/edamame_posture" "$WORK/usr_local_bin/edamame_posture"
+    resolved=$(PATH="$WORK/usr_bin:$WORK/usr_local_bin:/usr/bin:/bin" dash -c '
+        command -v edamame_posture >/dev/null
+        rm -f "'"$WORK"'/usr_bin/edamame_posture"
+        hash -r 2>/dev/null || true
+        command -v edamame_posture')
+    assert_eq "dash resolves the binary again after the purged path is gone" \
+        "$resolved" "$WORK/usr_local_bin/edamame_posture"
+    grep -q '^hash -r 2>/dev/null || true$' "$INSTALL_SH" \
+        && ok "the verification clears the shell's command cache" \
+        || not_ok "the verification clears the shell's command cache"
+fi
+
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]
