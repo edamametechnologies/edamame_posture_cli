@@ -1724,7 +1724,8 @@ package_state_is_broken() {
 SERVICE_CONF_PATH="/etc/edamame_posture.conf"
 
 # Remove any partially installed Debian package and repair dpkg/apt state.
-# The purge deletes the conffile, which holds the Hub credentials and the LLM
+# The purge deletes the conf (a dpkg conffile up to 2.0.2, removed by the
+# package's postrm from 2.0.3), which holds the Hub credentials and the LLM
 # key an earlier run wrote: keep a root-only copy next to it and put it back,
 # so falling back to the binary does not leave the host unconfigured.
 rollback_broken_deb_package() {
@@ -1752,12 +1753,16 @@ rollback_broken_deb_package() {
 }
 
 # Install or upgrade the edamame-posture package without a terminal.
-# --force-confdef/--force-confold: when the packaged /etc/edamame_posture.conf
-# changed (2.0.2 added keys) and the local one was written by an earlier run,
-# keep the local one. Without them dpkg stops at its conffile prompt, reads EOF
-# from /dev/null and fails the upgrade, leaving the service disabled (2.0.1 ->
-# 2.0.2 on self-hosted runners, 2026-09-29). configure_service rewrites the
-# whole conf afterwards and the daemon reads a missing key as its default.
+# --force-confdef/--force-confold: up to 2.0.2 the package ships
+# /etc/edamame_posture.conf as a dpkg conffile; when the packaged one changed
+# (2.0.2 added keys) and the local one was written by an earlier run, keep the
+# local one. Without them dpkg stops at its conffile prompt, reads EOF from
+# /dev/null and fails the upgrade, leaving the service disabled (2.0.1 ->
+# 2.0.2 on self-hosted runners, 2026-09-29). From 2.0.3 the conf is not a
+# conffile (postinst creates it only when missing) and the options change
+# nothing; they stay for the released packages that still ship it.
+# configure_service rewrites the whole conf afterwards and the daemon reads a
+# missing key as its default.
 apt_install_posture_package() {
     $SUDO apt-get install -y \
         -o Dpkg::Options::=--force-confdef \

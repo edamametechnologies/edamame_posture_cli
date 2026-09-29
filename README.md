@@ -1602,11 +1602,15 @@ If you prefer not to add a repository, you can install the Debian package manual
    **Disconnected Mode** (No Hub connection):
    Leave `edamame_user`, `edamame_domain`, and `edamame_pin` empty. The service will start in disconnected mode.
 
-   Keys missing from the file read as their defaults: the packaged file is a
-   dpkg conffile, and an upgrade keeps an existing (installer-written) file as
-   it is, so keys added by a later release (`llm_model`, `llm_base_url`) are
-   simply absent until you add them. The service wrapper hands the PIN to the
-   daemon in `EDAMAME_PIN`, never on its command line.
+   Keys missing from the file read as their defaults: the package creates the
+   file from its template (`/usr/share/edamame_posture/edamame_posture.conf`)
+   only when it is missing, and an upgrade never touches an existing one, so
+   keys added by a later release (`llm_model`, `llm_base_url`) are simply
+   absent until you add them. Since 2.0.3 the file is not a dpkg conffile, so
+   an upgrade never stops at dpkg's configuration-file question (up to 2.0.2
+   it was, and `apt-get -y` or unattended-upgrades stopped there whenever the
+   packaged file changed). `apt-get purge` removes it. The service wrapper
+   hands the PIN to the daemon in `EDAMAME_PIN`, never on its command line.
 
 4. **Start** the service:
    ```bash

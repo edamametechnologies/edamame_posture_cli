@@ -247,8 +247,8 @@ case "$WRAP_OUT" in
 esac
 
 # A conf written before llm_model / llm_base_url existed (the packaged one,
-# which an upgrade keeps as a conffile): the keys read as empty, the wrapper
-# starts with the provider defaults.
+# which an upgrade never rewrites): the keys read as empty, the wrapper starts
+# with the provider defaults.
 OLD_CONF="$WORK/old.conf"
 cp "$PACKAGED_CONF" "$OLD_CONF"
 assert_eq "packaged conf has no llm_model key" "$(grep -c '^llm_model:' "$OLD_CONF")" "0"

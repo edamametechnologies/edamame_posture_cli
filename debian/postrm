@@ -1,0 +1,17 @@
+#!/bin/sh
+set -e
+
+#DEBHELPER#
+
+case "$1" in
+    purge)
+        # postinst created the conf, so dpkg does not remove it with the
+        # package's files. A purge removes the configuration too, and this one
+        # holds the Hub credentials and the LLM key. (On a host upgraded from
+        # 2.0.2 or earlier, dpkg has already removed it as an obsolete
+        # conffile.)
+        rm -f /etc/edamame_posture.conf
+        ;;
+esac
+
+exit 0
