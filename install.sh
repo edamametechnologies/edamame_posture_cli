@@ -667,15 +667,26 @@ log_core_info_for_binary() {
 }
 
 REPO_BASE_URL="https://github.com/edamametechnologies/edamame_posture_cli"
-FALLBACK_VERSION="1.3.18"
+# There is no fallback version. When the latest release cannot be determined,
+# or neither its binary nor the previous release's can be downloaded, a binary
+# install stops and says why; it used to install a hardcoded 1.3.18 behind a
+# warning, a release months behind the daemon and CLI surface the action and
+# the docs expect. Package manager installs (APT, APK, Homebrew, Chocolatey)
+# do not need the version and are unaffected.
 LATEST_RELEASE_TAG_PRIMARY=""
 LATEST_RELEASE_TAG_SECONDARY=""
+LATEST_REDIRECT_STATUS=""
+LATEST_REDIRECT_LOCATION=""
+LATEST_REDIRECT_TAG=""
+LATEST_LOOKUP_ERROR=""
+MACOS_PKG_ERROR=""
+ARTIFACT_VERSION=""
 ARTIFACT_SECONDARY_URL=""
 GITHUB_RELEASES_RESPONSE=""
 ARTIFACT_SECONDARY_NAME=""
 ARTIFACT_DIGEST=""
 ARTIFACT_SECONDARY_DIGEST=""
-ARTIFACT_FALLBACK_DIGEST=""
+BINARY_INSTALL_ERROR=""
 
 systemd_available() {
     if [ -d /run/systemd/system ]; then
@@ -1142,16 +1153,24 @@ stop_existing_posture() {
     fi
 }
 
-fetch_latest_tag_via_redirect() {
-    # Resolve the latest release tag via the github.com /releases/latest HTML
-    # redirect. This is NOT subject to the api.github.com IP allow list that
-    # edamametechnologies has enabled on the org (which blocks github-hosted
-    # runner pools with HTTP 403 even with $GITHUB_TOKEN). The redirect is
-    # served by github.com itself and works without authentication for any
-    # public repo.
+# resolve_latest_redirect: resolve the latest release tag via the github.com
+# /releases/latest HTML redirect. This is NOT subject to the api.github.com IP
+# allow list that edamametechnologies has enabled on the org (which blocks
+# github-hosted runner pools with HTTP 403 even with $GITHUB_TOKEN). The
+# redirect is served by github.com itself and works without authentication
+# for any public repo.
+# Sets LATEST_REDIRECT_STATUS (the HTTP status, 000 when nothing answered),
+# LATEST_REDIRECT_LOCATION and LATEST_REDIRECT_TAG (X.Y.Z, empty unless the
+# answer redirects to a release tag). Run it in the current shell to keep
+# them (the failure message names what the lookup got); returns 1 unless it
+# found a tag.
+resolve_latest_redirect() {
     local redirect_url="${REPO_BASE_URL}/releases/latest"
     local location=""
     local http_code=""
+    LATEST_REDIRECT_STATUS="000"
+    LATEST_REDIRECT_LOCATION=""
+    LATEST_REDIRECT_TAG=""
     if command -v curl >/dev/null 2>&1; then
         local tmp
         tmp=$(mktemp)
@@ -1164,14 +1183,44 @@ fetch_latest_tag_via_redirect() {
         http_code=$(echo "$headers" | awk '/HTTP\//{print $2}' | tail -1)
         location=$(echo "$headers" | awk '/[Ll]ocation:/{print $2}' | tail -1 | tr -d '\r')
     fi
+    # A failed curl prints its own 000 before the `|| echo` one: the status is
+    # the first three digits, as the old `30*` match read it.
     case "$http_code" in
+        [0-9][0-9][0-9]*) LATEST_REDIRECT_STATUS=$(printf '%s' "$http_code" | cut -c1-3) ;;
+    esac
+    LATEST_REDIRECT_LOCATION="$location"
+    case "$LATEST_REDIRECT_STATUS" in
         30*) ;;
         *) return 1 ;;
     esac
     if [ -z "$location" ]; then
         return 1
     fi
-    printf '%s\n' "$location" | sed -nE 's@.*/releases/tag/v([0-9][0-9.]*)/?$@\1@p'
+    LATEST_REDIRECT_TAG=$(printf '%s\n' "$location" | sed -nE 's@.*/releases/tag/v([0-9][0-9.]*)/?$@\1@p')
+    [ -n "$LATEST_REDIRECT_TAG" ]
+}
+
+fetch_latest_tag_via_redirect() {
+    resolve_latest_redirect || true
+    [ -n "$LATEST_REDIRECT_TAG" ] || return 1
+    printf '%s\n' "$LATEST_REDIRECT_TAG"
+}
+
+# What the latest-release lookup got, for the failure messages: the redirect
+# as fetch_latest_release_tag last saw it (in this shell), then the API.
+latest_release_lookup_failure() {
+    local redirect_url="${REPO_BASE_URL}/releases/latest"
+    case "${LATEST_REDIRECT_STATUS:-000}" in
+        000) printf '%s did not answer (no network, or a proxy or firewall refused the connection)' "$redirect_url" ;;
+        30*) printf '%s did not redirect to a release (%s)' "$redirect_url" "${LATEST_REDIRECT_LOCATION:-no Location header}" ;;
+        *) printf '%s answered HTTP %s' "$redirect_url" "$LATEST_REDIRECT_STATUS" ;;
+    esac
+    printf ', and the GitHub API (api.github.com) returned no release'
+}
+
+# How to get a posture anyway: this installer cannot pin a version.
+no_version_fallback_hint() {
+    printf 'This installer has no option to pin a version and does not fall back to an older release: run it again later, or install a release by hand from %s/releases.' "$REPO_BASE_URL"
 }
 
 fetch_latest_version() {
@@ -1280,11 +1329,11 @@ fetch_latest_release_tag() {
     # runners; fall back to the github.com /releases/latest redirect, which is
     # not subject to that allow list. We only get a single tag (the latest),
     # so LATEST_RELEASE_TAG_SECONDARY stays empty -- the consumer code already
-    # tolerates that.
-    local redirect_tag
-    redirect_tag=$(fetch_latest_tag_via_redirect 2>/dev/null || true)
-    if [ -n "$redirect_tag" ]; then
-        LATEST_RELEASE_TAG_PRIMARY="$redirect_tag"
+    # tolerates that. Called in this shell, so what the redirect answered is
+    # kept for the failure message.
+    resolve_latest_redirect 2>/dev/null || true
+    if [ -n "$LATEST_REDIRECT_TAG" ]; then
+        LATEST_RELEASE_TAG_PRIMARY="$LATEST_REDIRECT_TAG"
         return 0
     fi
     return 1
@@ -1332,54 +1381,6 @@ get_release_asset_digest() {
     return 1
 }
 
-fetch_release_by_tag() {
-    local version="$1"
-    if [ -z "$version" ]; then
-        echo ""
-        return 1
-    fi
-    local api="https://api.github.com/repos/edamametechnologies/edamame_posture_cli/releases/tags/v${version}"
-    local response=""
-    if command -v curl >/dev/null 2>&1; then
-        if [ -n "$GITHUB_TOKEN" ]; then
-            response=$(curl --connect-timeout 10 --max-time 30 -fsSL -H "Authorization: token $GITHUB_TOKEN" "$api" 2>/dev/null) || response=""
-        else
-            response=$(curl --connect-timeout 10 --max-time 30 -fsSL "$api" 2>/dev/null) || response=""
-        fi
-    elif command -v wget >/dev/null 2>&1; then
-        if [ -n "$GITHUB_TOKEN" ]; then
-            response=$(wget --timeout=30 -q -O - --header="Authorization: token $GITHUB_TOKEN" "$api" 2>/dev/null) || response=""
-        else
-            response=$(wget --timeout=30 -q -O - "$api" 2>/dev/null) || response=""
-        fi
-    fi
-    printf '%s\n' "$response"
-    if [ -n "$response" ]; then
-        return 0
-    fi
-    return 1
-}
-
-get_release_asset_digest_by_tag() {
-    local version="$1"
-    local asset_name="$2"
-    if [ -z "$version" ] || [ -z "$asset_name" ]; then
-        return 1
-    fi
-    local response
-    response=$(fetch_release_by_tag "$version")
-    if [ -z "$response" ]; then
-        return 1
-    fi
-    local digest
-    digest=$(get_asset_digest_from_json "$response" "$asset_name")
-    if [ -n "$digest" ]; then
-        printf '%s\n' "$digest"
-        return 0
-    fi
-    return 1
-}
-
 check_file_checksum() {
     local file="$1"
     local expected="$2"
@@ -1400,8 +1401,14 @@ check_file_checksum() {
     return 1
 }
 
+# prepare_binary_artifact <platform> <libc flavor>
+#   Sets ARTIFACT_VERSION, ARTIFACT_NAME, ARTIFACT_URL, ARTIFACT_EXT, the
+#   previous release's ARTIFACT_SECONDARY_NAME / ARTIFACT_SECONDARY_URL when
+#   the release feed named it, and the digests the feed carries. Returns 1,
+#   with LATEST_LOOKUP_ERROR saying what did not answer, when the latest
+#   release cannot be determined: the caller decides whether that stops the
+#   install (a binary download) or not (reusing an installed binary).
 prepare_binary_artifact() {
-    # Sets ARTIFACT_NAME, ARTIFACT_URL, ARTIFACT_FALLBACK_NAME, ARTIFACT_FALLBACK_URL, ARTIFACT_EXT
     local platform="$1"
     local libc_flavor="$2"
     ARTIFACT_EXT=""
@@ -1426,64 +1433,75 @@ prepare_binary_artifact() {
             ;;
     esac
 
+    ARTIFACT_VERSION=""
+    ARTIFACT_NAME=""
+    ARTIFACT_URL=""
     ARTIFACT_SECONDARY_URL=""
     ARTIFACT_SECONDARY_NAME=""
     ARTIFACT_DIGEST=""
     ARTIFACT_SECONDARY_DIGEST=""
-    ARTIFACT_FALLBACK_DIGEST=""
+    LATEST_LOOKUP_ERROR=""
     # All binaries include version number in the filename
-    if fetch_latest_release_tag; then
-        if [ -n "$LATEST_RELEASE_TAG_PRIMARY" ]; then
-            version="$LATEST_RELEASE_TAG_PRIMARY"
-        else
-            version=$(fetch_latest_version)
-            if [ -z "$version" ]; then
-                warn "Failed to determine latest release version, using $FALLBACK_VERSION"
-                version="$FALLBACK_VERSION"
-            fi
-        fi
+    if fetch_latest_release_tag && [ -n "$LATEST_RELEASE_TAG_PRIMARY" ]; then
+        version="$LATEST_RELEASE_TAG_PRIMARY"
     else
         version=$(fetch_latest_version)
-        if [ -z "$version" ]; then
-            warn "Failed to determine latest release version, using $FALLBACK_VERSION"
-            version="$FALLBACK_VERSION"
-        fi
     fi
+    if [ -z "$version" ]; then
+        LATEST_LOOKUP_ERROR="Could not determine the latest EDAMAME Posture release: $(latest_release_lookup_failure). $(no_version_fallback_hint)"
+        return 1
+    fi
+    ARTIFACT_VERSION="$version"
 
     if [ "$CONFIG_DEBUG_BUILD" = "true" ]; then
         ARTIFACT_NAME="edamame_posture-${version}-${suffix}-debug${ARTIFACT_EXT}"
-        ARTIFACT_FALLBACK_NAME="edamame_posture-${FALLBACK_VERSION}-${suffix}-debug${ARTIFACT_EXT}"
         ARTIFACT_URL="${REPO_BASE_URL}/releases/download/v${version}/${ARTIFACT_NAME}"
-        ARTIFACT_FALLBACK_URL="${REPO_BASE_URL}/releases/download/v${FALLBACK_VERSION}/${ARTIFACT_FALLBACK_NAME}"
     else
         ARTIFACT_NAME="edamame_posture-${version}-${suffix}${ARTIFACT_EXT}"
-        ARTIFACT_FALLBACK_NAME="edamame_posture-${FALLBACK_VERSION}-${suffix}${ARTIFACT_EXT}"
-        if fetch_latest_release_tag; then
-            if [ -n "$LATEST_RELEASE_TAG_PRIMARY" ]; then
-                ARTIFACT_URL="${REPO_BASE_URL}/releases/download/v${LATEST_RELEASE_TAG_PRIMARY}/${ARTIFACT_NAME}"
-            else
-                ARTIFACT_URL="${REPO_BASE_URL}/releases/download/v${version}/${ARTIFACT_NAME}"
-            fi
-            if [ -n "$LATEST_RELEASE_TAG_SECONDARY" ]; then
-                ARTIFACT_SECONDARY_NAME="edamame_posture-${LATEST_RELEASE_TAG_SECONDARY}-${suffix}${ARTIFACT_EXT}"
-                ARTIFACT_SECONDARY_URL="${REPO_BASE_URL}/releases/download/v${LATEST_RELEASE_TAG_SECONDARY}/${ARTIFACT_SECONDARY_NAME}"
-            fi
-        else
-            ARTIFACT_URL="${REPO_BASE_URL}/releases/download/v${version}/${ARTIFACT_NAME}"
+        ARTIFACT_URL="${REPO_BASE_URL}/releases/download/v${version}/${ARTIFACT_NAME}"
+        # The release before the latest one, when the release feed named it:
+        # it stands in while the latest release is still uploading its assets.
+        if [ -n "$LATEST_RELEASE_TAG_SECONDARY" ] && [ "$LATEST_RELEASE_TAG_SECONDARY" != "$version" ]; then
+            ARTIFACT_SECONDARY_NAME="edamame_posture-${LATEST_RELEASE_TAG_SECONDARY}-${suffix}${ARTIFACT_EXT}"
+            ARTIFACT_SECONDARY_URL="${REPO_BASE_URL}/releases/download/v${LATEST_RELEASE_TAG_SECONDARY}/${ARTIFACT_SECONDARY_NAME}"
         fi
-        ARTIFACT_FALLBACK_URL="${REPO_BASE_URL}/releases/download/v${FALLBACK_VERSION}/${ARTIFACT_FALLBACK_NAME}"
     fi
 
     ARTIFACT_DIGEST=$(get_release_asset_digest "$ARTIFACT_NAME" 2>/dev/null || true)
     if [ -n "$ARTIFACT_SECONDARY_NAME" ]; then
         ARTIFACT_SECONDARY_DIGEST=$(get_release_asset_digest "$ARTIFACT_SECONDARY_NAME" 2>/dev/null || true)
     fi
+    return 0
 }
 
+# binary_install_failed <on_failure> <message>: a binary install that cannot
+# go on. "fallback" (the caller has a package manager to try next) warns and
+# lets the caller return 1; anything else stops the installer.
+binary_install_failed() {
+    BINARY_INSTALL_ERROR="$2"
+    if [ "$1" = "fallback" ]; then
+        warn "$BINARY_INSTALL_ERROR"
+        return 0
+    fi
+    error "$BINARY_INSTALL_ERROR"
+}
+
+# install_binary_release <platform> <libc flavor> [fallback]
+#   Downloads and installs the latest release's binary (or the previous
+#   release's while the latest one's is missing). When that cannot be done --
+#   the latest release cannot be determined, or no binary can be downloaded --
+#   it stops the installer with the reason; with "fallback" it warns, sets
+#   BINARY_INSTALL_ERROR and returns 1 instead, for a caller that tries a
+#   package manager next. It never installs an older hardcoded release.
 install_binary_release() {
     local platform="$1"
     local libc_flavor="$2"
-    prepare_binary_artifact "$platform" "$libc_flavor"
+    local on_failure="${3:-stop}"
+    BINARY_INSTALL_ERROR=""
+    if ! prepare_binary_artifact "$platform" "$libc_flavor"; then
+        binary_install_failed "$on_failure" "$LATEST_LOOKUP_ERROR"
+        return 1
+    fi
 
     local tmp_bin
     tmp_bin=$(mktemp)
@@ -1535,9 +1553,9 @@ install_binary_release() {
 
     info "Downloading binary from ${ARTIFACT_URL}"
     if ! download_file "$ARTIFACT_URL" "$tmp_bin"; then
-        warn "Primary binary download failed (URL: ${ARTIFACT_URL}), attempting fallback..."
         local downloaded="false"
         if [ -n "$ARTIFACT_SECONDARY_URL" ]; then
+            warn "Primary binary download failed (URL: ${ARTIFACT_URL}), attempting the previous release..."
             info "Attempting previous release tag at ${ARTIFACT_SECONDARY_URL}"
             if download_file "$ARTIFACT_SECONDARY_URL" "$tmp_bin"; then
                 info "Downloaded EDAMAME Posture from previous release tag."
@@ -1549,21 +1567,14 @@ install_binary_release() {
             fi
         fi
         if [ "$downloaded" = "false" ]; then
-            info "Attempting pinned fallback at ${ARTIFACT_FALLBACK_URL}"
-            if download_file "$ARTIFACT_FALLBACK_URL" "$tmp_bin"; then
-                if [ -z "$ARTIFACT_FALLBACK_DIGEST" ]; then
-                    ARTIFACT_FALLBACK_DIGEST=$(get_release_asset_digest_by_tag "$FALLBACK_VERSION" "$ARTIFACT_FALLBACK_NAME" 2>/dev/null || true)
-                fi
-                download_label="fallback release v${FALLBACK_VERSION}"
-                download_digest="$ARTIFACT_FALLBACK_DIGEST"
-                downloaded="true"
-            else
-                warn "Pinned fallback download failed (URL: ${ARTIFACT_FALLBACK_URL})"
-            fi
-        fi
-        if [ "$downloaded" = "false" ]; then
             rm -f "$tmp_bin"
-            warn "Failed to download EDAMAME Posture binary."
+            # No fallback to an older hardcoded release: it installed a
+            # posture months behind the one this installer was released with.
+            if [ -n "$ARTIFACT_SECONDARY_URL" ]; then
+                binary_install_failed "$on_failure" "Failed to download EDAMAME Posture ${ARTIFACT_VERSION} from ${ARTIFACT_URL}, or the previous release from ${ARTIFACT_SECONDARY_URL}. $(no_version_fallback_hint)"
+            else
+                binary_install_failed "$on_failure" "Failed to download EDAMAME Posture ${ARTIFACT_VERSION} from ${ARTIFACT_URL}. $(no_version_fallback_hint)"
+            fi
             return 1
         fi
     fi
@@ -2193,12 +2204,14 @@ url_exists() {
 }
 
 # install_macos_via_pkg [debug]: download and install the PKG (the debug PKG
-# with "debug") of the latest release; the previous and the pinned fallback
-# releases stand in when its PKG is missing (a release still uploading).
+# with "debug") of the latest release; the previous release's stands in when
+# its PKG is missing (a release still uploading). On failure it sets
+# MACOS_PKG_ERROR to the reason and returns 1.
 install_macos_via_pkg() {
     local variant="${1:-release}"
     local label=".pkg"
     [ "$variant" = "debug" ] && label="debug .pkg"
+    MACOS_PKG_ERROR=""
     info "Installing via macOS ${label} (bundle with embedded ES profile)..."
 
     local version=""
@@ -2208,7 +2221,8 @@ install_macos_via_pkg() {
         version=$(fetch_latest_version)
     fi
     if [ -z "$version" ]; then
-        warn "Failed to determine latest version for ${label} download"
+        MACOS_PKG_ERROR="Could not determine the latest EDAMAME Posture release: $(latest_release_lookup_failure)."
+        warn "$MACOS_PKG_ERROR"
         return 1
     fi
 
@@ -2217,24 +2231,21 @@ install_macos_via_pkg() {
     # collided. The file keeps its .pkg name for installer.
     local tmp_dir
     if ! tmp_dir=$(mktemp -d "${TMPDIR:-/tmp}/edamame-posture.XXXXXX"); then
-        warn "Cannot create a temporary directory for the ${label}"
+        MACOS_PKG_ERROR="Cannot create a temporary directory for the ${label}."
+        warn "$MACOS_PKG_ERROR"
         return 1
     fi
 
-    # The latest release first. Its previous release and FALLBACK_VERSION
-    # stand in when its PKG is missing, which happens transiently while a
-    # release_others.yml macOS upload is being rebuilt. There is no raw binary
-    # to fall back to: macOS kills it at launch without the PKG's
-    # provisioning profile.
+    # The latest release first. The previous release (when the release feed
+    # named it) stands in when its PKG is missing, which happens transiently
+    # while a release_others.yml macOS upload is being rebuilt. There is no
+    # older hardcoded release to fall back to, and no raw binary: macOS kills
+    # it at launch without the PKG's provisioning profile.
     local candidates="$version"
     if [ -n "$LATEST_RELEASE_TAG_SECONDARY" ] && [ "$LATEST_RELEASE_TAG_SECONDARY" != "$version" ]; then
         candidates="$candidates $LATEST_RELEASE_TAG_SECONDARY"
     fi
-    if [ -n "$FALLBACK_VERSION" ] && [ "$FALLBACK_VERSION" != "$version" ] \
-       && [ "$FALLBACK_VERSION" != "$LATEST_RELEASE_TAG_SECONDARY" ]; then
-        candidates="$candidates $FALLBACK_VERSION"
-    fi
-    local candidate pkg_name="" pkg_url="" tmp_pkg=""
+    local candidate pkg_name="" pkg_url="" tmp_pkg="" tried=""
     for candidate in $candidates; do
         pkg_name=$(macos_pkg_name "$candidate" "$variant")
         pkg_url="${REPO_BASE_URL}/releases/download/v${candidate}/${pkg_name}"
@@ -2245,10 +2256,12 @@ install_macos_via_pkg() {
         fi
         rm -f "$tmp_dir/$pkg_name"
         warn "${label} not available at ${pkg_url}"
+        tried="${tried:+$tried, }${pkg_url}"
     done
     if [ -z "$tmp_pkg" ]; then
         rm -rf "$tmp_dir"
-        warn "No ${label} could be downloaded"
+        MACOS_PKG_ERROR="No ${label} could be downloaded (tried ${tried})."
+        warn "$MACOS_PKG_ERROR"
         return 1
     fi
 
@@ -2263,7 +2276,8 @@ install_macos_via_pkg() {
     fi
     rm -rf "$tmp_dir"
     if [ "$installer_status" -ne 0 ]; then
-        warn "installer failed for ${pkg_name} (exit code: $installer_status)"
+        MACOS_PKG_ERROR="installer failed for ${pkg_name} (exit code: $installer_status)."
+        warn "$MACOS_PKG_ERROR"
         return 1
     fi
 
@@ -2275,9 +2289,10 @@ install_macos_via_pkg() {
     return 0
 }
 
-# Stop with the reason macOS has no binary fallback. $1: what failed.
+# Stop with the reason macOS has no binary fallback. $1: what failed. The last
+# PKG failure (MACOS_PKG_ERROR) is named when there is one.
 macos_install_failed() {
-    error "Could not install $1 on macOS. EDAMAME Posture runs on macOS only from its PKG: the binary needs the Endpoint Security provisioning profile embedded in the PKG's app bundle, and macOS kills a bare copy at launch. Check that github.com is reachable and that 'installer' can run with admin rights, then re-run."
+    error "Could not install $1 on macOS.${MACOS_PKG_ERROR:+ ${MACOS_PKG_ERROR}} EDAMAME Posture runs on macOS only from its PKG: the binary needs the Endpoint Security provisioning profile embedded in the PKG's app bundle, and macOS kills a bare copy at launch. $(no_version_fallback_hint) Check that github.com is reachable and that 'installer' can run with admin rights."
 }
 
 install_macos_via_brew() {
@@ -2821,7 +2836,7 @@ check_existing_installation() {
                     VERSION_CHECK_PASSED="true"
                 fi
             else
-                warn "Cannot determine the latest release; keeping the installed PKG $MACOS_PKG_VERSION"
+                warn "Cannot determine the latest release ($(latest_release_lookup_failure)); keeping the installed PKG $MACOS_PKG_VERSION"
                 VERSION_CHECK_PASSED="true"
             fi
         elif [ "$PLATFORM" = "windows" ] && command -v choco >/dev/null 2>&1; then
@@ -2849,9 +2864,13 @@ check_existing_installation() {
         if [ "$artifact_platform" = "linux-musl" ]; then
             artifact_platform="linux"
         fi
-        prepare_binary_artifact "$artifact_platform" "$LINUX_LIBC_FLAVOR"
-        
-        if [ -n "$ARTIFACT_DIGEST" ]; then
+        # Reusing the installed binary needs no version: when the latest
+        # release cannot be determined, keep it (the version check is skipped,
+        # as when the release publishes no checksum) rather than stop.
+        if ! prepare_binary_artifact "$artifact_platform" "$LINUX_LIBC_FLAVOR"; then
+            warn "Cannot determine the latest release ($(latest_release_lookup_failure)); keeping the existing binary, version check skipped"
+            VERSION_CHECK_PASSED="true"
+        elif [ -n "$ARTIFACT_DIGEST" ]; then
             EXISTING_SHA=$(compute_sha256 "$EXISTING_BINARY" 2>/dev/null || true)
             
             if [ -n "$EXISTING_SHA" ]; then
@@ -3188,10 +3207,12 @@ if [ "$SKIP_INSTALLATION" = "false" ]; then
         # behind GitHub releases due to its moderation/review process, so
         # direct binary download gives users the latest version immediately.
         info "Installing via direct binary download for Windows..."
-        if ! install_binary_release "windows" ""; then
+        # Chocolatey does not need the release this installer resolves, so a
+        # failed lookup or download falls back to it instead of stopping.
+        if ! install_binary_release "windows" "" fallback; then
             warn "Direct binary download failed, falling back to Chocolatey..."
             if ! install_windows_via_choco; then
-                error "All Windows installation methods failed."
+                error "All Windows installation methods failed. Direct download: ${BINARY_INSTALL_ERROR:-failed} Chocolatey: not installed, or its install failed."
             fi
         fi
     else
