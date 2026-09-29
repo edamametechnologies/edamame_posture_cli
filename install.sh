@@ -402,6 +402,12 @@ release_install_lock() {
 
 # Wait for daemon to be ready (responsive) after service start
 # Returns 0 if daemon is ready, 1 if timeout
+# True when the posture binary reads the Hub PIN from EDAMAME_PIN, i.e. it
+# is 2.0.2 or later (the release that added --pin-file to `start`).
+binary_reads_pin_env() {
+    "$1" start --help 2>&1 | grep -q -- '--pin-file'
+}
+
 wait_for_daemon_ready() {
     local binary="$1"
     local max_wait="${2:-30}"  # Default 30 seconds timeout
@@ -3576,6 +3582,13 @@ if [ "$SHOULD_START_DAEMON" = "true" ]; then
             set -- start \
                 --user "$CONFIG_USER" \
                 --domain "$CONFIG_DOMAIN"
+            # Binaries before 2.0.2 ignore EDAMAME_PIN. The posture action runs
+            # this raw-main script against the latest RELEASE, so a binary that
+            # does not know --pin-file still gets the PIN on argv (otherwise it
+            # starts unconnected: the 2026-09-28 regression).
+            if [ -n "$CONFIG_PIN" ] && ! binary_reads_pin_env "$RESOLVED_BINARY_PATH"; then
+                set -- "$@" --pin "$CONFIG_PIN"
+            fi
             
             [ -n "$CONFIG_DEVICE_ID" ] && set -- "$@" --device-id "$CONFIG_DEVICE_ID"
         fi

@@ -302,10 +302,43 @@ if read_pin_file "$WORK/missing" >/dev/null 2>&1; then not_ok "missing pin file 
 # an info/warn/error/echo line interpolating one of them.
 LEAKS="$(grep -nE '^[[:space:]]*(info|warn|error|echo|printf)[[:space:]].*\$\{?(CONFIG_LLM_API_KEY|SVC_(LLM|CLAUDE|OPENAI)_API_KEY|ESC_[A-Z_]*API_KEY|EDAMAME_LLM_API_KEY|CONFIG_PIN|SVC_PIN|EDAMAME_PIN)' "$INSTALL_SH")"
 if [ -z "$LEAKS" ]; then ok "install.sh logs no API key or PIN variable"; else not_ok "install.sh logs an API key or PIN variable: $LEAKS"; fi
-PIN_ARGV="$(grep -nE -- '--pin "\$' "$INSTALL_SH")"
-if [ -z "$PIN_ARGV" ]; then ok "install.sh never puts the PIN on a command line"; else not_ok "install.sh puts the PIN on a command line: $PIN_ARGV"; fi
+# The only allowed --pin on argv is the fallback for a binary that cannot read
+# EDAMAME_PIN (pre-2.0.2), guarded by binary_reads_pin_env on the line above.
+PIN_ARGV="$(grep -nE -B1 -- '--pin "\$' "$INSTALL_SH" | grep -vE 'binary_reads_pin_env|--$' | grep -E -- '--pin "\$' | grep -vE 'set -- "\$@" --pin "\$CONFIG_PIN"')"
+PIN_ARGV_GUARDED="$(grep -nE -B1 -- 'set -- "\$@" --pin "\$CONFIG_PIN"' "$INSTALL_SH" | grep -c 'binary_reads_pin_env')"
+if [ -z "$PIN_ARGV" ] && [ "$PIN_ARGV_GUARDED" = "1" ]; then ok "install.sh puts the PIN on a command line only for a binary that cannot read EDAMAME_PIN"; else not_ok "install.sh puts the PIN on a command line: [$PIN_ARGV] guarded=[$PIN_ARGV_GUARDED]"; fi
 WRAP_ARGV="$(grep -nE -- '--pin ' "$WRAPPER")"
 if [ -z "$WRAP_ARGV" ]; then ok "wrapper never puts the PIN on a command line"; else not_ok "wrapper puts the PIN on a command line: $WRAP_ARGV"; fi
+
+# --- The PIN reaches a pre-2.0.2 binary on argv (2026-09-28 regression) ---
+# The posture action runs this raw-main installer against the latest RELEASE.
+# A binary without --pin-file ignores EDAMAME_PIN, so it must get --pin.
+cat > "$WORK/posture_old" <<'STUB'
+#!/bin/sh
+printf '%s\n' "Usage: edamame_posture start [OPTIONS]" "  -p, --pin <PIN>  PIN [default: \"\"]"
+STUB
+cat > "$WORK/posture_new" <<'STUB'
+#!/bin/sh
+printf '%s\n' "Usage: edamame_posture start [OPTIONS]" "  -p, --pin <PIN>  PIN" "      --pin-file <PATH>  Read the PIN from this file"
+STUB
+chmod +x "$WORK/posture_old" "$WORK/posture_new"
+if binary_reads_pin_env "$WORK/posture_old"; then
+    not_ok "a binary without --pin-file is not trusted to read EDAMAME_PIN"
+else
+    ok "a binary without --pin-file is not trusted to read EDAMAME_PIN"
+fi
+if binary_reads_pin_env "$WORK/posture_new"; then
+    ok "a binary with --pin-file reads EDAMAME_PIN"
+else
+    not_ok "a binary with --pin-file reads EDAMAME_PIN"
+fi
+if [ -n "${EDAMAME_POSTURE_OLD_BINARY:-}" ] && [ -x "$EDAMAME_POSTURE_OLD_BINARY" ]; then
+    if binary_reads_pin_env "$EDAMAME_POSTURE_OLD_BINARY"; then
+        not_ok "the released pre-2.0.2 binary gets the PIN on argv ($EDAMAME_POSTURE_OLD_BINARY)"
+    else
+        ok "the released pre-2.0.2 binary gets the PIN on argv ($EDAMAME_POSTURE_OLD_BINARY)"
+    fi
+fi
 
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]
