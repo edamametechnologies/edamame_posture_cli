@@ -50,6 +50,10 @@ pub fn background_process(
         std::process::exit(ERROR_CODE_PARAM);
     }
 
+    // Before anything starts: a mode the organization's lock refuses is an
+    // error, never a daemon running without the loops it was asked for.
+    exit_if_managed_policy_refuses(&agentic_mode);
+
     info!(
         "Live violation settings -> whitelist: {}, blacklist: {}, vulnerability_findings: {}, cancel_on_violation: {}",
         fail_on_whitelist, fail_on_blacklist, fail_on_findings, cancel_on_violation
@@ -191,6 +195,9 @@ pub fn background_process(
     if agentic_mode == "off" {
         info!("AI Assistant mode 'off': turning agentic protection off");
         if !crate::background::background_turn_agentic_protection_off() {
+            // A lock that appeared since the start-up check refuses the
+            // same way.
+            exit_if_managed_policy_refuses(&agentic_mode);
             warn!("Failed to turn agentic protection off");
         }
     } else if agentic_enabled {
@@ -204,6 +211,9 @@ pub fn background_process(
         }
 
         if !crate::background_set_agentic_loop(agentic_enabled, agentic_interval, &agentic_mode) {
+            // A lock that appeared since the start-up check refuses the
+            // same way.
+            exit_if_managed_policy_refuses(&agentic_mode);
             warn!("Failed to configure AI Assistant background loop");
         }
 
@@ -275,6 +285,18 @@ pub fn background_process(
                 }
             }
         }
+    }
+}
+
+/// Exit non-zero, with the reason on stderr and in the log, when the
+/// organization's locked protection policy refuses `--agentic-mode`
+/// `agentic_mode`. The lock wins (decided 2026-09-29); before, the daemon
+/// logged the refusal and ran on without the loops the operator asked for.
+fn exit_if_managed_policy_refuses(agentic_mode: &str) {
+    if let Some(refusal) = crate::background::agentic_mode_managed_refusal(agentic_mode) {
+        error!("{}", refusal);
+        eprintln!("{}", refusal);
+        std::process::exit(ERROR_CODE_PARAM);
     }
 }
 
@@ -624,6 +646,10 @@ pub fn background_start(
         );
         std::process::exit(ERROR_CODE_PARAM);
     }
+
+    // The daemon would refuse the mode and exit once detached, where nobody
+    // sees it: check the organization's lock here, so this command fails.
+    exit_if_managed_policy_refuses(&agentic_mode);
 
     // Show core version
     base_get_core_version();
