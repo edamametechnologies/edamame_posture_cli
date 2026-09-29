@@ -494,6 +494,14 @@ pub fn build_cli() -> Command {
                 arg!(--"fail-on-findings" "Exit 1 on active HIGH/CRITICAL findings; exit 2 when the detector is not running, its loop is stalled, or its latest tick stays withheld (LLM did not answer) past one interval")
                     .required(false)
                     .action(ArgAction::SetTrue),
+            )
+            .arg(
+                Arg::new("since")
+                    .long("since")
+                    .value_name("RFC3339")
+                    .requires("fail-on-findings")
+                    .help("With --fail-on-findings: exit 1 only on findings first seen at or after this time (e.g. 2026-09-29T08:00:00Z, the CI job's start); older active findings are printed as warnings with their first-seen time and stay in the history")
+                    .value_parser(clap::value_parser!(String)),
             ),
     )
     .subcommand(
@@ -2032,6 +2040,35 @@ mod tests {
         let (sub, sub_matches) = matches.subcommand().expect("expected subcommand");
         assert_eq!(sub, "background-attack-pattern-status");
         assert!(!sub_matches.get_flag("fail-on-findings"));
+        assert_eq!(sub_matches.get_one::<String>("since"), None);
+    }
+
+    #[test]
+    fn vulnerability_status_since_scopes_the_fail_flag_only() {
+        let matches = build_cli()
+            .try_get_matches_from([
+                "edamame_posture",
+                "vulnerability-status",
+                "--fail-on-findings",
+                "--since",
+                "2026-09-29T08:00:00Z",
+            ])
+            .expect("vulnerability-status should accept --since with --fail-on-findings");
+        let (_, sub_matches) = matches.subcommand().expect("expected subcommand");
+        assert_eq!(
+            sub_matches.get_one::<String>("since").map(String::as_str),
+            Some("2026-09-29T08:00:00Z")
+        );
+
+        // A scope without a gate means nothing.
+        assert!(build_cli()
+            .try_get_matches_from([
+                "edamame_posture",
+                "attack-pattern-status",
+                "--since",
+                "2026-09-29T08:00:00Z",
+            ])
+            .is_err());
     }
 
     #[test]

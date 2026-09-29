@@ -59,6 +59,18 @@ pub fn background_process(
         fail_on_whitelist, fail_on_blacklist, fail_on_findings, cancel_on_violation
     );
 
+    // The live gate's scope: on a persistent runner this daemon and the
+    // finding history outlive a job, and a finding first seen before the job
+    // (or before this daemon) must not cancel it.
+    let gate_since = crate::gate_scope::GateSince::for_this_daemon();
+    if cancel_on_violation && fail_on_findings {
+        info!(
+            "Live attack pattern gate: counts findings first seen since {} ({}); older active findings are logged as warnings",
+            gate_since.since.to_rfc3339(),
+            gate_since.origin
+        );
+    }
+
     // We are using the logger as we are in the background process
 
     // Show threats info (call core directly to avoid local RPC chatter)
@@ -235,6 +247,7 @@ pub fn background_process(
     // Loop forever as background process is running
     let mut violation_check_counter = 0u64;
     const VIOLATION_CHECK_INTERVAL: u64 = 10; // seconds (reduced from 30 for faster response)
+    let mut live_gate = LiveGateState::default();
     loop {
         // Sleep for 5 seconds
         sleep(Duration::from_secs(5));
@@ -247,6 +260,8 @@ pub fn background_process(
                 fail_on_blacklist,
                 fail_on_findings,
                 local_traffic,
+                &gate_since,
+                &mut live_gate,
             ) {
                 Ok(violations) => {
                     if let Some(refusal) = &violations.detector_refusal {
@@ -303,7 +318,7 @@ fn exit_if_managed_policy_refuses(agentic_mode: &str) {
 struct PolicyViolations {
     sessions: Vec<SessionInfoAPI>,
     vulnerability_findings: u64,
-    vulnerability_label: &'static str,
+    vulnerability_label: String,
     /// Why the attack pattern detector's count certifies nothing this cycle
     /// (off, stalled, withheld past its budget, unreadable). Reported every
     /// cycle, never read as clean, and never hides the session violations
@@ -322,10 +337,12 @@ fn collect_policy_violations(
     fail_on_blacklist: bool,
     fail_on_findings: bool,
     include_local_traffic: bool,
+    gate_since: &crate::gate_scope::GateSince,
+    live_gate: &mut LiveGateState,
 ) -> Result<PolicyViolations, String> {
     let mut violating_sessions: Vec<SessionInfoAPI> = Vec::new();
     let mut vulnerability_findings = 0u64;
-    let mut vulnerability_label = "HIGH/CRITICAL severity";
+    let mut vulnerability_label = "HIGH/CRITICAL severity".to_string();
 
     if fail_on_whitelist {
         let conforms = rpc_get_whitelist_conformance(
@@ -379,7 +396,7 @@ fn collect_policy_violations(
 
     let mut detector_refusal = None;
     if fail_on_findings {
-        match attack_pattern_findings_for_gate() {
+        match attack_pattern_findings_for_gate(gate_since, live_gate) {
             Ok((count, label)) => {
                 vulnerability_findings = count;
                 vulnerability_label = label;
@@ -396,9 +413,25 @@ fn collect_policy_violations(
     })
 }
 
+/// What the live gate keeps from one policy cycle to the next.
+#[derive(Default)]
+struct LiveGateState {
+    /// Older findings already logged: each is reported once, not every cycle.
+    reported_older: std::collections::HashSet<String>,
+    /// The last split (how many findings count) and the detector status it was
+    /// made from: the findings are listed again only once the counts or the
+    /// last tick moved, not every 10 s while old findings stay active.
+    last_split: Option<(String, u64)>,
+}
+
 /// Alertable attack pattern findings for the live gate, with the label to
-/// print, or why the detector's count certifies nothing this cycle.
-fn attack_pattern_findings_for_gate() -> Result<(u64, &'static str), String> {
+/// print, or why the detector's count certifies nothing this cycle. Only
+/// findings first seen since `gate_since` count; the older ones are logged
+/// once each and never dismissed.
+fn attack_pattern_findings_for_gate(
+    gate_since: &crate::gate_scope::GateSince,
+    live_gate: &mut LiveGateState,
+) -> Result<(u64, String), String> {
     let status = edamame_core::api::api_agentic::get_attack_pattern_detector_status();
     let status_json: serde_json::Value = serde_json::from_str(&status)
         .map_err(|e| format!("Error parsing vulnerability detector status: {}", e))?;
@@ -451,21 +484,77 @@ fn attack_pattern_findings_for_gate() -> Result<(u64, &'static str), String> {
     } else {
         WITHHELD_SINCE_EPOCH.store(0, std::sync::atomic::Ordering::Relaxed);
     }
-    Ok(
-        match status_json
-            .get("active_alertable_findings")
-            .and_then(|value| value.as_u64())
-        {
-            Some(alertable) => (alertable, "HIGH/CRITICAL severity"),
-            None => (
+    let alertable = match status_json
+        .get("active_alertable_findings")
+        .and_then(|value| value.as_u64())
+    {
+        Some(alertable) => alertable,
+        None => {
+            return Ok((
                 status_json
                     .get("active_findings")
                     .and_then(|value| value.as_u64())
                     .unwrap_or(0),
-                "all severities (legacy daemon)",
-            ),
-        },
-    )
+                "all severities (legacy daemon)".to_string(),
+            ))
+        }
+    };
+    if alertable == 0 {
+        live_gate.last_split = None;
+        return Ok((0, "HIGH/CRITICAL severity".to_string()));
+    }
+
+    // Split by first detection. Whatever cannot be told apart counts.
+    let since_text = gate_since.since.to_rfc3339();
+    let label = format!(
+        "HIGH/CRITICAL severity, first seen since {} ({})",
+        since_text, gate_since.origin
+    );
+    let split_key = format!(
+        "{}|{}|{}",
+        alertable,
+        status_json
+            .get("active_findings")
+            .map(|v| v.to_string())
+            .unwrap_or_default(),
+        status_json
+            .get("last_run")
+            .map(|v| v.to_string())
+            .unwrap_or_default()
+    );
+    if let Some((key, current)) = &live_gate.last_split {
+        if *key == split_key {
+            return Ok((*current, label));
+        }
+    }
+    let listing = edamame_core::api::api_agentic::get_attack_pattern_findings();
+    let scoped = match crate::gate_scope::scope_findings(&listing, gate_since.since) {
+        Some(scoped) if scoped.alertable() > 0 => scoped,
+        _ => {
+            warn!(
+                "Live gate: the detector reports {} active HIGH/CRITICAL finding(s) the findings listing cannot date; every one counts",
+                alertable
+            );
+            live_gate.last_split = None;
+            return Ok((alertable, "HIGH/CRITICAL severity".to_string()));
+        }
+    };
+    for older in &scoped.older {
+        if live_gate.reported_older.insert(older.finding_key.clone()) {
+            warn!(
+                "Live gate: attack pattern finding from before {} ({}): {}. It does not cancel the pipeline and stays in the history until dismissed.",
+                since_text,
+                gate_since.origin,
+                older.describe()
+            );
+        }
+    }
+    for current in &scoped.current {
+        info!("Live gate: {}", current.describe());
+    }
+    let current = scoped.current.len() as u64;
+    live_gate.last_split = Some((split_key, current));
+    Ok((current, label))
 }
 
 /// Unix seconds of the first policy cycle that saw a withheld adjudication;
