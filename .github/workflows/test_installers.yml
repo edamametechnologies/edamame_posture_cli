@@ -24,7 +24,6 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  FALLBACK_VERSION: "1.2.0"
   REPO_BASE: "https://github.com/edamametechnologies/edamame_posture_cli"
 
 jobs:
@@ -66,18 +65,38 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          VERSION="${FALLBACK_VERSION}"
+          # The public releases/latest redirect needs no token, so the org IP
+          # allow list does not apply on this hosted runner (the repo is
+          # public) and there is no API rate limit. Only a redirect to a tag
+          # gives a version; a redirect to /releases is GitHub's "no published
+          # release". Anything else (403, 404, 5xx, no answer) is a failed
+          # lookup. Every case but a version fails the job: the old fallback
+          # to 1.2.0 tested an ancient release instead.
           LATEST_URL="${REPO_BASE}/releases/latest"
-          if REDIRECT=$(curl -s -I "$LATEST_URL" | grep -i "^location:" | sed 's/location: *//i' | tr -d '\r'); then
-            if TAG=$(echo "$REDIRECT" | grep -o "v[0-9]\+\.[0-9]\+\.[0-9]\+"); then
-              VERSION="${TAG#v}"
-              echo "Found latest version: ${VERSION}"
-            else
-              echo "Could not parse latest tag, using fallback ${VERSION}"
-            fi
-          else
-            echo "Could not discover latest tag, using fallback ${VERSION}"
+          if ! RESP=$(curl -sS --retry 3 --retry-delay 5 -o /dev/null -w '%{http_code} %{redirect_url}' "$LATEST_URL"); then
+            echo "::error::Latest release lookup failed: no answer from $LATEST_URL"
+            exit 1
           fi
+          CODE="${RESP%% *}"
+          LOCATION="${RESP#* }"
+          case "$CODE $LOCATION" in
+            "302 "*/releases/tag/v*)
+              VERSION="${LOCATION##*/releases/tag/v}"
+              ;;
+            "302 "*/releases)
+              echo "::error::edamame_posture_cli has no published release ($LATEST_URL redirects to the release list)"
+              exit 1
+              ;;
+            *)
+              echo "::error::Latest release lookup failed: HTTP $CODE ${LOCATION} from $LATEST_URL"
+              exit 1
+              ;;
+          esac
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Unexpected latest release tag in $LOCATION"
+            exit 1
+          fi
+          echo "Found latest version: ${VERSION}"
           echo "version=${VERSION}" >> "${GITHUB_OUTPUT}"
 
       - name: Install prerequisites
@@ -327,13 +346,38 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          VERSION="${FALLBACK_VERSION}"
+          # The public releases/latest redirect needs no token, so the org IP
+          # allow list does not apply on this hosted runner (the repo is
+          # public) and there is no API rate limit. Only a redirect to a tag
+          # gives a version; a redirect to /releases is GitHub's "no published
+          # release". Anything else (403, 404, 5xx, no answer) is a failed
+          # lookup. Every case but a version fails the job: the old fallback
+          # to 1.2.0 tested an ancient release instead.
           LATEST_URL="${REPO_BASE}/releases/latest"
-          if REDIRECT=$(curl -s -I "$LATEST_URL" | grep -i "^location:" | sed 's/location: *//i' | tr -d '\r'); then
-            if TAG=$(echo "$REDIRECT" | grep -o "v[0-9]\+\.[0-9]\+\.[0-9]\+"); then
-              VERSION="${TAG#v}"
-            fi
+          if ! RESP=$(curl -sS --retry 3 --retry-delay 5 -o /dev/null -w '%{http_code} %{redirect_url}' "$LATEST_URL"); then
+            echo "::error::Latest release lookup failed: no answer from $LATEST_URL"
+            exit 1
           fi
+          CODE="${RESP%% *}"
+          LOCATION="${RESP#* }"
+          case "$CODE $LOCATION" in
+            "302 "*/releases/tag/v*)
+              VERSION="${LOCATION##*/releases/tag/v}"
+              ;;
+            "302 "*/releases)
+              echo "::error::edamame_posture_cli has no published release ($LATEST_URL redirects to the release list)"
+              exit 1
+              ;;
+            *)
+              echo "::error::Latest release lookup failed: HTTP $CODE ${LOCATION} from $LATEST_URL"
+              exit 1
+              ;;
+          esac
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Unexpected latest release tag in $LOCATION"
+            exit 1
+          fi
+          echo "Found latest version: ${VERSION}"
           echo "version=${VERSION}" >> "${GITHUB_OUTPUT}"
 
       - name: Download binary artifact
