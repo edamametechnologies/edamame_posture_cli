@@ -573,8 +573,38 @@ pub fn base_merge_custom_whitelists(whitelist1_json: String, whitelist2_json: St
 }
 
 pub fn base_compare_custom_whitelists(whitelist1_json: String, whitelist2_json: String) -> i32 {
+    // A whitelist that does not parse cannot be compared: refuse it rather
+    // than report a difference.
+    for (which, json) in [("first", &whitelist1_json), ("second", &whitelist2_json)] {
+        if let Err(e) = serde_json::from_str::<flodbadd::whitelists::WhitelistsJSON>(json) {
+            eprintln!("The {} whitelist does not parse: {}", which, e);
+            return ERROR_CODE_PARAM;
+        }
+    }
     let diff_percentage = compare_custom_whitelists(whitelist1_json, whitelist2_json);
 
     println!("{:.2}%", diff_percentage);
     0
+}
+
+#[cfg(test)]
+mod whitelist_compare_tests {
+    use super::*;
+
+    /// A whitelist that does not parse must not compare as 0.00% (unchanged).
+    #[test]
+    fn compare_refuses_whitelists_that_do_not_parse() {
+        let valid = r#"{"date":"d","signature":null,"whitelists":[]}"#.to_string();
+        assert_eq!(
+            base_compare_custom_whitelists("not json".to_string(), valid.clone()),
+            ERROR_CODE_PARAM
+        );
+        assert_eq!(
+            base_compare_custom_whitelists(
+                valid,
+                r#"{"date":"d","signature":null,"whitelists":[{"name":"x","extends":null,"endpoints":[{"colour":"red"}]}]}"#.to_string()
+            ),
+            ERROR_CODE_PARAM
+        );
+    }
 }
