@@ -1,15 +1,27 @@
 name: install.sh x released binary
 
-# The posture action runs install.sh from raw main against the LATEST RELEASE
-# binary, so an install.sh change goes live for every action user the moment
-# it is pushed -- before the binary it may need is released. On 2026-09-28 the
-# 2.0.2 install.sh handed the PIN to the daemon only through EDAMAME_PIN,
-# which released binaries ignore: every connected action run started an
-# unconnected daemon and sat in the connection wait for 15-90 minutes.
+# install.sh reaches posture action users against the LATEST RELEASE binary or
+# package, from two places:
+# - from action 1.2.0, the latest release's install.sh asset, and raw main
+#   only when that asset is missing (HTTP 404). An installer hotfix goes live
+#   when release_install.yml re-uploads the asset, after this workflow passed
+#   on a branch and the change merged;
+# - @v1 before 1.2.0 runs raw main, so for those users an install.sh push is
+#   live at once, before the binary it may need is released.
+# On 2026-09-28 the 2.0.2 install.sh handed the PIN to the daemon only through
+# EDAMAME_PIN, which released binaries ignore: every connected action run
+# started an unconnected daemon and sat in the connection wait for 15-90
+# minutes.
 #
-# This job runs the pushed install.sh against the latest release in connected
-# mode, with the PIN on argv (what the action passes) and in EDAMAME_PIN, and
-# fails when the daemon does not connect to the Hub.
+# - compat: this commit's install.sh (raw main once merged, the next release's
+#   asset) x the latest release in connected mode, with the PIN on argv and in
+#   EDAMAME_PIN, through the package and the binary paths, plus the debug PKG
+#   on macOS. Fails when the daemon does not connect to the Hub.
+# - asset: the install.sh the action takes first (the latest release's asset,
+#   raw main only when it is missing) x the latest release, run the way the
+#   action runs it.
+# - apt-upgrade: an older package with a conf install.sh wrote, upgraded by
+#   this install.sh, with fresh and with stale apt lists.
 
 on:
   push:
@@ -41,18 +53,22 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
         pin_source: [argv, env]
         # package: the OS package manager path (apt + systemd on Ubuntu, whose
-        # packaged wrapper hands the PIN over itself). binary: --force-binary,
-        # the background-daemon path the action takes in containers and on
-        # self-hosted Linux runners -- the path the 2026-09-28 break hit.
+        # packaged wrapper hands the PIN over itself; the PKG on macOS).
+        # binary: --force-binary, the background-daemon path the action takes
+        # in containers and on self-hosted Linux runners -- the path the
+        # 2026-09-28 break hit. On macOS it installs the PKG as well: the raw
+        # macOS binary carries the Endpoint Security entitlement, which macOS
+        # honours only with the provisioning profile embedded in the PKG's app
+        # bundle, so a bare copy is killed at launch (exit 137, run
+        # 36508531168) and is not published from 2.0.3.
         method: [package, binary]
-        exclude:
-          # The raw macOS binary carries the Endpoint Security entitlement,
-          # which macOS only honours with the provisioning profile embedded in
-          # the PKG's app bundle: run bare on a clean Mac it is killed at
-          # launch (SIGKILL, exit 137), a known limitation independent of
-          # install.sh. The macOS package path (PKG / Homebrew) is covered.
+        include:
+          # --debug-build (the action's `debug: true`) installs the debug PKG
+          # on macOS. Linux and Windows take the raw debug binary, a path this
+          # installer does not change.
           - os: macos-latest
-            method: binary
+            pin_source: env
+            method: debug
     defaults:
       run:
         shell: bash
@@ -71,15 +87,129 @@ jobs:
           set -euo pipefail
           args=(--user "$HUB_USER" --domain "$HUB_DOMAIN" --device-id "$DEVICE_ID" \
                 --state-file "$RUNNER_TEMP/edamame_install_state")
-          if [ "$METHOD" = "binary" ]; then
-            args+=(--force-binary)
-          fi
+          case "$METHOD" in
+            binary) args+=(--force-binary) ;;
+            debug) args+=(--debug-build) ;;
+          esac
           if [ "$PIN_SOURCE" = "argv" ]; then
             args+=(--pin "$PIN_SECRET")
           else
             export EDAMAME_PIN="$PIN_SECRET"
           fi
-          sh ./install.sh "${args[@]}"
+          sh ./install.sh "${args[@]}" 2>&1 | tee "$RUNNER_TEMP/install.log"
+
+      # macOS runs posture only from the PKG, whichever method was asked for.
+      - name: The macOS install is the PKG (the debug PKG for --debug-build)
+        if: runner.os == 'macOS'
+        env:
+          METHOD: ${{ matrix.method }}
+        run: |
+          set -euo pipefail
+          bundle_bin="/Library/Application Support/EDAMAME/EDAMAME-Posture/edamame_posture.app/Contents/MacOS/edamame_posture"
+          link="$(readlink /usr/local/bin/edamame_posture || true)"
+          if [ "$link" != "$bundle_bin" ]; then
+            echo "::error::/usr/local/bin/edamame_posture is not the PKG's bundle binary (points to: '${link:-not a link}')"
+            exit 1
+          fi
+          pkgutil --pkg-info com.edamametechnologies.edamame-posture
+          if [ "$METHOD" = "debug" ]; then
+            grep -q -- '-debug\.pkg' "$RUNNER_TEMP/install.log" \
+              || { echo "::error::--debug-build did not install the debug PKG"; exit 1; }
+          elif grep -q -- '-debug\.pkg' "$RUNNER_TEMP/install.log"; then
+            echo "::error::method $METHOD installed the debug PKG"
+            exit 1
+          fi
+
+      - name: The daemon connects to the Hub
+        env:
+          # A debug build starts slower.
+          CONNECT_WAIT: ${{ matrix.method == 'debug' && '600' || '300' }}
+        run: |
+          set -euo pipefail
+          bin=$(sed -n 's/^binary_path=//p' "$RUNNER_TEMP/edamame_install_state")
+          echo "installed binary: $bin"
+          "$bin" --version || true
+          sudo_cmd=""
+          if [ "$RUNNER_OS" != "Windows" ]; then sudo_cmd="sudo"; fi
+          if $sudo_cmd "$bin" background-wait-for-connection "$CONNECT_WAIT"; then
+            echo "connected"
+          else
+            echo "::error::install.sh from this commit did not get the latest released binary connected to the Hub. Action users run this installer against the latest release (raw main before action 1.2.0, the next release's asset after it): an install.sh change that needs an unreleased binary breaks them."
+            $sudo_cmd "$bin" background-logs 2>/dev/null | tail -60 || true
+            exit 1
+          fi
+
+      - name: Stop the daemon
+        if: always()
+        run: |
+          bin=$(sed -n 's/^binary_path=//p' "$RUNNER_TEMP/edamame_install_state" 2>/dev/null || true)
+          [ -n "$bin" ] || exit 0
+          if [ "$RUNNER_OS" != "Windows" ]; then sudo "$bin" background-stop || true; else "$bin" background-stop || true; fi
+
+  # What the posture action runs from 1.2.0: the latest release's install.sh
+  # asset, raw main only when the release has none, against the latest
+  # release. It does not depend on this commit: a red run here means the
+  # published installer and binaries do not work together (re-upload a fixed
+  # asset with release_install.yml).
+  asset:
+    name: latest release's install.sh asset x latest release (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      # Plain download URLs, not the GitHub API: the org's IP allow list
+      # refuses API calls from hosted runners (HTTP 403), and the action
+      # downloads the same way.
+      - name: Take install.sh the way the action does
+        run: |
+          set -euo pipefail
+          script="$RUNNER_TEMP/install.sh"
+          code=$(curl --proto '=https' --tlsv1.2 -sSL -o "$script" -w '%{http_code}' \
+            https://github.com/edamametechnologies/edamame_posture_cli/releases/latest/download/install.sh) || code="000"
+          case "$code" in
+            200)
+              echo "install.sh: the latest release's asset"
+              ;;
+            404)
+              echo "::warning::The latest release has no install.sh asset (HTTP 404): the action falls back to raw main"
+              curl --proto '=https' --tlsv1.2 -fsSL -o "$script" \
+                https://raw.githubusercontent.com/edamametechnologies/edamame_posture_cli/main/install.sh
+              ;;
+            *)
+              echo "::error::Downloading the latest release's install.sh asset failed (HTTP $code); the action does not fall back to raw main then"
+              exit 1
+              ;;
+          esac
+          test -s "$script"
+          if command -v sha256sum >/dev/null 2>&1; then sha256sum "$script"; else shasum -a 256 "$script"; fi
+
+      - name: Install the latest release with it (connected mode, as the action)
+        env:
+          PIN_SECRET: ${{ secrets.EDAMAME_POSTURE_PIN }}
+          HUB_USER: ${{ vars.EDAMAME_POSTURE_USER }}
+          HUB_DOMAIN: ${{ vars.EDAMAME_POSTURE_DOMAIN }}
+          DEVICE_ID: install-compat-${{ github.run_id }}-${{ matrix.os }}-asset
+        run: |
+          set -euo pipefail
+          script="$RUNNER_TEMP/install.sh"
+          args=(--user "$HUB_USER" --domain "$HUB_DOMAIN" --device-id "$DEVICE_ID" \
+                --state-file "$RUNNER_TEMP/edamame_install_state")
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            args+=(--install-dir "$HOME")
+          fi
+          # The action hands the PIN over in EDAMAME_PIN to an installer that
+          # reads it, and on argv to an older one.
+          if grep -q 'EDAMAME_PIN' "$script"; then
+            EDAMAME_PIN="$PIN_SECRET" sh "$script" "${args[@]}"
+          else
+            sh "$script" "${args[@]}" --pin "$PIN_SECRET"
+          fi
 
       - name: The daemon connects to the Hub
         run: |
@@ -92,7 +222,7 @@ jobs:
           if $sudo_cmd "$bin" background-wait-for-connection 300; then
             echo "connected"
           else
-            echo "::error::install.sh from this commit did not get the latest released binary connected to the Hub. The posture action runs exactly this pair: an install.sh change that needs an unreleased binary breaks every action user as soon as it is pushed."
+            echo "::error::the latest release's install.sh did not get the latest released binary connected to the Hub: this is what posture action users run. Re-upload a fixed install.sh with release_install.yml."
             $sudo_cmd "$bin" background-logs 2>/dev/null | tail -60 || true
             exit 1
           fi
@@ -109,12 +239,23 @@ jobs:
   # 2.0.2 upgrade stopped at dpkg's conffile question (the packaged conf had
   # new keys), read EOF, failed, and the binary fallback was then verified
   # through a stale shell path cache: the action's setup failed on linux-4.
-  # 2.0.1's packaged conf differs from every later one, so upgrading from it
-  # always meets that question.
+  # Packages up to 2.0.2 ship the conf as a conffile, and 2.0.1's differs from
+  # every later one, so upgrading from it always meets that question; 2.0.2 ->
+  # a later release is the conffile's removal (2.0.3).
+  #
+  # stale: the host's apt lists predate the release, as on a self-hosted
+  # runner or a server that has not run `apt-get update` since. Here the
+  # EDAMAME source is written after the last update, so apt knows no version
+  # newer than the installed one until install.sh refreshes that source.
   apt-upgrade:
-    name: install.sh upgrades a 2.0.1 package whose conf was written locally (ubuntu)
+    name: install.sh upgrades a ${{ matrix.from }} package whose conf was written locally (ubuntu, ${{ matrix.lists }} apt lists)
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        from: ['2.0.1', '2.0.2']
+        lists: [fresh, stale]
     defaults:
       run:
         shell: bash
@@ -123,32 +264,45 @@ jobs:
 
       # Plain release URLs, not the GitHub API: the org's IP allow list
       # refuses API calls from hosted runners (HTTP 403).
-      - name: Install 2.0.1 from the EDAMAME repository setup, then mark its conf as locally written
+      - name: Install ${{ matrix.from }} from the EDAMAME repository setup, then mark its conf as locally written
+        env:
+          FROM: ${{ matrix.from }}
+          LISTS: ${{ matrix.lists }}
         run: |
           set -euo pipefail
+          if [ "$LISTS" = "stale" ]; then
+            # Ubuntu's lists for the package's dependencies, then the EDAMAME
+            # source with no update after it.
+            sudo apt-get update -qq
+          fi
           wget -q -O - https://edamame.s3.eu-west-1.amazonaws.com/repo/public.key \
             | sudo gpg --dearmor -o /usr/share/keyrings/edamame.gpg
           echo "deb [arch=amd64 signed-by=/usr/share/keyrings/edamame.gpg] https://edamame.s3.eu-west-1.amazonaws.com/repo stable main" \
             | sudo tee /etc/apt/sources.list.d/edamame.list > /dev/null
-          sudo apt-get update -qq
-          curl -fsSL -o "$RUNNER_TEMP/edamame-posture_2.0.1-1_amd64.deb" \
-            https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v2.0.1/edamame-posture_2.0.1-1_amd64.deb
-          sudo apt-get install -y "$RUNNER_TEMP/edamame-posture_2.0.1-1_amd64.deb"
+          if [ "$LISTS" = "fresh" ]; then
+            sudo apt-get update -qq
+          fi
+          curl -fsSL -o "$RUNNER_TEMP/edamame-posture_${FROM}-1_amd64.deb" \
+            "https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v${FROM}/edamame-posture_${FROM}-1_amd64.deb"
+          sudo apt-get install -y "$RUNNER_TEMP/edamame-posture_${FROM}-1_amd64.deb"
           echo '# written by an earlier install.sh run' | sudo tee -a /etc/edamame_posture.conf > /dev/null
           dpkg-query -W -f='installed: ${Version} ${db:Status-Abbrev}\n' edamame-posture
+          apt-cache policy edamame-posture
 
       - name: Upgrade with this install.sh (connected mode, what the action passes)
         env:
           PIN_SECRET: ${{ secrets.EDAMAME_POSTURE_PIN }}
           HUB_USER: ${{ vars.EDAMAME_POSTURE_USER }}
           HUB_DOMAIN: ${{ vars.EDAMAME_POSTURE_DOMAIN }}
-          DEVICE_ID: install-compat-${{ github.run_id }}-apt-upgrade
+          DEVICE_ID: install-compat-${{ github.run_id }}-apt-upgrade-${{ matrix.from }}-${{ matrix.lists }}
         run: |
           set -euo pipefail
           sh ./install.sh --user "$HUB_USER" --domain "$HUB_DOMAIN" --pin "$PIN_SECRET" \
             --device-id "$DEVICE_ID" --state-file "$RUNNER_TEMP/edamame_install_state"
 
-      - name: The package is the latest release and the daemon connects
+      - name: The package is the latest release, its conf kept, and the daemon connects
+        env:
+          FROM: ${{ matrix.from }}
         run: |
           set -euo pipefail
           latest=$(curl -fsSI https://github.com/edamametechnologies/edamame_posture_cli/releases/latest \
@@ -158,8 +312,14 @@ jobs:
           echo "latest release: $latest, installed: $installed"
           case "$installed" in
             "${latest#v}-"*" ii "*) ;;
-            *) echo "::error::install.sh did not upgrade the 2.0.1 package to $latest (dpkg: $installed)"; exit 1 ;;
+            *) echo "::error::install.sh did not upgrade the ${FROM} package to $latest (dpkg: $installed)"; exit 1 ;;
           esac
+          # install.sh rewrites the conf; what must survive is the file itself
+          # (the package never replaces it, nor does the rollback lose it).
+          sudo test -s /etc/edamame_posture.conf \
+            || { echo "::error::/etc/edamame_posture.conf is missing after the upgrade"; exit 1; }
+          sudo grep -q '^edamame_user: ".\+"' /etc/edamame_posture.conf \
+            || { echo "::error::/etc/edamame_posture.conf lost the Hub credentials"; exit 1; }
           bin=$(sed -n 's/^binary_path=//p' "$RUNNER_TEMP/edamame_install_state")
           if sudo "$bin" background-wait-for-connection 300; then
             echo "connected"
