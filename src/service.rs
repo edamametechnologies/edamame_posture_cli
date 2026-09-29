@@ -172,11 +172,20 @@ fn service_log(message: &str) {
 // Configuration
 ////////////////////////////////////////////////////////////////////////////////
 
-/// Reads `key` from a conf in the Linux format. Same rules as
+/// Reads `key` from a conf in the Linux format, with the rules of
 /// `get_config_value` in linux/edamame_posture_daemon.sh: the first line
 /// starting with `key:` wins; a double-quoted value is read up to its closing
-/// quote with backslash escapes, a single-quoted one up to the next quote, and
-/// an unquoted one loses a trailing ` # comment`.
+/// quote, a single-quoted one up to the next quote, and an unquoted one loses
+/// a trailing ` # comment`.
+///
+/// Inside double quotes a backslash escapes only a backslash or a quote, the
+/// two escapes the installer writes (`yaml_escape` in install.sh), so every
+/// value it writes reads back the same. Any other backslash is kept: a
+/// Windows path typed into the conf (`"C:\ProgramData\EDAMAME\Posture\pin"`
+/// as written, single backslashes) keeps its separators, where the shell
+/// wrapper would drop them. A path that ends in a backslash, or a UNC path,
+/// is written single-quoted or unquoted (both literal) or with doubled
+/// backslashes.
 pub(crate) fn conf_value(text: &str, key: &str) -> String {
     let prefix = format!("{}:", key);
     for raw in text.lines() {
@@ -187,12 +196,16 @@ pub(crate) fn conf_value(text: &str, key: &str) -> String {
         let v = line[prefix.len()..].trim_start_matches([' ', '\t']);
         if let Some(rest) = v.strip_prefix('"') {
             let mut out = String::new();
-            let mut chars = rest.chars();
+            let mut chars = rest.chars().peekable();
             while let Some(c) = chars.next() {
                 if c == '\\' {
-                    match chars.next() {
-                        Some(n) => out.push(n),
-                        None => out.push(c),
+                    match chars.peek() {
+                        Some(&escaped @ ('\\' | '"')) => {
+                            chars.next();
+                            out.push(escaped);
+                        }
+                        // Not an escape: a literal backslash (a Windows path).
+                        _ => out.push(c),
                     }
                     continue;
                 }
@@ -1350,6 +1363,47 @@ edamame_user: \"bob\"
         assert_eq!(conf_value(text, "hash_in_value"), "a#b");
         assert_eq!(conf_value(text, "crlf"), "x");
         assert_eq!(conf_value(text, "missing"), "");
+    }
+
+    /// A Windows path typed into the conf keeps its separators (windows-x64
+    /// run 36548192242: `edamame_pin_file` in double quotes lost them).
+    #[test]
+    fn conf_value_keeps_windows_paths() {
+        let text = r#"plain: "C:\ProgramData\EDAMAME\Posture\pin"
+doubled: "C:\\ProgramData\\EDAMAME\\Posture\\pin"
+single: '\\server\share\pin'
+unquoted: C:\ProgramData\pin   # comment
+escaped: "a \"b\" c\\d"
+"#;
+        assert_eq!(
+            conf_value(text, "plain"),
+            r"C:\ProgramData\EDAMAME\Posture\pin"
+        );
+        assert_eq!(
+            conf_value(text, "doubled"),
+            r"C:\ProgramData\EDAMAME\Posture\pin"
+        );
+        assert_eq!(conf_value(text, "single"), r"\\server\share\pin");
+        assert_eq!(conf_value(text, "unquoted"), r"C:\ProgramData\pin");
+        assert_eq!(conf_value(text, "escaped"), r#"a "b" c\d"#);
+    }
+
+    /// Every value the installer writes (install.sh `yaml_escape`: `\` to
+    /// `\\`, then `"` to `\"`, inside double quotes) reads back unchanged.
+    #[test]
+    fn conf_value_reads_back_every_installer_escaped_value() {
+        let yaml_escape = |value: &str| value.replace('\\', "\\\\").replace('"', "\\\"");
+        for value in [
+            "alice",
+            "",
+            "x # not a comment",
+            r"C:\ProgramData\EDAMAME\Posture\pin",
+            r"\\server\share\",
+            r#"a "b" \c\"#,
+        ] {
+            let text = format!("key: \"{}\"   # comment\n", yaml_escape(value));
+            assert_eq!(conf_value(&text, "key"), value, "{text}");
+        }
     }
 
     #[test]
