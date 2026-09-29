@@ -46,6 +46,7 @@ EDAMAME Posture is a lightweight, developer-first CLI for runner and build-host 
   - [Linux (Debian/Ubuntu)](#linux-debianubuntu)
   - [macOS](#macos)
   - [Windows](#windows)
+  - [Fleet Deployment (MDM)](#fleet-deployment-mdm)
 - [Usage](#usage)
   - [Common Commands](#common-commands)
   - [All Available Commands](#all-available-commands)
@@ -1716,6 +1717,10 @@ For a manual installation on Windows:
    edamame_posture get-core-version
    ```
 Note: Some commands require administrator privileges. Right-click on Command Prompt and select "Run as administrator" when needed or install Git Bash and use the provided sudo in an Administrator elevated terminal.
+
+### Fleet Deployment (MDM)
+
+To roll EDAMAME Posture out to many machines, use your MDM as the delivery channel: [auto_provisioning](https://github.com/edamametechnologies/auto_provisioning) has install scripts, configuration profiles and guides (Intune, ConfigMgr, Jamf, Kandji, Mosyle, Workspace ONE, Ansible) that install the standard release binaries and packages with the Hub enrollment and LLM settings preconfigured, and verify downloads against the release's signed `SHA256SUMS`. The MDM only delivers and configures EDAMAME; EDAMAME itself never takes control of the device.
 
 ## Usage
 Once installed, EDAMAME Posture is invoked via the `edamame_posture` command. Most commands will require administrator (root) privileges to run effectively. You can use `--help` on any subcommand to get more details.
