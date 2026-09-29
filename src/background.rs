@@ -2862,7 +2862,22 @@ pub fn background_attack_pattern_findings(active_only: bool) -> i32 {
     }
 }
 
-pub fn background_attack_pattern_status(fail_on_findings: bool) -> i32 {
+/// `attack-pattern-status [--fail-on-findings [--since <RFC 3339>]]`.
+///
+/// With `since`, the gate fails only on active HIGH/CRITICAL findings first
+/// seen at or after it (a CI job's start): on a persistent runner an older
+/// finding was left by an earlier job. Older findings are printed as warnings
+/// with their first-seen time; nothing is dismissed. Liveness refusals and a
+/// withheld adjudication fail whatever the age of the findings.
+///
+/// Exit codes:
+///   0 -- no active HIGH/CRITICAL finding in scope (or no gate asked)
+///   ERROR_CODE_MISMATCH -- active HIGH/CRITICAL findings in scope
+///   ERROR_CODE_SERVER_ERROR -- detector off, stalled or withheld; RPC failed
+pub fn background_attack_pattern_status(
+    fail_on_findings: bool,
+    since: Option<crate::gate_scope::UtcTime>,
+) -> i32 {
     match rpc_get_attack_pattern_detector_status(
         &EDAMAME_CA_PEM,
         &EDAMAME_CLIENT_PEM,
@@ -2960,6 +2975,15 @@ pub fn background_attack_pattern_status(fail_on_findings: bool) -> i32 {
                         .unwrap_or(0)
                 });
                 if active_findings > 0 {
+                    match since {
+                        Some(since) if alertable_findings.is_some() => {
+                            return attack_pattern_gate_since(active_findings, since);
+                        }
+                        Some(_) => eprintln!(
+                            "The daemon predates per-finding first-detection times: --since cannot scope the gate, every active finding counts."
+                        ),
+                        None => {}
+                    }
                     eprintln!(
                         "Active vulnerability findings detected: {} ({})",
                         active_findings,
@@ -2980,6 +3004,84 @@ pub fn background_attack_pattern_status(fail_on_findings: bool) -> i32 {
             ERROR_CODE_SERVER_ERROR
         }
     }
+}
+
+/// The `--since` gate once the detector reports `status_count` active
+/// HIGH/CRITICAL findings: fail only on those first seen at or after `since`.
+/// Whatever cannot be told apart (the listing fails, or lists none of the
+/// findings the status counts) counts, as it would without `--since`.
+fn attack_pattern_gate_since(status_count: u64, since: crate::gate_scope::UtcTime) -> i32 {
+    let since_text = since.to_rfc3339();
+    let every_finding_counts = |why: String| -> i32 {
+        eprintln!("{}; every active finding counts.", why);
+        eprintln!(
+            "Active vulnerability findings detected: {} (HIGH/CRITICAL severity)",
+            status_count
+        );
+        ERROR_CODE_MISMATCH
+    };
+    let listing = match rpc_get_attack_pattern_findings(
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(listing) => listing,
+        Err(e) => {
+            return every_finding_counts(format!(
+                "Could not list the findings to tell those first seen since {} from older ones ({})",
+                since_text, e
+            ))
+        }
+    };
+    let scoped = match crate::gate_scope::scope_findings(&listing, since) {
+        Some(scoped) if scoped.alertable() > 0 => scoped,
+        Some(_) => {
+            return every_finding_counts(format!(
+                "The detector reports {} active HIGH/CRITICAL finding(s) but the listing shows none to tell those first seen since {} from older ones",
+                status_count, since_text
+            ))
+        }
+        None => {
+            return every_finding_counts(format!(
+                "The findings listing is unreadable, so those first seen since {} cannot be told from older ones",
+                since_text
+            ))
+        }
+    };
+
+    for older in &scoped.older {
+        eprintln!(
+            "WARNING: attack pattern finding from before {}: {}. It does not fail this gate and stays in the history: triage it and dismiss it if it is benign.",
+            since_text,
+            older.describe()
+        );
+    }
+    let undated = scoped.undated();
+    if undated > 0 {
+        eprintln!(
+            "{} active HIGH/CRITICAL finding(s) carry no first-detection time (a daemon older than edamame_posture 2.0.3): they count.",
+            undated
+        );
+    }
+    if !scoped.current.is_empty() {
+        for current in &scoped.current {
+            eprintln!("  {}", current.describe());
+        }
+        eprintln!(
+            "Active vulnerability findings detected: {} (HIGH/CRITICAL severity, first seen since {}); {} older finding(s) reported as warnings",
+            scoped.current.len(),
+            since_text,
+            scoped.older.len()
+        );
+        return ERROR_CODE_MISMATCH;
+    }
+    eprintln!(
+        "All {} active HIGH/CRITICAL finding(s) were first seen before {}: reported as warnings, not failing this gate. The finding history is unchanged.",
+        scoped.older.len(),
+        since_text
+    );
+    0
 }
 
 /// Dump the `VulnerabilityDebugTrace` JSON for a past attack pattern report.

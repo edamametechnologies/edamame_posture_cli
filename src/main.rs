@@ -2,6 +2,7 @@ mod background;
 mod base;
 mod cli;
 mod daemon;
+mod gate_scope;
 mod service;
 use anyhow::Result;
 use background::*;
@@ -1349,9 +1350,21 @@ fn run_base() {
         }
         Some(("background-attack-pattern-status", sub_matches)) => {
             let fail_on_findings = sub_matches.get_flag("fail-on-findings");
-            initialize_core("".to_string(), false, false, false, false, false, verbose);
-            exit_code = background_attack_pattern_status(fail_on_findings);
-            is_background = true;
+            match sub_matches
+                .get_one::<String>("since")
+                .map(|text| gate_scope::parse_since(text))
+                .transpose()
+            {
+                Ok(since) => {
+                    initialize_core("".to_string(), false, false, false, false, false, verbose);
+                    exit_code = background_attack_pattern_status(fail_on_findings, since);
+                    is_background = true;
+                }
+                Err(e) => {
+                    eprintln!("{}", e);
+                    exit_code = ERROR_CODE_PARAM;
+                }
+            }
         }
         Some(("background-attack-pattern-findings", sub_matches)) => {
             let active_only = sub_matches.get_flag("active-only");
