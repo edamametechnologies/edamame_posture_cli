@@ -3,9 +3,14 @@
   <metadata>
     <id>edamame-posture</id>
     <version>2.0.3</version>
+    <packageSourceUrl>https://github.com/edamametechnologies/edamame_posture_cli/tree/main/chocolatey</packageSourceUrl>
     <title>EDAMAME Posture</title>
     <authors>EDAMAME Technologies</authors>
     <projectUrl>https://edamame.tech</projectUrl>
+    <iconUrl>https://cdn.jsdelivr.net/gh/edamametechnologies/edamame_helper@v2.0.2/chromeos/icon128.png</iconUrl>
+    <projectSourceUrl>https://github.com/edamametechnologies/edamame_posture_cli</projectSourceUrl>
+    <docsUrl>https://github.com/edamametechnologies/edamame_posture_cli/blob/main/README.md</docsUrl>
+    <bugTrackerUrl>https://github.com/edamametechnologies/edamame_posture_cli/issues</bugTrackerUrl>
     <tags>edamame security posture cli</tags>
     <summary>EDAMAME Security posture analysis and remediation</summary>
     <description>EDAMAME Posture is a lightweight, developer-friendly security posture assessment and remediation tool.</description>
