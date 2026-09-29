@@ -103,3 +103,75 @@ jobs:
           bin=$(sed -n 's/^binary_path=//p' "$RUNNER_TEMP/edamame_install_state" 2>/dev/null || true)
           [ -n "$bin" ] || exit 0
           if [ "$RUNNER_OS" != "Windows" ]; then sudo "$bin" background-stop || true; else "$bin" background-stop || true; fi
+
+  # A host that already has the package, with a conf an earlier install.sh run
+  # wrote: every self-hosted runner and server. On 2026-09-29 the 2.0.1 ->
+  # 2.0.2 upgrade stopped at dpkg's conffile question (the packaged conf had
+  # new keys), read EOF, failed, and the binary fallback was then verified
+  # through a stale shell path cache: the action's setup failed on linux-4.
+  # 2.0.1's packaged conf differs from every later one, so upgrading from it
+  # always meets that question.
+  apt-upgrade:
+    name: install.sh upgrades a 2.0.1 package whose conf was written locally (ubuntu)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v5
+
+      # Plain release URLs, not the GitHub API: the org's IP allow list
+      # refuses API calls from hosted runners (HTTP 403).
+      - name: Install 2.0.1 from the EDAMAME repository setup, then mark its conf as locally written
+        run: |
+          set -euo pipefail
+          wget -q -O - https://edamame.s3.eu-west-1.amazonaws.com/repo/public.key \
+            | sudo gpg --dearmor -o /usr/share/keyrings/edamame.gpg
+          echo "deb [arch=amd64 signed-by=/usr/share/keyrings/edamame.gpg] https://edamame.s3.eu-west-1.amazonaws.com/repo stable main" \
+            | sudo tee /etc/apt/sources.list.d/edamame.list > /dev/null
+          sudo apt-get update -qq
+          curl -fsSL -o "$RUNNER_TEMP/edamame-posture_2.0.1-1_amd64.deb" \
+            https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v2.0.1/edamame-posture_2.0.1-1_amd64.deb
+          sudo apt-get install -y "$RUNNER_TEMP/edamame-posture_2.0.1-1_amd64.deb"
+          echo '# written by an earlier install.sh run' | sudo tee -a /etc/edamame_posture.conf > /dev/null
+          dpkg-query -W -f='installed: ${Version} ${db:Status-Abbrev}\n' edamame-posture
+
+      - name: Upgrade with this install.sh (connected mode, what the action passes)
+        env:
+          PIN_SECRET: ${{ secrets.EDAMAME_POSTURE_PIN }}
+          HUB_USER: ${{ vars.EDAMAME_POSTURE_USER }}
+          HUB_DOMAIN: ${{ vars.EDAMAME_POSTURE_DOMAIN }}
+          DEVICE_ID: install-compat-${{ github.run_id }}-apt-upgrade
+        run: |
+          set -euo pipefail
+          sh ./install.sh --user "$HUB_USER" --domain "$HUB_DOMAIN" --pin "$PIN_SECRET" \
+            --device-id "$DEVICE_ID" --state-file "$RUNNER_TEMP/edamame_install_state"
+
+      - name: The package is the latest release and the daemon connects
+        run: |
+          set -euo pipefail
+          latest=$(curl -fsSI https://github.com/edamametechnologies/edamame_posture_cli/releases/latest \
+            | tr -d '\r' | sed -n 's|^[Ll]ocation: .*/releases/tag/||p')
+          [ -n "$latest" ] || { echo "::error::could not resolve the latest release"; exit 1; }
+          installed=$(dpkg-query -W -f='${Version} ${db:Status-Abbrev}' edamame-posture)
+          echo "latest release: $latest, installed: $installed"
+          case "$installed" in
+            "${latest#v}-"*" ii "*) ;;
+            *) echo "::error::install.sh did not upgrade the 2.0.1 package to $latest (dpkg: $installed)"; exit 1 ;;
+          esac
+          bin=$(sed -n 's/^binary_path=//p' "$RUNNER_TEMP/edamame_install_state")
+          if sudo "$bin" background-wait-for-connection 300; then
+            echo "connected"
+          else
+            echo "::error::the upgraded daemon did not connect to the Hub"
+            sudo "$bin" background-logs 2>/dev/null | tail -60 || true
+            exit 1
+          fi
+
+      - name: Stop the daemon
+        if: always()
+        run: |
+          bin=$(sed -n 's/^binary_path=//p' "$RUNNER_TEMP/edamame_install_state" 2>/dev/null || true)
+          [ -n "$bin" ] || exit 0
+          sudo "$bin" background-stop || true
