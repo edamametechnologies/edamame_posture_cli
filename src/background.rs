@@ -44,30 +44,48 @@ pub fn background_get_sessions(
         }
     };
 
+    let active_whitelist = sessions.whitelist.clone();
+    let capturing = sessions.is_capturing;
+
     // Filter and display sessions (normal mode)
     background_display_sessions(sessions.sessions, zeek_format, local_traffic, false);
 
     // Determine exit code based on checks
     let mut exit_code = 0;
 
-    // Always check whitelist conformance
     if fail_on_whitelisted {
-        let whitelist_conformance = match rpc_get_whitelist_conformance(
-            &EDAMAME_CA_PEM,
-            &EDAMAME_CLIENT_PEM,
-            &EDAMAME_CLIENT_KEY,
-            &EDAMAME_TARGET,
-        ) {
-            Ok(conformance) => conformance,
-            Err(e) => {
-                eprintln!("Error getting whitelist conformance: {}", e);
-                return ERROR_CODE_SERVER_ERROR;
+        match whitelist_gate(&active_whitelist, capturing) {
+            WhitelistGate::NothingToCheck => {
+                eprintln!(
+                    "--fail-on-whitelist: no whitelist is active in the daemon; nothing to check"
+                );
             }
-        };
+            WhitelistGate::CannotCertify(reason) => {
+                eprintln!("--fail-on-whitelist: {}", reason);
+                exit_code = ERROR_CODE_SERVER_ERROR;
+            }
+            WhitelistGate::Check => {
+                let whitelist_conformance = match rpc_get_whitelist_conformance(
+                    &EDAMAME_CA_PEM,
+                    &EDAMAME_CLIENT_PEM,
+                    &EDAMAME_CLIENT_KEY,
+                    &EDAMAME_TARGET,
+                ) {
+                    Ok(conformance) => conformance,
+                    Err(e) => {
+                        eprintln!("Error getting whitelist conformance: {}", e);
+                        return ERROR_CODE_SERVER_ERROR;
+                    }
+                };
 
-        if !whitelist_conformance {
-            eprintln!("Non-conforming sessions detected");
-            exit_code = ERROR_CODE_MISMATCH;
+                if !whitelist_conformance {
+                    eprintln!(
+                        "Non-conforming sessions detected (whitelist '{}')",
+                        active_whitelist
+                    );
+                    exit_code = ERROR_CODE_MISMATCH;
+                }
+            }
         }
     }
 
@@ -114,6 +132,32 @@ pub fn background_get_sessions(
     }
 
     return exit_code;
+}
+
+/// What `--fail-on-whitelist` can do with the daemon's state.
+#[derive(Debug, PartialEq)]
+pub(crate) enum WhitelistGate {
+    /// No whitelist is active: there is nothing to check against.
+    NothingToCheck,
+    /// A whitelist is active but its conformance cannot be certified.
+    CannotCertify(String),
+    /// Check the daemon's conformance.
+    Check,
+}
+
+/// Fails closed: a whitelist is certified only while the capture that
+/// evaluates it runs.
+pub(crate) fn whitelist_gate(active_whitelist: &str, capturing: bool) -> WhitelistGate {
+    if active_whitelist.is_empty() {
+        WhitelistGate::NothingToCheck
+    } else if !capturing {
+        WhitelistGate::CannotCertify(format!(
+            "whitelist '{}' is active but the capture is not running: conformance cannot be certified",
+            active_whitelist
+        ))
+    } else {
+        WhitelistGate::Check
+    }
 }
 
 /// The payload of a whitelist RPC's `{"success": ..., "error": ...}` answer,
@@ -4245,6 +4289,19 @@ pub fn background_clear_file_events() -> i32 {
 #[cfg(test)]
 mod whitelist_tests {
     use super::*;
+
+    #[test]
+    fn whitelist_gate_fails_closed_without_capture() {
+        assert_eq!(whitelist_gate("", true), WhitelistGate::NothingToCheck);
+        assert_eq!(whitelist_gate("", false), WhitelistGate::NothingToCheck);
+        assert_eq!(whitelist_gate("github_ubuntu", true), WhitelistGate::Check);
+        match whitelist_gate("custom_whitelist", false) {
+            WhitelistGate::CannotCertify(reason) => {
+                assert!(reason.contains("capture is not running"), "{}", reason)
+            }
+            other => panic!("expected CannotCertify, got {:?}", other),
+        }
+    }
 
     #[test]
     fn whitelist_envelope_reads_success_and_errors() {
