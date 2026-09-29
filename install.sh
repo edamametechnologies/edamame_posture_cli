@@ -56,7 +56,10 @@
 #   --install-dir PATH             Binary install directory (default: /usr/local/bin)
 #   --state-file PATH              Write installation state to file (for CI/CD)
 #   --force-binary                 Skip package managers, use binary download
-#   --debug-build                  Download debug binaries (implies --force-binary)
+#                                  (macOS: the PKG, never Homebrew; macOS has no
+#                                  usable raw binary)
+#   --debug-build                  Download debug binaries (implies --force-binary;
+#                                  macOS: the debug PKG)
 #
 # Examples:
 #
@@ -1410,7 +1413,9 @@ prepare_binary_artifact() {
             suffix=$(determine_linux_suffix "$LINUX_ARCH_NORMALIZED" "$libc_flavor")
             ;;
         macos)
-            suffix="universal-apple-darwin"
+            # The raw universal binary is killed at launch (see
+            # install_macos_via_pkg) and is not published from 2.0.3.
+            error "There is no raw macOS binary to install: EDAMAME Posture installs on macOS from its PKG only"
             ;;
         windows)
             suffix="x86_64-pc-windows-msvc"
@@ -2143,8 +2148,58 @@ install_windows_via_choco() {
     return 0
 }
 
+# macOS runs EDAMAME Posture only from its PKG. The binary carries the Endpoint
+# Security entitlement, which macOS honours only with the provisioning profile
+# embedded in the PKG's app bundle: a bare copy of it is killed at launch
+# (SIGKILL, exit 137). So --force-binary installs the PKG and --debug-build the
+# debug PKG, and the raw macOS binaries are not published from 2.0.3.
+MACOS_PKG_ID="com.edamametechnologies.edamame-posture"
+MACOS_PKG_BINARY="/Library/Application Support/EDAMAME/EDAMAME-Posture/edamame_posture.app/Contents/MacOS/edamame_posture"
+
+# macos_pkg_name <version> [debug]: the PKG release asset. The posture action
+# looks for "-debug.pkg" in an installer before it passes it --debug-build on
+# macOS: an installer without it would install the raw debug binary.
+macos_pkg_name() {
+    if [ "${2:-}" = "debug" ]; then
+        printf 'edamame-posture-macos-%s-debug.pkg\n' "$1"
+    else
+        printf 'edamame-posture-macos-%s.pkg\n' "$1"
+    fi
+}
+
+# The version of the installed posture PKG (its installer receipt); empty when
+# the PKG is not installed.
+macos_installed_pkg_version() {
+    command -v pkgutil >/dev/null 2>&1 || return 0
+    pkgutil --pkg-info "$MACOS_PKG_ID" 2>/dev/null | sed -n 's/^version: //p' | head -n 1
+}
+
+# True when <path> is the PKG's bundle binary or the /usr/local/bin link to it.
+macos_binary_is_from_pkg() {
+    [ -e "$MACOS_PKG_BINARY" ] || return 1
+    [ "$1" = "$MACOS_PKG_BINARY" ] && return 0
+    [ -L "$1" ] && [ "$(readlink "$1" 2>/dev/null)" = "$MACOS_PKG_BINARY" ]
+}
+
+# True when <url> answers 2xx (after redirects).
+url_exists() {
+    if command -v curl >/dev/null 2>&1; then
+        curl --connect-timeout 10 --max-time 30 -fsIL -o /dev/null "$1" 2>/dev/null
+    elif command -v wget >/dev/null 2>&1; then
+        wget -q --spider --timeout=30 "$1" 2>/dev/null
+    else
+        return 1
+    fi
+}
+
+# install_macos_via_pkg [debug]: download and install the PKG (the debug PKG
+# with "debug") of the latest release; the previous and the pinned fallback
+# releases stand in when its PKG is missing (a release still uploading).
 install_macos_via_pkg() {
-    info "Installing via macOS .pkg (bundle with embedded ES profile)..."
+    local variant="${1:-release}"
+    local label=".pkg"
+    [ "$variant" = "debug" ] && label="debug .pkg"
+    info "Installing via macOS ${label} (bundle with embedded ES profile)..."
 
     local version=""
     if fetch_latest_release_tag && [ -n "$LATEST_RELEASE_TAG_PRIMARY" ]; then
@@ -2153,73 +2208,76 @@ install_macos_via_pkg() {
         version=$(fetch_latest_version)
     fi
     if [ -z "$version" ]; then
-        warn "Failed to determine latest version for .pkg download"
+        warn "Failed to determine latest version for ${label} download"
         return 1
     fi
 
-    local pkg_name="edamame-posture-macos-${version}.pkg"
-    local pkg_url="${REPO_BASE_URL}/releases/download/v${version}/${pkg_name}"
-    local tmp_pkg
-    tmp_pkg=$(mktemp /tmp/edamame-posture-XXXXXX.pkg)
-
-    info "Downloading ${pkg_url}"
-    if ! download_file "$pkg_url" "$tmp_pkg"; then
-        rm -f "$tmp_pkg"
-        local pkg_downloaded="false"
-        if [ -n "$LATEST_RELEASE_TAG_SECONDARY" ]; then
-            version="$LATEST_RELEASE_TAG_SECONDARY"
-            pkg_name="edamame-posture-macos-${version}.pkg"
-            pkg_url="${REPO_BASE_URL}/releases/download/v${version}/${pkg_name}"
-            info "Primary .pkg not found, trying previous release: ${pkg_url}"
-            tmp_pkg=$(mktemp /tmp/edamame-posture-XXXXXX.pkg)
-            if download_file "$pkg_url" "$tmp_pkg"; then
-                pkg_downloaded="true"
-            else
-                rm -f "$tmp_pkg"
-            fi
-        fi
-        # Last-resort fallback: try FALLBACK_VERSION .pkg. This is the only
-        # macOS path that survives "the latest release is missing macOS
-        # assets" -- which happens transiently while a release_others.yml
-        # macOS upload is being rebuilt. Without this fallback, install.sh
-        # would fall through to direct binary download of the universal-
-        # apple-darwin artifact, which is NOT notarized (only the .pkg is)
-        # and gets Killed: 9 by Gatekeeper on github-hosted macos-latest
-        # runners.
-        if [ "$pkg_downloaded" = "false" ] && [ -n "$FALLBACK_VERSION" ] \
-           && [ "$FALLBACK_VERSION" != "$LATEST_RELEASE_TAG_PRIMARY" ] \
-           && [ "$FALLBACK_VERSION" != "$LATEST_RELEASE_TAG_SECONDARY" ]; then
-            version="$FALLBACK_VERSION"
-            pkg_name="edamame-posture-macos-${version}.pkg"
-            pkg_url="${REPO_BASE_URL}/releases/download/v${version}/${pkg_name}"
-            info "Previous release .pkg unavailable, trying pinned fallback: ${pkg_url}"
-            tmp_pkg=$(mktemp /tmp/edamame-posture-XXXXXX.pkg)
-            if download_file "$pkg_url" "$tmp_pkg"; then
-                pkg_downloaded="true"
-            else
-                rm -f "$tmp_pkg"
-            fi
-        fi
-        if [ "$pkg_downloaded" = "false" ]; then
-            warn ".pkg not available for this release"
-            return 1
-        fi
+    # A private directory: /tmp/edamame-posture-XXXXXX.pkg was not random on
+    # macOS (BSD mktemp only replaces trailing X's), so two runs on one host
+    # collided. The file keeps its .pkg name for installer.
+    local tmp_dir
+    if ! tmp_dir=$(mktemp -d "${TMPDIR:-/tmp}/edamame-posture.XXXXXX"); then
+        warn "Cannot create a temporary directory for the ${label}"
+        return 1
     fi
 
-    info "Installing package (requires admin privileges)..."
+    # The latest release first. Its previous release and FALLBACK_VERSION
+    # stand in when its PKG is missing, which happens transiently while a
+    # release_others.yml macOS upload is being rebuilt. There is no raw binary
+    # to fall back to: macOS kills it at launch without the PKG's
+    # provisioning profile.
+    local candidates="$version"
+    if [ -n "$LATEST_RELEASE_TAG_SECONDARY" ] && [ "$LATEST_RELEASE_TAG_SECONDARY" != "$version" ]; then
+        candidates="$candidates $LATEST_RELEASE_TAG_SECONDARY"
+    fi
+    if [ -n "$FALLBACK_VERSION" ] && [ "$FALLBACK_VERSION" != "$version" ] \
+       && [ "$FALLBACK_VERSION" != "$LATEST_RELEASE_TAG_SECONDARY" ]; then
+        candidates="$candidates $FALLBACK_VERSION"
+    fi
+    local candidate pkg_name="" pkg_url="" tmp_pkg=""
+    for candidate in $candidates; do
+        pkg_name=$(macos_pkg_name "$candidate" "$variant")
+        pkg_url="${REPO_BASE_URL}/releases/download/v${candidate}/${pkg_name}"
+        info "Downloading ${pkg_url}"
+        if download_file "$pkg_url" "$tmp_dir/$pkg_name"; then
+            tmp_pkg="$tmp_dir/$pkg_name"
+            break
+        fi
+        rm -f "$tmp_dir/$pkg_name"
+        warn "${label} not available at ${pkg_url}"
+    done
+    if [ -z "$tmp_pkg" ]; then
+        rm -rf "$tmp_dir"
+        warn "No ${label} could be downloaded"
+        return 1
+    fi
+
+    info "Installing ${pkg_name} (requires admin privileges)..."
+    # Checked explicitly: called in an `if`/`||` list, this function runs
+    # without `set -e`, so a failed installer used to read as installed.
+    local installer_status=0
     if [ -n "$SUDO" ]; then
-        $SUDO installer -verboseR -pkg "$tmp_pkg" -target /
+        $SUDO installer -verboseR -pkg "$tmp_pkg" -target / || installer_status=$?
     else
-        installer -verboseR -pkg "$tmp_pkg" -target /
+        installer -verboseR -pkg "$tmp_pkg" -target / || installer_status=$?
     fi
-    rm -f "$tmp_pkg"
+    rm -rf "$tmp_dir"
+    if [ "$installer_status" -ne 0 ]; then
+        warn "installer failed for ${pkg_name} (exit code: $installer_status)"
+        return 1
+    fi
 
     BINARY_PATH="/usr/local/bin/edamame_posture"
     FINAL_BINARY_PATH="$BINARY_PATH"
     INSTALL_METHOD="pkg"
     INSTALLED_VIA_PACKAGE_MANAGER="true"
-    info ".pkg installation complete"
+    info "${label} installation complete (${pkg_name})"
     return 0
+}
+
+# Stop with the reason macOS has no binary fallback. $1: what failed.
+macos_install_failed() {
+    error "Could not install $1 on macOS. EDAMAME Posture runs on macOS only from its PKG: the binary needs the Endpoint Security provisioning profile embedded in the PKG's app bundle, and macOS kills a bare copy at launch. Check that github.com is reachable and that 'installer' can run with admin rights, then re-run."
 }
 
 install_macos_via_brew() {
@@ -2675,6 +2733,7 @@ check_existing_installation() {
     elif [ "$PLATFORM" = "macos" ] && command -v brew >/dev/null 2>&1; then
         if brew list --cask edamame-posture >/dev/null 2>&1; then
             IS_PACKAGE_INSTALL="true"
+            MACOS_CASK_INSTALL="true"
             # Desktop casks have no managed service; leave
             # INSTALLED_VIA_PACKAGE_MANAGER false so the installer still
             # starts/restarts the background daemon after reconfigure.
@@ -2685,6 +2744,24 @@ check_existing_installation() {
             IS_PACKAGE_INSTALL="true"
             info "Detected package installation (Chocolatey)"
         fi
+    fi
+
+    # macOS without the cask: the PKG this installer puts in place, whose
+    # receipt carries its version (there is no raw macOS binary whose checksum
+    # the release publishes). Any other binary is not the PKG's -- a raw copy
+    # from an older installer, which macOS kills at launch -- so the PKG is
+    # installed over it. Like the cask, the PKG has no managed service.
+    MACOS_PKG_VERSION=""
+    if [ "$PLATFORM" = "macos" ] && [ "$IS_PACKAGE_INSTALL" != "true" ]; then
+        if macos_binary_is_from_pkg "$EXISTING_BINARY"; then
+            MACOS_PKG_VERSION=$(macos_installed_pkg_version)
+        fi
+        if [ -z "$MACOS_PKG_VERSION" ]; then
+            info "The existing binary is not the one the PKG installs; installing the PKG"
+            return 1
+        fi
+        IS_PACKAGE_INSTALL="true"
+        info "Detected package installation (PKG $MACOS_PKG_VERSION)"
     fi
     
     if [ "$IS_PACKAGE_INSTALL" = "true" ]; then
@@ -2713,13 +2790,38 @@ check_existing_installation() {
                     VERSION_CHECK_PASSED="true"
                 fi
             fi
-        elif [ "$PLATFORM" = "macos" ] && command -v brew >/dev/null 2>&1; then
+        elif [ "$PLATFORM" = "macos" ] && [ "$CONFIG_DEBUG_BUILD" = "true" ]; then
+            # Nothing tells an installed debug PKG from the release one (same
+            # receipt, same version): --debug-build always installs it.
+            info "--debug-build: the debug PKG will be installed"
+            NEEDS_UPGRADE="true"
+        elif [ "$PLATFORM" = "macos" ] && [ "${MACOS_CASK_INSTALL:-false}" = "true" ]; then
             # Check if Homebrew cask has an update
             if brew outdated --cask edamame-posture 2>/dev/null | grep -q "edamame-posture"; then
                 info "Newer version available via Homebrew cask"
                 NEEDS_UPGRADE="true"
             else
                 info "Homebrew cask is up to date"
+                VERSION_CHECK_PASSED="true"
+            fi
+        elif [ "$PLATFORM" = "macos" ]; then
+            # The PKG: its receipt against the latest release. Upgrade only to
+            # a newer version whose PKG is published, never back to the older
+            # releases install_macos_via_pkg falls back to while the latest one
+            # is still uploading its macOS assets.
+            if fetch_latest_release_tag && [ -n "$LATEST_RELEASE_TAG_PRIMARY" ]; then
+                if ! version_lt "$MACOS_PKG_VERSION" "$LATEST_RELEASE_TAG_PRIMARY"; then
+                    info "PKG is up to date ($MACOS_PKG_VERSION, latest release $LATEST_RELEASE_TAG_PRIMARY)"
+                    VERSION_CHECK_PASSED="true"
+                elif url_exists "${REPO_BASE_URL}/releases/download/v${LATEST_RELEASE_TAG_PRIMARY}/$(macos_pkg_name "$LATEST_RELEASE_TAG_PRIMARY")"; then
+                    info "Newer PKG available ($MACOS_PKG_VERSION -> $LATEST_RELEASE_TAG_PRIMARY)"
+                    NEEDS_UPGRADE="true"
+                else
+                    warn "Release v$LATEST_RELEASE_TAG_PRIMARY has no PKG yet; keeping the installed PKG $MACOS_PKG_VERSION"
+                    VERSION_CHECK_PASSED="true"
+                fi
+            else
+                warn "Cannot determine the latest release; keeping the installed PKG $MACOS_PKG_VERSION"
                 VERSION_CHECK_PASSED="true"
             fi
         elif [ "$PLATFORM" = "windows" ] && command -v choco >/dev/null 2>&1; then
@@ -3065,16 +3167,21 @@ if [ "$SKIP_INSTALLATION" = "false" ]; then
         warn "Package install not supported or unsupported glibc version detected. Using musl binary."
         install_binary_release "linux" "musl"
     elif [ "$PLATFORM" = "macos" ]; then
-        if [ "$CONFIG_FORCE_BINARY" = "true" ]; then
-            warn "Using direct binary installation for macOS (--force-binary)..."
-            install_binary_release "macos" ""
+        # The PKG only (see install_macos_via_pkg): --force-binary skips
+        # Homebrew, --debug-build takes the debug PKG, and nothing falls back
+        # to a raw binary.
+        if [ "$CONFIG_DEBUG_BUILD" = "true" ]; then
+            info "--debug-build on macOS installs the debug PKG (macOS has no usable raw binary)"
+            install_macos_via_pkg debug || macos_install_failed "the debug PKG (--debug-build)"
+        elif [ "$CONFIG_FORCE_BINARY" = "true" ]; then
+            info "--force-binary on macOS installs the PKG (macOS has no usable raw binary)"
+            install_macos_via_pkg || macos_install_failed "the PKG (--force-binary)"
         elif install_macos_via_pkg; then
             :
         elif install_macos_via_brew; then
             :
         else
-            warn "Using direct binary installation for macOS..."
-            install_binary_release "macos" ""
+            macos_install_failed "the PKG or the Homebrew cask"
         fi
     elif [ "$PLATFORM" = "windows" ]; then
         # Prefer direct binary on Windows: the Chocolatey community feed lags

@@ -72,8 +72,8 @@ curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamamete
 |------|-------------|
 | `--install-dir <path>` | Destination for binary installs (defaults to `/usr/local/bin` on Linux/macOS, `$HOME` on Windows). |
 | `--state-file <path>` | Writes installation metadata (used by GitHub Actions to track install state). |
-| `--force-binary` | Skip package managers, use direct binary download. |
-| `--debug-build` | Download debug artifacts instead of release builds (implies `--force-binary`). |
+| `--force-binary` | Skip package managers, use direct binary download. On macOS: install the PKG (never Homebrew); macOS has no usable raw binary. |
+| `--debug-build` | Download debug artifacts instead of release builds (implies `--force-binary`). On macOS: the debug PKG (`edamame-posture-macos-<version>-debug.pkg`). |
 
 ---
 
@@ -281,10 +281,12 @@ This early check ensures:
    - If systemd/OpenRC unavailable (containers), falls back to manual daemon start
 
 #### macOS
-1. **Pre-check** (see above): If existing installation is up-to-date with matching credentials → skip everything
-2. Try downloading the notarized `.pkg` from the GitHub release and installing it via `sudo installer -pkg`. The `.pkg` installs `edamame_posture` as an app-like bundle with `Contents/embedded.provisionprofile`, then exposes `/usr/local/bin/edamame_posture` as a symlink into that bundle so the Endpoint Security entitlement remains authorized at runtime.
-3. If the `.pkg` is not available (older release), fall back to Homebrew cask (`edamametechnologies/tap`)
-4. If Homebrew is unavailable or fails (or `--force-binary`), download the universal macOS binary to `--install-dir` (no ES entitlement support)
+macOS runs EDAMAME Posture only from its PKG: the binary carries the Endpoint Security entitlement, which macOS honours only with the provisioning profile embedded in the PKG's app bundle, and kills a bare copy at launch (exit 137). The raw macOS binaries are not published from 2.0.3.
+
+1. **Pre-check** (see above): If existing installation is up-to-date with matching credentials → skip everything. Without the Homebrew cask, the installed PKG's receipt (`pkgutil --pkg-info com.edamametechnologies.edamame-posture`) is compared with the latest release; a binary that is not the PKG's (a raw copy from an older installer) is replaced by the PKG.
+2. Try downloading the notarized, stapled `.pkg` from the GitHub release and installing it via `sudo installer -pkg`. The `.pkg` installs `edamame_posture` as an app-like bundle with `Contents/embedded.provisionprofile`, then exposes `/usr/local/bin/edamame_posture` as a symlink into that bundle so the Endpoint Security entitlement remains authorized at runtime. When the latest release has no `.pkg` yet, the previous release's and then the pinned fallback's stand in.
+3. If no `.pkg` can be installed, fall back to the Homebrew cask (`edamametechnologies/tap`), which installs the same `.pkg`.
+4. `--force-binary` installs the `.pkg` and never Homebrew; `--debug-build` installs the debug `.pkg`. If nothing can be installed, the installer stops with the reason: there is no binary fallback on macOS.
 5. **Daemon management**: No system service; daemon started as background process when credentials provided
 
 #### Windows
