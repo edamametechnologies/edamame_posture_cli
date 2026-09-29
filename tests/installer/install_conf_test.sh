@@ -400,5 +400,117 @@ if command -v dash >/dev/null 2>&1; then
         || not_ok "the verification clears the shell's command cache"
 fi
 
+# --- macOS installs the PKG only (2.0.3) -----------------------------------
+# The raw macOS binary carries the Endpoint Security entitlement without the
+# provisioning profile only the PKG's bundle embeds: macOS kills it at launch
+# (exit 137, run 36508531168). --force-binary installs the PKG, --debug-build
+# the debug PKG, and nothing falls back to a raw binary.
+assert_eq "release PKG asset name" "$(macos_pkg_name 2.0.3)" "edamame-posture-macos-2.0.3.pkg"
+assert_eq "debug PKG asset name" "$(macos_pkg_name 2.0.3 debug)" "edamame-posture-macos-2.0.3-debug.pkg"
+# The posture action passes --debug-build on macOS only to an installer that
+# names the debug PKG; keep the string it looks for.
+if grep -q -- '-debug.pkg' "$INSTALL_SH"; then
+    ok "install.sh carries the -debug.pkg marker the posture action probes"
+else
+    not_ok "install.sh carries the -debug.pkg marker the posture action probes"
+fi
+
+PKG_LOG="$WORK/pkg_calls"
+# Stand-ins for what install_macos_via_pkg calls (invoked through it).
+# shellcheck disable=SC2329
+fetch_latest_release_tag() { LATEST_RELEASE_TAG_PRIMARY="2.0.3"; LATEST_RELEASE_TAG_SECONDARY="2.0.2"; return 0; }
+# shellcheck disable=SC2329
+download_file() {
+    printf 'download %s\n' "$1" >> "$PKG_LOG"
+    case "$1" in
+        *"${PKG_MISSING:-no-such-asset}"*) return 1 ;;
+    esac
+    printf 'pkg' > "$2"
+}
+# shellcheck disable=SC2329
+installer() { printf 'installer %s\n' "$*" >> "$PKG_LOG"; return "${INSTALLER_RC:-0}"; }
+SUDO=""
+reset_pkg() { : > "$PKG_LOG"; INSTALL_METHOD=""; BINARY_PATH=""; PKG_MISSING=""; INSTALLER_RC=0; }
+
+reset_pkg
+install_macos_via_pkg debug > /dev/null 2>&1
+rc=$?
+assert_eq "debug PKG: installs" "$rc" "0"
+case "$(cat "$PKG_LOG")" in
+    *"download https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v2.0.3/edamame-posture-macos-2.0.3-debug.pkg"*"installer -verboseR -pkg "*" -target /"*)
+        ok "debug PKG: the latest release's debug PKG goes to installer" ;;
+    *) not_ok "debug PKG: the latest release's debug PKG goes to installer ($(cat "$PKG_LOG"))" ;;
+esac
+assert_eq "debug PKG: install method" "$INSTALL_METHOD" "pkg"
+assert_eq "debug PKG: binary is the bundle link" "$BINARY_PATH" "/usr/local/bin/edamame_posture"
+
+reset_pkg
+install_macos_via_pkg > /dev/null 2>&1
+case "$(cat "$PKG_LOG")" in
+    *"/v2.0.3/edamame-posture-macos-2.0.3.pkg"*) ok "release PKG: the latest release's PKG" ;;
+    *) not_ok "release PKG: the latest release's PKG ($(cat "$PKG_LOG"))" ;;
+esac
+case "$(cat "$PKG_LOG")" in
+    *"-debug.pkg"*) not_ok "release PKG: never the debug PKG" ;;
+    *) ok "release PKG: never the debug PKG" ;;
+esac
+
+reset_pkg
+PKG_MISSING="macos-2.0.3-debug.pkg"
+install_macos_via_pkg debug > /dev/null 2>&1
+case "$(cat "$PKG_LOG")" in
+    *"/v2.0.2/edamame-posture-macos-2.0.2-debug.pkg"*) ok "debug PKG missing from the latest release: the previous release's debug PKG" ;;
+    *) not_ok "debug PKG missing from the latest release: the previous release's debug PKG ($(cat "$PKG_LOG"))" ;;
+esac
+
+reset_pkg
+PKG_MISSING="edamame-posture-macos-"
+if install_macos_via_pkg debug > /dev/null 2>&1; then
+    not_ok "no debug PKG anywhere: the install fails"
+else
+    ok "no debug PKG anywhere: the install fails"
+fi
+case "$(cat "$PKG_LOG")" in
+    *universal-apple-darwin*|*"installer "*) not_ok "no debug PKG anywhere: no raw binary, no installer run ($(cat "$PKG_LOG"))" ;;
+    *) ok "no debug PKG anywhere: no raw binary, no installer run" ;;
+esac
+
+reset_pkg
+INSTALLER_RC=1
+if install_macos_via_pkg > /dev/null 2>&1; then
+    not_ok "a failing installer is a failed install"
+else
+    ok "a failing installer is a failed install"
+fi
+assert_eq "a failing installer sets no install method" "$INSTALL_METHOD" ""
+
+# There is no raw macOS binary to prepare: asking for one stops with a reason.
+PREP_OUT="$( (prepare_binary_artifact macos "") 2>&1)"
+PREP_RC=$?
+if [ "$PREP_RC" -ne 0 ] && printf '%s' "$PREP_OUT" | grep -q "PKG only"; then
+    ok "no raw macOS binary: prepare_binary_artifact refuses with a reason"
+else
+    not_ok "no raw macOS binary: prepare_binary_artifact refuses with a reason (rc=$PREP_RC: $PREP_OUT)"
+fi
+FAIL_OUT="$( (macos_install_failed "the debug PKG (--debug-build)") 2>&1)"
+FAIL_RC=$?
+case "$FAIL_RC:$FAIL_OUT" in
+    1:*"Could not install the debug PKG (--debug-build) on macOS"*"provisioning profile"*) ok "a failed macOS install explains why there is no binary fallback" ;;
+    *) not_ok "a failed macOS install explains why there is no binary fallback (rc=$FAIL_RC: $FAIL_OUT)" ;;
+esac
+unset -f fetch_latest_release_tag download_file installer
+
+# Only the PKG's bundle binary, or the /usr/local/bin link to it, is the PKG.
+MACOS_PKG_BINARY="$WORK/bundle/edamame_posture"
+mkdir -p "$WORK/bundle" "$WORK/bin"
+printf '#!/bin/sh\n' > "$MACOS_PKG_BINARY"; chmod +x "$MACOS_PKG_BINARY"
+ln -s "$MACOS_PKG_BINARY" "$WORK/bin/edamame_posture"
+printf '#!/bin/sh\n' > "$WORK/bin/edamame_posture_raw"
+if macos_binary_is_from_pkg "$WORK/bin/edamame_posture"; then ok "the /usr/local/bin link into the bundle is the PKG"; else not_ok "the /usr/local/bin link into the bundle is the PKG"; fi
+if macos_binary_is_from_pkg "$MACOS_PKG_BINARY"; then ok "the bundle binary is the PKG"; else not_ok "the bundle binary is the PKG"; fi
+if macos_binary_is_from_pkg "$WORK/bin/edamame_posture_raw"; then not_ok "a raw binary is not the PKG"; else ok "a raw binary is not the PKG"; fi
+rm -f "$MACOS_PKG_BINARY"
+if macos_binary_is_from_pkg "$WORK/bin/edamame_posture"; then not_ok "a dangling link is not the PKG"; else ok "a dangling link is not the PKG"; fi
+
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]
