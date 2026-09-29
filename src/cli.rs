@@ -1711,6 +1711,9 @@ mod tests {
     /// Every enrollment-token source; reads and clears the process
     /// environment, so the cases run in one test.
     #[test]
+    // Both tests set process-wide EDAMAME_PIN / EDAMAME_ENROLLMENT_TOKEN, which
+    // every `start` parse reads: run them one at a time.
+    #[serial_test::serial(process_env)]
     fn enrollment_token_sources_resolve_and_never_leak_through_the_environment() {
         use super::{resolve_enrollment_token, ENROLLMENT_TOKEN_ENV};
         const TOKEN: &str = "edm_enr_0123456789abcdef0123456789abcdef_secretpart";
@@ -1782,6 +1785,9 @@ mod tests {
     /// One test for every PIN source: resolve_pin reads and clears the
     /// process environment, so the cases must not run in parallel.
     #[test]
+    // Both tests set process-wide EDAMAME_PIN / EDAMAME_ENROLLMENT_TOKEN, which
+    // every `start` parse reads: run them one at a time.
+    #[serial_test::serial(process_env)]
     fn pin_sources_resolve_in_order_and_never_leak_through_the_environment() {
         use super::{resolve_pin, PinSource};
         let parse = |args: &[&str]| {
