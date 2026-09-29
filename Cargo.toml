@@ -133,3 +133,6 @@ flodbadd = { git = "https://github.com/edamametechnologies/flodbadd", branch = "
 # this commit caught a documented Windows hub_idle CPU spike flake
 # (+299.7% on shared Azure runner) that does not satisfy the strict
 # push-only release gate.
+
+[dev-dependencies]
+serial_test = "3.2.0"
