@@ -1036,6 +1036,9 @@ fn run_base() {
                 .to_string();
             // Initialize the core with all options disabled
             initialize_core("".to_string(), false, false, false, false, false, verbose);
+            // Replacing the whitelist the daemon enforces is an operator
+            // action.
+            ensure_admin();
             exit_code = background_set_custom_whitelists(whitelist_json);
             is_background = true;
         }
@@ -1047,7 +1050,60 @@ fn run_base() {
                 Ok(whitelist_json) => {
                     // Initialize the core with all options disabled
                     initialize_core("".to_string(), false, false, false, false, false, verbose);
+                    ensure_admin();
                     exit_code = background_set_custom_whitelists(whitelist_json);
+                    is_background = true;
+                }
+                Err(e) => {
+                    eprintln!("Error reading whitelist file '{}': {}", whitelist_file, e);
+                    exit_code = ERROR_CODE_PARAM;
+                }
+            }
+        }
+        Some(("background-set-whitelist", sub_matches)) => {
+            let whitelist_name = sub_matches
+                .get_one::<String>("WHITELIST_NAME")
+                .expect("WHITELIST_NAME not provided")
+                .to_string();
+            initialize_core("".to_string(), false, false, false, false, false, verbose);
+            ensure_admin();
+            exit_code = background_set_whitelist(whitelist_name);
+            is_background = true;
+        }
+        Some(("background-evaluate-custom-whitelists-from-file", sub_matches)) => {
+            let whitelist_file = sub_matches
+                .get_one::<String>("WHITELIST_FILE")
+                .expect("WHITELIST_FILE not provided");
+            let since = sub_matches
+                .get_one::<String>("since")
+                .cloned()
+                .unwrap_or_default();
+            let json_output = sub_matches.get_flag("json");
+            match std::fs::read_to_string(whitelist_file) {
+                Ok(whitelist_json) => {
+                    initialize_core("".to_string(), false, false, false, false, false, verbose);
+                    exit_code =
+                        background_evaluate_custom_whitelists(whitelist_json, since, json_output);
+                    is_background = true;
+                }
+                Err(e) => {
+                    eprintln!("Error reading whitelist file '{}': {}", whitelist_file, e);
+                    exit_code = ERROR_CODE_PARAM;
+                }
+            }
+        }
+        Some(("background-augment-custom-whitelists-from-file", sub_matches)) => {
+            let whitelist_file = sub_matches
+                .get_one::<String>("WHITELIST_FILE")
+                .expect("WHITELIST_FILE not provided");
+            let since = sub_matches
+                .get_one::<String>("since")
+                .cloned()
+                .unwrap_or_default();
+            match std::fs::read_to_string(whitelist_file) {
+                Ok(whitelist_json) => {
+                    initialize_core("".to_string(), false, false, false, false, false, verbose);
+                    exit_code = background_augment_custom_whitelists_from(whitelist_json, since);
                     is_background = true;
                 }
                 Err(e) => {
@@ -1097,6 +1153,7 @@ fn run_base() {
         Some(("background-create-and-set-custom-whitelists", _)) => {
             // Initialize the core with all options disabled
             initialize_core("".to_string(), false, false, false, false, false, verbose);
+            ensure_admin();
             exit_code = background_create_and_set_custom_whitelists();
             is_background = true;
         }
