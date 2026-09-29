@@ -344,12 +344,19 @@ jobs:
           $BASE_VERSION = "${{ steps.get_release.outputs.version }}"
           $CHOCO_VERSION = $BASE_VERSION
 
+          # Only a definite 404 means "this version is not on the feed". Any
+          # other failure (a 429 rate limit, a 5xx, no network) fails the step:
+          # read as "not published", it sent the run on to push a version that
+          # was already there.
           function Test-ChocoVersionExists($ver) {
             try {
               $null = Invoke-WebRequest -Uri "https://community.chocolatey.org/api/v2/package/edamame-posture/$ver" -Method Head -UseBasicParsing -ErrorAction Stop
               return $true
             } catch {
-              return $false
+              $status = $null
+              if ($_.Exception.Response) { $status = [int]$_.Exception.Response.StatusCode }
+              if ($status -eq 404) { return $false }
+              throw "Chocolatey lookup of edamame-posture $ver failed (HTTP status: $status): $($_.Exception.Message)"
             }
           }
 
@@ -610,9 +617,8 @@ jobs:
           $SHA_WIN = (Get-FileHash -Algorithm SHA256 $DownloadPath).Hash.ToLower()
           Write-Host "SHA256: $SHA_WIN"
           
-          # Update Chocolatey Package with resolved version
-          (Get-Content chocolatey/edamame-posture.nuspec) -replace '<version>.*</version>', "<version>${CHOCO_VERSION}</version>" | Set-Content chocolatey/edamame-posture.nuspec
-          (Get-Content chocolatey/tools/chocolateyInstall.ps1) -replace '\$packageVersion = ''.*''', "`$packageVersion = '${CHOCO_VERSION}'" | Set-Content chocolatey/tools/chocolateyInstall.ps1
+          # Update Chocolatey Package with the release URL and checksum (the
+          # version is set per push attempt below)
           # Pin the URL to the BASE version, and match EITHER quote style.
           # The template ships $url64 DOUBLE quoted and interpolating
           # $packageVersion; anchoring on ''.*'' (single quotes only) never
@@ -625,38 +631,54 @@ jobs:
           # defect and is intact only because its revision path never fired.
           (Get-Content chocolatey/tools/chocolateyInstall.ps1) -replace '\$url64 = .*', "`$url64 = 'https://github.com/${{ github.repository }}/releases/download/v${VERSION}/edamame_posture-${VERSION}-x86_64-pc-windows-msvc.exe'" | Set-Content chocolatey/tools/chocolateyInstall.ps1
           (Get-Content chocolatey/tools/chocolateyInstall.ps1) -replace '\$checksum64 = ''.*''', "`$checksum64 = '${SHA_WIN}'" | Set-Content chocolatey/tools/chocolateyInstall.ps1
-          
-          # Pack Chocolatey package
-          Write-Host "Packing Chocolatey package..."
-          choco pack chocolatey/edamame-posture.nuspec
-          if ($LASTEXITCODE -ne 0) {
-            Write-Host "ERROR: choco pack failed with exit code $LASTEXITCODE"
-            exit $LASTEXITCODE
-          }
-          
+
           # Publish to Chocolatey if API key is present.
-          # `choco push` is non-idempotent: re-running this step after a
-          # successful publish (e.g. when `gh run rerun --failed` retries the
-          # whole job after a downstream step failed) returns HTTP 409
-          # Conflict. Capture the verbose output and treat the
-          # "already published" 409 as a success so workflow retries do not
-          # masquerade as real release failures.
+          #
+          # A 409 Conflict means this version is already on the feed, not that
+          # it carries this checksum: a version still in moderation reads 404
+          # in the probe, so a re-run pushes it again, and the published asset
+          # may have changed since that first push (an asset re-uploaded after
+          # publication is how edamame-cli 1.8.0 broke `choco install` for
+          # everyone). Taking the 409 for success could leave the live package
+          # declaring another build's checksum. Chocolatey versions are
+          # immutable, so publish the next revision suffix with the checksum
+          # of the live asset instead (as edamame_cli and edamame_helper).
           if ("${{ secrets.CHOCOLATEY_API_KEY }}" -ne "") {
-            Write-Host "Pushing to Chocolatey..."
-            $pushOut = choco push edamame-posture.${CHOCO_VERSION}.nupkg -s https://push.chocolatey.org/ -k ${{ secrets.CHOCOLATEY_API_KEY }} --verbose 2>&1 | Out-String
-            $pushRc = $LASTEXITCODE
-            Write-Host $pushOut
-            if ($pushRc -ne 0) {
-              if ($pushOut -match '409 \(Conflict\)' -or $pushOut -match 'already exists' -or $pushOut -match 'SkipDuplicate') {
-                Write-Host "INFO: choco push reported the package version is already published; treating as success (rerun-safe)."
-                # Explicitly reset $LASTEXITCODE so the pwsh wrapper does not
-                # propagate choco's non-zero exit code as the step's exit code.
-                $global:LASTEXITCODE = 0
-              } else {
-                Write-Host "ERROR: choco push failed with exit code $pushRc"
-                exit $pushRc
+            $published = $false
+            for ($attempt = 0; $attempt -lt 20; $attempt++) {
+              (Get-Content chocolatey/edamame-posture.nuspec) -replace '<version>.*</version>', "<version>${CHOCO_VERSION}</version>" | Set-Content chocolatey/edamame-posture.nuspec
+              (Get-Content chocolatey/tools/chocolateyInstall.ps1) -replace '\$packageVersion = ''.*''', "`$packageVersion = '${CHOCO_VERSION}'" | Set-Content chocolatey/tools/chocolateyInstall.ps1
+
+              Write-Host "Packing Chocolatey package ${CHOCO_VERSION}..."
+              choco pack chocolatey/edamame-posture.nuspec
+              if ($LASTEXITCODE -ne 0) {
+                Write-Host "ERROR: choco pack failed with exit code $LASTEXITCODE"
+                exit $LASTEXITCODE
               }
+
+              Write-Host "Pushing to Chocolatey ${CHOCO_VERSION}..."
+              $pushOut = choco push edamame-posture.${CHOCO_VERSION}.nupkg -s https://push.chocolatey.org/ -k ${{ secrets.CHOCOLATEY_API_KEY }} --verbose 2>&1 | Out-String
+              $pushRc = $LASTEXITCODE
+              Write-Host $pushOut
+              if ($pushRc -eq 0) { $published = $true; break }
+
+              if ($pushOut -match '409 \(Conflict\)' -or $pushOut -match 'already exists' -or $pushOut -match 'SkipDuplicate') {
+                $base = "${{ steps.get_release.outputs.version }}"
+                $nextRev = 1
+                if ($CHOCO_VERSION -match "^$([regex]::Escape($base))\.(\d+)$") { $nextRev = [int]$Matches[1] + 1 }
+                $CHOCO_VERSION = "${base}.${nextRev}"
+                Write-Host "INFO: version already on the feed; retrying as ${CHOCO_VERSION} so the live checksum matches the live asset."
+                continue
+              }
+
+              Write-Host "ERROR: choco push failed with exit code $pushRc"
+              exit $pushRc
             }
+            if (-not $published) {
+              Write-Host "ERROR: exhausted revision suffixes without publishing a package matching the current asset."
+              exit 1
+            }
+            Write-Host "Published Chocolatey package ${CHOCO_VERSION} (checksum ${SHA_WIN})."
           } else {
             # A release on main without the key is a broken publish, not a skip:
             # the app package went unpublished from 1.1.2 to 2.0.2 behind a green
