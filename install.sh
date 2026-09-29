@@ -1339,29 +1339,37 @@ fetch_latest_release_tag() {
     return 1
 }
 
+# get_asset_digest_from_json <json> <asset>: the sha256 GitHub reports for a
+# release asset in the releases API JSON, lowercase hex; returns 1 when the
+# JSON does not list the asset with a digest. POSIX awk only (no gawk
+# extensions such as match(s, re, array)): it runs with mawk (the
+# Debian/Ubuntu awk), BusyBox awk (Alpine) and macOS awk as well as gawk. The
+# JSON is split on , { and } first: pretty-printed and compact JSON parse the
+# same.
 get_asset_digest_from_json() {
     local json="$1"
     local asset_name="$2"
     if [ -z "$json" ] || [ -z "$asset_name" ]; then
         return 1
     fi
-    printf '%s\n' "$json" | awk -v asset="$asset_name" '
-        BEGIN { in_asset=0 }
-        /"name":/ {
-            if (index($0, "\"" asset "\"") > 0) {
-                in_asset=1
-            } else if (index($0, "\"name\":") > 0) {
-                in_asset=0
-            }
+    # shellcheck disable=SC2020 # three characters, each to a newline
+    printf '%s\n' "$json" | tr ',{}' '\n\n\n' | awk -v asset="$asset_name" '
+        function value(s) {
+            sub(/^[^:]*:[ \t]*"/, "", s)
+            sub(/".*$/, "", s)
+            return s
         }
-        in_asset && /"digest":/ {
-            if (match($0, /"digest": *"([^"]+)"/, m)) {
-                gsub(/^sha256:/, "", m[1])
-                print m[1]
-                exit
+        /^[ \t]*"name"[ \t]*:/ { in_asset = (value($0) == asset); next }
+        in_asset && /^[ \t]*"digest"[ \t]*:/ {
+            d = value($0)
+            sub(/^sha256:/, "", d)
+            if (length(d) == 64 && d ~ /^[0-9a-fA-F]+$/) {
+                print tolower(d)
+                found = 1
             }
+            exit
         }
-    '
+        END { exit !found }'
 }
 
 get_release_asset_digest() {

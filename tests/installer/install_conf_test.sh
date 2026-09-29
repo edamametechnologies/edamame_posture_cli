@@ -709,6 +709,49 @@ case "$NET_RC:$(downloads):$NET_OUT" in
         ok "macOS PKG: only the latest release's PKG is tried when no previous one is known" ;;
     *) not_ok "macOS PKG: only the latest release's PKG is tried when no previous one is known (rc=$NET_RC): $(cat "$MOCK_LOG") $NET_OUT" ;;
 esac
+# --- The release digest parser is POSIX awk (2.0.3) -------------------------
+# get_asset_digest_from_json runs here under every awk found (awk, gawk,
+# mawk, busybox awk, original-awk), on the real v2.0.2 release JSON in
+# fixtures/, pretty-printed and compact.
+FIXTURES="$REPO_ROOT/tests/installer/fixtures"
+REAL_JSON="$(cat "$FIXTURES/release-v2.0.2-excerpt.json")"
+COMPACT_JSON="$(printf '%s' "$REAL_JSON" | tr -d '\n' | sed 's/:  */:/g; s/,  */,/g; s/{  */{/g; s/\[  */[/g; s/  *}/}/g; s/  *]/]/g')"
+AWK_SHIMS="$WORK/awk_shims"
+AWK_SAVED_PATH="$PATH"
+awk_count=0
+for impl in awk gawk mawk "busybox awk" original-awk nawk; do
+    # shellcheck disable=SC2086 # "busybox awk" is two words
+    set -- $impl
+    command -v "$1" >/dev/null 2>&1 || continue
+    [ "$impl" = "busybox awk" ] && { busybox awk 'BEGIN{}' 2>/dev/null || continue; }
+    shim="$AWK_SHIMS/$(printf '%s' "$impl" | tr ' ' '_')"
+    mkdir -p "$shim"
+    printf '#!/bin/sh\nexec %s %s "$@"\n' "$(command -v "$1")" "${2:-}" > "$shim/awk"
+    chmod +x "$shim/awk"
+    PATH="$shim:$AWK_SAVED_PATH"
+    awk_count=$((awk_count + 1))
+    for json_label in pretty compact; do
+        json="$REAL_JSON"; [ "$json_label" = compact ] && json="$COMPACT_JSON"
+        assert_eq "$impl, $json_label v2.0.2 JSON: the linux-gnu digest" \
+            "$(get_asset_digest_from_json "$json" edamame_posture-2.0.2-x86_64-unknown-linux-gnu)" \
+            "fd301bbbcbd53736a0005753039e414e86589642c5547a52b54cd48ccce3d5e3"
+        assert_eq "$impl, $json_label v2.0.2 JSON: its -debug sibling is another asset" \
+            "$(get_asset_digest_from_json "$json" edamame_posture-2.0.2-x86_64-unknown-linux-gnu-debug)" \
+            "b1e48d8f92815734e3659e30ff81d9f6c31af30c35a66a2708c133f04785a2cf"
+        assert_eq "$impl, $json_label v2.0.2 JSON: the PKG digest" \
+            "$(get_asset_digest_from_json "$json" edamame-posture-macos-2.0.2.pkg)" \
+            "0f09ae4118d5671aa720d1b46ea9016e6d4d06d541910f742a789fc8d1ab6277"
+        if get_asset_digest_from_json "$json" edamame_posture-2.0.2-no-such-target >/dev/null; then
+            not_ok "$impl, $json_label v2.0.2 JSON: an unlisted asset has no digest"
+        else
+            ok "$impl, $json_label v2.0.2 JSON: an unlisted asset has no digest"
+        fi
+    done
+done
+PATH="$AWK_SAVED_PATH"
+if [ "$awk_count" -ge 1 ]; then ok "the digest parser ran under $awk_count awk implementation(s)"; else not_ok "no awk found for the digest parser"; fi
+
+
 unset -f installer
 PATH="$NET_SAVED_PATH"
 
