@@ -2316,6 +2316,9 @@ jobs:
         # every Portal answer. Until edamame_core treats that write as
         # telemetry (non-fatal), a root-owned directory fails every scenario
         # with EACCES, so hand the directory to the runner user first.
+        # This step can go once the posture this job installs is >= 2.0.3:
+        # from edamame_core 2.0.3 a root daemon keeps its JSON in root's own
+        # home and moves a root-owned ~/.edamame config there once at start.
         run: |
           if [ -d "$HOME/.edamame" ]; then
             sudo chown -R "$(id -u):$(id -g)" "$HOME/.edamame"
