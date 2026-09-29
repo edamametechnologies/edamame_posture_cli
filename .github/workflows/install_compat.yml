@@ -32,7 +32,7 @@ permissions:
 
 jobs:
   compat:
-    name: install.sh x latest release (${{ matrix.os }}, PIN via ${{ matrix.pin_source }})
+    name: install.sh x latest release (${{ matrix.os }}, ${{ matrix.method }}, PIN via ${{ matrix.pin_source }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 25
     strategy:
@@ -40,6 +40,11 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
         pin_source: [argv, env]
+        # package: the OS package manager path (apt + systemd on Ubuntu, whose
+        # packaged wrapper hands the PIN over itself). binary: --force-binary,
+        # the background-daemon path the action takes in containers and on
+        # self-hosted Linux runners -- the path the 2026-09-28 break hit.
+        method: [package, binary]
     defaults:
       run:
         shell: bash
@@ -51,12 +56,16 @@ jobs:
           PIN_SECRET: ${{ secrets.EDAMAME_POSTURE_PIN }}
           HUB_USER: ${{ vars.EDAMAME_POSTURE_USER }}
           HUB_DOMAIN: ${{ vars.EDAMAME_POSTURE_DOMAIN }}
-          DEVICE_ID: install-compat-${{ github.run_id }}-${{ matrix.os }}-${{ matrix.pin_source }}
+          DEVICE_ID: install-compat-${{ github.run_id }}-${{ matrix.os }}-${{ matrix.method }}-${{ matrix.pin_source }}
           PIN_SOURCE: ${{ matrix.pin_source }}
+          METHOD: ${{ matrix.method }}
         run: |
           set -euo pipefail
           args=(--user "$HUB_USER" --domain "$HUB_DOMAIN" --device-id "$DEVICE_ID" \
                 --state-file "$RUNNER_TEMP/edamame_install_state")
+          if [ "$METHOD" = "binary" ]; then
+            args+=(--force-binary)
+          fi
           if [ "$PIN_SOURCE" = "argv" ]; then
             args+=(--pin "$PIN_SECRET")
           else
