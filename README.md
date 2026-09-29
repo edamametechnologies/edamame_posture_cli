@@ -1666,21 +1666,8 @@ brew update
 brew upgrade --cask edamametechnologies/tap/edamame-posture
 ```
 
-#### macOS Manual Binary Installation (Legacy)
-For environments that do not need Endpoint Security features, the bare universal binary is still available:
-
-1. **Download** the macOS universal binary:
-   - [edamame_posture-2.0.3-universal-apple-darwin](https://github.com/edamametechnologies/edamame_posture_cli/releases/download/v2.0.3/edamame_posture-2.0.3-universal-apple-darwin)
-
-2. **Install** by placing the binary in your `PATH` and making it executable:
-   ```bash
-   sudo mv edamame_posture-* /usr/local/bin/edamame_posture
-   sudo chmod +x /usr/local/bin/edamame_posture
-   ```
-
-3. **Run** a quick command like `edamame_posture score` to assess your device.
-
-> **Note:** The bare binary does not include the ES provisioning profile. macOS will terminate it with SIGKILL if it attempts to use the Endpoint Security entitlement.
+#### No raw macOS binary
+From 2.0.3 there is no raw macOS binary to download: EDAMAME Posture runs on macOS only from its PKG. The binary carries the Endpoint Security entitlement, which macOS honours only with the provisioning profile embedded in the PKG's app bundle; run bare it is killed at launch (SIGKILL, exit 137). The debug build is published as a PKG too (`edamame-posture-macos-VERSION-debug.pkg`), and the installer script installs the PKG (the debug PKG with `--debug-build`) even with `--force-binary`.
 
 ### Windows
 
