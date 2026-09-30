@@ -1912,9 +1912,9 @@ rollback_broken_deb_package() {
     fi
     $SUDO dpkg --remove --force-remove-reinstreq edamame-posture 2>/dev/null || true
     $SUDO dpkg --purge --force-remove-reinstreq edamame-posture 2>/dev/null || true
-    $SUDO apt-get remove -y --purge edamame-posture 2>/dev/null || true
+    $SUDO apt-get -o DPkg::Lock::Timeout=300 remove -y --purge edamame-posture 2>/dev/null || true
     $SUDO dpkg --configure -a 2>/dev/null || true
-    $SUDO apt-get install -f -y 2>/dev/null || true
+    $SUDO apt-get -o DPkg::Lock::Timeout=300 install -f -y 2>/dev/null || true
     if [ -n "$_conf_backup" ]; then
         if $SUDO mv -f "$_conf_backup" "$SERVICE_CONF_PATH" 2>/dev/null; then
             info "Kept the existing $SERVICE_CONF_PATH"
@@ -1935,8 +1935,14 @@ rollback_broken_deb_package() {
 # nothing; they stay for the released packages that still ship it.
 # configure_service rewrites the whole conf afterwards and the daemon reads a
 # missing key as its default.
+# DPkg::Lock::Timeout: wait up to 5 minutes for the dpkg lock instead of
+# failing at once. The running daemon's own checks install packages (the
+# virtualization check installs virt-what) and so does unattended-upgrades; a
+# failed upgrade falls back to a binary install next to the old package
+# (install_compat, 2.0.1 package upgraded right after its service started,
+# 2026-09-30). apt older than 1.9.11 ignores the option.
 apt_install_posture_package() {
-    $SUDO apt-get install -y \
+    $SUDO apt-get -o DPkg::Lock::Timeout=300 install -y \
         -o Dpkg::Options::=--force-confdef \
         -o Dpkg::Options::=--force-confold \
         edamame-posture < /dev/null
@@ -2242,6 +2248,9 @@ install_linux_via_apt() {
     # The error appears in output even before package state updates
     if echo "$INSTALL_OUTPUT" | grep -qiE "(dpkg.*error.*processing.*package.*edamame-posture|error processing package edamame-posture|Errors were encountered.*processing.*edamame-posture|System has not been booted with systemd|Failed to connect to bus|invoke-rc\.d: could not determine current runlevel)" || [ "$INSTALL_EXIT_CODE" -ne 0 ]; then
         warn "Detected APT installation failure (exit code: $INSTALL_EXIT_CODE)"
+        printf '%s\n' "$INSTALL_OUTPUT" | tail -n 15 | while IFS= read -r _apt_line; do
+            warn "  apt: $_apt_line"
+        done
         warn "Rolling back Debian package installation and falling back to binary download..."
         rollback_broken_deb_package
         
