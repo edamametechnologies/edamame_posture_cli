@@ -3027,10 +3027,13 @@ fn attack_pattern_gate_since(status_count: u64, since: crate::gate_scope::UtcTim
         &EDAMAME_TARGET,
     ) {
         Ok(listing) => listing,
-        Err(e) => return every_finding_counts(format!(
-            "Could not list the findings to tell those first seen since {} from older ones ({})",
-            since_text, e
-        )),
+        Err(e) => {
+            let reason = format!(
+                "Could not list the findings to tell those first seen since {} from older ones ({})",
+                since_text, e
+            );
+            return every_finding_counts(reason);
+        }
     };
     let scoped = match crate::gate_scope::scope_findings(&listing, since) {
         Some(scoped) if scoped.alertable() > 0 => scoped,
