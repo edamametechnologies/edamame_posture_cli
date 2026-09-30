@@ -336,7 +336,11 @@ pub fn scope_findings(report_json: &str, since: UtcTime) -> Option<ScopedFinding
         let mut label = format!(
             "{} {} (key {})",
             severity,
-            if check.is_empty() { "?" } else { check.as_str() },
+            if check.is_empty() {
+                "?"
+            } else {
+                check.as_str()
+            },
             if finding_key.is_empty() {
                 "?"
             } else {
@@ -399,7 +403,10 @@ mod tests {
         assert_eq!(at("2026-09-28T17:57:03.1234567891Z").nanos, 123_456_789);
         assert!(at("2026-09-28T17:57:03.000001Z") > at("2026-09-28T17:57:03Z"));
         // Leap years and a pre-epoch date.
-        assert_eq!(at("2024-02-29T00:00:00Z").to_rfc3339(), "2024-02-29T00:00:00Z");
+        assert_eq!(
+            at("2024-02-29T00:00:00Z").to_rfc3339(),
+            "2024-02-29T00:00:00Z"
+        );
         assert_eq!(at("1969-12-31T23:59:59Z").secs, -1);
         assert_eq!(
             at("2000-03-01T00:00:00Z").secs - at("2000-02-28T00:00:00Z").secs,

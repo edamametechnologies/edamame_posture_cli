@@ -965,7 +965,10 @@ pub fn run_daemon_supervisor(daemon_args: &[String]) -> ! {
     };
     let mut daemon = std::process::Command::new(exe);
     daemon.arg("background-process").args(daemon_args);
-    std::process::exit(supervise(std::path::Path::new(DAEMON_PID_FILE), &mut daemon))
+    std::process::exit(supervise(
+        std::path::Path::new(DAEMON_PID_FILE),
+        &mut daemon,
+    ))
 }
 
 /// Take `pid_file`'s lock (a supervisor already holding it fails this one),
