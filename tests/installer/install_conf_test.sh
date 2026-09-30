@@ -543,7 +543,7 @@ while [ $# -gt 0 ]; do
     case "$1" in
         -o) out="$2"; shift 2 ;;
         -w) fmt="$2"; shift 2 ;;
-        -H|--connect-timeout|--max-time|--proto) shift 2 ;;
+        -H|--connect-timeout|--max-time|--proto|--retry|--retry-delay) shift 2 ;;
         --*) shift ;;
         -*) case "$1" in *f*) fail=true ;; esac; shift ;;
         *) url="$1"; shift ;;

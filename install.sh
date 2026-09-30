@@ -452,10 +452,19 @@ detect_platform() {
 
 download_file() {
     # $1 -> url, $2 -> destination
+    # Transient failures (a timeout, HTTP 408/429/5xx) are retried: there is
+    # no fallback to an older release, so a single 500 from GitHub's release
+    # storage used to fail the whole install.
+    # BusyBox wget (Alpine) has no retry option, hence the loop there.
     if command -v curl >/dev/null 2>&1; then
-        curl -fsSL "$1" -o "$2"
+        curl -fsSL --retry 3 --retry-delay 2 "$1" -o "$2"
     elif command -v wget >/dev/null 2>&1; then
-        wget -q "$1" -O "$2"
+        _dl_try=1
+        until wget -q "$1" -O "$2"; do
+            [ "$_dl_try" -ge 3 ] && return 1
+            _dl_try=$((_dl_try + 1))
+            sleep 2
+        done
     else
         return 1
     fi
