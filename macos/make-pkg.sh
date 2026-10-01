@@ -117,13 +117,27 @@ with open(path, "wb") as f:
     plistlib.dump(data, f)
 PY
 
+# The component package ships inside a product archive whose distribution
+# declares both architectures: a component package declares none, and
+# Installer on an Apple silicon Mac then asks to install Rosetta.
+sed "s|xxxVERSIONxxx|$VERSION|g" ./macos/distribution.xml > "$TARGET/distribution.xml"
+
 cd "$TARGET"
 mkdir -p pkg
+# release_others.yml builds the release PKG and then the debug PKG in the same
+# tree: nothing from the previous run is reused.
+rm -f pkg/edamame-posture-component.pkg pkg/edamame-posture-unsigned.pkg \
+  edamame-posture-unsigned.pkg edamame-posture.pkg
 pkgbuild \
   --identifier "$BUNDLE_IDENTIFIER" \
   --root ./ROOT/ \
   --component-plist ./components.plist \
   --scripts ./scripts \
   --version "$VERSION" \
-  pkg/edamame-posture-unsigned.pkg
-productsign --sign WSL782B48J pkg/edamame-posture-unsigned.pkg edamame-posture.pkg
+  pkg/edamame-posture-component.pkg
+productbuild \
+  --distribution ./distribution.xml \
+  --package-path ./pkg \
+  --version "$VERSION" \
+  edamame-posture-unsigned.pkg
+productsign --sign WSL782B48J edamame-posture-unsigned.pkg edamame-posture.pkg
