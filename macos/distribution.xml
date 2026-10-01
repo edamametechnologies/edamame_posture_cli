@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<installer-gui-script minSpecVersion="1">
+    <title>EDAMAME Posture</title>
+    <organization>com.edamametechnologies</organization>
+    <domains enable_localSystem="true"/>
+    <!-- hostArchitectures: the binary is universal. Without it, Installer on
+         an Apple silicon Mac asks to install Rosetta first. -->
+    <options
+      customize="never"
+      require-scripts="true"
+      allow-external-scripts="no"
+      rootVolumeOnly="true"
+      hostArchitectures="arm64,x86_64"
+    />
+    <pkg-ref id="com.edamametechnologies.edamame-posture"
+             version="xxxVERSIONxxx"
+             auth="root">edamame-posture-component.pkg</pkg-ref>
+    <choices-outline>
+        <line choice="com.edamametechnologies.edamame-posture"/>
+    </choices-outline>
+    <choice
+        id="com.edamametechnologies.edamame-posture"
+        visible="false"
+        title="EDAMAME Posture"
+        description="EDAMAME Posture"
+        start_selected="true">
+      <pkg-ref id="com.edamametechnologies.edamame-posture"/>
+    </choice>
+</installer-gui-script>
