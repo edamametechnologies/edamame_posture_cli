@@ -7,6 +7,14 @@ on:
         description: 'Publish "Bug fixes" as the release notes when release_notes/<version>.md does not exist (release_all.sh --generic-release-notes). Without it a release with no notes is refused.'
         type: boolean
         default: false
+      platform:
+        description: 'The platform to build and publish: all, or macos / windows alone for a retry after the other one published (a second Windows run pushes another Chocolatey revision).'
+        type: choice
+        options:
+          - all
+          - macos
+          - windows
+        default: all
 
 # Auto cancel previous runs if they were not completed.
 concurrency:
@@ -18,20 +26,37 @@ permissions: write-all
     
 jobs:
 
+  # The build matrix for the platform input.
+  platforms:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      include: ${{ steps.pick.outputs.include }}
+    steps:
+      - name: Select the platforms
+        id: pick
+        shell: bash
+        env:
+          PLATFORM: ${{ inputs.platform }}
+        run: |
+          set -euo pipefail
+          macos='{"os":"macos","runs-on":"macos-latest","arch":"universal","target":"universal-apple-darwin"}'
+          windows='{"os":"windows","runs-on":"vm-runner-windows","arch":"amd64","target":"x86_64-pc-windows-msvc"}'
+          case "${PLATFORM:-all}" in
+            all) include="[$macos,$windows]" ;;
+            macos) include="[$macos]" ;;
+            windows) include="[$windows]" ;;
+            *) echo "::error::Unknown platform: $PLATFORM"; exit 1 ;;
+          esac
+          echo "include=$include" >> "$GITHUB_OUTPUT"
+
   build:
+    needs: platforms
     timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - os: macos
-            runs-on: macos-latest
-            arch: universal
-            target: universal-apple-darwin
-          - os: windows
-            runs-on: vm-runner-windows
-            arch: amd64
-            target: x86_64-pc-windows-msvc
+        include: ${{ fromJSON(needs.platforms.outputs.include) }}
     runs-on: ${{ matrix.runs-on }}
 
     env:
