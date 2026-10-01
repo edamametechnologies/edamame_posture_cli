@@ -1880,7 +1880,7 @@ install_linux_via_apk() {
     $SUDO apk add --no-cache --upgrade edamame-posture < /dev/null
 
     info "Installation complete!"
-    BINARY_PATH=$(command -v edamame_posture 2>/dev/null || echo "/usr/bin/edamame_posture")
+    BINARY_PATH=$(installed_binary_at "/usr/bin/edamame_posture")
     FINAL_BINARY_PATH="$BINARY_PATH"
 }
 
@@ -2300,7 +2300,7 @@ install_linux_via_apt() {
 
     info "Installation complete!"
     info "Configure /etc/edamame_posture.conf and restart service, or run 'edamame_posture --help'"
-    BINARY_PATH=$(command -v edamame_posture 2>/dev/null || echo "/usr/bin/edamame_posture")
+    BINARY_PATH=$(installed_binary_at "/usr/bin/edamame_posture")
     FINAL_BINARY_PATH="$BINARY_PATH"
 }
 
@@ -2322,10 +2322,7 @@ install_windows_via_choco() {
         fi
     fi
 
-    BINARY_PATH=$(command -v edamame_posture.exe 2>/dev/null || command -v edamame_posture 2>/dev/null || echo "")
-    if [ -z "$BINARY_PATH" ]; then
-        BINARY_PATH="C:/ProgramData/chocolatey/bin/edamame_posture.exe"
-    fi
+    BINARY_PATH=$(installed_binary_at "${ChocolateyInstall:-C:/ProgramData/chocolatey}/bin/edamame_posture.exe")
     FINAL_BINARY_PATH="$BINARY_PATH"
     INSTALL_METHOD="chocolatey"
     INSTALLED_VIA_PACKAGE_MANAGER="true"
@@ -2499,12 +2496,25 @@ install_macos_via_brew() {
         fi
     fi
 
-    BINARY_PATH=$(command -v edamame_posture 2>/dev/null || echo "/usr/local/bin/edamame_posture")
+    BINARY_PATH=$(installed_binary_at "$(brew --prefix 2>/dev/null || echo /usr/local)/bin/edamame_posture")
     FINAL_BINARY_PATH="$BINARY_PATH"
     INSTALL_METHOD="homebrew"
     INSTALLED_VIA_PACKAGE_MANAGER="true"
     info "Homebrew cask installation complete"
     return 0
+}
+
+# The binary a package manager just installed, at its known location. The
+# first edamame_posture on PATH is only the fallback: it can be another, stale
+# copy (a Chocolatey package from an earlier install, a fallback in
+# /usr/local/bin), and taking it verified and started that copy instead of the
+# one just installed.
+installed_binary_at() {
+    if [ -n "$1" ] && [ -x "$1" ]; then
+        printf '%s\n' "$1"
+        return 0
+    fi
+    command -v edamame_posture 2>/dev/null || command -v edamame_posture.exe 2>/dev/null || printf '%s\n' "$1"
 }
 
 # Test hook: `EDAMAME_INSTALL_SH_LIB=1 . ./install.sh` loads the functions
@@ -3771,9 +3781,15 @@ info "Verifying installation..."
 # installed /usr/local/bin/edamame_posture, `command -v` still answered the
 # purged path and the verification failed with 127 on a working install.
 hash -r 2>/dev/null || true
-RESOLVED_BINARY_PATH=$(command -v edamame_posture 2>/dev/null || true)
-if [ -z "$RESOLVED_BINARY_PATH" ] && [ -n "$BINARY_PATH" ] && [ -x "$BINARY_PATH" ]; then
+# Verify and start the binary this run installed or chose (BINARY_PATH), not
+# whatever comes first on PATH: a stale copy earlier on PATH was verified and
+# started in its place (self-hosted-win-2's Chocolatey 1.3.13, linux-4's
+# /usr/local/bin fallback, 2026-10-01).
+PATH_BINARY_PATH=$(command -v edamame_posture 2>/dev/null || true)
+if [ -n "$BINARY_PATH" ] && [ -x "$BINARY_PATH" ]; then
     RESOLVED_BINARY_PATH="$BINARY_PATH"
+else
+    RESOLVED_BINARY_PATH="$PATH_BINARY_PATH"
 fi
 
 if [ -z "$RESOLVED_BINARY_PATH" ]; then
@@ -3795,6 +3811,12 @@ VERSION="${VERSION_OUTPUT:-unknown}"
 info "✓ EDAMAME Posture installed successfully!"
 info "  Version: $VERSION"
 info "  Location: $RESOLVED_BINARY_PATH"
+if [ -n "$PATH_BINARY_PATH" ] && [ "$PATH_BINARY_PATH" != "$RESOLVED_BINARY_PATH" ] \
+    && ! [ "$PATH_BINARY_PATH" -ef "$RESOLVED_BINARY_PATH" ]; then
+    SHADOW_VERSION=$("$PATH_BINARY_PATH" --version 2>/dev/null | head -n 1 || true)
+    warn "Another edamame_posture comes first on PATH: $PATH_BINARY_PATH (${SHADOW_VERSION:-version unknown})."
+    warn "  This installation is $RESOLVED_BINARY_PATH; a plain 'edamame_posture' command reaches the other copy. Remove it, or put $(dirname "$RESOLVED_BINARY_PATH") first on PATH."
+fi
 
 # Configure service only if needed
 if [ "$PLATFORM" = "linux" ] && [ "$SKIP_CONFIGURATION" != "true" ]; then

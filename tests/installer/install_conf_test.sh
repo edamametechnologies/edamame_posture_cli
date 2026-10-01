@@ -906,5 +906,22 @@ if grep -q '^installer ' "$MOCK_LOG"; then not_ok "macOS PKG with no checksum: i
 unset -f installer
 PATH="$NET_SAVED_PATH"
 
+# -- The binary a package manager installed wins over a stale copy on PATH --
+# self-hosted-win-2 (Chocolatey 1.3.13 first on PATH) and linux-4 (a 2.0.2
+# fallback in /usr/local/bin) verified and started the stale copy.
+SHADOW_SAVED_PATH="$PATH"
+mkdir -p "$WORK/shadow/stale" "$WORK/shadow/pkg"
+printf '#!/bin/sh\necho stale\n' > "$WORK/shadow/stale/edamame_posture"
+printf '#!/bin/sh\necho installed\n' > "$WORK/shadow/pkg/edamame_posture"
+chmod +x "$WORK/shadow/stale/edamame_posture" "$WORK/shadow/pkg/edamame_posture"
+PATH="$WORK/shadow/stale:$SHADOW_SAVED_PATH"
+hash -r 2>/dev/null || true
+assert_eq "installed binary: the package's own location, not the stale copy first on PATH" \
+    "$(installed_binary_at "$WORK/shadow/pkg/edamame_posture")" "$WORK/shadow/pkg/edamame_posture"
+assert_eq "installed binary: PATH only when the package's location is empty" \
+    "$(installed_binary_at "$WORK/shadow/missing/edamame_posture")" "$WORK/shadow/stale/edamame_posture"
+PATH="$SHADOW_SAVED_PATH"
+hash -r 2>/dev/null || true
+
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]
