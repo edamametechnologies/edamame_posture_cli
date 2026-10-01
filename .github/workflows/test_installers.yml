@@ -531,6 +531,126 @@ jobs:
           echo "Tests for Windows (Chocolatey) did not succeed"
           exit 1
 
+  # The macOS install path: since 2.0.3 macOS has no raw binary, and install.sh
+  # (also run by the posture action) installs the latest release's PKG, the
+  # debug PKG with --debug-build. Runs in release context as well: Homebrew
+  # is skipped there, and nothing else installs the release's PKG. Both
+  # architectures, so each slice of the universal binary runs.
+  macos-pkg:
+    name: macOS PKG via install.sh (${{ matrix.runner }}, ${{ matrix.variant }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [macos-latest, macos-15-intel]
+        variant: [release, debug]
+    steps:
+      # Public endpoints only, as in github-release below: the org IP allow
+      # list refuses authenticated API calls from hosted runners.
+      - name: Resolve latest release
+        id: rel
+        shell: bash
+        run: |
+          set -euo pipefail
+          REDIRECT="$(curl -sSI --retry 3 --retry-delay 5 "${REPO_BASE}/releases/latest" \
+            | grep -i '^location:' | sed 's/location: *//i' | tr -d '\r')"
+          TAG="$(printf '%s' "$REDIRECT" | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+$' || true)"
+          if [[ -z "$TAG" ]]; then
+            echo "::error::Could not resolve the latest release tag from: $REDIRECT"
+            exit 1
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+          echo "Validating release $TAG"
+
+      # The PKG install.sh will pick, checked before anything runs it: the
+      # release's checksum, Developer ID Installer signature, notarization
+      # ticket, both architectures in the distribution (without arm64 the
+      # installer asks Apple silicon Macs for Rosetta) and in the binary.
+      - name: Check the PKG
+        id: check
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.rel.outputs.version }}"
+          SUFFIX=""
+          [[ "${{ matrix.variant }}" == "debug" ]] && SUFFIX="-debug"
+          PKG="edamame-posture-macos-${VERSION}${SUFFIX}.pkg"
+          BASE="${REPO_BASE}/releases/download/${{ steps.rel.outputs.tag }}"
+          curl -fsSL --retry 3 --retry-delay 5 -o "$PKG" "$BASE/$PKG"
+          curl -fsSL --retry 3 --retry-delay 5 -o SHA256SUMS "$BASE/SHA256SUMS"
+          grep -E "  ${PKG//./\\.}\$" SHA256SUMS | shasum -a 256 -c -
+          SIG="$(pkgutil --check-signature "$PKG")"
+          echo "$SIG" | sed -n '1,4p'
+          grep -q "Developer ID Installer: Edamame Technologies (WSL782B48J)" <<< "$SIG"
+          grep -q "Notarization: trusted by the Apple notary service" <<< "$SIG"
+          xcrun stapler validate "$PKG"
+          spctl -a -vv -t install "$PKG" 2>&1 | tee spctl.txt
+          grep -q "source=Notarized Developer ID" spctl.txt
+          pkgutil --expand "$PKG" expanded
+          ARCHS="$(sed -n 's/.*hostArchitectures="\([^"]*\)".*/\1/p' expanded/Distribution)"
+          echo "hostArchitectures: ${ARCHS:-none}"
+          [[ ",$ARCHS," == *",arm64,"* && ",$ARCHS," == *",x86_64,"* ]]
+          mkdir payload
+          (cd payload && gunzip -dc ../expanded/*.pkg/Payload | cpio -id --quiet)
+          BIN="payload/Library/Application Support/EDAMAME/EDAMAME-Posture/edamame_posture.app/Contents/MacOS/edamame_posture"
+          lipo -archs "$BIN" | tee archs.txt
+          grep -qw arm64 archs.txt
+          grep -qw x86_64 archs.txt
+          echo "sha=$(shasum -a 256 "$BIN" | awk '{print $1}')" >> "$GITHUB_OUTPUT"
+
+      - name: Install with the release's install.sh
+        id: install
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL --retry 3 --retry-delay 5 -o install.sh \
+            "${REPO_BASE}/releases/download/${{ steps.rel.outputs.tag }}/install.sh"
+          FLAG="--force-binary"
+          [[ "${{ matrix.variant }}" == "debug" ]] && FLAG="--debug-build"
+          # No credentials and no monitoring flags: install only, no daemon.
+          sh install.sh "$FLAG" --state-file "$RUNNER_TEMP/install_state"
+          cat "$RUNNER_TEMP/install_state"
+          grep -qx "install_method=pkg" "$RUNNER_TEMP/install_state"
+
+      - name: Verify the install
+        id: verify
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.rel.outputs.version }}"
+          BUNDLE_BIN="/Library/Application Support/EDAMAME/EDAMAME-Posture/edamame_posture.app/Contents/MacOS/edamame_posture"
+          RECEIPT="$(pkgutil --pkg-info com.edamametechnologies.edamame-posture | sed -n 's/^version: //p')"
+          echo "Installer receipt: $RECEIPT"
+          [[ "$RECEIPT" == "$VERSION" ]]
+          [[ "$(readlink /usr/local/bin/edamame_posture)" == "$BUNDLE_BIN" ]]
+          # The binary of the ${{ matrix.variant }} PKG, not the other one.
+          [[ "$(shasum -a 256 "$BUNDLE_BIN" | awk '{print $1}')" == "${{ steps.check.outputs.sha }}" ]]
+          codesign --verify --strict "/Library/Application Support/EDAMAME/EDAMAME-Posture/edamame_posture.app"
+          /usr/local/bin/edamame_posture get-core-version
+
+      - name: Slack alerts
+        if: ${{ always() && (steps.check.outcome != 'success' || steps.install.outcome != 'success' || steps.verify.outcome != 'success') }}
+        uses: slackapi/slack-github-action@v1.26.0
+        with:
+          channel-id: 'C072J0U9TH7'
+          slack-message: |
+            *Posture Installer Test (macOS PKG, ${{ matrix.runner }}, ${{ matrix.variant }})*:
+            - PKG checks: ${{ steps.check.outcome == 'success' && '✅ Success' || '❌ Failed' }}
+            - Installation: ${{ steps.install.outcome == 'success' && '✅ Success' || '❌ Failed' }}
+            - Verification: ${{ steps.verify.outcome == 'success' && '✅ Success' || '❌ Failed' }}
+            More details: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        continue-on-error: true
+
+      - name: Fail job if tests failed
+        if: ${{ always() && (steps.check.outcome != 'success' || steps.install.outcome != 'success' || steps.verify.outcome != 'success') }}
+        run: |
+          echo "❌ Tests for the macOS PKG (${{ matrix.runner }}, ${{ matrix.variant }}) did not succeed"
+          exit 1
+
   # Release-gating path: validate the assets THIS release published, straight
   # from the GitHub release. Chocolatey moderates before listing and Homebrew
   # taps propagate, so gating a release on them gates on the PREVIOUS version.
