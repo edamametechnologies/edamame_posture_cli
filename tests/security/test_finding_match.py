@@ -27,11 +27,13 @@ import unittest
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "triggers"))
 
 from _finding_match import (  # noqa: E402
+    demoted_by_adjudicator,
     findings_of,
     format_histogram,
     is_alertable,
     matches,
     normalize_severity,
+    requires_alert,
     severity_histogram,
     summarize,
 )
@@ -179,6 +181,39 @@ class TestFindingsOf(unittest.TestCase):
     def test_tolerates_missing_or_malformed_report(self):
         for report in ({}, {"findings": None}, {"findings": {}}, None, "x", []):
             self.assertEqual(findings_of(report), [])
+
+
+def _export(raw_severity: str, verdict: str | None, key: str = "k1") -> dict:
+    trace = {"raw_findings": [{"finding_key": key, "severity": raw_severity}]}
+    if verdict is not None:
+        trace["llm_decision"] = {
+            "finding_verdicts": [{"finding_key": key, "verdict": verdict}]
+        }
+    return {"success": True, "details": {"debug_trace": trace}}
+
+
+class TestAdjudicatorDemote(unittest.TestCase):
+    def test_only_file_events_may_be_lowered_by_the_adjudicator(self):
+        self.assertFalse(requires_alert("file_events"))
+        self.assertTrue(requires_alert("cve_sandbox_escape"))
+
+    def test_an_alertable_grade_the_adjudicator_demoted(self):
+        self.assertTrue(demoted_by_adjudicator("k1", _export("CRITICAL", "DEMOTE")))
+        self.assertTrue(demoted_by_adjudicator("k1", _export("high", "demote")))
+
+    def test_a_grade_the_detector_lowered_is_not(self):
+        self.assertFalse(demoted_by_adjudicator("k1", _export("LOW", "DEMOTE")))
+
+    def test_a_kept_or_unadjudicated_finding_is_not(self):
+        self.assertFalse(demoted_by_adjudicator("k1", _export("HIGH", "KEEP")))
+        self.assertFalse(demoted_by_adjudicator("k1", _export("HIGH", None)))
+
+    def test_another_key_or_a_missing_trace_is_not(self):
+        self.assertFalse(demoted_by_adjudicator("k2", _export("HIGH", "DEMOTE")))
+        self.assertFalse(
+            demoted_by_adjudicator("k1", {"success": True, "details": {"debug_trace": None}})
+        )
+        self.assertFalse(demoted_by_adjudicator("k1", {"success": False, "error": "x"}))
 
 
 if __name__ == "__main__":

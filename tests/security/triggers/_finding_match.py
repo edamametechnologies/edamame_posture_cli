@@ -9,7 +9,8 @@ passing it. Presence-only assertions let a severity regression ship green while
 `vulnerability-status --fail-on-findings` (which reads
 `active_alertable_findings`) would have stayed silent in production.
 
-`PRESENCE_ONLY_SCENARIOS` lists the few scenarios that assert presence only.
+`ADJUDICATOR_DEMOTABLE_SCENARIOS` lists the few scenarios whose finding the
+adjudicator may lower; `demoted_by_adjudicator` proves that is what happened.
 
 Imported from the harness heredocs via `TRIGGERS_DIR_ENV` on `sys.path`, by
 `tests/security/check_gate.py`, and directly by
@@ -23,16 +24,52 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence
 
 ALERTABLE_SEVERITIES = frozenset({"CRITICAL", "HIGH"})
 
-# Scenarios that assert their detection at any severity rather than an
-# alert: their grade is the adjudicator's call, so the harness and the gate
-# require the matched finding to exist, not to be HIGH/CRITICAL. Every other
-# scenario must alert. Read by `run_cve_detection.sh` and `check_gate.py`.
-PRESENCE_ONLY_SCENARIOS = frozenset({"file_events"})
+# Scenarios whose finding the adjudicator may lower. They pass when the
+# finding alerts, or when the detector graded it HIGH/CRITICAL and the
+# adjudicator's DEMOTE verdict is what lowered it (read from the finding's
+# debug trace). A finding the detector itself graded below HIGH still fails
+# them. Every other scenario must alert. Read by `run_cve_detection.sh` and
+# `check_gate.py`.
+ADJUDICATOR_DEMOTABLE_SCENARIOS = frozenset({"file_events"})
 
 
 def requires_alert(scenario: str) -> bool:
     """Whether the scenario passes only with an alertable finding."""
-    return scenario.strip() not in PRESENCE_ONLY_SCENARIOS
+    return scenario.strip() not in ADJUDICATOR_DEMOTABLE_SCENARIOS
+
+
+def demoted_by_adjudicator(finding_key: str, export_response: Any) -> bool:
+    """Whether `export_attack_pattern_finding_details` shows the detector
+    graded `finding_key` HIGH/CRITICAL and the adjudicator DEMOTEd it.
+
+    False whenever the trace is missing: without it the detector's own grade
+    is unknown, and the scenario fails closed.
+    """
+    key = (finding_key or "").strip()
+    if not key or not isinstance(export_response, dict):
+        return False
+    details = export_response.get("details")
+    if not isinstance(details, dict):
+        details = export_response
+    trace = details.get("debug_trace")
+    if not isinstance(trace, dict):
+        return False
+    graded_alertable = any(
+        isinstance(raw, dict)
+        and str(raw.get("finding_key", "")).strip() == key
+        and normalize_severity(raw) in ALERTABLE_SEVERITIES
+        for raw in trace.get("raw_findings") or []
+    )
+    if not graded_alertable:
+        return False
+    decision = trace.get("llm_decision")
+    verdicts = decision.get("finding_verdicts") if isinstance(decision, dict) else None
+    return any(
+        isinstance(v, dict)
+        and str(v.get("finding_key", "")).strip() == key
+        and str(v.get("verdict", "")).strip().upper() == "DEMOTE"
+        for v in verdicts or []
+    )
 
 UNKNOWN_SEVERITY = "UNKNOWN"
 
