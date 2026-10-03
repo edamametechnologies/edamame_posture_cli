@@ -6,8 +6,9 @@ non-detection as a pass is a security regression. These tests pin the
 fail-closed contract:
 
 - a skipped *required* scenario blocks,
-- a scenario that "passed" with zero alertable findings blocks (a
-  presence-only scenario: zero matched findings),
+- a scenario that "passed" with zero alertable findings blocks (an
+  adjudicator-demotable scenario: unless the detector graded it alertable and
+  the adjudicator DEMOTEd it),
 - a scenario that "passed" with no ``finding_alertable`` field blocks,
 - an expected platform that produced no directory at all blocks,
 - a missing ``results.json`` after a clean baseline blocks,
@@ -286,55 +287,53 @@ class TestGateFailsClosed(GateTestCase):
         self.assertEqual(rc, 1, out)
         self.assertIn("alertable", out.lower())
 
-    def test_presence_only_scenario_passes_on_a_low_finding(self):
-        """file_events asserts its detection, not an alert."""
+    def _file_events(self, demoted):
+        out = scenario(
+            "file_events",
+            check="file_system_tampering",
+            findings=3,
+            alertable=0,
+            severities="LOW:3",
+        )
+        if demoted is not None:
+            out["finding_adjudicator_demoted"] = demoted
+        return out
+
+    def test_adjudicator_demote_of_an_alertable_grade_passes(self):
+        """file_events: the detector alerted, the adjudicator lowered it."""
         rc, out = self.run_gate(
             {
                 "macos-arm64": {
                     "baseline.json": CLEAN_BASELINE,
-                    "results.json": results(
-                        scenario(
-                            "file_events",
-                            check="file_system_tampering",
-                            findings=3,
-                            alertable=0,
-                            severities="LOW:3",
-                        )
-                    ),
+                    "results.json": results(self._file_events(1)),
                 }
             },
             required="file_events",
         )
         self.assertEqual(rc, 0, out)
-        self.assertIn("1 presence-only passed", out)
+        self.assertIn("1 with an alertable grade the adjudicator lowered", out)
 
-    def test_presence_only_scenario_still_needs_its_finding(self):
-        rc, out = self.run_gate(
-            {
-                "macos-arm64": {
-                    "baseline.json": CLEAN_BASELINE,
-                    "results.json": results(
-                        scenario(
-                            "file_events",
-                            check="file_system_tampering",
-                            findings=0,
-                            alertable=0,
-                            severities="none",
-                        )
-                    ),
-                }
-            },
-            required="file_events",
-        )
-        self.assertEqual(rc, 1, out)
-        self.assertIn("pass_without_matched_finding", out)
+    def test_a_grade_the_detector_lowered_still_blocks(self):
+        for demoted in (0, None):
+            rc, out = self.run_gate(
+                {
+                    "macos-arm64": {
+                        "baseline.json": CLEAN_BASELINE,
+                        "results.json": results(self._file_events(demoted)),
+                    }
+                },
+                required="file_events",
+            )
+            self.assertEqual(rc, 1, out)
+            self.assertIn("pass_without_alert_or_adjudicator_demote", out)
 
-    def test_artifact_cannot_make_a_scenario_presence_only(self):
-        """The gate reads its own list, not a requirement field in results."""
+    def test_artifact_cannot_make_another_scenario_demotable(self):
+        """The gate reads its own list, not fields of results.json."""
         demoted = scenario(
             "cve_sandbox_escape", findings=3, alertable=0, severities="LOW:3"
         )
-        demoted["requirement"] = "presence"
+        demoted["requirement"] = "alert_or_adjudicator_demote"
+        demoted["finding_adjudicator_demoted"] = 3
         rc, out = self.run_gate(
             {
                 "macos-arm64": {

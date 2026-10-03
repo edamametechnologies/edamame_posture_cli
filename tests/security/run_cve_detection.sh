@@ -252,9 +252,10 @@ scenario_ports_json() {
 }
 
 # Whether a scenario passes only with an ALERTABLE finding ("1", the default)
-# or on its matched finding at any severity ("0"): the list lives in
-# triggers/_finding_match.py (PRESENCE_ONLY_SCENARIOS), which check_gate.py
-# reads too, so the harness and the gate cannot disagree.
+# or also when the detector graded it alertable and the adjudicator's DEMOTE
+# lowered it ("0"): the list lives in triggers/_finding_match.py
+# (ADJUDICATOR_DEMOTABLE_SCENARIOS), which check_gate.py reads too, so the
+# harness and the gate cannot disagree.
 scenario_requires_alert() {
   TRIGGERS_DIR_ENV="$TRIGGERS_DIR" SCENARIO_ENV="$1" "$PYTHON" - <<'PY' 2>/dev/null || echo 1
 import os, sys
@@ -944,6 +945,7 @@ record_scenario_result() {
   local alertable="${9:-0}"
   local severities="${10:-none}"
   local requirement="${11:-alert}"
+  local adj_demoted="${12:-0}"
   "$PYTHON" - <<PY | tee -a "$NDJSON" >/dev/null
 import json, sys, time
 rec = {
@@ -956,6 +958,7 @@ rec = {
     "finding_alertable": int("$alertable"),
     "severities": "$severities",
     "requirement": "$requirement",
+    "finding_adjudicator_demoted": int("$adj_demoted"),
     "elapsed_s": float("$elapsed"),
     "agent_type": "$AGENT_TYPE",
     "trigger_duration_s": int("$TRIGGER_DURATION"),
@@ -1039,6 +1042,30 @@ print(f"[{scenario}] diagnostic export: {ok}/{len(exports)} succeeded ({len(keys
 PY
 }
 
+# For an adjudicator-demotable scenario whose finding is below alert: export
+# the matched findings (findings/<scenario>.export.json) and print how many
+# the detector graded HIGH/CRITICAL and the adjudicator DEMOTEd. 0 when the
+# export or its trace is missing: the scenario then fails closed.
+count_adjudicator_demoted() {
+  local scenario="$1"
+  export_demoted_findings "$scenario"
+  EXPORT_DUMP="$OUTPUT_DIR_ABS/findings/$scenario.export.json" \
+  TRIGGERS_DIR_ENV="$TRIGGERS_DIR" \
+  "$PYTHON" - <<'PY' 2>/dev/null || echo 0
+import json, os, sys
+sys.path.insert(0, os.environ["TRIGGERS_DIR_ENV"])
+from _finding_match import demoted_by_adjudicator
+try:
+    with open(os.environ["EXPORT_DUMP"], "r", encoding="utf-8") as fh:
+        dump = json.load(fh)
+except Exception:
+    print(0)
+    raise SystemExit(0)
+print(sum(1 for e in dump.get("exports") or []
+          if isinstance(e, dict) and demoted_by_adjudicator(e.get("finding_key", ""), e.get("export"))))
+PY
+}
+
 # Run a single attempt of a scenario. Sets DETECTED, TOTAL, CURRENT, HISTORY,
 # ALERTABLE, SEVERITIES, DEMOTED_ONLY, ELAPSED globals and returns 0 on
 # success, 1 on failure.
@@ -1073,6 +1100,7 @@ run_one_scenario_attempt() {
   TIER_OK=1
   DEMOTED_ONLY=0
   TIER_MISMATCH=0
+  ADJ_DEMOTED=0
   ELAPSED=0
 
   local expected_severity
@@ -1156,11 +1184,16 @@ run_one_scenario_attempt() {
         break
       fi
       if [[ "$alert_required" == "0" ]] && (( TOTAL > 0 )); then
-        DETECTED=1
-        DEMOTED_ONLY=0
-        TIER_MISMATCH=0
-        log "  DETECTED (presence only): total=$TOTAL alertable=$ALERTABLE (current=$CURRENT, history=$HISTORY, severities=$SEVERITIES)"
-        break
+        ADJ_DEMOTED="$(count_adjudicator_demoted "$scenario" | tr -dc '0-9')"
+        [[ -z "$ADJ_DEMOTED" ]] && ADJ_DEMOTED=0
+        if (( ADJ_DEMOTED > 0 )); then
+          DETECTED=1
+          DEMOTED_ONLY=0
+          TIER_MISMATCH=0
+          log "  DETECTED (graded alertable, lowered by the adjudicator): demoted=$ADJ_DEMOTED total=$TOTAL (severities=$SEVERITIES)"
+          break
+        fi
+        log "  finding present but neither alertable nor an adjudicator DEMOTE of an alertable grade: total=$TOTAL severities=$SEVERITIES"
       fi
       if (( ALERTABLE > 0 )) && (( TIER_OK == 0 )); then
         TIER_MISMATCH=1
@@ -1213,11 +1246,13 @@ run_one_scenario_attempt() {
         DEMOTED_ONLY=0
         TIER_MISMATCH=0
         log "  DETECTED (tail): alertable=$ALERTABLE total=$TOTAL (current=$CURRENT, history=$HISTORY, severities=$SEVERITIES)"
-      elif [[ "$alert_required" == "0" ]] && (( TOTAL > 0 )); then
+      elif [[ "$alert_required" == "0" ]] && (( TOTAL > 0 )) \
+          && ADJ_DEMOTED="$(count_adjudicator_demoted "$scenario" | tr -dc '0-9')" \
+          && (( ${ADJ_DEMOTED:-0} > 0 )); then
         DETECTED=1
         DEMOTED_ONLY=0
         TIER_MISMATCH=0
-        log "  DETECTED (tail, presence only): total=$TOTAL alertable=$ALERTABLE severities=$SEVERITIES"
+        log "  DETECTED (tail, graded alertable, lowered by the adjudicator): demoted=$ADJ_DEMOTED total=$TOTAL severities=$SEVERITIES"
       elif (( ALERTABLE > 0 )) && (( TIER_OK == 0 )); then
         TIER_MISMATCH=1
         log "  finding alertable but BELOW expected tier ${expected_severity} (tail): severities=$SEVERITIES"
@@ -1281,7 +1316,7 @@ run_one_scenario() {
   local extra_note=""
   local requirement="alert"
   if [[ "$(scenario_requires_alert "$scenario")" == "0" ]]; then
-    requirement="presence"
+    requirement="alert_or_adjudicator_demote"
   fi
   while (( scen_attempt < max_attempts )); do
     scen_attempt=$((scen_attempt + 1))
@@ -1337,7 +1372,14 @@ run_one_scenario() {
     fi
   fi
 
-  record_scenario_result "$scenario" "$check" "$final_status" "$TOTAL" "$CURRENT" "$HISTORY" "$total_elapsed" "$extra_note" "$ALERTABLE" "$SEVERITIES" "$requirement"
+  if [[ "$final_status" == "pass" ]] && (( ALERTABLE == 0 )) && (( ADJ_DEMOTED > 0 )); then
+    if [[ -n "$extra_note" ]]; then
+      extra_note="${extra_note},adjudicator_demoted"
+    else
+      extra_note="adjudicator_demoted"
+    fi
+  fi
+  record_scenario_result "$scenario" "$check" "$final_status" "$TOTAL" "$CURRENT" "$HISTORY" "$total_elapsed" "$extra_note" "$ALERTABLE" "$SEVERITIES" "$requirement" "$ADJ_DEMOTED"
   log "  RESULT: $final_status  alertable=$ALERTABLE total=$TOTAL current=$CURRENT history=$HISTORY severities=$SEVERITIES  elapsed=${total_elapsed}s attempts=$scen_attempt"
 
   run_cleanup
