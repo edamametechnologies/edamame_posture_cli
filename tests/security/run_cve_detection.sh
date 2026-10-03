@@ -31,6 +31,8 @@
 #   results.json       full result object: platform, scenarios[], totals
 #   results.ndjson     one JSON per scenario, for streaming consumers
 #   detector_ticks.log stdout/stderr from forced detector ticks
+#   findings/<scenario>.export.json  diagnostic export of the matched findings
+#                      when the scenario ended demoted_below_alertable
 
 set -Euo pipefail
 
@@ -620,10 +622,27 @@ print(json.dumps(seen))
 PY
 }
 
+# Scenarios whose trigger writes under $HOME, so the file monitor must be
+# widened to $HOME and the agent config dirs (~/.cursor/rules, ...) before the
+# trigger starts: every file_system_tampering scenario, plus
+# package_install_lifecycle, whose trigger persists a rules file under
+# ~/.cursor/rules. Keying on the check alone left that scenario without a file
+# event whenever it ran on its own (no earlier FIM scenario had widened the
+# monitor).
+scenario_needs_home_fim() {
+  local scenario="$1"
+  local check="$2"
+  [[ "$check" == "file_system_tampering" ]] && return 0
+  case "$scenario" in
+    package_install_lifecycle) return 0 ;;
+  esac
+  return 1
+}
+
 prepare_scenario_state() {
   local scenario="$1"
   local check="$2"
-  if [[ "$check" == "file_system_tampering" ]]; then
+  if scenario_needs_home_fim "$scenario" "$check"; then
     local watch_json
     watch_json="$(fim_watch_paths_json)"
     log "  FIM watch paths: $watch_json"
@@ -932,6 +951,79 @@ print(json.dumps(rec))
 PY
 }
 
+# A `demoted_below_alertable` scenario produced its finding, but every matched
+# instance stayed below HIGH. findings/<scenario>.json shows the severity, not
+# how the finding got there; the diagnostic export
+# (`export_attack_pattern_finding_details`) carries the originating report's
+# debug trace (the adjudication decision and the per-finding input slice).
+# Save one export per non-alertable matched finding_key to
+# findings/<scenario>.export.json. Must run before the post-scenario
+# clear_vuln_history: the RPC looks the key up in the detector history.
+# Diagnostic only: a failed export is logged and never changes the result.
+export_demoted_findings() {
+  local scenario="$1"
+  local export_path="$OUTPUT_DIR_ABS/findings/$scenario.export.json"
+  log "  saving the diagnostic export of the demoted finding(s) to findings/$scenario.export.json"
+  EVIDENCE_DUMP="$OUTPUT_DIR_ABS/findings/$scenario.json" \
+  EXPORT_DUMP="$export_path" \
+  SCENARIO="$scenario" \
+  TRIGGERS_DIR_ENV="$TRIGGERS_DIR" \
+  "$PYTHON" - <<'PY' >>"$TICK_LOG" 2>&1 || log "  WARNING: diagnostic export failed for $scenario (see detector_ticks.log)"
+import json, os, sys, time
+sys.path.insert(0, os.environ["TRIGGERS_DIR_ENV"])
+from _edamame_cli import cli_rpc
+from _finding_match import is_alertable, normalize_severity
+
+# Bounds the RPC calls and the artifact size when a scenario matched many
+# findings; the demoted ones of one scenario normally share a handful of keys.
+MAX_EXPORTS = 10
+
+scenario = os.environ["SCENARIO"]
+with open(os.environ["EVIDENCE_DUMP"], "r", encoding="utf-8") as fh:
+    evidence = json.load(fh)
+matched = list(evidence.get("current") or []) + list(evidence.get("history") or [])
+
+keys = []
+severity_of = {}
+for finding in matched:
+    if not isinstance(finding, dict) or is_alertable(finding):
+        continue
+    key = finding.get("finding_key")
+    if not isinstance(key, str) or not key.strip() or key in severity_of:
+        continue
+    keys.append(key)
+    severity_of[key] = normalize_severity(finding)
+
+exports = []
+for key in keys[:MAX_EXPORTS]:
+    # The RPC takes one String argument, `request_json`, itself a JSON
+    # document: `{"finding_key": "<key>"}`.
+    args = json.dumps({"request_json": json.dumps({"finding_key": key})})
+    try:
+        response = cli_rpc("export_attack_pattern_finding_details", args)
+    except Exception as exc:
+        response = {"success": False, "error": f"rpc failed: {exc}"}
+    exports.append({"finding_key": key, "severity": severity_of[key], "export": response})
+
+with open(os.environ["EXPORT_DUMP"], "w", encoding="utf-8") as fh:
+    json.dump(
+        {
+            "scenario": scenario,
+            "check": evidence.get("check"),
+            "exported_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "demoted_finding_keys": len(keys),
+            "exported": len(exports),
+            "exports": exports,
+        },
+        fh,
+        indent=2,
+        default=str,
+    )
+ok = sum(1 for e in exports if isinstance(e["export"], dict) and e["export"].get("success"))
+print(f"[{scenario}] diagnostic export: {ok}/{len(exports)} succeeded ({len(keys)} demoted finding_key(s))")
+PY
+}
+
 # Run a single attempt of a scenario. Sets DETECTED, TOTAL, CURRENT, HISTORY,
 # ALERTABLE, SEVERITIES, DEMOTED_ONLY, ELAPSED globals and returns 0 on
 # success, 1 on failure.
@@ -1195,6 +1287,8 @@ run_one_scenario() {
     else
       extra_note="demoted_below_alertable"
     fi
+    # Before the post-scenario clear_vuln_history drops the report.
+    export_demoted_findings "$scenario"
   fi
 
   # A scenario that produced an ALERTABLE finding but below its declared
