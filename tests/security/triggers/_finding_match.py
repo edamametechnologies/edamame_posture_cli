@@ -9,8 +9,11 @@ passing it. Presence-only assertions let a severity regression ship green while
 `vulnerability-status --fail-on-findings` (which reads
 `active_alertable_findings`) would have stayed silent in production.
 
-Imported from the harness heredocs via `TRIGGERS_DIR_ENV` on `sys.path`, and
-directly by `tests/security/test_finding_match.py`.
+`PRESENCE_ONLY_SCENARIOS` lists the few scenarios that assert presence only.
+
+Imported from the harness heredocs via `TRIGGERS_DIR_ENV` on `sys.path`, by
+`tests/security/check_gate.py`, and directly by
+`tests/security/test_finding_match.py`.
 """
 
 from __future__ import annotations
@@ -19,6 +22,17 @@ from collections import Counter
 from typing import Any, Dict, Iterable, List, Optional, Sequence
 
 ALERTABLE_SEVERITIES = frozenset({"CRITICAL", "HIGH"})
+
+# Scenarios that assert their detection at any severity rather than an
+# alert: their grade is the adjudicator's call, so the harness and the gate
+# require the matched finding to exist, not to be HIGH/CRITICAL. Every other
+# scenario must alert. Read by `run_cve_detection.sh` and `check_gate.py`.
+PRESENCE_ONLY_SCENARIOS = frozenset({"file_events"})
+
+
+def requires_alert(scenario: str) -> bool:
+    """Whether the scenario passes only with an alertable finding."""
+    return scenario.strip() not in PRESENCE_ONLY_SCENARIOS
 
 UNKNOWN_SEVERITY = "UNKNOWN"
 

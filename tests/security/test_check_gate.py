@@ -6,7 +6,8 @@ non-detection as a pass is a security regression. These tests pin the
 fail-closed contract:
 
 - a skipped *required* scenario blocks,
-- a scenario that "passed" with zero alertable findings blocks,
+- a scenario that "passed" with zero alertable findings blocks (a
+  presence-only scenario: zero matched findings),
 - a scenario that "passed" with no ``finding_alertable`` field blocks,
 - an expected platform that produced no directory at all blocks,
 - a missing ``results.json`` after a clean baseline blocks,
@@ -284,6 +285,67 @@ class TestGateFailsClosed(GateTestCase):
         )
         self.assertEqual(rc, 1, out)
         self.assertIn("alertable", out.lower())
+
+    def test_presence_only_scenario_passes_on_a_low_finding(self):
+        """file_events asserts its detection, not an alert."""
+        rc, out = self.run_gate(
+            {
+                "macos-arm64": {
+                    "baseline.json": CLEAN_BASELINE,
+                    "results.json": results(
+                        scenario(
+                            "file_events",
+                            check="file_system_tampering",
+                            findings=3,
+                            alertable=0,
+                            severities="LOW:3",
+                        )
+                    ),
+                }
+            },
+            required="file_events",
+        )
+        self.assertEqual(rc, 0, out)
+        self.assertIn("1 presence-only passed", out)
+
+    def test_presence_only_scenario_still_needs_its_finding(self):
+        rc, out = self.run_gate(
+            {
+                "macos-arm64": {
+                    "baseline.json": CLEAN_BASELINE,
+                    "results.json": results(
+                        scenario(
+                            "file_events",
+                            check="file_system_tampering",
+                            findings=0,
+                            alertable=0,
+                            severities="none",
+                        )
+                    ),
+                }
+            },
+            required="file_events",
+        )
+        self.assertEqual(rc, 1, out)
+        self.assertIn("pass_without_matched_finding", out)
+
+    def test_artifact_cannot_make_a_scenario_presence_only(self):
+        """The gate reads its own list, not a requirement field in results."""
+        demoted = scenario(
+            "cve_sandbox_escape", findings=3, alertable=0, severities="LOW:3"
+        )
+        demoted["requirement"] = "presence"
+        rc, out = self.run_gate(
+            {
+                "macos-arm64": {
+                    "baseline.json": CLEAN_BASELINE,
+                    "results.json": results(demoted),
+                }
+            },
+            required="cve_sandbox_escape",
+        )
+        self.assertEqual(rc, 1, out)
+        self.assertIn("pass_without_alertable_finding", out)
 
     def test_scenario_failure_blocks(self):
         rc, out = self.run_gate(

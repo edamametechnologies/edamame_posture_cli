@@ -27,6 +27,9 @@ Gate policy:
     (HIGH/CRITICAL, non-dismissed) findings -- the shape a CRS-weight or
     LLM-adjudicator regression takes -- or while recording no
     ``finding_alertable`` field at all, OR
+  * a presence-only scenario (``PRESENCE_ONLY_SCENARIOS`` in
+    ``triggers/_finding_match.py``, the harness's own list) reports
+    ``status=pass`` with no matched finding at all, OR
   * a platform named in ``--expected-platforms`` produced no results
     directory at all, OR
   * a platform ran a clean baseline but produced no readable
@@ -40,8 +43,9 @@ Gate policy:
   it to ``$GITHUB_STEP_SUMMARY`` and trigger a rollback.
 - **PASS** (exit 0): every expected platform produced results, every
   required scenario reported ``status=pass`` with at least one alertable
-  finding on every platform, no scenario failed, and every platform's
-  idle baseline was clean.
+  finding (a presence-only scenario: at least one matched finding) on every
+  platform, no scenario failed, and every platform's idle baseline was
+  clean.
 
 Why a missing platform is not a pass
 ------------------------------------
@@ -102,6 +106,11 @@ import os
 import sys
 from collections import defaultdict
 from typing import Dict, List, Optional, Tuple
+
+# The harness's list of presence-only scenarios: read from the same module the
+# harness uses, never from the artifact, so a results.json cannot relax it.
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "triggers"))
+from _finding_match import requires_alert  # noqa: E402
 
 VALID_STATUSES = ("pass", "skip", "fail")
 
@@ -316,6 +325,7 @@ def main() -> int:
 
     total_scenarios = 0
     passed_scenarios = 0
+    presence_only_passes = 0
     skipped_scenarios = 0
     baseline_total = 0
     baseline_present = 0
@@ -393,7 +403,24 @@ def main() -> int:
             if name:
                 seen[name] = scen
 
-            if status == "pass":
+            if status == "pass" and not requires_alert(name):
+                # A presence-only scenario passes on its matched finding at
+                # any severity; it still needs one.
+                if findings <= 0:
+                    scenario_fails[name].append(
+                        (
+                            platform,
+                            check,
+                            findings,
+                            alertable or 0,
+                            severities or "-",
+                            "pass_without_matched_finding (presence-only scenario)",
+                        )
+                    )
+                else:
+                    passed_scenarios += 1
+                    presence_only_passes += 1
+            elif status == "pass":
                 # A scenario cannot pass without an alertable finding: the
                 # gate mirrors production alerting, where only HIGH and
                 # CRITICAL non-dismissed findings notify anyone.
@@ -519,7 +546,8 @@ def main() -> int:
         print(
             f"PASS - {total_scenarios} scenario result(s) across"
             f" {platforms_with_results} platform(s):"
-            f" {passed_scenarios} passed with an alertable finding,"
+            f" {passed_scenarios - presence_only_passes} passed with an alertable finding,"
+            f" {presence_only_passes} presence-only passed with a matched finding,"
             f" {skipped_scenarios} skipped (none required),"
             f" and {baseline_clean}/{baseline_total} platform(s) had a"
             " clean idle baseline."

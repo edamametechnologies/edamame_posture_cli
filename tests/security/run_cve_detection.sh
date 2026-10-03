@@ -251,6 +251,19 @@ scenario_ports_json() {
   esac
 }
 
+# Whether a scenario passes only with an ALERTABLE finding ("1", the default)
+# or on its matched finding at any severity ("0"): the list lives in
+# triggers/_finding_match.py (PRESENCE_ONLY_SCENARIOS), which check_gate.py
+# reads too, so the harness and the gate cannot disagree.
+scenario_requires_alert() {
+  TRIGGERS_DIR_ENV="$TRIGGERS_DIR" SCENARIO_ENV="$1" "$PYTHON" - <<'PY' 2>/dev/null || echo 1
+import os, sys
+sys.path.insert(0, os.environ["TRIGGERS_DIR_ENV"])
+from _finding_match import requires_alert
+print("1" if requires_alert(os.environ["SCENARIO_ENV"]) else "0")
+PY
+}
+
 # Per-scenario expected alertable severity TIER. When set, the scenario is
 # not merely required to produce an ALERTABLE (HIGH/CRITICAL) finding -- it
 # must produce one at exactly this tier. This catches a severity regression
@@ -930,6 +943,7 @@ record_scenario_result() {
   local extra="$8"
   local alertable="${9:-0}"
   local severities="${10:-none}"
+  local requirement="${11:-alert}"
   "$PYTHON" - <<PY | tee -a "$NDJSON" >/dev/null
 import json, sys, time
 rec = {
@@ -941,6 +955,7 @@ rec = {
     "finding_history": int("$history"),
     "finding_alertable": int("$alertable"),
     "severities": "$severities",
+    "requirement": "$requirement",
     "elapsed_s": float("$elapsed"),
     "agent_type": "$AGENT_TYPE",
     "trigger_duration_s": int("$TRIGGER_DURATION"),
@@ -1062,6 +1077,8 @@ run_one_scenario_attempt() {
 
   local expected_severity
   expected_severity="$(expected_severity_for "$scenario")"
+  local alert_required
+  alert_required="$(scenario_requires_alert "$scenario")"
 
   assert_daemon_reachable "start of $scenario"
   clear_vuln_history
@@ -1138,6 +1155,13 @@ run_one_scenario_attempt() {
         log "  DETECTED: alertable=$ALERTABLE total=$TOTAL (current=$CURRENT, history=$HISTORY, severities=$SEVERITIES)"
         break
       fi
+      if [[ "$alert_required" == "0" ]] && (( TOTAL > 0 )); then
+        DETECTED=1
+        DEMOTED_ONLY=0
+        TIER_MISMATCH=0
+        log "  DETECTED (presence only): total=$TOTAL alertable=$ALERTABLE (current=$CURRENT, history=$HISTORY, severities=$SEVERITIES)"
+        break
+      fi
       if (( ALERTABLE > 0 )) && (( TIER_OK == 0 )); then
         TIER_MISMATCH=1
         log "  finding alertable but BELOW expected tier ${expected_severity}: severities=$SEVERITIES"
@@ -1189,6 +1213,11 @@ run_one_scenario_attempt() {
         DEMOTED_ONLY=0
         TIER_MISMATCH=0
         log "  DETECTED (tail): alertable=$ALERTABLE total=$TOTAL (current=$CURRENT, history=$HISTORY, severities=$SEVERITIES)"
+      elif [[ "$alert_required" == "0" ]] && (( TOTAL > 0 )); then
+        DETECTED=1
+        DEMOTED_ONLY=0
+        TIER_MISMATCH=0
+        log "  DETECTED (tail, presence only): total=$TOTAL alertable=$ALERTABLE severities=$SEVERITIES"
       elif (( ALERTABLE > 0 )) && (( TIER_OK == 0 )); then
         TIER_MISMATCH=1
         log "  finding alertable but BELOW expected tier ${expected_severity} (tail): severities=$SEVERITIES"
@@ -1250,6 +1279,10 @@ run_one_scenario() {
   local total_elapsed=0
   local final_status="fail"
   local extra_note=""
+  local requirement="alert"
+  if [[ "$(scenario_requires_alert "$scenario")" == "0" ]]; then
+    requirement="presence"
+  fi
   while (( scen_attempt < max_attempts )); do
     scen_attempt=$((scen_attempt + 1))
     if (( scen_attempt > 1 )); then
@@ -1304,7 +1337,7 @@ run_one_scenario() {
     fi
   fi
 
-  record_scenario_result "$scenario" "$check" "$final_status" "$TOTAL" "$CURRENT" "$HISTORY" "$total_elapsed" "$extra_note" "$ALERTABLE" "$SEVERITIES"
+  record_scenario_result "$scenario" "$check" "$final_status" "$TOTAL" "$CURRENT" "$HISTORY" "$total_elapsed" "$extra_note" "$ALERTABLE" "$SEVERITIES" "$requirement"
   log "  RESULT: $final_status  alertable=$ALERTABLE total=$TOTAL current=$CURRENT history=$HISTORY severities=$SEVERITIES  elapsed=${total_elapsed}s attempts=$scen_attempt"
 
   run_cleanup
