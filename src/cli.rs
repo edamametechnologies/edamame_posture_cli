@@ -1245,6 +1245,10 @@ pub fn read_pin_file(path: &std::path::Path) -> Result<String, String> {
     parse_digits_only(&pin)
 }
 
+/// The Hub-managed configuration opt-in the daemon reads from its
+/// environment (`--accept-managed-config`).
+pub const ACCEPT_MANAGED_CONFIG_ENV: &str = "EDAMAME_ACCEPT_MANAGED_CONFIG";
+
 /// Environment variable carrying a Hub enrollment token (MDM deployment).
 pub const ENROLLMENT_TOKEN_ENV: &str = "EDAMAME_ENROLLMENT_TOKEN";
 
@@ -1352,6 +1356,14 @@ fn start_common_args() -> Vec<Arg> {
             .value_name("API_KEY")
             .help("EDAMAME Portal LLM API key for the security assistant (edamame provider)")
             .env("EDAMAME_LLM_API_KEY")
+            .value_parser(clap::value_parser!(String)),
+        Arg::new("accept_managed_config")
+            .long("accept-managed-config")
+            .value_name("always|sha256:FINGERPRINT")
+            .help("Apply the domain's Hub-managed configuration for this target (CI/CD or posture): always (changes included), or only the configuration with this fingerprint. Without it a configuration is reported declined and the daemon stays connected")
+            .env(ACCEPT_MANAGED_CONFIG_ENV)
+            .num_args(0..=1)
+            .default_missing_value("always")
             .value_parser(clap::value_parser!(String)),
         Arg::new("device_id")
             .long("device-id")
@@ -1588,6 +1600,39 @@ mod tests {
             Some("ollama")
         );
         assert_eq!(sub_matches.get_one::<u64>("agentic_interval"), Some(&600));
+    }
+
+    #[test]
+    fn accept_managed_config_is_opt_in_and_bare_means_always() {
+        let parse = |extra: &[&str]| {
+            let mut args = vec![
+                "edamame_posture",
+                "background-start",
+                "--user",
+                "runner",
+                "--domain",
+                "example.com",
+                "--pin",
+                "123456",
+            ];
+            args.extend_from_slice(extra);
+            let matches = build_cli()
+                .try_get_matches_from(args)
+                .expect("background-start parses");
+            let (_, sub) = matches.subcommand().expect("subcommand");
+            sub.get_one::<String>("accept_managed_config").cloned()
+        };
+        if std::env::var(super::ACCEPT_MANAGED_CONFIG_ENV).is_err() {
+            assert_eq!(parse(&[]), None);
+        }
+        assert_eq!(
+            parse(&["--accept-managed-config"]).as_deref(),
+            Some("always")
+        );
+        assert_eq!(
+            parse(&["--accept-managed-config", "sha256:abc"]).as_deref(),
+            Some("sha256:abc")
+        );
     }
 
     #[test]

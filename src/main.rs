@@ -871,6 +871,12 @@ fn run_base() {
             if sub_matches.get_flag("export_ai_failure_details") {
                 std::env::set_var("EDAMAME_EXPORT_AI_FAILURE_DETAILS", "force");
             }
+            // The Hub-managed configuration opt-in reaches the daemon (and
+            // this process's core) through the environment.
+            match sub_matches.get_one::<String>("accept_managed_config") {
+                Some(value) => std::env::set_var(crate::cli::ACCEPT_MANAGED_CONFIG_ENV, value),
+                None => std::env::remove_var(crate::cli::ACCEPT_MANAGED_CONFIG_ENV),
+            }
 
             // Initialize the core with all options disabled
             initialize_core("".to_string(), false, false, false, false, false, verbose);
@@ -928,6 +934,8 @@ fn run_base() {
             if sub_matches.get_flag("export_ai_failure_details") {
                 std::env::set_var("EDAMAME_EXPORT_AI_FAILURE_DETAILS", "force");
             }
+            // Never reports to a Hub: no managed configuration to opt in to.
+            std::env::remove_var(crate::cli::ACCEPT_MANAGED_CONFIG_ENV);
 
             // Initialize the core with all options disabled
             initialize_core("".to_string(), false, false, false, false, false, verbose);
@@ -1015,6 +1023,12 @@ fn run_base() {
             let llm_api_key = sub_matches.get_one::<String>("llm_api_key").cloned();
             if sub_matches.get_flag("export_ai_failure_details") {
                 std::env::set_var("EDAMAME_EXPORT_AI_FAILURE_DETAILS", "force");
+            }
+            // The Hub-managed configuration opt-in reaches the daemon (and
+            // this process's core) through the environment.
+            match sub_matches.get_one::<String>("accept_managed_config") {
+                Some(value) => std::env::set_var(crate::cli::ACCEPT_MANAGED_CONFIG_ENV, value),
+                None => std::env::remove_var(crate::cli::ACCEPT_MANAGED_CONFIG_ENV),
             }
 
             // Directly call the background process
