@@ -15,6 +15,13 @@ Detection path:
 Cross-platform: macOS, Linux, Windows (detection depends on the EDAMAME FIM
 watch paths configured for that platform; the trigger itself uses
 Path.expanduser(), tempfile.gettempdir(), and wraps chmod in try/except OSError).
+
+File safety: the fixtures land in real user directories, so each one is created
+with O_EXCL and recorded with the sha256 of the bytes written in
+`file_events.manifest.json` (state dir). A path that already exists and is not
+the trigger's own, unchanged file is refused and reported, never truncated;
+cleanup.py removes only the recorded files that still hash to the recorded
+value and reports anything else.
 """
 
 from __future__ import annotations
@@ -29,6 +36,7 @@ from pathlib import Path
 
 from _common import (
     AGENT_TYPE_ARG_HELP,
+    TriggerFileManifest,
     file_prefix_for,
     resolve_agent_type,
     state_dir_for,
@@ -36,7 +44,8 @@ from _common import (
 )
 
 PID_FILE = "file_events.pid"
-CREATED_MARKER = "file_events.created"
+# Read by cleanup.py (TRIGGER_MANIFESTS).
+MANIFEST = "file_events.manifest.json"
 
 KEEP_RUNNING = True
 
@@ -65,30 +74,21 @@ def ensure_state_dir(d: Path) -> None:
     d.mkdir(parents=True, exist_ok=True)
 
 
-def record_created(state_dir: Path, path: Path) -> None:
-    marker = state_dir / CREATED_MARKER
-    existing = set()
-    if marker.exists():
-        existing = {l.strip() for l in marker.read_text("utf-8").splitlines() if l.strip()}
-    existing.add(str(path))
-    marker.write_text("\n".join(sorted(existing)) + "\n", encoding="utf-8")
+def text_bytes(content: str) -> bytes:
+    # The bytes Path.write_text wrote before: text mode turns "\n" into
+    # os.linesep, so the fixtures on disk are unchanged on every platform.
+    return content.replace("\n", os.linesep).encode("utf-8")
 
 
-def create_sensitive_file(path: Path, content: str, state_dir: Path) -> Path:
+def create_sensitive_file(path: Path, content: str, manifest: TriggerFileManifest) -> Path:
     path = path.expanduser()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(content, encoding="utf-8")
-    try:
-        path.chmod(0o600)
-    except OSError:
-        pass
-    record_created(state_dir, path)
+    manifest.write(path, text_bytes(content), 0o600)
     return path
 
 
-def modify_file(path: Path, content: str) -> None:
+def modify_file(path: Path, content: str, manifest: TriggerFileManifest) -> None:
     if path.exists():
-        path.write_text(content, encoding="utf-8")
+        manifest.write(path, text_bytes(content))
 
 
 def main() -> int:
@@ -104,6 +104,8 @@ def main() -> int:
 
     signal.signal(signal.SIGINT, handle_signal)
     signal.signal(signal.SIGTERM, handle_signal)
+
+    manifest = TriggerFileManifest(state_dir / MANIFEST)
 
     pid_file = state_dir / PID_FILE
     pid_file.write_text(f"{os.getpid()}\n", encoding="utf-8")
@@ -139,30 +141,28 @@ def main() -> int:
             create_sensitive_file(
                 Path(f"~/.ssh/{pfx}_fim_test_key"),
                 f"{upfx}_FIM_SSH_KEY_ROUND_{round_num}\n-----BEGIN OPENSSH PRIVATE KEY-----\nfake\n-----END OPENSSH PRIVATE KEY-----\n",
-                state_dir,
+                manifest,
             )
             create_sensitive_file(
                 Path(f"~/.aws/{pfx}_fim_test_credentials"),
                 f"[default]\naws_access_key_id = {upfx}_FIM_AKID_{round_num}\naws_secret_access_key = {upfx}_FIM_SECRET_{round_num}\n",
-                state_dir,
+                manifest,
             )
             create_sensitive_file(
                 Path(f"~/.env_{pfx}_fim_test"),
                 f"API_TOKEN={upfx}_FIM_TOKEN_{round_num}\nDB_PASSWORD={upfx}_FIM_DBPASS_{round_num}\n",
-                state_dir,
+                manifest,
             )
 
-            tmp_file.parent.mkdir(parents=True, exist_ok=True)
-            tmp_file.write_bytes(b"\x7fELF" + b"\x00" * 100 + f"round={round_num}".encode())
-            try:
-                tmp_file.chmod(0o755)
-            except OSError:
-                pass
-            record_created(state_dir, tmp_file)
+            manifest.write(
+                tmp_file,
+                b"\x7fELF" + b"\x00" * 100 + f"round={round_num}".encode(),
+                0o755,
+            )
 
             if round_num > 1:
-                modify_file(ssh_key, f"{upfx}_FIM_SSH_KEY_MODIFIED_{round_num}\n")
-                modify_file(aws_cred, f"[default]\naws_access_key_id = {upfx}_FIM_AKID_MOD_{round_num}\n")
+                modify_file(ssh_key, f"{upfx}_FIM_SSH_KEY_MODIFIED_{round_num}\n", manifest)
+                modify_file(aws_cred, f"[default]\naws_access_key_id = {upfx}_FIM_AKID_MOD_{round_num}\n", manifest)
 
             print(f"  round={round_num} files created/modified")
             sys.stdout.flush()

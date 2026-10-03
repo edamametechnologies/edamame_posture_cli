@@ -20,6 +20,8 @@ from pathlib import Path
 from _common import (
     AGENT_TYPE_ARG_HELP,
     file_prefix_for,
+    read_trigger_manifest,
+    regular_file_sha256,
     resolve_agent_type,
     state_dir_for,
     upper_prefix_for,
@@ -67,7 +69,6 @@ CREATED_MARKERS = [
     "supply_chain_exfil.created",
     "npm_rat_beacon.created",
     "pgserve_postinstall.created",
-    "file_events.created",
     "temp_modify.created",
     "nonsensitive_path.created",
     "agent_config_tamper.created",
@@ -81,6 +82,19 @@ CREATED_MARKERS = [
     # /usr/sbin), which is why _PROTECTED_PARENTS below exists.
     "daemon_lineage_egress.created",
     "agent_rules_backdoor.created",
+]
+
+# Content-hashed manifests written by `_common.TriggerFileManifest`: a recorded
+# file is removed only while it still holds the bytes the trigger wrote.
+TRIGGER_MANIFESTS = [
+    "file_events.manifest.json",
+]
+
+# Plain path lists written by trigger versions that predate their manifest.
+# With no hash there is no telling whether a listed file still holds the
+# trigger's bytes, so cleanup reports the paths and deletes none of them.
+LEGACY_UNHASHED_MARKERS = [
+    "file_events.created",
 ]
 
 # Markers written by `_common.claim_canonical_path` for triggers that must use
@@ -233,6 +247,60 @@ def remove_created_files(marker: Path) -> None:
             pass
 
 
+def remove_manifest_files(manifest: Path) -> None:
+    """Remove what a trigger recorded in its content-hashed manifest.
+
+    A file goes only while it still hashes to the recorded value; anything
+    else (changed content, replaced by a symlink or directory, unreadable) is
+    left in place and reported. Directories the trigger created go when empty.
+    """
+    try:
+        files, dirs = read_trigger_manifest(manifest)
+    except FileNotFoundError:
+        return
+    except (OSError, ValueError) as exc:
+        print(f"  cannot read {manifest} ({exc}); removed nothing it lists and kept it")
+        return
+    for path, recorded in sorted(files.items()):
+        target = Path(path)
+        try:
+            current = regular_file_sha256(target)
+        except FileNotFoundError:
+            continue
+        except OSError as exc:
+            print(f"  left {target}: cannot verify it is the file the trigger wrote ({exc})")
+            continue
+        if current != recorded:
+            print(f"  left {target}: its content changed since the trigger wrote it")
+            continue
+        try:
+            target.unlink()
+            print(f"  removed {target}")
+        except OSError as exc:
+            print(f"  cannot remove {target}: {exc}")
+    for directory in sorted({Path(d) for d in dirs}, key=lambda p: len(p.parts), reverse=True):
+        if directory in _PROTECTED_PARENTS:
+            continue
+        try:
+            directory.rmdir()
+            print(f"  removed empty dir {directory}")
+        except FileNotFoundError:
+            pass
+        except OSError as exc:
+            print(f"  left dir {directory}: {exc.strerror or exc}")
+    manifest.unlink(missing_ok=True)
+
+
+def report_legacy_marker(marker: Path) -> None:
+    if not marker.exists():
+        return
+    for line in marker.read_text("utf-8").splitlines():
+        path = line.strip()
+        if path and os.path.lexists(path):
+            print(f"  left {path}: listed by an older trigger without a content hash; remove it by hand if it is a test fixture")
+    marker.unlink(missing_ok=True)
+
+
 def main() -> int:
     args = parse_args()
     agent_type = resolve_agent_type(args.agent_type)
@@ -253,6 +321,14 @@ def main() -> int:
 
     for name in CREATED_MARKERS:
         remove_created_files(state_dir / name)
+
+    for name in TRIGGER_MANIFESTS:
+        remove_manifest_files(state_dir / name)
+        # Left by a trigger killed between writing and renaming its manifest.
+        remove_manifest_files(state_dir / f"{name}.tmp")
+
+    for name in LEGACY_UNHASHED_MARKERS:
+        report_legacy_marker(state_dir / name)
 
     # Prune any empty subdirectories left behind by triggers that stage
     # nested layouts (e.g. node_modules/pgserve/scripts/).  Walks
