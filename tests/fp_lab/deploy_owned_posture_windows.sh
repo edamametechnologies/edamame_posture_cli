@@ -164,9 +164,14 @@ PS
     # The agent CLIs the lab drives (Claude Code, Codex), user-level, through
     # npm like the fleet E2E; an installed one is left as it is.
     ps_run "$PRE" <<'PS'
-foreach ($pair in @(@("claude","@anthropic-ai/claude-code"), @("codex","@openai/codex"))) {
+# npm.cmd, not npm (npm.ps1 is blocked by the execution policy and failed
+# silently); a CLI counts as installed only when --version answers like the
+# real one (shiawase had a July smoke-test stub claude.cmd in the npm bin).
+foreach ($pair in @(@("claude","@anthropic-ai/claude-code","Claude Code"), @("codex","@openai/codex","codex-cli"))) {
   $c = Get-Command $pair[0] -ErrorAction SilentlyContinue
-  if ($c) { "$($pair[0]): $($c.Source)" } else { "installing $($pair[1])"; npm install -g $pair[1] 2>&1 | Select-Object -Last 2 }
+  $v = if ($c) { & $pair[0] --version 2>&1 | Select-Object -First 1 } else { "" }
+  if ("$v" -match $pair[2]) { "$($pair[0]): $($c.Source)" }
+  else { "installing $($pair[1]) (found: $v)"; & npm.cmd install -g $pair[1] 2>&1 | Select-Object -Last 3 }
 }
 foreach ($t in "claude","codex") { "$t version: $(& $t --version 2>&1 | Select-Object -First 1)" }
 PS
