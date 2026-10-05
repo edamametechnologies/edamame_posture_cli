@@ -186,6 +186,13 @@ def _baseline_is_dirty(data: Optional[dict]) -> bool:
         return False
 
 
+def _baseline_is_unmeasured(data: Optional[dict]) -> bool:
+    """No findings, but the last tick withheld its raw candidates (``llm``
+    adjudication failed): ``run_false_positive_baseline.sh`` writes
+    ``status: unmeasured``. Not a clean host, and the CVE suite was skipped."""
+    return isinstance(data, dict) and str(data.get("status", "")).lower() == "unmeasured"
+
+
 def _as_int(value: object) -> Optional[int]:
     try:
         return int(value)  # type: ignore[arg-type]
@@ -239,7 +246,11 @@ def _warm_baseline_lines(warm_dir: str) -> List[str]:
         if data is None:
             lines.append(f"| {platform} | `MISSING` | - | - | - | - | - |")
             continue
-        status = "DIRTY" if _baseline_is_dirty(data) else "CLEAN"
+        status = (
+            "DIRTY" if _baseline_is_dirty(data)
+            else "UNMEASURED" if _baseline_is_unmeasured(data)
+            else "CLEAN"
+        )
         total = _as_int(data.get("finding_total")) or 0
         cur = _as_int(data.get("finding_current")) or 0
         hist = _as_int(data.get("finding_history")) or 0
@@ -356,7 +367,19 @@ def main() -> int:
             )
         else:
             baseline_present += 1
-            if _baseline_is_dirty(baseline):
+            if _baseline_is_unmeasured(baseline):
+                adj = baseline.get("adjudication") or {}
+                artifact_fails.append(
+                    (
+                        platform,
+                        "baseline.json",
+                        "unmeasured: the last idle tick withheld its raw candidates"
+                        f" (llm adjudication {adj.get('last_status') or '?'};"
+                        f" {adj.get('withheld_ticks', '?')} of {adj.get('ticks', '?')}"
+                        " ticks withheld), so a clean result proves nothing",
+                    )
+                )
+            elif _baseline_is_dirty(baseline):
                 baseline_fails.append(
                     (
                         platform,
@@ -369,7 +392,9 @@ def main() -> int:
             else:
                 baseline_clean += 1
 
-        dirty_baseline = _baseline_is_dirty(baseline)
+        # Both skip the CVE suite (the workflow runs it only after a clean
+        # baseline step), so a missing results.json is expected for either.
+        dirty_baseline = _baseline_is_dirty(baseline) or _baseline_is_unmeasured(baseline)
 
         if results_err:
             artifact_fails.append((platform, "results.json", f"unreadable ({results_err})"))

@@ -30,12 +30,17 @@
 # Outputs (under --output-dir):
 #   baseline.json         full observation record with per-sample findings
 #   baseline_ticks.log    stdout/stderr from forced detector ticks
+#   baseline_ticks.ndjson one parsed record per forced tick (adjudication
+#                         status, mode, raw candidate count)
 #   baseline_samples/     per-sample JSON snapshots (for post-hoc triage)
 #
 # Exit codes:
-#   0  no false positives
+#   0  no false positives, and the last tick published what it measured
 #   1  at least one vulnerability finding was observed in the idle window
-#   2  infrastructure error (CLI / RPC failure, missing triggers dir, etc.)
+#   2  infrastructure error (CLI / RPC failure, missing triggers dir, etc.),
+#      or the window is unmeasured: under `llm` adjudication a tick whose
+#      model call failed withholds its raw candidates, which reads exactly
+#      like a clean host. The last tick (retried) must not be withheld.
 
 set -Euo pipefail
 
@@ -82,17 +87,70 @@ case "$(uname -s 2>/dev/null || true)" in
     ;;
 esac
 TICK_LOG="$OUTPUT_DIR_ABS/baseline_ticks.log"
+TICK_NDJSON="$OUTPUT_DIR_ABS/baseline_ticks.ndjson"
 RESULT_JSON="$OUTPUT_DIR_ABS/baseline.json"
 SAMPLES_DIR="$OUTPUT_DIR_ABS/baseline_samples"
 mkdir -p "$SAMPLES_DIR"
 : >"$TICK_LOG"
+: >"$TICK_NDJSON"
 
 call_rpc() {
   "$EDAMAME_CLI" rpc "$@" 2>>"$TICK_LOG"
 }
 
+# Force a detector tick and append its parsed record to $TICK_NDJSON. A tick
+# that waited on an overlapping one answers without its adjudication fields;
+# the detector status carries the same values then.
 force_vuln_tick() {
-  call_rpc debug_run_attack_pattern_detector_tick >>"$TICK_LOG" 2>&1
+  TRIGGERS_DIR_ENV="$TRIGGERS_DIR" "$PYTHON" - >>"$TICK_NDJSON" 2>>"$TICK_LOG" <<'PY'
+import json, os, sys, time
+sys.path.insert(0, os.environ["TRIGGERS_DIR_ENV"])
+from _edamame_cli import cli_rpc
+
+FIELDS = ("adjudication_status", "adjudication_mode", "raw_candidate_count",
+          "active_findings", "active_alertable_findings")
+rec = {"at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
+try:
+    # An adjudicated tick waits on the model (up to its 120 s timeout).
+    tick = cli_rpc("debug_run_attack_pattern_detector_tick", timeout=300)
+    if isinstance(tick, dict):
+        rec.update(tick)
+    if not all(k in rec for k in FIELDS):
+        status = cli_rpc("get_attack_pattern_detector_status")
+        if isinstance(status, dict):
+            for k in FIELDS:
+                rec.setdefault(k, status.get(k))
+except Exception as exc:  # noqa: BLE001
+    rec["error"] = str(exc)
+print(json.dumps(rec), flush=True)
+print(f"[tick] {json.dumps(rec)}", file=sys.stderr)
+PY
+}
+
+# Exit 0 when the last recorded tick published what it measured: anything
+# but a withheld status (`error` / `unavailable`, the core's
+# `adjudication_status_is_withheld`) with raw candidates under `llm`.
+last_tick_measured() {
+  "$PYTHON" - "$TICK_NDJSON" <<'PY'
+import json, sys
+last = None
+with open(sys.argv[1], "r", encoding="utf-8") as fh:
+    for line in fh:
+        line = line.strip()
+        if line:
+            try:
+                last = json.loads(line)
+            except ValueError:
+                pass
+if not isinstance(last, dict) or last.get("error"):
+    raise SystemExit(1)
+withheld = (
+    str(last.get("adjudication_mode") or "") == "llm"
+    and str(last.get("adjudication_status") or "") in ("error", "unavailable")
+    and int(last.get("raw_candidate_count") or 0) > 0
+)
+raise SystemExit(1 if withheld else 0)
+PY
 }
 
 clear_vuln_history() {
@@ -239,6 +297,7 @@ write_result_json() {
   TICK_INTERVAL_ENV="$TICK_INTERVAL" \
   SAMPLES_DIR_ENV="$SAMPLES_DIR" \
   RESULT_JSON_ENV="$RESULT_JSON" \
+  TICK_NDJSON_ENV="$TICK_NDJSON" \
   "$PYTHON" - <<'PY'
 import json, os, time
 
@@ -253,6 +312,41 @@ if os.path.isdir(samples_dir):
         except Exception as exc:
             samples.append({"name": name, "error": str(exc)})
 
+ticks = []
+try:
+    with open(os.environ["TICK_NDJSON_ENV"], "r", encoding="utf-8") as fh:
+        for line in fh:
+            line = line.strip()
+            if line:
+                try:
+                    ticks.append(json.loads(line))
+                except ValueError:
+                    ticks.append({"error": "unparsable tick record"})
+except OSError:
+    pass
+
+
+def _withheld(t):
+    return (
+        str(t.get("adjudication_mode") or "") == "llm"
+        and str(t.get("adjudication_status") or "") in ("error", "unavailable")
+        and int(t.get("raw_candidate_count") or 0) > 0
+    )
+
+
+last = ticks[-1] if ticks else {}
+adjudication = {
+    "ticks": len(ticks),
+    "withheld_ticks": sum(1 for t in ticks if isinstance(t, dict) and _withheld(t)),
+    "error_ticks": sum(1 for t in ticks if isinstance(t, dict) and t.get("error")),
+    "statuses": sorted({str(t.get("adjudication_status")) for t in ticks
+                        if isinstance(t, dict) and t.get("adjudication_status")}),
+    "mode": last.get("adjudication_mode") if isinstance(last, dict) else None,
+    "last_status": last.get("adjudication_status") if isinstance(last, dict) else None,
+    "last_raw_candidates": last.get("raw_candidate_count") if isinstance(last, dict) else None,
+    "measured": os.environ["STATUS_ENV"] != "unmeasured",
+}
+
 record = {
     "status": os.environ["STATUS_ENV"],
     "duration_s": int(os.environ["DURATION_ENV"]),
@@ -262,6 +356,7 @@ record = {
     "finding_current": int(os.environ["CUR_ENV"]),
     "finding_history": int(os.environ["HIST_ENV"]),
     "first_finding_sample": os.environ["FIRST_FINDING_SAMPLE_ENV"] or None,
+    "adjudication": adjudication,
     "samples": samples,
     "generated_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
 }
@@ -275,6 +370,7 @@ print(json.dumps({k: record[k] for k in (
     "finding_current",
     "finding_history",
     "first_finding_sample",
+    "adjudication",
 )}, indent=2))
 PY
 }
@@ -316,6 +412,12 @@ emit_result() {
     log "  first dirty sample: $first_finding_sample"
     write_result_json "fail" "$total" "$current" "$history" "$elapsed" "$first_finding_sample" >&2 || true
     return 1
+  fi
+  if ! last_tick_measured; then
+    log "UNMEASURED: no findings, but the last tick withheld its raw candidates"
+    log "  (llm adjudication failed; see $TICK_NDJSON). A withheld tick is not a clean host."
+    write_result_json "unmeasured" 0 0 0 "$elapsed" "" >&2 || true
+    return 2
   fi
   log "PASS: no findings after ${elapsed}s idle"
   write_result_json "pass" 0 0 0 "$elapsed" "" >&2 || true
@@ -365,6 +467,16 @@ done
 # Final tick + settle so any just-enqueued finding has a chance to surface.
 force_vuln_tick
 sleep 2
+# A withheld tick re-reads its evidence on the next one (the FIM window does
+# not advance and the input-hash skip is off), so a transient Portal failure
+# is retried here rather than read as clean or as a gate failure.
+for retry in 1 2 3; do
+  last_tick_measured && break
+  log "  last tick withheld by llm adjudication; retry ${retry}/3 in 30s"
+  sleep 30
+  force_vuln_tick
+  sleep 2
+done
 sample_count=$((sample_count + 1))
 sample_file="$SAMPLES_DIR/sample_$(printf '%04d' "$sample_count")_final.json"
 if ! sample_findings >"$sample_file"; then
@@ -385,8 +497,5 @@ if (( sample_total > total )); then
   log "  final sweep found additional findings: total=$sample_total"
 fi
 
-if emit_result; then
-  exit 0
-else
-  exit 1
-fi
+emit_result
+exit $?

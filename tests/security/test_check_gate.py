@@ -51,6 +51,23 @@ DIRTY_BASELINE = {
 }
 
 
+UNMEASURED_BASELINE = {
+    "status": "unmeasured",
+    "finding_total": 0,
+    "finding_current": 0,
+    "finding_history": 0,
+    "first_finding_sample": "",
+    "adjudication": {
+        "ticks": 14,
+        "withheld_ticks": 14,
+        "mode": "llm",
+        "last_status": "error",
+        "last_raw_candidates": 3,
+        "measured": False,
+    },
+}
+
+
 def scenario(
     name: str,
     status: str = "pass",
@@ -407,6 +424,21 @@ class TestGateFailsClosed(GateTestCase):
         self.assertIn("DIRTY", out)
         # The absent results.json is expected here, so it must not be
         # reported as a separate missing-artifact failure.
+        self.assertNotIn("CVE step crashed", out)
+
+    def test_unmeasured_baseline_blocks_on_baseline_only(self):
+        """A withheld last tick is not a clean host; the CVE suite was skipped."""
+        rc, out = self.run_gate(
+            {
+                "windows-x64": {
+                    "baseline.json": UNMEASURED_BASELINE,
+                    "results.json": None,
+                }
+            },
+            required="cve_token_exfil",
+        )
+        self.assertEqual(rc, 1, out)
+        self.assertIn("unmeasured", out)
         self.assertNotIn("CVE step crashed", out)
 
     def test_missing_baseline_blocks(self):
