@@ -91,12 +91,14 @@ on:
     branches: [ dev, main ]
     paths:
       - 'tests/e2e/run_fleet_monitoring.py'
+      - 'tests/e2e/agent_harness.py'
       - 'tests/e2e/supported_agents.py'
       - 'tests/security/triggers/**'
       - '.github/workflows/agent_monitoring_e2e.yml'
   pull_request:
     paths:
       - 'tests/e2e/run_fleet_monitoring.py'
+      - 'tests/e2e/agent_harness.py'
       - 'tests/e2e/supported_agents.py'
       - 'tests/security/triggers/**'
       - '.github/workflows/agent_monitoring_e2e.yml'
@@ -111,6 +113,20 @@ on:
         type: boolean
         required: false
         default: false
+      mode:
+        description: 'fleet = the release gate (default). fp_lab = run tests/fp_lab (real agents doing benign work; fails on any alertable finding or divergence incident) against posture_build_run_id'
+        type: choice
+        options: [fleet, fp_lab]
+        required: false
+        default: fleet
+      posture_build_run_id:
+        description: 'fp_lab only: tests.yml run id whose posture-binary-<label> artifacts (a build of the source under test) the lab runs against'
+        required: false
+        default: ''
+      fp_lab_scenarios:
+        description: 'fp_lab only: CSV of scenario or case ids (empty = whole catalog)'
+        required: false
+        default: ''
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -126,6 +142,13 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            posture_label: ubuntu-x64
+          - os: macos-latest
+            posture_label: macos-arm64
+          - os: windows-latest
+            posture_label: windows-x64
 
     steps:
       # ── Checkout this repo only (NO plugin repos: Level-2 plugins are
@@ -329,8 +352,98 @@ jobs:
           fi
           echo "edamame_cli dispatches all RPCs required by the fleet driver."
 
+      # ── FP lab mode: run against a posture built from the source ───────
+      # The fleet gate runs the released posture the action installs. The FP
+      # lab measures false positives of the code under test, so it swaps the
+      # daemon for the tests.yml build of that source (posture-binary-<label>)
+      # and starts it disconnected with the LLM, like the security gate does.
+      # Agent CLIs, keys, edamame_cli and the registry are the steps above.
+      - name: "FP lab: download the posture build"
+        if: github.event.inputs.mode == 'fp_lab'
+        uses: actions/download-artifact@v4
+        with:
+          name: posture-binary-${{ matrix.posture_label }}
+          path: posture-artifact
+          run-id: ${{ github.event.inputs.posture_build_run_id }}
+          github-token: ${{ github.token }}
+
+      - name: "FP lab: restart the daemon on the posture build"
+        if: github.event.inputs.mode == 'fp_lab'
+        shell: bash
+        env:
+          EDAMAME_LLM_API_KEY: ${{ secrets.EDAMAME_LLM_API_KEY }}
+          POSTURE_BUILD_RUN_ID: ${{ github.event.inputs.posture_build_run_id }}
+        run: |
+          set -euo pipefail
+          test -n "$POSTURE_BUILD_RUN_ID" || { echo "::error::posture_build_run_id is required in fp_lab mode"; exit 1; }
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            BIN="$GITHUB_WORKSPACE/posture-build/edamame_posture.exe"
+            mkdir -p "$(dirname "$BIN")"; cp posture-artifact/edamame_posture.exe "$BIN"
+            "$EDAMAME_POSTURE" stop >/dev/null 2>&1 || true
+            taskkill //F //IM edamame_posture.exe 2>/dev/null || true
+            CMD="$BIN"
+          else
+            sudo -E "$EDAMAME_POSTURE" stop >/dev/null 2>&1 || true
+            sudo pkill -9 edamame_posture 2>/dev/null || true
+            if [ "$RUNNER_OS" = "Linux" ] && command -v systemctl >/dev/null 2>&1; then
+              sudo systemctl stop edamame_posture.service >/dev/null 2>&1 || true
+            fi
+            if [ "$RUNNER_OS" = "macOS" ]; then
+              sudo installer -pkg posture-artifact/edamame-posture.pkg -target /
+              BIN=/usr/local/bin/edamame_posture
+            else
+              BIN="$GITHUB_WORKSPACE/posture-build/edamame_posture"
+              mkdir -p "$(dirname "$BIN")"; cp posture-artifact/edamame_posture "$BIN"; chmod +x "$BIN"
+            fi
+            CMD="sudo -E $BIN"
+          fi
+          sleep 2
+          $CMD background-start-disconnected --packet-capture --agentic-mode analyze --agentic-provider edamame
+          sleep 5
+          $CMD background-status || true
+          "$BIN" get-core-version
+          echo "EDAMAME_POSTURE=$BIN" >> "$GITHUB_ENV"
+
+      - name: "FP lab: run"
+        if: github.event.inputs.mode == 'fp_lab'
+        timeout-minutes: 150
+        shell: bash
+        env:
+          EDAMAME_CLI: ${{ env.EDAMAME_CLI }}
+          EDAMAME_SUPPORTED_AGENTS_INDEX: ${{ env.EDAMAME_SUPPORTED_AGENTS_INDEX }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          FP_LAB_SCENARIOS: ${{ github.event.inputs.fp_lab_scenarios }}
+        run: |
+          PY=python3
+          command -v python3 >/dev/null 2>&1 || PY=python
+          OUT="$GITHUB_WORKSPACE/fp-lab-run"
+          # Adjudication follows the shipped default (auto: advisory with the
+          # Portal), which is what users see; the security gate pins llm.
+          ARGS=(run --out "$OUT" --set-adjudication auto --scenarios "$FP_LAB_SCENARIOS")
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            # Same reason as the fleet driver: the root daemon's observer reads
+            # /root, so the agents run as root with HOME=/root (--allow-root).
+            PYBIN=$(command -v "$PY")
+            sudo -E env "PATH=$PATH" "HOME=/root" \
+              "EDAMAME_SUPPORTED_AGENTS_INDEX=$EDAMAME_SUPPORTED_AGENTS_INDEX" \
+              "$PYBIN" tests/fp_lab/run_fp_lab.py "${ARGS[@]}" --allow-root
+          else
+            "$PY" tests/fp_lab/run_fp_lab.py "${ARGS[@]}"
+          fi
+
+      - name: "FP lab: upload the run"
+        if: always() && github.event.inputs.mode == 'fp_lab'
+        uses: actions/upload-artifact@v4
+        with:
+          name: fp-lab-${{ matrix.posture_label }}
+          path: fp-lab-run
+          if-no-files-found: warn
+          retention-days: 14
+
       # ── Drive the whole fleet ──────────────────────────────────────────
       - name: Run fleet monitoring driver
+        if: github.event.inputs.mode != 'fp_lab'
         timeout-minutes: 40
         shell: bash
         env:
