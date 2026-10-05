@@ -1880,6 +1880,35 @@ jobs:
           fi
           "$EDAMAME_CLI" rpc get_core_version || true
 
+      # Kernel process ancestry: a HARD gate on every platform (2.0.5). The
+      # detector binds a process to its parent and to an AI-agent subtree from
+      # the kernel process-event stream (Endpoint Security / eBPF / ETW). Until
+      # 2.0.5 the macOS sensor named every exec'ing process as its own parent,
+      # so macOS had no ancestry at all while every scenario stayed green. The
+      # script starts `python -> edl_p -> edl_c`, forces a detector tick (the
+      # tick drains the kernel ring; it needs no LLM) and asserts through
+      # `debug_get_process_lineage` that edl_c's parent is edl_p, its ancestry
+      # climbs edl_p then the interpreter, and no event named a process as its
+      # own parent. It runs before the baseline and does not depend on it (the
+      # baseline clears whatever the chain left). continue-on-error keeps the
+      # rest of the suite running; the verdict is lineage.json, which
+      # check_gate.py requires on every platform (missing, unreadable or failed
+      # = release blocked), and the step outcome also fails this job below.
+      - name: Kernel process lineage gate
+        id: lineage
+        timeout-minutes: 10
+        shell: bash
+        env:
+          EDAMAME_CLI: ${{ env.EDAMAME_CLI }}
+        run: |
+          mkdir -p "results/${{ matrix.label }}"
+          python3 tests/security/run_lineage_gate.py \
+            --triggers-dir "$CVE_TRIGGERS_DIR" \
+            --output-dir "results/${{ matrix.label }}" \
+            --platform "${{ matrix.label }}" \
+            --timeout 240
+        continue-on-error: true
+
       - name: Run false-positive baseline (10 min idle)
         id: baseline
         # Baseline itself waits 600s; the remainder is pre-baseline warm-up
@@ -2121,7 +2150,7 @@ jobs:
           retention-days: 30
 
       - name: Slack alerts
-        if: steps.install_cli.outcome == 'failure' || steps.triggers.outcome == 'failure' || steps.baseline.outcome == 'failure' || steps.detection.outcome == 'failure' || steps.divergence.outcome == 'failure'
+        if: steps.install_cli.outcome == 'failure' || steps.triggers.outcome == 'failure' || steps.lineage.outcome == 'failure' || steps.baseline.outcome == 'failure' || steps.detection.outcome == 'failure' || steps.divergence.outcome == 'failure'
         uses: slackapi/slack-github-action@v1.26.0
         with:
           channel-id: 'C072J0U9TH7'
@@ -2129,6 +2158,7 @@ jobs:
             *Security (CVE) Test Results for ${{ github.repository }} (${{ matrix.label }})*:
             - edamame_cli install: ${{ steps.install_cli.outcome != 'failure' && '✅ Success' || '❌ Failed' }}
             - Trigger fetch: ${{ steps.triggers.outcome != 'failure' && '✅ Success' || '❌ Failed' }}
+            - Kernel process lineage: ${{ steps.lineage.outcome == 'success' && '✅ Resolved' || '❌ Ancestry not resolved (release blocked)' }}
             - False-positive baseline (10 min idle): ${{ steps.baseline.outcome == 'success' && '✅ Clean' || '❌ Findings during idle window (release blocked)' }}
             - CVE Detection Suite: ${{ steps.detection.outcome == 'success' && '✅ Success' || (steps.detection.outcome == 'skipped' && '⏭️ Skipped (baseline dirty)' || '❌ Failed') }}
             - Divergence Detection Suite: ${{ steps.divergence.outcome == 'success' && '✅ Success' || (steps.divergence.outcome == 'skipped' && '⏭️ Skipped (baseline dirty or Windows)' || '❌ Failed') }}
@@ -2159,11 +2189,12 @@ jobs:
 
       - name: Fail job if tests failed
         shell: bash
-        if: steps.install_cli.outcome == 'failure' || steps.triggers.outcome == 'failure' || steps.baseline.outcome == 'failure' || steps.detection.outcome == 'failure'
+        if: steps.install_cli.outcome == 'failure' || steps.triggers.outcome == 'failure' || steps.lineage.outcome == 'failure' || steps.baseline.outcome == 'failure' || steps.detection.outcome == 'failure'
         run: |
           echo "## Security Results Summary (${{ matrix.label }})"
           echo "- edamame_cli install: ${{ steps.install_cli.outcome != 'failure' && '✅ Success' || '❌ Failed' }}"
           echo "- Trigger fetch: ${{ steps.triggers.outcome != 'failure' && '✅ Success' || '❌ Failed' }}"
+          echo "- Kernel process lineage: ${{ steps.lineage.outcome == 'success' && '✅ Resolved' || '❌ Ancestry not resolved (release blocked; see lineage.json)' }}"
           echo "- False-positive baseline (10 min idle): ${{ steps.baseline.outcome == 'success' && '✅ Clean' || '❌ Findings during idle window (release blocked)' }}"
           echo "- CVE Detection Suite: ${{ steps.detection.outcome == 'success' && '✅ Success' || (steps.detection.outcome == 'skipped' && '⏭️ Skipped (baseline dirty)' || '❌ Failed') }}"
           echo ""
