@@ -131,6 +131,30 @@ case "$CMD" in
     ssh_host 'cd ~/fp-lab/harness && python3 tests/fp_lab/run_fp_lab.py validate'
     ;;
 
+  keys)
+    # The agents' provider keys (approved by Frank, 2026-10-05), 0600, never
+    # echoed; `stop` deletes them. The Portal key comes from the released
+    # service's EnvironmentFile, which the owned unit reads.
+    SECRETS="${FP_LAB_SECRETS:-$WORKSPACE/secrets}"
+    for f in claude.env openai.env; do [[ -f "$SECRETS/$f" ]] || die "missing $SECRETS/$f"; done
+    grep -hE '^(export )?(ANTHROPIC_API_KEY|OPENAI_API_KEY)=' "$SECRETS/claude.env" "$SECRETS/openai.env" \
+      | sed 's/^export //; s/^/export /' \
+      | ssh_host 'umask 077; mkdir -p ~/fp-lab/secrets; cat > ~/fp-lab/secrets/providers.env; chmod 600 ~/fp-lab/secrets/providers.env; sed -E "s/=.*/=<set>/" ~/fp-lab/secrets/providers.env'
+    ;;
+
+  agents)
+    # Claude Code and Codex through npm, user-level, when missing.
+    ssh_host 'bash -s' <<'EOF'
+export PATH="$HOME/.local/bin:$HOME/.npm-global/bin:$PATH"
+npm config get prefix | grep -q "$HOME" || npm config set prefix "$HOME/.npm-global"
+for pair in "claude:@anthropic-ai/claude-code:Claude Code" "codex:@openai/codex:codex-cli"; do
+  bin=${pair%%:*}; rest=${pair#*:}; pkg=${rest%%:*}; want=${rest#*:}
+  if "$bin" --version 2>/dev/null | grep -q "$want"; then echo "$bin: $(command -v $bin)"; else echo "installing $pkg"; npm install -g "$pkg" 2>&1 | tail -n 2; fi
+done
+for t in claude codex; do echo "$t version: $($t --version 2>&1 | head -1)"; done
+EOF
+    ;;
+
   record)
     TAG="${1:-state}"
     OUT="$CACHE/state/$HOST-$(date +%Y%m%d-%H%M%S)-$TAG.txt"; mkdir -p "$(dirname "$OUT")"
@@ -154,6 +178,12 @@ test -x ~/fp-lab/bin/edamame_posture
 sudo install -d -m 0700 /var/lib/edamame-fplab /var/lib/edamame-fplab/state
 sudo install -d -m 0755 /var/lib/edamame-fplab/bin /var/lib/edamame-fplab/log
 sudo install -m 0755 ~/fp-lab/bin/edamame_posture /var/lib/edamame-fplab/bin/edamame_posture
+# The GUI is a thin client of whichever daemon owns the port: it stays off
+# for the window so nothing but the lab drives the owned daemon.
+mkdir -p ~/fp-lab/state
+if pgrep -u "\$USER" -f /usr/lib/edamame-security/edamame_security >/dev/null; then
+  echo running > ~/fp-lab/state/gui; pkill -u "\$USER" -f /usr/lib/edamame-security/edamame_security; echo "GUI stopped"
+else echo stopped > ~/fp-lab/state/gui; fi
 echo "stopping the released service"
 sudo systemctl stop $SERVICE
 for _ in \$(seq 1 30); do ss -ltn | grep -q '127.0.0.1:40152 ' || break; sleep 1; done
@@ -187,6 +217,8 @@ EOF
     ssh_host 'bash -s' <<EOF
 mkdir -p ~/fp-lab/runs
 cd ~/fp-lab/harness
+export PATH="\$HOME/.local/bin:\$HOME/.npm-global/bin:\$PATH"
+if [ -f ~/fp-lab/secrets/providers.env ]; then set -a; . ~/fp-lab/secrets/providers.env; set +a; fi
 setsid -f python3 tests/fp_lab/run_fp_lab.py run --out ~/fp-lab/runs/$NAME \
   --expect-core-version $OWNED_VERSION --set-adjudication auto $ARGS \
   > ~/fp-lab/runs/$NAME.log 2>&1 < /dev/null
@@ -230,6 +262,7 @@ if systemctl is-active --quiet $UNIT; then
   sudo systemctl stop $UNIT || true
 fi
 sudo systemctl reset-failed $UNIT 2>/dev/null || true
+rm -f ~/fp-lab/secrets/*.env
 # The installed copy is redundant with ~/fp-lab/bin (start reinstalls it); the
 # owned state and log stay in /var/lib/edamame-fplab for forensics.
 sudo rm -f /var/lib/edamame-fplab/bin/edamame_posture
@@ -237,6 +270,18 @@ for _ in \$(seq 1 30); do ss -ltn | grep -q '127.0.0.1:40152 ' || break; sleep 1
 echo "starting the released service"
 sudo systemctl start $SERVICE
 echo "released daemon: \$(wait_rpc $RELEASED_VERSION 240)"
+if [ "\$(cat ~/fp-lab/state/gui 2>/dev/null)" = running ]; then
+  # Relaunch in the live desktop session (dogfood-status skill): inherit its
+  # DISPLAY / DBUS from the running cinnamon-session.
+  CPID=\$(pgrep -f cinnamon-session | head -1)
+  if [ -n "\$CPID" ]; then
+    eval "\$(tr "\\0" "\\n" < /proc/\$CPID/environ | grep -E "^(DISPLAY|DBUS_SESSION_BUS_ADDRESS|XDG_RUNTIME_DIR)=" | sed "s/^/export /")"
+    setsid env DISPLAY="\$DISPLAY" DBUS_SESSION_BUS_ADDRESS="\$DBUS_SESSION_BUS_ADDRESS" XDG_RUNTIME_DIR="\$XDG_RUNTIME_DIR" \
+      XAUTHORITY="\$HOME/.Xauthority" /usr/lib/edamame-security/edamame_security >> ~/edamame_security_dogfood.log 2>&1 < /dev/null &
+    sleep 6
+  fi
+  pgrep -f /usr/lib/edamame-security/edamame_security >/dev/null && echo "GUI: running" || echo "GUI: NOT RUNNING"
+fi
 sleep 30
 systemctl is-active $SERVICE
 show_state
