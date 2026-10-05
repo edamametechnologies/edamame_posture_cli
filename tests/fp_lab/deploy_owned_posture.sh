@@ -5,8 +5,13 @@
 #
 #   deploy_owned_posture.sh <host> <command> [args]
 #
-# Hosts: test-mint (Linux; implemented). fmba-3 (macOS) and shiawase (Windows)
-# are described in owned_posture.md and are not implemented in v1.
+# Hosts: test-mint (Linux), fmba-3 (macOS: deploy_owned_posture_macos.sh, with
+# its own `keys` command). shiawase (Windows) is described in owned_posture.md.
+#
+# On a desktop host the window stops the released app and disables its helper
+# first, and `stop` re-enables the helper, relaunches the app and removes the
+# owned posture (Frank, 2026-10-05). Only the owned build observes the host
+# during the window.
 #
 # Commands, in the order a lab window uses them:
 #   fetch            download posture-binary-<label> of CI run $FP_LAB_RUN_ID
@@ -58,8 +63,11 @@ case "$HOST" in
     SERVICE="edamame_posture.service"
     UNIT="edamame-fplab"
     ;;
-  fmba-3|shiawase)
-    die "$HOST: not implemented in v1 -- see tests/fp_lab/owned_posture.md for what that leg needs"
+  fmba-3)
+    exec bash "$HERE/deploy_owned_posture_macos.sh" "$CMD" "$@"
+    ;;
+  shiawase)
+    die "$HOST: not implemented yet -- see tests/fp_lab/owned_posture.md for what that leg needs"
     ;;
   *) die "unknown host $HOST" ;;
 esac
