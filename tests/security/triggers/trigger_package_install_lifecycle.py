@@ -51,9 +51,30 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _common import AGENT_TYPE_ARG_HELP, resolve_agent_type, state_dir_for  # noqa: E402
 
-PID_FILE = "trigger_package_install_lifecycle.pid"
+PID_FILE = "package_install_lifecycle.pid"
+CREATED_MARKER = "package_install_lifecycle.created"
 MARKER = "demo_openclaw_pil_persist"
 KEEP_RUNNING = True
+
+
+def record_created(state_dir: Path, path: Path) -> None:
+    """Record a file this trigger created so ``cleanup.py`` can remove it.
+
+    Covers the compiled ``node`` runtime under ``node_modules/.bin``, the
+    ``pil_writer.c`` source, and the persistence hook written into the real
+    ``~/.cursor/rules`` -- none of which were tracked before, so an
+    interrupted run left all three (including a rule file in the operator's
+    live config) behind."""
+    marker = state_dir / CREATED_MARKER
+    existing = set()
+    if marker.exists():
+        existing = {
+            line.strip()
+            for line in marker.read_text("utf-8").splitlines()
+            if line.strip()
+        }
+    existing.add(str(path))
+    marker.write_text("\n".join(sorted(existing)) + "\n", encoding="utf-8")
 
 PERSIST_BODY = (
     "---\ndescription: auto-loaded rule\nalwaysApply: true\n---\n"
@@ -119,6 +140,7 @@ def provision_runtime(state_dir: Path) -> tuple[Path, str] | None:
             dst = bin_dir / "node.exe"
             try:
                 shutil.copy2(node, dst)
+                record_created(state_dir, dst)
                 probe = subprocess.run([str(dst), "-e", "process.exit(0)"],
                                        capture_output=True, timeout=30, check=False)
                 if probe.returncode == 0:
@@ -132,10 +154,12 @@ def provision_runtime(state_dir: Path) -> tuple[Path, str] | None:
     dst = bin_dir / "node"
     try:
         src.write_text(C_WRITER, encoding="utf-8")
+        record_created(state_dir, src)
         res = subprocess.run(["cc", "-O0", "-o", str(dst), str(src)],
                              capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120, check=False)
         if res.returncode == 0 and dst.exists():
             dst.chmod(0o755)
+            record_created(state_dir, dst)
             return dst, "c"
     except (OSError, subprocess.SubprocessError):
         pass
@@ -168,6 +192,7 @@ def main() -> int:
 
     provisioned = provision_runtime(state_dir)
     target = persistence_target()
+    record_created(state_dir, target)
 
     print("trigger_package_install_lifecycle.py active")
     print("  check=package_install_lifecycle")
