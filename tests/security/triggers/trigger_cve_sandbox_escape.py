@@ -159,6 +159,46 @@ def handle_signal(signum: int, _frame: object) -> None:
     KEEP_RUNNING = False
 
 
+def terminate_process_tree(proc: subprocess.Popen) -> None:
+    """Terminate ``proc`` and every process in its session.
+
+    The launcher wrapper runs the compiled probe as its own child rather than
+    ``exec``-ing it (the probe must keep a ``/tmp`` parent for the detector),
+    so signalling only ``proc`` leaves the probe orphaned and still sending
+    UDP forever -- and, when the caller captured stdout, holding the inherited
+    pipe open so the capture never returns. The wrapper is launched with
+    ``start_new_session=True`` so ``proc.pid`` leads its own process group and
+    killing the group reaches the probe underneath it.
+    """
+    if proc.poll() is not None:
+        return
+    if sys.platform == "win32":
+        subprocess.run(["taskkill", "/PID", str(proc.pid), "/T", "/F"],
+                       capture_output=True, check=False)
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+        return
+    try:
+        os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
+    except (ProcessLookupError, OSError):
+        try:
+            proc.terminate()
+        except OSError:
+            pass
+    try:
+        proc.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        try:
+            os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+        except (ProcessLookupError, OSError):
+            try:
+                proc.kill()
+            except OSError:
+                pass
+
+
 def ensure_state_dir(d: Path) -> None:
     d.mkdir(parents=True, exist_ok=True)
 
@@ -300,6 +340,7 @@ def run_compiled(binary: Path, args: argparse.Namespace, state_dir: Path) -> int
         launch_argv,
         stdout=sys.stdout,
         stderr=sys.stderr,
+        start_new_session=(sys.platform != "win32"),
     )
     pid_file.write_text(f"{proc.pid}\n", encoding="utf-8")
     print(f"trigger_cve_sandbox_escape.py  wrapper_pid={os.getpid()}  child_pid={proc.pid}")
@@ -322,17 +363,11 @@ def run_compiled(binary: Path, args: argparse.Namespace, state_dir: Path) -> int
             if ret is not None:
                 return ret
             if duration > 0 and (time.monotonic() - started) >= duration:
-                proc.terminate()
-                proc.wait(timeout=5)
+                terminate_process_tree(proc)
                 return 0
             time.sleep(0.5)
     finally:
-        if proc.poll() is None:
-            proc.terminate()
-            try:
-                proc.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                proc.kill()
+        terminate_process_tree(proc)
         try:
             pid_file.unlink()
         except FileNotFoundError:
