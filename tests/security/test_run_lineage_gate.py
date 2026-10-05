@@ -18,7 +18,7 @@ import sys
 import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from run_lineage_gate import evaluate, image_stem  # noqa: E402
+from run_lineage_gate import evaluate, image_stem, probe_summary  # noqa: E402
 
 INTERPRETER, PARENT, CHILD = 4000, 4001, 4002
 
@@ -132,6 +132,28 @@ class TestEvaluate(unittest.TestCase):
     def test_a_stream_without_parents_fails(self):
         checks, _ = run(probe(lineage={**HEALTHY, "exec_with_parent_total": 0}))
         self.assertFalse(checks["stream_names_parents"])
+
+    def test_probe_summary_names_where_the_chain_broke(self):
+        """A failed gate prints what the table holds for the parent and the
+        interpreter: no record at all (CI run 37342427407: the interpreter
+        started before the Windows sensor's session), or a record whose
+        ancestry stops."""
+        self.assertIn("no record", probe_summary({"success": True, "found": False}))
+        summary = probe_summary(
+            {
+                "success": True,
+                "found": True,
+                "kernel_exec": {
+                    "image_path": r"D:\t\edl_p.exe",
+                    "ppid": INTERPRETER,
+                    "exited": False,
+                    "ancestry": [],
+                },
+            }
+        )
+        self.assertEqual(summary, f"edl_p ppid={INTERPRETER} exited=False ancestry=[]")
+        self.assertIn("probe failed", probe_summary({"success": False, "error": "busy"}))
+        self.assertIn("probe failed", probe_summary(None))
 
     def test_image_stem(self):
         self.assertEqual(image_stem(r"C:\x\EDL_P.EXE"), "edl_p")

@@ -186,6 +186,27 @@ def evaluate(
     return checks, problems
 
 
+def probe_summary(probe: object) -> str:
+    """One line on what the lineage table holds for a pid, from a
+    ``debug_get_process_lineage`` answer. A failed gate prints it for the
+    parent and the interpreter, so the verdict says where the chain broke."""
+    if not isinstance(probe, dict) or probe.get("success") is not True:
+        error = probe.get("error") if isinstance(probe, dict) else probe
+        return f"probe failed: {error!r}"[:300]
+    if probe.get("found") is not True:
+        return (
+            "no record: the sensor never reported this process (it predates the"
+            " sensor's session and no rundown named it, or its event was lost)"
+        )
+    kernel = probe.get("kernel_exec") if isinstance(probe.get("kernel_exec"), dict) else {}
+    ancestry = kernel.get("ancestry") if isinstance(kernel.get("ancestry"), list) else []
+    pids = [a.get("pid") for a in ancestry if isinstance(a, dict)]
+    return (
+        f"{image_stem(kernel.get('image_path')) or '?'} ppid={kernel.get('ppid')!r}"
+        f" exited={kernel.get('exited')!r} ancestry={pids}"
+    )
+
+
 # ---------------------------------------------------------------------------
 # The process chain
 # ---------------------------------------------------------------------------
@@ -576,6 +597,26 @@ def main() -> int:
             result.pop("reason", None)
         else:
             result["reason"] = "; ".join(problems)
+            # Where the chain broke: what the table holds for the parent and
+            # for this interpreter (a pid with no record predates the sensor
+            # or was lost; a record whose ancestry stops names the step).
+            diagnostics = {}
+            for label, pid in (("parent", chain.parent_pid), ("interpreter", os.getpid())):
+                try:
+                    answer = cli_rpc(
+                        "debug_get_process_lineage", json.dumps({"pid": pid}), timeout=60
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    answer = {"success": False, "error": str(exc)}
+                diagnostics[label] = {
+                    "pid": pid,
+                    "probe": answer,
+                    "summary": probe_summary(answer),
+                }
+                print(
+                    f"[lineage] {label} pid {pid}: {probe_summary(answer)}", file=sys.stderr
+                )
+            result["diagnostics"] = diagnostics
     except Exception as exc:  # noqa: BLE001
         result["status"] = "fail"
         result["reason"] = f"{type(exc).__name__}: {exc}"
