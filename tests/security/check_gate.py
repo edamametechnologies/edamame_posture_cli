@@ -41,10 +41,15 @@ Gate policy:
   * any ``results.json`` / ``baseline.json`` present on disk cannot be
     parsed, OR
   * at least one platform reports a dirty idle baseline (``baseline.json``
-    with ``status=fail`` or ``finding_total > 0``).
+    with ``status=fail`` or ``finding_total > 0``), OR
+  * a platform's kernel process-ancestry check (``lineage.json``, written by
+    ``run_lineage_gate.py``) is missing, unreadable, or anything but
+    ``status=pass`` with every recorded check true -- whatever the baseline
+    did: the ancestry check runs before it and does not depend on it.
   The matrix of failures is printed to stdout so the caller can forward
   it to ``$GITHUB_STEP_SUMMARY`` and trigger a rollback.
-- **PASS** (exit 0): every expected platform produced results, every
+- **PASS** (exit 0): every expected platform resolved the kernel ancestry
+  of the lineage gate's process chain, produced results, every
   required scenario reported ``status=pass`` with at least one alertable
   finding (an adjudicator-demotable scenario: or an alertable grade the
   adjudicator DEMOTEd) on every
@@ -78,6 +83,7 @@ Input layout::
 
     <results-dir>/
       <platform-a>/
+        lineage.json        # kernel process-ancestry check (required)
         results.json        # CVE suite (required for a full gate)
         baseline.json       # 10-min idle baseline (may be absent)
       <platform-b>/
@@ -92,6 +98,10 @@ skipped, total}``.
 ``baseline.json`` is the output of ``run_false_positive_baseline.sh`` and
 contains ``status`` (``"pass"`` | ``"fail"``), ``finding_total``,
 ``finding_current``, ``finding_history`` and ``first_finding_sample``.
+
+``lineage.json`` is the output of ``run_lineage_gate.py``: ``status``
+(``"pass"`` | ``"fail"``), ``reason`` on a failure, ``checks`` (check name ->
+bool), the ``chain`` pids and the last probe answer.
 
 Exit codes:
 
@@ -191,6 +201,25 @@ def _baseline_is_unmeasured(data: Optional[dict]) -> bool:
     adjudication failed): ``run_false_positive_baseline.sh`` writes
     ``status: unmeasured``. Not a clean host, and the CVE suite was skipped."""
     return isinstance(data, dict) and str(data.get("status", "")).lower() == "unmeasured"
+
+
+def _lineage_failure(data: dict) -> Optional[str]:
+    """Why a readable ``lineage.json`` fails the gate, or ``None`` when it
+    passes. Fail-closed: a pass needs ``status=pass`` AND a non-empty
+    ``checks`` map whose every value is ``true``, so an artifact that says
+    pass without its evidence (hand-edited, truncated, an older script) does
+    not read as one."""
+    status = str(data.get("status", "")).lower()
+    checks = data.get("checks")
+    if status != "pass":
+        reason = str(data.get("reason") or "").strip() or "no reason recorded"
+        return f"status={status or 'missing'}: {reason}"
+    if not isinstance(checks, dict) or not checks:
+        return "status=pass without its checks (malformed lineage.json)"
+    failed = sorted(name for name, ok in checks.items() if ok is not True)
+    if failed:
+        return f"status=pass but check(s) failed: {', '.join(failed)}"
+    return None
 
 
 def _as_int(value: object) -> Optional[int]:
@@ -327,6 +356,9 @@ def main() -> int:
     # (platform, artifact, reason)
     artifact_fails: List[Tuple[str, str, str]] = []
     baseline_fails: List[Tuple[str, int, int, int, str]] = []
+    # (platform, reason): a lineage.json that was read and failed.
+    lineage_fails: List[Tuple[str, str]] = []
+    lineage_passed = 0
 
     for plat in missing_platforms:
         artifact_fails.append(
@@ -353,10 +385,30 @@ def main() -> int:
         platform = os.path.basename(path)
         results, results_err = _read_json(os.path.join(path, "results.json"))
         baseline, baseline_err = _read_json(os.path.join(path, "baseline.json"))
-        if results is not None or baseline is not None:
+        lineage, lineage_err = _read_json(os.path.join(path, "lineage.json"))
+        if results is not None or baseline is not None or lineage is not None:
             any_artifact_found = True
-        if results_err or baseline_err:
+        if results_err or baseline_err or lineage_err:
             any_artifact_found = True
+
+        # Kernel process ancestry: independent of the baseline (it runs
+        # before it), so required on every platform whatever happened next.
+        if lineage_err:
+            artifact_fails.append((platform, "lineage.json", f"unreadable ({lineage_err})"))
+        elif lineage is None:
+            artifact_fails.append(
+                (
+                    platform,
+                    "lineage.json",
+                    "missing (the kernel process-ancestry check never ran)",
+                )
+            )
+        else:
+            failure = _lineage_failure(lineage)
+            if failure:
+                lineage_fails.append((platform, failure))
+            else:
+                lineage_passed += 1
 
         baseline_total += 1
         if baseline_err:
@@ -571,15 +623,47 @@ def main() -> int:
         )
         print()
 
+    print("### Kernel process ancestry")
+    print()
+    if lineage_fails:
+        print(
+            f"FAIL - {len(lineage_fails)}/{baseline_total} platform(s) did not"
+            " resolve the ancestry of the lineage gate's process chain"
+            " (`python -> edl_p -> edl_c`). Without kernel ancestry the"
+            " detector cannot bind a process to its parent or to an agent"
+            " subtree. The release MUST be blocked."
+        )
+        print()
+        print("| Platform | Reason |")
+        print("|---|---|")
+        for plat, reason in sorted(lineage_fails):
+            print(f"| {plat} | {reason.replace('|', '/')} |")
+        print()
+    elif lineage_passed == baseline_total and baseline_total:
+        print(
+            f"PASS - {lineage_passed}/{baseline_total} platforms resolved"
+            " `edl_c -> edl_p -> python` from the kernel process-event stream,"
+            " with no event naming a process as its own parent."
+        )
+        print()
+    else:
+        print(
+            f"INCOMPLETE - {lineage_passed}/{baseline_total} platform(s)"
+            " produced a passing lineage artifact. Missing ones are listed"
+            " under artifact failures below."
+        )
+        print()
+
     # Advisory warm-host baseline section (step 7.1 / D-4). Printed in BOTH the
     # pass and fail branches (it sits before the decision) and NEVER affects the
     # exit code -- it is informational for the first release.
     for line in _warm_baseline_lines(args.warm_baseline_dir):
         print(line)
 
-    if not scenario_fails and not baseline_fails and not artifact_fails:
+    if not scenario_fails and not baseline_fails and not artifact_fails and not lineage_fails:
         print(
-            f"PASS - {total_scenarios} scenario result(s) across"
+            f"PASS - kernel ancestry resolved on {lineage_passed} platform(s);"
+            f" {total_scenarios} scenario result(s) across"
             f" {platforms_with_results} platform(s):"
             f" {passed_scenarios - adjudicator_demoted_passes} passed with an alertable finding,"
             f" {adjudicator_demoted_passes} with an alertable grade the adjudicator lowered,"
@@ -597,7 +681,8 @@ def main() -> int:
 
     print(
         f"FAIL - {len(scenario_fails)} CVE scenario(s),"
-        f" {len(baseline_fails)} baseline(s) and"
+        f" {len(baseline_fails)} baseline(s),"
+        f" {len(lineage_fails)} kernel-ancestry check(s) and"
         f" {len(artifact_fails)} missing/unreadable artifact(s) failed across"
         f" {baseline_total} platform(s). The release"
         " MUST be blocked or rolled back."

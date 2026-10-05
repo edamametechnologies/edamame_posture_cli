@@ -14,7 +14,10 @@ fail-closed contract:
 - a missing ``results.json`` after a clean baseline blocks,
 - an unreadable artifact blocks,
 - a dirty idle baseline blocks,
-- and only a complete, all-alertable, clean-baseline run passes.
+- a missing, unreadable or failed kernel-ancestry check (``lineage.json``)
+  blocks, and so does a ``status=pass`` without its checks,
+- and only a complete, all-alertable, clean-baseline run with kernel
+  ancestry resolved on every platform passes.
 
 Run with::
 
@@ -68,6 +71,36 @@ UNMEASURED_BASELINE = {
 }
 
 
+# run_lineage_gate.py's verdict when edl_c -> edl_p -> python resolved.
+PASSING_LINEAGE = {
+    "status": "pass",
+    "platform": "test",
+    "checks": {
+        "probe_answered": True,
+        "child_recorded": True,
+        "child_image": True,
+        "ppid_not_self": True,
+        "ppid_is_parent": True,
+        "ancestry_parent": True,
+        "ancestry_interpreter": True,
+        "stream_names_parents": True,
+        "no_self_parent_events": True,
+        "status_no_self_parent_events": True,
+    },
+    "chain": {"interpreter_pid": 100, "parent_pid": 200, "child_pid": 300},
+    "attempts": 1,
+}
+
+# The pre-2.0.5 macOS shape: every exec named itself as its parent.
+FAILED_LINEAGE = {
+    "status": "fail",
+    "platform": "test",
+    "reason": "edl_c (pid 300) is recorded with ppid 300: no parent, or itself",
+    "checks": {**PASSING_LINEAGE["checks"], "ppid_not_self": False, "ppid_is_parent": False},
+    "attempts": 48,
+}
+
+
 def scenario(
     name: str,
     status: str = "pass",
@@ -117,11 +150,16 @@ class GateTestCase(unittest.TestCase):
         ``platforms`` maps a platform label to a dict of artifact name ->
         payload. A dict payload is JSON-encoded; a string payload is written
         verbatim (used to inject unparseable JSON); ``None`` omits the file.
+        A platform that names no ``lineage.json`` gets a passing one, so the
+        tests of the other artifacts read only their own failure; an empty
+        platform dict stays empty.
         """
         with tempfile.TemporaryDirectory() as tmp:
             for label, artifacts in platforms.items():
                 pdir = os.path.join(tmp, label)
                 os.makedirs(pdir, exist_ok=True)
+                if artifacts and "lineage.json" not in artifacts:
+                    artifacts = {**artifacts, "lineage.json": PASSING_LINEAGE}
                 for fname, payload in artifacts.items():
                     if payload is None:
                         continue
@@ -518,6 +556,89 @@ class TestGateFailsClosed(GateTestCase):
         self.assertIn("windows-x64", out)
 
 
+class TestLineageGate(GateTestCase):
+    """The kernel process-ancestry check is a hard gate on every platform."""
+
+    def _platform(self, lineage, baseline=CLEAN_BASELINE, with_results=True):
+        out = {"baseline.json": baseline, "lineage.json": lineage}
+        out["results.json"] = results(scenario("cve_token_exfil")) if with_results else None
+        return out
+
+    def test_resolved_ancestry_on_every_platform_passes(self):
+        rc, out = self.run_gate(
+            {
+                "macos-arm64": self._platform(PASSING_LINEAGE),
+                "windows-x64": self._platform(PASSING_LINEAGE),
+            },
+            required="cve_token_exfil",
+            expected="macos-arm64,windows-x64",
+        )
+        self.assertEqual(rc, 0, out)
+        self.assertIn("### Kernel process ancestry", out)
+        self.assertIn("2/2 platforms resolved", out)
+
+    def test_failed_ancestry_blocks(self):
+        rc, out = self.run_gate(
+            {
+                "macos-arm64": self._platform(FAILED_LINEAGE),
+                "ubuntu-x64": self._platform(PASSING_LINEAGE),
+            },
+            required="cve_token_exfil",
+        )
+        self.assertEqual(rc, 1, out)
+        self.assertIn("| macos-arm64 | status=fail: edl_c (pid 300)", out)
+        self.assertIn("1 kernel-ancestry check(s)", out)
+
+    def test_missing_lineage_blocks(self):
+        rc, out = self.run_gate(
+            {"ubuntu-arm64": self._platform(None)},
+            required="cve_token_exfil",
+        )
+        self.assertEqual(rc, 1, out)
+        self.assertIn("`lineage.json`", out)
+        self.assertIn("never ran", out)
+
+    def test_unreadable_lineage_blocks(self):
+        rc, out = self.run_gate(
+            {"windows-x64": self._platform('{"status": "pass", "checks": {')},
+            required="cve_token_exfil",
+        )
+        self.assertEqual(rc, 1, out)
+        self.assertIn("lineage.json", out)
+        self.assertIn("unreadable", out)
+
+    def test_pass_without_checks_blocks(self):
+        for lineage in (
+            {"status": "pass"},
+            {"status": "pass", "checks": {}},
+            {"status": "pass", "checks": {**PASSING_LINEAGE["checks"], "ancestry_parent": False}},
+            {"status": "pass", "checks": {**PASSING_LINEAGE["checks"], "child_recorded": "yes"}},
+        ):
+            rc, out = self.run_gate(
+                {"macos-arm64": self._platform(lineage)},
+                required="cve_token_exfil",
+            )
+            self.assertEqual(rc, 1, (lineage, out))
+            self.assertIn("status=pass", out)
+
+    def test_failed_ancestry_blocks_whatever_the_baseline_did(self):
+        """The check runs before the baseline: a dirty or unmeasured baseline
+        (which skips the CVE suite) does not excuse it."""
+        for baseline in (DIRTY_BASELINE, UNMEASURED_BASELINE):
+            rc, out = self.run_gate(
+                {"ubuntu-x64": self._platform(FAILED_LINEAGE, baseline, with_results=False)},
+                required="cve_token_exfil",
+            )
+            self.assertEqual(rc, 1, out)
+            self.assertIn("status=fail", out)
+            rc, out = self.run_gate(
+                {"ubuntu-x64": self._platform(None, baseline, with_results=False)},
+                required="cve_token_exfil",
+            )
+            self.assertEqual(rc, 1, out)
+            self.assertIn("`lineage.json`", out)
+
+
 class TestWarmBaselineAdvisory(unittest.TestCase):
     """The warm-host baseline (step 7.1) is advisory: it renders its own row in
     the report but NEVER changes the gate's exit code."""
@@ -537,6 +658,8 @@ class TestWarmBaselineAdvisory(unittest.TestCase):
                 json.dump(CLEAN_BASELINE, fh)
             with open(os.path.join(pdir, "results.json"), "w", encoding="utf-8") as fh:
                 json.dump(results(scenario("cve_token_exfil")), fh)
+            with open(os.path.join(pdir, "lineage.json"), "w", encoding="utf-8") as fh:
+                json.dump(PASSING_LINEAGE, fh)
 
             args = [
                 sys.executable,

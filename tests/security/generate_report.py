@@ -282,6 +282,35 @@ def _baseline_table(baselines: Dict[str, Optional[dict]]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _lineage_table(lineages: Dict[str, Optional[dict]]) -> str:
+    """The kernel process-ancestry check per platform (``lineage.json``)."""
+    lines = [
+        "| Platform | Status | edl_c ppid | Ancestry (nearest first) | Self-parent events | Attempts | Reason |",
+        "|---|---|---|---|---|---|---|",
+    ]
+    for plat, data in lineages.items():
+        if not data:
+            lines.append(f"| {plat} | `MISSING` | - | - | - | - | - |")
+            continue
+        probe = data.get("last_probe") if isinstance(data.get("last_probe"), dict) else {}
+        kernel = probe.get("kernel_exec") if isinstance(probe.get("kernel_exec"), dict) else {}
+        counters = probe.get("lineage") if isinstance(probe.get("lineage"), dict) else {}
+        ancestry = kernel.get("ancestry") if isinstance(kernel.get("ancestry"), list) else []
+        chain = " > ".join(
+            f"{a.get('process_name') or '?'} ({a.get('pid')})"
+            for a in ancestry[:3]
+            if isinstance(a, dict)
+        )
+        reason = str(data.get("reason") or "-").replace("|", "/")
+        lines.append(
+            f"| {plat} | `{str(data.get('status', '?')).upper()}`"
+            f" | {kernel.get('ppid', '-')} | {chain or '-'}"
+            f" | {counters.get('self_parent_total', '-')} | {data.get('attempts', '-')}"
+            f" | {reason} |"
+        )
+    return "\n".join(lines) + "\n"
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--results-dir", required=True)
@@ -295,10 +324,12 @@ def main() -> int:
 
     reports: Dict[str, Optional[dict]] = {}
     baselines: Dict[str, Optional[dict]] = {}
+    lineages: Dict[str, Optional[dict]] = {}
     for d in platform_dirs:
         label = os.path.basename(os.path.normpath(d))
         reports[label] = _load_json(os.path.join(d, "results.json"))
         baselines[label] = _load_json(os.path.join(d, "baseline.json"))
+        lineages[label] = _load_json(os.path.join(d, "lineage.json"))
 
     order = _scenario_order(reports)
     observed_checks: Dict[str, str] = {}
@@ -368,6 +399,22 @@ def main() -> int:
         " `demoted_below_alertable` note in the per-platform table below and"
         " hard-fail `check_gate.py`."
     )
+    lines.append("")
+
+    lines.append("## Kernel process ancestry")
+    lines.append("")
+    lines.append(
+        "Before the baseline, `tests/security/run_lineage_gate.py` starts the"
+        " chain `python -> edl_p -> edl_c` (renamed copies of a shell and a"
+        " long-lived tool; a compiled fork/exec launcher on macOS, where a copy"
+        " of an Apple binary is killed at exec), forces a detector tick and"
+        " reads `debug_get_process_lineage` for `edl_c`. A platform passes only"
+        " when the kernel stream names `edl_p` as the parent, the ancestry"
+        " climbs `edl_p` then the interpreter, and no event named a process as"
+        " its own parent. A failure blocks the release (`check_gate.py`)."
+    )
+    lines.append("")
+    lines.append(_lineage_table(lineages))
     lines.append("")
 
     lines.append("## False-positive baseline (10-minute idle window)")
