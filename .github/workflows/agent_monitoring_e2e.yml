@@ -430,7 +430,11 @@ jobs:
             # Same reason as the fleet driver: the root daemon's observer reads
             # /root, so the agents run as root with HOME=/root (--allow-root).
             PYBIN=$(command -v "$PY")
+            # The runner's Rust toolchain stays usable: with HOME=/root rustup
+            # looks in /root/.rustup, finds no default toolchain, and every
+            # Rust scenario was skipped (run 37312097578).
             sudo -E env "PATH=$PATH" "HOME=/root" \
+              "RUSTUP_HOME=${RUSTUP_HOME:-$HOME/.rustup}" "CARGO_HOME=${CARGO_HOME:-$HOME/.cargo}" \
               "EDAMAME_SUPPORTED_AGENTS_INDEX=$EDAMAME_SUPPORTED_AGENTS_INDEX" \
               "$PYBIN" tests/fp_lab/run_fp_lab.py "${ARGS[@]}" --allow-root
           else
@@ -483,7 +487,11 @@ jobs:
             # toolchains (and the npm-global agent CLIs) stay resolvable under
             # sudo's secure_path.
             PYBIN=$(command -v "$PY")
+            # The runner's Rust toolchain stays usable: with HOME=/root rustup
+            # looks in /root/.rustup, finds no default toolchain, and every
+            # Rust scenario was skipped (run 37312097578).
             sudo -E env "PATH=$PATH" "HOME=/root" \
+              "RUSTUP_HOME=${RUSTUP_HOME:-$HOME/.rustup}" "CARGO_HOME=${CARGO_HOME:-$HOME/.cargo}" \
               "EDAMAME_SUPPORTED_AGENTS_INDEX=$EDAMAME_SUPPORTED_AGENTS_INDEX" \
               "FLEET_AGENT_INSTALL_LOG=$FLEET_AGENT_INSTALL_LOG" \
               "$PYBIN" tests/e2e/run_fleet_monitoring.py
