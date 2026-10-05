@@ -154,6 +154,11 @@ SCRIPT
 
   start)
     as_user 'test -f ~/fp-lab/bin/edamame-posture.pkg && test -x ~/fp-lab/bin/edamame_cli' || die "push first"
+    # The pkg on the host must be this run's: a broken upload leaves the
+    # previous one in place.
+    WANT_SHA=$(cut -d' ' -f1 "$BIN_DIR/SHA256" 2>/dev/null) || die "no $BIN_DIR/SHA256 (fetch first)"
+    HOST_SHA=$(as_user 'shasum -a 256 ~/fp-lab/bin/edamame-posture.pkg | cut -d" " -f1')
+    [[ "$WANT_SHA" == "$HOST_SHA" ]] || die "host pkg $HOST_SHA is not run $RUN_ID's $WANT_SHA (push again)"
     as_root 'test -f /var/root/fp-lab/portal.env' || die "keys first"
     say "recording the released state"
     as_root "bash -s" <<EOF | tee "$CACHE/state/fmba-3-$(date +%Y%m%d-%H%M%S)-pre.txt"

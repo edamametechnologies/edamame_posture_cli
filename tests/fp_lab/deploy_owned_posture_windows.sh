@@ -178,6 +178,12 @@ PS
     ;;
 
   start)
+    WANT_SHA=$(cut -d' ' -f1 "$BIN_DIR/SHA256" 2>/dev/null | tr 'a-f' 'A-F') || die "no $BIN_DIR/SHA256 (fetch first)"
+    HOST_SHA=$(ps_run "$PRE" <<'PS' | tr -d '\r' | tail -n 1
+(Get-FileHash "$Lab\bin\edamame_posture.exe" -Algorithm SHA256).Hash
+PS
+)
+    [[ "$WANT_SHA" == "$HOST_SHA" ]] || die "host exe $HOST_SHA is not run $RUN_ID's $WANT_SHA (push again)"
     ps_run "$PRE" <<'PS' | tee "$CACHE/state/shiawase-$(date +%Y%m%d-%H%M%S)-pre.txt"
 if (-not (Test-Path "$Lab\bin\edamame_posture.exe")) { "push first"; exit 1 }
 if (-not (Test-Path "$Lab\secrets\portal.env")) { "keys first"; exit 1 }
