@@ -22,8 +22,12 @@ replaced by a synthetic green.
 | File | Purpose |
 |---|---|
 | `run_fleet_monitoring.py` | The driver. Installs/drives each real agent, verifies observer discovery, the `unsecured_<agent>` toggle, a real divergence verdict, and the host blast radius. |
+| `agent_harness.py` | Shared real-agent harness: subprocess and observer helpers, the agent drivers and installers (`REAL_DRIVERS`, `real_driver_available`), daemon model helpers. Imported by the driver and by the FP lab (`tests/fp_lab`). |
 | `supported_agents.py` | Registry helper. Resolves `supported_agents/index.json`, per-agent install layouts, and repo overrides. |
 | `../security/triggers/_edamame_cli.py` | Shared `edamame_cli` RPC wrapper, imported by the driver. Lives with the CVE trigger corpus. |
+
+The FP lab (`tests/fp_lab`, false positives under real agent work) drives the same
+agents through `agent_harness.py`; the workflow runs it with `mode: fp_lab`.
 
 The driver adds `../security/triggers` to `sys.path`, so the CVE corpus and the
 fleet driver share one copy of the RPC helper. A co-located `tests/e2e/triggers/`
