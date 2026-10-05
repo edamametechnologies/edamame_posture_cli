@@ -36,8 +36,14 @@
 #   GUI approval; `start` checks the daemon log for an ES client failure.
 # - HOME is the console user's so the transcript observer reads that user's
 #   ~/.claude and ~/.codex; a root posture keeps its own records under root's
-#   home whatever HOME says. Root's earlier posture state, if any, is moved
-#   aside for the window and put back by `stop`.
+#   home whatever HOME says: the `edamame_posture` defaults domain
+#   (/var/root/Library/Preferences/edamame_posture.plist) and the file secret
+#   store /var/root/.edamame/secrets. On fmba-3 that domain held a Homebrew
+#   posture 1.0.5's Hub record: the first window (2026-10-05) connected to the
+#   Hub with it and migrated its credentials, because state isolation looked
+#   at a guessed plist name. `start` now exports the domain and moves the
+#   store aside (once per window, through `defaults`, which cfprefsd caches),
+#   clears both, and `stop` imports them back exactly.
 
 set -euo pipefail
 
@@ -168,7 +174,12 @@ mkdir -p /var/root/fp-lab
 { pgrep -x "$APP_NAME" >/dev/null && echo app=running || echo app=stopped
   launchctl print system/$HELPER_LABEL >/dev/null 2>&1 && echo helper=loaded || echo helper=unloaded
   launchctl print-disabled system | grep -q '"$HELPER_LABEL" => disabled' && echo helper_disabled=yes || echo helper_disabled=no
-} | tee /var/root/fp-lab/pre-state
+} > /var/root/fp-lab/pre-state.now
+# Once per window: a second start (after a failed one) must not record the
+# app it stopped itself as "stopped".
+[ -f /var/root/fp-lab/pre-state ] || mv /var/root/fp-lab/pre-state.now /var/root/fp-lab/pre-state
+rm -f /var/root/fp-lab/pre-state.now
+cat /var/root/fp-lab/pre-state
 /usr/sbin/netstat -an -p tcp | grep LISTEN | grep -q '\.40152 ' && echo 'port 40152: listening'
 EOF
     # SIGTERM from root, not `osascript ... quit`: Apple Events from an SSH
@@ -188,12 +199,18 @@ for p in 40151 40152; do
   /usr/sbin/netstat -an -p tcp | grep LISTEN | grep -q "\\.\$p " && { echo "port \$p still held"; exit 1; }
 done
 echo "app and helper stopped, ports free"
-# Root's own posture state from an earlier install goes aside for the window.
-ts=\$(date +%Y%m%d%H%M%S)
-for d in /var/root/.edamame /var/root/Library/Preferences/com.edamametechnologies.edamame-posture.plist; do
-  if [ -e "\$d" ] && [ ! -e /var/root/fp-lab/aside-marker ]; then mkdir -p /var/root/fp-lab/aside; mv "\$d" "/var/root/fp-lab/aside/\$(basename "\$d")"; echo "moved aside \$d"; fi
-done
-touch /var/root/fp-lab/aside-marker
+# Root's own posture state (an earlier install's) is saved once per window
+# and cleared, so the owned build starts empty, disconnected and touches
+# nothing of it.
+if [ ! -f /var/root/fp-lab/original/.saved ]; then
+  mkdir -p /var/root/fp-lab/original
+  defaults export edamame_posture /var/root/fp-lab/original/edamame_posture.plist 2>/dev/null \
+    && echo "saved the edamame_posture domain" || echo "no edamame_posture domain"
+  [ -d /var/root/.edamame ] && mv /var/root/.edamame /var/root/fp-lab/original/dot-edamame && echo "saved /var/root/.edamame"
+  touch /var/root/fp-lab/original/.saved
+fi
+defaults delete edamame_posture 2>/dev/null || true
+rm -rf /var/root/.edamame
 echo "installing the owned posture"
 installer -pkg /Users/$USER_/fp-lab/bin/edamame-posture.pkg -target / | tail -2
 codesign -dvv "$POSTURE_BUNDLE/edamame_posture.app" 2>&1 | grep -E "Authority=Developer ID Application|TeamIdentifier" | head -2
@@ -265,16 +282,18 @@ echo "removing the owned posture"
 if [ -L "$POSTURE_LINK" ] && readlink "$POSTURE_LINK" | grep -q "EDAMAME-Posture"; then rm -f "$POSTURE_LINK"; fi
 rm -rf "$POSTURE_BUNDLE"
 for id in \$(pkgutil --pkgs | grep -i "edamame.*posture"); do pkgutil --forget "\$id" >/dev/null && echo "forgot \$id"; done
-rm -rf /var/root/.edamame
-rm -f /var/root/Library/Preferences/com.edamametechnologies.edamame-posture.plist
-if [ -d /var/root/fp-lab/aside ]; then
-  for f in /var/root/fp-lab/aside/*; do [ -e "\$f" ] || continue
-    case "\$(basename "\$f")" in .edamame) mv "\$f" /var/root/.edamame ;; *.plist) mv "\$f" /var/root/Library/Preferences/ ;; esac
-    echo "restored \$(basename "\$f")"
-  done
-  rmdir /var/root/fp-lab/aside 2>/dev/null || true
+# Root's posture state back exactly as saved; the lab's own goes.
+if [ -f /var/root/fp-lab/original/.saved ]; then
+  ts=\$(date +%Y%m%d%H%M%S); mkdir -p /var/root/fp-lab/lab-state-\$ts
+  defaults export edamame_posture /var/root/fp-lab/lab-state-\$ts/edamame_posture.plist 2>/dev/null || true
+  [ -d /var/root/.edamame ] && mv /var/root/.edamame /var/root/fp-lab/lab-state-\$ts/dot-edamame
+  defaults delete edamame_posture 2>/dev/null || true
+  if [ -f /var/root/fp-lab/original/edamame_posture.plist ]; then
+    defaults import edamame_posture /var/root/fp-lab/original/edamame_posture.plist && echo "restored the edamame_posture domain"
+  fi
+  [ -d /var/root/fp-lab/original/dot-edamame ] && mv /var/root/fp-lab/original/dot-edamame /var/root/.edamame && echo "restored /var/root/.edamame"
+  mv /var/root/fp-lab/original /var/root/fp-lab/restored-\$ts
 fi
-rm -f /var/root/fp-lab/aside-marker
 echo "re-enabling the helper"
 launchctl enable system/$HELPER_LABEL
 launchctl bootstrap system "$HELPER_PLIST" 2>/dev/null || launchctl kickstart -k system/$HELPER_LABEL 2>/dev/null || true
@@ -289,6 +308,7 @@ for _ in \$(seq 1 60); do /usr/sbin/netstat -an -p tcp | grep LISTEN | grep -q '
 /usr/sbin/netstat -an -p tcp | grep LISTEN | grep -q '\.40152 ' && echo 'port 40152: listening' || echo 'port 40152: NOT LISTENING'
 echo "deleting the lab keys"
 rm -f /var/root/fp-lab/portal.env
+mv /var/root/fp-lab/pre-state /var/root/fp-lab/pre-state.done 2>/dev/null || true
 EOF
     as_user 'rm -f ~/fp-lab/secrets/*.env; ls ~/fp-lab/secrets'
     ;;
