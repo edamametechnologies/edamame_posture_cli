@@ -62,8 +62,8 @@ SSH_OPTS=(-o ConnectTimeout=20 -o ServerAliveInterval=30 -o LogLevel=ERROR)
 ssh_win() { ssh "${SSH_OPTS[@]}" "$TARGET" "$@"; }
 
 # ps_run <preamble>: run the PowerShell script on stdin, after <preamble>
-# (local values as PowerShell assignments) and PS_LIB, through
-# -EncodedCommand (no cmd/PowerShell quoting on the way).
+# (local values as PowerShell assignments) and PS_LIB, as a script file
+# (no cmd/PowerShell quoting on the way, no command-line length limit).
 PS_LIB=$(cat <<'PSLIB'
 $ErrorActionPreference = "Continue"; $ProgressPreference = "SilentlyContinue"
 $Lab = Join-Path $env:USERPROFILE "fp-lab"
@@ -90,18 +90,37 @@ function Run-Task([string]$name, [string]$cmdFile) {
 }
 PSLIB
 )
-ps_run() {
-  local pre="$1" body enc
-  body=$(cat)
-  enc=$(printf '%s\n%s\n%s\n' "$pre" "$PS_LIB" "$body" | iconv -t UTF-16LE | base64 | tr -d '\n')
-  ssh_win "powershell -NoProfile -NonInteractive -EncodedCommand $enc"
+# ps_script <preamble> <script-file>: copy preamble + PS_LIB + script to the
+# host and run it with `powershell -File`. An -EncodedCommand of the longer
+# scripts exceeded cmd.exe's 8191-character command line ("La ligne de
+# commande est trop longue", 2026-10-05). stdin passes through to the script
+# ([Console]::In), which is how `keys` hands over secrets without echoing.
+ps_script() {
+  local pre="$1" body_file="$2" local_ps remote
+  local_ps=$(mktemp "$CACHE/ps-XXXXXX")
+  remote="fp-lab-$(basename "$local_ps").ps1"
+  # The script removes itself first (already parsed), so the exit code is
+  # the script's own.
+  { printf '%s\n' 'Remove-Item -LiteralPath $PSCommandPath -Force -ErrorAction SilentlyContinue'
+    printf '%s\n' "$pre"; printf '%s\n' "$PS_LIB"; cat "$body_file"; } > "$local_ps"
+  scp -q "${SSH_OPTS[@]}" "$local_ps" "$TARGET:$remote" || { rm -f "$local_ps"; return 1; }
+  rm -f "$local_ps"
+  ssh_win "powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"%USERPROFILE%\\$remote\""
 }
-# ps_run_input <preamble> <script>: same, with this process's stdin readable
-# by the script ([Console]::In); used to hand over secrets without echoing.
+# ps_run <preamble>: the script on stdin.
+ps_run() {
+  local body_file rc
+  body_file=$(mktemp "$CACHE/body-XXXXXX"); cat > "$body_file"
+  ps_script "$1" "$body_file" < /dev/null; rc=$?
+  rm -f "$body_file"; return $rc
+}
+# ps_run_input <preamble> <script>: the script as an argument; this
+# process's stdin reaches the script (secrets).
 ps_run_input() {
-  local enc
-  enc=$(printf '%s\n%s\n%s\n' "$1" "$PS_LIB" "$2" | iconv -t UTF-16LE | base64 | tr -d '\n')
-  ssh_win "powershell -NoProfile -NonInteractive -EncodedCommand $enc"
+  local body_file rc
+  body_file=$(mktemp "$CACHE/body-XXXXXX"); printf '%s\n' "$2" > "$body_file"
+  ps_script "$1" "$body_file"; rc=$?
+  rm -f "$body_file"; return $rc
 }
 PRE="\$Account = '$ACCOUNT'; \$Owned = '$OWNED_VERSION'; \$Aumid = '$APP_AUMID'"
 SAVE_SECRET='
