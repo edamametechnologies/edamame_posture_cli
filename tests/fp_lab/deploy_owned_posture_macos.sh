@@ -12,6 +12,7 @@
 #   fetch            download posture-binary-macos-arm64 (signed pkg) of CI run $FP_LAB_RUN_ID
 #   push             copy the pkg, a 2.0.5+ edamame_cli and the lab harness to ~/fp-lab
 #   keys             copy the approved provider and Portal keys (0600, never printed)
+#   agents           install the agent CLIs the lab drives when missing (npm)
 #   start            quit the app, disable the helper, install the pkg, start posture
 #   status           what the lab preflight will see
 #   run [args]       start run_fp_lab.py detached (args go to `run`)
@@ -137,6 +138,18 @@ SCRIPT
       | as_user 'umask 077; mkdir -p ~/fp-lab/secrets; cat > ~/fp-lab/secrets/providers.env; chmod 600 ~/fp-lab/secrets/providers.env; sed -E "s/=.*/=<set>/" ~/fp-lab/secrets/providers.env'
     grep -hE '^(export )?EDAMAME_LLM_API_KEY=' "$SECRETS/agentic.env" | sed 's/^export //; s/^/export /' \
       | as_root 'umask 077; mkdir -p /var/root/fp-lab; cat > /var/root/fp-lab/portal.env; chmod 600 /var/root/fp-lab/portal.env; sed -E "s/=.*/=<set>/" /var/root/fp-lab/portal.env'
+    ;;
+
+  agents)
+    # The agent CLIs the lab drives (Claude Code, Codex), user-level through
+    # npm like the fleet E2E; an installed one is left as it is.
+    user_bash <<'SCRIPT'
+for pair in "claude:@anthropic-ai/claude-code" "codex:@openai/codex"; do
+  bin=${pair%%:*}; pkg=${pair#*:}
+  if command -v "$bin" >/dev/null; then echo "$bin: $(command -v $bin)"; else echo "installing $pkg"; npm install -g "$pkg" 2>&1 | tail -n 2; fi
+done
+for t in claude codex; do echo "$t version: $($t --version 2>&1 | head -1)"; done
+SCRIPT
     ;;
 
   start)
