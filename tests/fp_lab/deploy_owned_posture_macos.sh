@@ -180,7 +180,7 @@ mkdir -p /var/root/fp-lab
 [ -f /var/root/fp-lab/pre-state ] || mv /var/root/fp-lab/pre-state.now /var/root/fp-lab/pre-state
 rm -f /var/root/fp-lab/pre-state.now
 cat /var/root/fp-lab/pre-state
-/usr/sbin/netstat -an -p tcp | grep LISTEN | grep -q '\.40152 ' && echo 'port 40152: listening'
+/usr/sbin/netstat -an -p tcp | grep LISTEN | grep -q '\.40152 ' && echo 'port 40152: listening' || echo 'port 40152: free'
 EOF
     # SIGTERM from root, not `osascript ... quit`: Apple Events from an SSH
     # session can raise an Automation consent prompt on the console.
