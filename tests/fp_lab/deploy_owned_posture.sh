@@ -170,6 +170,13 @@ EOF
     ;;
 
   start)
+    # The binary on the host must be the one fetched for this run: a push
+    # whose upload broke leaves the previous binary in place (2026-10-05: a
+    # reset connection left build 1 running under build 3's name).
+    [[ -f "$BIN_DIR/SHA256" ]] || die "no $BIN_DIR/SHA256 (run fetch first)"
+    WANT_SHA=$(cut -d' ' -f1 "$BIN_DIR/SHA256")
+    HOST_SHA=$(ssh_host 'sha256sum ~/fp-lab/bin/edamame_posture | cut -d" " -f1')
+    [[ "$WANT_SHA" == "$HOST_SHA" ]] || die "host binary $HOST_SHA is not run $RUN_ID's $WANT_SHA (push again)"
     ssh_host 'bash -s' <<EOF
 $REMOTE_LIB
 set -e
