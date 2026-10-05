@@ -5,8 +5,9 @@
 #
 #   deploy_owned_posture.sh <host> <command> [args]
 #
-# Hosts: test-mint (Linux), fmba-3 (macOS: deploy_owned_posture_macos.sh, with
-# its own `keys` command). shiawase (Windows) is described in owned_posture.md.
+# Hosts: test-mint (Linux), fmba-3 (macOS: deploy_owned_posture_macos.sh) and
+# shiawase (Windows: deploy_owned_posture_windows.sh); the desktop legs add
+# `keys` and `agents` commands.
 #
 # On a desktop host the window stops the released app and disables its helper
 # first, and `stop` re-enables the helper, relaunches the app and removes the
@@ -67,7 +68,7 @@ case "$HOST" in
     exec bash "$HERE/deploy_owned_posture_macos.sh" "$CMD" "$@"
     ;;
   shiawase)
-    die "$HOST: not implemented yet -- see tests/fp_lab/owned_posture.md for what that leg needs"
+    exec bash "$HERE/deploy_owned_posture_windows.sh" "$CMD" "$@"
     ;;
   *) die "unknown host $HOST" ;;
 esac
