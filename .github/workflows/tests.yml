@@ -1882,11 +1882,13 @@ jobs:
 
       - name: Run false-positive baseline (10 min idle)
         id: baseline
-        # Must complete (including optional anomaly warm-up, setup, and
-        # tear down) within ~15 minutes. Baseline itself waits 600s; the
-        # remainder is pre-baseline warm-up on macOS, settle, and final
-        # sweep.
-        timeout-minutes: 15
+        # Baseline itself waits 600s; the remainder is pre-baseline warm-up
+        # on macOS, settle, and the final sweep, which retries a withheld
+        # last tick three times (30 s apart, each tick up to the 120 s LLM
+        # timeout) before writing `unmeasured`. The budget covers that, so a
+        # failing Portal reads as unmeasured rather than as a missing
+        # baseline.json.
+        timeout-minutes: 22
         shell: bash
         env:
           EDAMAME_CLI: ${{ env.EDAMAME_CLI }}
