@@ -210,7 +210,17 @@ $svc = Get-CimInstance Win32_Service -Filter "Name='edamame_helper'"
 $app = Get-Process edamame -ErrorAction SilentlyContinue
 $state = [ordered]@{ app = [bool]$app; helper_state = $svc.State; helper_start = $svc.StartMode;
   helper_failure = ((sc.exe qfailure edamame_helper) -join "`n") }
-if (-not (Test-Path "$Lab\state\pre-state.json")) { $state | ConvertTo-Json | Set-Content "$Lab\state\pre-state.json" }
+if (-not (Test-Path "$Lab\state\pre-state.json")) {
+  # A new window: record the released state once, and give the owned build an
+  # empty state. An earlier window's findings and model would join the
+  # baseline and hide a false positive that build raised too (2026-10-06).
+  # The earlier state stays for forensics.
+  $state | ConvertTo-Json | Set-Content "$Lab\state\pre-state.json"
+  if (Test-Path "$Lab\state\AppData") {
+    $prev = "AppData-$(Get-Date -Format yyyyMMddHHmmss)"
+    Rename-Item "$Lab\state\AppData" $prev; "earlier owned state moved to $prev"
+  }
+}
 Get-Content "$Lab\state\pre-state.json"
 "stopping the app"
 Stop-Process -Name edamame -Force -ErrorAction SilentlyContinue

@@ -180,17 +180,37 @@ EOF
     ssh_host 'bash -s' <<EOF
 $REMOTE_LIB
 set -e
-if systemctl is-active --quiet $UNIT; then echo "owned daemon already running"; exit 0; fi
+# An owned daemon still running is this window's only if it runs this
+# build: an r3 daemon a window never stopped passed for r5's (2026-10-06).
+if systemctl is-active --quiet $UNIT; then
+  if [ "\$(sudo sha256sum /var/lib/edamame-fplab/bin/edamame_posture 2>/dev/null | cut -d" " -f1)" = "$WANT_SHA" ]; then
+    echo "owned daemon already running (this build)"; exit 0
+  fi
+  echo "an owned daemon of another build is running: run stop first"; exit 1
+fi
 test -x ~/fp-lab/bin/edamame_posture
+mkdir -p ~/fp-lab/state
+# Once per window (a marker that stop removes): record whether the GUI ran,
+# and give the owned build an empty state. A start after a failed one must
+# not record the GUI it stopped itself as "stopped", and an earlier window's
+# findings and model would be absorbed into the baseline, hiding a false
+# positive that build raised too. The earlier state stays for forensics.
+if [ ! -f ~/fp-lab/state/window ]; then
+  if pgrep -u "\$USER" -f /usr/lib/edamame-security/edamame_security >/dev/null; then
+    echo running > ~/fp-lab/state/gui
+  else echo stopped > ~/fp-lab/state/gui; fi
+  if sudo test -d /var/lib/edamame-fplab/state; then
+    prev=/var/lib/edamame-fplab/state-\$(date +%Y%m%d%H%M%S)
+    sudo mv /var/lib/edamame-fplab/state "\$prev"; echo "earlier owned state moved to \$prev"
+  fi
+  touch ~/fp-lab/state/window
+fi
 sudo install -d -m 0700 /var/lib/edamame-fplab /var/lib/edamame-fplab/state
 sudo install -d -m 0755 /var/lib/edamame-fplab/bin /var/lib/edamame-fplab/log
 sudo install -m 0755 ~/fp-lab/bin/edamame_posture /var/lib/edamame-fplab/bin/edamame_posture
 # The GUI is a thin client of whichever daemon owns the port: it stays off
 # for the window so nothing but the lab drives the owned daemon.
-mkdir -p ~/fp-lab/state
-if pgrep -u "\$USER" -f /usr/lib/edamame-security/edamame_security >/dev/null; then
-  echo running > ~/fp-lab/state/gui; pkill -u "\$USER" -f /usr/lib/edamame-security/edamame_security; echo "GUI stopped"
-else echo stopped > ~/fp-lab/state/gui; fi
+if pkill -u "\$USER" -f /usr/lib/edamame-security/edamame_security; then echo "GUI stopped"; fi
 echo "stopping the released service"
 sudo systemctl stop $SERVICE
 for _ in \$(seq 1 30); do ss -ltn | grep -q '127.0.0.1:40152 ' || break; sleep 1; done
@@ -289,6 +309,7 @@ if [ "\$(cat ~/fp-lab/state/gui 2>/dev/null)" = running ]; then
   fi
   pgrep -f /usr/lib/edamame-security/edamame_security >/dev/null && echo "GUI: running" || echo "GUI: NOT RUNNING"
 fi
+rm -f ~/fp-lab/state/window
 sleep 30
 systemctl is-active $SERVICE
 show_state
