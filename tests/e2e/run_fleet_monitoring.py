@@ -712,6 +712,20 @@ IDLE_BASELINE_INTERVAL_SECS = int(os.environ.get("FLEET_IDLE_BASELINE_INTERVAL_S
 # so its result travels to main's summary through this holder rather than a
 # return value that would entangle the HARD leg's contract.
 IDLE_BASELINE = {"enabled": True, "result": None}  # result: (status, detail)
+# What counts as a false positive here: the correlation categories the HARD
+# leg accepts, plus every policy-plane category. A `policy:*` DIVERGENCE on
+# benign idle activity is as much an engine false positive as a correlation
+# one (FP-DIV-4 was policy:scope_escalation and policy:allowlist_growth on
+# benign Claude Code work), and this leg used to report it as a pass.
+IDLE_BASELINE_POLICY_PREFIX = "policy:"
+
+
+def _idle_baseline_counted(categories: list[str]) -> list[str]:
+    """The categories of one sample that count as idle-baseline evidence."""
+    return sorted(
+        c for c in categories
+        if c in DIVERGENCE_OK_CATEGORIES or c.startswith(IDLE_BASELINE_POLICY_PREFIX)
+    )
 
 
 def run_divergence_idle_baseline(agent_type: str) -> tuple[str, str]:
@@ -720,10 +734,10 @@ def run_divergence_idle_baseline(agent_type: str) -> tuple[str, str]:
         f"{IDLE_BASELINE_INTERVAL_SECS}s apart, model live, agent idle ---")
     live_samples = 0
     divergent: list[tuple[int, str, str, list[str], list]] = []
-    # Samples that DID reach DIVERGENCE but only on categories outside
-    # DIVERGENCE_OK_CATEGORIES (e.g. policy:*). They do not fail this soft leg,
-    # but the pass message used to claim the verdict was "never DIVERGENCE",
-    # which is untrue whenever this list is non-empty.
+    # Samples that DID reach DIVERGENCE but only on categories this leg does
+    # not count (neither DIVERGENCE_OK_CATEGORIES nor policy:*). They do not
+    # fail this soft leg, but the pass message used to claim the verdict was
+    # "never DIVERGENCE", which is untrue whenever this list is non-empty.
     other_divergent: list[tuple[int, str, str, list[str]]] = []
     for i in range(IDLE_BASELINE_SAMPLES):
         rpc_quiet("debug_run_divergence_tick")
@@ -746,8 +760,14 @@ def run_divergence_idle_baseline(agent_type: str) -> tuple[str, str]:
         live = running and contrib > 0
         if live:
             live_samples += 1
-            if "DIVERGENCE" in (det, verdict) and (set(categories) & DIVERGENCE_OK_CATEGORIES):
-                divergent.append((i + 1, det, verdict, categories, evidence[:6]))
+            counted = _idle_baseline_counted(categories)
+            if "DIVERGENCE" in (det, verdict) and counted:
+                # The counted rows first, so a policy row is not cut off by
+                # six correlation rows of another category.
+                rows = [e for e in evidence if isinstance(e, dict)]
+                shown = [e for e in rows if str(e.get("category") or "").strip() in counted]
+                shown += [e for e in rows if e not in shown]
+                divergent.append((i + 1, det, verdict, categories, shown[:6]))
             elif "DIVERGENCE" in (det, verdict):
                 other_divergent.append((i + 1, det, verdict, categories))
         log(
@@ -775,12 +795,12 @@ def run_divergence_idle_baseline(agent_type: str) -> tuple[str, str]:
     window = f"~{(IDLE_BASELINE_SAMPLES - 1) * IDLE_BASELINE_INTERVAL_SECS}s"
     if other_divergent:
         for n, det, verdict, categories in other_divergent:
-            log(f"  idle sample {n}: DIVERGENCE on non-correlation categories only -- "
+            log(f"  idle sample {n}: DIVERGENCE on uncounted categories only -- "
                 f"deterministic={det} final={verdict} categories={','.join(categories) or 'none'}")
         seen = sorted({c for _, _, _, cats in other_divergent for c in cats})
         return "pass", (
             f"{live_samples} live samples over {window}, no DIVERGENCE on the correlation "
-            f"categories this leg gates on; {len(other_divergent)}/{live_samples} samples DID "
+            f"or policy categories this leg counts; {len(other_divergent)}/{live_samples} samples DID "
             f"reach DIVERGENCE on other categories only ({','.join(seen) or 'none'}) -- not "
             f"counted here, see the log above"
         )
