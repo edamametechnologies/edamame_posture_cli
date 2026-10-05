@@ -420,7 +420,12 @@ jobs:
           OUT="$GITHUB_WORKSPACE/fp-lab-run"
           # Adjudication follows the shipped default (auto: advisory with the
           # Portal), which is what users see; the security gate pins llm.
-          ARGS=(run --out "$OUT" --set-adjudication auto --scenarios "$FP_LAB_SCENARIOS")
+          # --allow-hub: the action connected this runner to the Hub (that is
+          # what lifts the org IP allow list), and a disconnected start passes
+          # no credentials, so the core reconnects with the saved ones. The
+          # security gate's daemon runs the same way; detection does not read
+          # the Hub connection.
+          ARGS=(run --out "$OUT" --set-adjudication auto --scenarios "$FP_LAB_SCENARIOS" --allow-hub)
           if [ "$RUNNER_OS" = "Linux" ]; then
             # Same reason as the fleet driver: the root daemon's observer reads
             # /root, so the agents run as root with HOME=/root (--allow-root).
