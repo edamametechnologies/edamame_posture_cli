@@ -86,15 +86,28 @@ scenarios report SKIP with the reason; the direct scenarios still run.
 
 ## macOS (fmba-3): what the leg needs
 
-- **The app owns the RPC port.** The standalone app hosts its own core on
-  40152 (core per frontend). Quit EDAMAME Security for the window (and
-  check `lsof -iTCP:40152` is free); the helper can stay.
+- **The window stops the app and the helper, and `stop` brings both back**
+  (Frank, 2026-10-05). The standalone app hosts its own core on 40152 (core
+  per frontend) and the helper runs its own capture and file monitoring;
+  with either running, the host is observed twice and the lab cannot tell
+  which build produced a finding. `start` quits the app, `launchctl
+  disable` + `bootout` the helper, and checks 40151/40152 are free; `stop`
+  removes the owned posture (bundle, link, pkg receipt, root state), `enable`
+  + `bootstrap` the helper, and relaunches the app in the console session
+  (`launchctl asuser`). Implemented in `deploy_owned_posture_macos.sh`.
 - **Binary:** `posture-binary-macos-arm64` is the signed, notarized pkg with
   the Endpoint Security provisioning profile. Installing it places the bundle
   under `/Library/Application Support/EDAMAME/EDAMAME-Posture/` and links
   `/usr/local/bin/edamame_posture`; restore by removing them (or reinstalling
-  the previous pkg) after the window. ES and file monitoring need Full Disk
-  Access for the bundle: a TCC approval in the GUI (VNC), once.
+  the previous pkg) after the window.
+- **Full Disk Access: no approval click.** macOS creates an Endpoint
+  Security client only when the client's responsible process holds FDA, and
+  posture takes process lineage, FIM writer attribution and task-port events
+  from ES (`flodbadd/src/l7_es.rs`; without it: FSEvents and polling, and
+  "ES client creation failed" in the log). On fmba-3 the root SSH session's
+  responsible process, `/usr/libexec/sshd-keygen-wrapper`, holds FDA
+  (TCC.db, granted 2026-05-29), so a posture started from that session gets
+  ES without a GUI approval. `start` greps the daemon log for an ES failure.
 - **State isolation:** a root posture keeps its records under root's own
   home whatever `$HOME` says (`storage_home`: root's defaults / records
   directory, file secrets in `/var/root/.edamame/secrets` when it has no
