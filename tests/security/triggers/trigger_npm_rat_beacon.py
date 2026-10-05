@@ -147,7 +147,13 @@ def main():
                 except (BlockingIOError, OSError): pass
                 finally: sock.setblocking(True); sock.settimeout(30.0)
             except OSError: pass
-            time.sleep(interval)
+            slept = 0.0
+            while KEEP and slept < interval:
+                if duration > 0 and (time.monotonic() - started) >= duration:
+                    break
+                step = min(0.5, interval - slept)
+                time.sleep(step)
+                slept += step
     finally:
         if sock:
             try: sock.close()
@@ -184,6 +190,46 @@ def handle_signal(signum: int, _frame: object) -> None:
     global KEEP_RUNNING
     _ = signum
     KEEP_RUNNING = False
+
+
+def terminate_process_tree(proc: subprocess.Popen) -> None:
+    """Terminate ``proc`` and every process in its session.
+
+    The launcher wrapper runs the stage-2 beacon as its own child rather than
+    ``exec``-ing it (the beacon must keep a ``/tmp`` parent for the detector),
+    so signalling only ``proc`` leaves the beacon orphaned and still beaconing
+    -- and, when the caller captured stdout, holding the inherited pipe open so
+    the capture never returns. The wrapper is launched with
+    ``start_new_session=True`` so ``proc.pid`` leads its own process group and
+    killing the group reaches the beacon underneath it.
+    """
+    if proc.poll() is not None:
+        return
+    if sys.platform == "win32":
+        subprocess.run(["taskkill", "/PID", str(proc.pid), "/T", "/F"],
+                       capture_output=True, check=False)
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+        return
+    try:
+        os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
+    except (ProcessLookupError, OSError):
+        try:
+            proc.terminate()
+        except OSError:
+            pass
+    try:
+        proc.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        try:
+            os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+        except (ProcessLookupError, OSError):
+            try:
+                proc.kill()
+            except OSError:
+                pass
 
 
 def ensure_state_dir(d: Path) -> None:
@@ -372,6 +418,7 @@ def main() -> int:
         child_args,
         stdout=sys.stdout,
         stderr=sys.stderr,
+        start_new_session=(sys.platform != "win32"),
     )
     pid_file.write_text(f"{proc.pid}\n", encoding="utf-8")
     print(f"  stage2_launched  child_pid={proc.pid}")
@@ -387,17 +434,11 @@ def main() -> int:
             if ret is not None:
                 return ret
             if duration > 0 and (time.monotonic() - started) >= duration:
-                proc.terminate()
-                proc.wait(timeout=5)
+                terminate_process_tree(proc)
                 return 0
             time.sleep(0.5)
     finally:
-        if proc.poll() is None:
-            proc.terminate()
-            try:
-                proc.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                proc.kill()
+        terminate_process_tree(proc)
         try:
             pid_file.unlink()
         except FileNotFoundError:

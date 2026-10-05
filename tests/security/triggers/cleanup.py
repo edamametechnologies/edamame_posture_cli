@@ -47,6 +47,8 @@ PID_FILES = [
     "dns_tunnel.pid",
     "dns_tunnel_reconnect.pid",
     "ntp_tunnel.pid",
+    "process_memory_scrape.pid",
+    "package_install_lifecycle.pid",
     # loopback_relay spawns two siblings from a shared interpreter; kill the
     # orchestrator last so it does not respawn a child mid-cleanup.
     "loopback_relay_b.pid",
@@ -77,6 +79,8 @@ CREATED_MARKERS = [
     "dns_tunnel.created",
     "dns_tunnel_reconnect.created",
     "ntp_tunnel.created",
+    "process_memory_scrape.created",
+    "package_install_lifecycle.created",
     "loopback_relay.created",
     # Records a path OUTSIDE the state dir (the stand-in daemon installed into
     # /usr/sbin), which is why _PROTECTED_PARENTS below exists.
@@ -171,8 +175,23 @@ def kill_from_pid_file(pid_file: Path) -> None:
                 detail = (result.stderr or result.stdout or "").strip().replace("\n", " ")
                 print(f"  could not kill pid={pid} ({pid_file.name}): {detail}")
         else:
-            os.kill(pid, signal.SIGTERM)
-            print(f"  killed pid={pid} ({pid_file.name})")
+            # Some triggers (cve_sandbox_escape, npm_rat_beacon) launch their
+            # real payload through a wrapper started with start_new_session, so
+            # the recorded pid leads its own process group. Kill the whole group
+            # when that is the case -- signalling just the leader would orphan
+            # the compiled probe / stage-2 beacon it spawned. Fall back to a
+            # single-pid kill for ordinary triggers, and never kill a group this
+            # process is a member of (that would signal the cleanup run itself).
+            try:
+                pgid = os.getpgid(pid)
+            except ProcessLookupError:
+                pgid = None
+            if pgid == pid and pgid != os.getpgrp():
+                os.killpg(pgid, signal.SIGTERM)
+                print(f"  killed pgid={pgid} ({pid_file.name})")
+            else:
+                os.kill(pid, signal.SIGTERM)
+                print(f"  killed pid={pid} ({pid_file.name})")
     except ProcessLookupError:
         pass
     except PermissionError:

@@ -160,7 +160,16 @@ def main() -> int:
             transcript.write_text(body, encoding="utf-8")
         except OSError:
             pass
-        time.sleep(interval)
+        # Sleep in short slices: a single time.sleep(interval) is resumed by
+        # the interpreter after our SIGTERM handler returns (PEP 475), so with
+        # the default 30s interval cleanup took up to 30s to stop this trigger.
+        slept = 0.0
+        while KEEP_RUNNING and slept < interval:
+            if duration > 0 and (time.monotonic() - started) >= duration:
+                break
+            step = min(0.5, interval - slept)
+            time.sleep(step)
+            slept += step
 
     try:
         pid_file.unlink()

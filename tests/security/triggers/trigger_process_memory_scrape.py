@@ -70,6 +70,7 @@ from pathlib import Path
 from _common import AGENT_TYPE_ARG_HELP, resolve_agent_type, state_dir_for
 
 PID_FILE = "process_memory_scrape.pid"
+CREATED_MARKER = "process_memory_scrape.created"
 KEEP_RUNNING = True
 
 
@@ -77,6 +78,24 @@ def handle_signal(signum: int, _frame: object) -> None:
     global KEEP_RUNNING
     print(f"signal {signum}: stopping", flush=True)
     KEEP_RUNNING = False
+
+
+def record_created(state_dir: Path, path: Path) -> None:
+    """Record a file this trigger created so ``cleanup.py`` can remove it.
+
+    The compiled sleeper (``edamame_bs9_sleeper`` + its ``.c``) lives in the
+    state dir but is not covered by any ``claim_canonical_path`` backup, so
+    without this it was left behind on every run."""
+    marker = state_dir / CREATED_MARKER
+    existing = set()
+    if marker.exists():
+        existing = {
+            line.strip()
+            for line in marker.read_text("utf-8").splitlines()
+            if line.strip()
+        }
+    existing.add(str(path))
+    marker.write_text("\n".join(sorted(existing)) + "\n", encoding="utf-8")
 
 
 def parse_args() -> argparse.Namespace:
@@ -114,11 +133,13 @@ def build_plain_sleeper(state_dir: Path, name: str = "edamame_bs9_sleeper") -> P
     try:
         src.write_text("#include <unistd.h>\nint main(void){for(;;)sleep(1);return 0;}\n",
                        encoding="utf-8")
+        record_created(state_dir, src)
         res = subprocess.run(["cc", "-O0", "-o", str(out), str(src)],
                              capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120, check=False)
         if res.returncode != 0 or not out.exists():
             return None
         out.chmod(0o755)
+        record_created(state_dir, out)
         _TARGET_BIN = out
         return out
     except (OSError, subprocess.SubprocessError):
