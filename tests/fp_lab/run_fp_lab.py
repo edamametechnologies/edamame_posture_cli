@@ -390,6 +390,11 @@ def _model_spec(model: dict) -> dict:
         for plane in ("human_scope", "agent_scope"):
             if isinstance(p.get(plane), dict):
                 spec[plane] = _spec_from(p[plane], SCOPE_SPEC_KEYS)
+        # The transcript's birth and last write: the policies that place a
+        # write in the session's span (evaluator integrity) read them.
+        raw = p.get("raw_input")
+        if isinstance(raw, dict) and raw.get("started_at") and raw.get("modified_at"):
+            spec["transcript_span"] = {"started_at": raw["started_at"], "modified_at": raw["modified_at"]}
         preds.append(spec)
     duration = 300
     try:
@@ -403,8 +408,31 @@ def _model_spec(model: dict) -> dict:
             "version": str(model.get("version") or "fp-lab"), "predictions": preds}
 
 
+FILE_EVENT_KEYS = ("timestamp", "path", "event_type", "process_name", "process_path",
+                   "parent_process_name", "parent_process_path", "is_sensitive", "labels")
+
+
+def incident_file_events(incident: dict, fim: object) -> List[dict]:
+    """The FIM events an incident's evidence names, by path. The debug trace's
+    telemetry snapshot carries no FIM events, so a candidate built from it
+    alone cannot replay a write-based finding (evaluator integrity) and would
+    pass by vacuity."""
+    events = fim.get("events") if isinstance(fim, dict) else None
+    if not isinstance(events, list):
+        return []
+    texts = [str(e.get("description") or "") for e in incident.get("top_evidence") or []
+             if isinstance(e, dict)]
+    picked = []
+    for ev in events:
+        path = str(ev.get("path") or "") if isinstance(ev, dict) else ""
+        if path and any(path in t for t in texts):
+            picked.append({k: ev.get(k) for k in FILE_EVENT_KEYS if k in ev})
+    return picked
+
+
 def divergence_envelope(div_id: str, scenario: Scenario, case_id: str, incident: dict,
-                        trace: object, model: object, history: object) -> dict:
+                        trace: object, model: object, history: object,
+                        file_events: Optional[List[dict]] = None) -> dict:
     """Draft divergence corpus entry: the live model and telemetry, asserting
     the benign outcome (Clean, the fired categories absent). Review before
     committing: the replay corpus has no field for the parser hints, so a
@@ -426,6 +454,8 @@ def divergence_envelope(div_id: str, scenario: Scenario, case_id: str, incident:
         for k in TELEMETRY_KEYS:
             if k in telemetry and telemetry[k] not in (None, [], {}):
                 inp[k] = telemetry[k]
+    if file_events and not inp.get("file_events"):
+        inp["file_events"] = file_events
     return {
         "div_id": div_id,
         "title": f"FP lab: {scenario.title}",
@@ -451,17 +481,19 @@ def capture_incident(incident: dict, scenario: Scenario, case_id: str, case_dir:
     trace = as_obj(rpc_or_none("get_divergence_debug_trace", {"entry_id": entry_id}, timeout=120)) if entry_id else None
     model = as_obj(rpc_or_none("get_behavioral_model", timeout=READ_TIMEOUT))
     history = as_obj(rpc_or_none("get_behavioral_model_history", {"limit": 20}, timeout=READ_TIMEOUT))
+    file_events = incident_file_events(full if isinstance(full, dict) else incident,
+                                       as_obj(rpc_or_none("get_file_events", timeout=READ_TIMEOUT)))
     raw_sessions = {}
     for agent in sorted(set((full or {}).get("agent_types") or []) | set(agents)):
         raw_sessions[agent] = as_obj(rpc_or_none(
             "get_raw_agent_activity", {"agent_type": agent, "active_window_minutes": 180, "limit": 5}, timeout=180))
     bundle = {"incident": full, "debug_trace": trace, "behavioral_model": model,
               "behavioral_model_history": history, "raw_agent_activity": raw_sessions,
-              "captured_at": now_iso()}
+              "file_events": file_events, "captured_at": now_iso()}
     bundle_path = write_json(out / f"{safe_name(iid)}.bundle.json", bundle)
     div_id = f"DIV-LAB-{safe_name(scenario.id, 60).upper()}"
     envelope = divergence_envelope(div_id, scenario, case_id, full if isinstance(full, dict) else incident,
-                                   trace, model, history)
+                                   trace, model, history, file_events)
     cand_path = write_json(run_dir / "candidates" / "divergence" / div_id / f"{safe_name(case_id)}-{safe_name(iid)[-24:]}.json",
                            envelope)
     return {"incident_id": iid, "entry_id": entry_id, "severity": incident.get("severity"),
