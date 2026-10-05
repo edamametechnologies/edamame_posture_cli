@@ -22,6 +22,8 @@
 #                    app, delete the keys, verify
 #
 # Why each step:
+# - Ports are checked with netstat, never lsof: lsof hangs on fmba-3 (an
+#   uninterruptible lsof survived kill -9 there on 2026-10-05).
 # - The app hosts its own core on 40152 (core per frontend) and the helper
 #   runs its own capture and file monitoring: both stay off for the window so
 #   only the owned build observes the host.
@@ -167,21 +169,23 @@ mkdir -p /var/root/fp-lab
   launchctl print system/$HELPER_LABEL >/dev/null 2>&1 && echo helper=loaded || echo helper=unloaded
   launchctl print-disabled system | grep -q '"$HELPER_LABEL" => disabled' && echo helper_disabled=yes || echo helper_disabled=no
 } | tee /var/root/fp-lab/pre-state
-lsof -nP -iTCP:40152 -sTCP:LISTEN 2>/dev/null | awk 'NR>1{print "port 40152:", \$1}'
+/usr/sbin/netstat -an -p tcp | grep LISTEN | grep -q '\.40152 ' && echo 'port 40152: listening'
 EOF
-    say "quitting the app"
-    as_user "osascript -e 'tell application \"$APP_NAME\" to quit' >/dev/null 2>&1 || true"
+    # SIGTERM from root, not `osascript ... quit`: Apple Events from an SSH
+    # session can raise an Automation consent prompt on the console.
+    say "stopping the app"
     as_root "bash -s" <<EOF
+pkill -TERM -x "$APP_NAME" 2>/dev/null || true
 for _ in \$(seq 1 20); do pgrep -x "$APP_NAME" >/dev/null || break; sleep 1; done
-pkill -x "$APP_NAME" 2>/dev/null || true
-sleep 2; pgrep -x "$APP_NAME" >/dev/null && { echo "app still running"; exit 1; }
+pgrep -x "$APP_NAME" >/dev/null && { pkill -KILL -x "$APP_NAME"; sleep 2; }
+pgrep -x "$APP_NAME" >/dev/null && { echo "app still running"; exit 1; }
 echo "disabling the helper"
 launchctl disable system/$HELPER_LABEL
 launchctl bootout system/$HELPER_LABEL 2>/dev/null || true
 for _ in \$(seq 1 20); do pgrep -f "EDAMAME-Helper/edamame_helper.app" >/dev/null || break; sleep 1; done
 pgrep -f "EDAMAME-Helper/edamame_helper.app" >/dev/null && { echo "helper still running"; exit 1; }
 for p in 40151 40152; do
-  lsof -nP -iTCP:\$p -sTCP:LISTEN >/dev/null 2>&1 && { echo "port \$p still held"; exit 1; }
+  /usr/sbin/netstat -an -p tcp | grep LISTEN | grep -q "\\.\$p " && { echo "port \$p still held"; exit 1; }
 done
 echo "app and helper stopped, ports free"
 # Root's own posture state from an earlier install goes aside for the window.
@@ -281,8 +285,8 @@ uid=\$(id -u $USER_)
 launchctl asuser "\$uid" sudo -u $USER_ open -a "$APP_NAME" || echo "open failed (no console session?)"
 for _ in \$(seq 1 60); do pgrep -x "$APP_NAME" >/dev/null && break; sleep 1; done
 pgrep -x "$APP_NAME" >/dev/null && echo "app: running" || echo "app: NOT RUNNING"
-for _ in \$(seq 1 60); do lsof -nP -iTCP:40152 -sTCP:LISTEN 2>/dev/null | grep -q . && break; sleep 2; done
-lsof -nP -iTCP:40152 -sTCP:LISTEN 2>/dev/null | awk 'NR>1{print "port 40152:", \$1}'
+for _ in \$(seq 1 60); do /usr/sbin/netstat -an -p tcp | grep LISTEN | grep -q '\.40152 ' && break; sleep 2; done
+/usr/sbin/netstat -an -p tcp | grep LISTEN | grep -q '\.40152 ' && echo 'port 40152: listening' || echo 'port 40152: NOT LISTENING'
 echo "deleting the lab keys"
 rm -f /var/root/fp-lab/portal.env
 EOF
