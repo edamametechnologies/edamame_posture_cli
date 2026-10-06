@@ -201,16 +201,21 @@ done
 echo "app and helper stopped, ports free"
 # Root's own posture state (an earlier install's) is saved once per window
 # and cleared, so the owned build starts empty, disconnected and touches
-# nothing of it.
+# nothing of it. Three places: the defaults domain, the file secret store,
+# and the records that outgrew the defaults (2.0.3, Application Support:
+# the agentic config with its action history; an r3 window's history was
+# still there when r5 started, 2026-10-06).
+APPSUP="/var/root/Library/Application Support/edamame_posture"
 if [ ! -f /var/root/fp-lab/original/.saved ]; then
   mkdir -p /var/root/fp-lab/original
   defaults export edamame_posture /var/root/fp-lab/original/edamame_posture.plist 2>/dev/null \
     && echo "saved the edamame_posture domain" || echo "no edamame_posture domain"
   [ -d /var/root/.edamame ] && mv /var/root/.edamame /var/root/fp-lab/original/dot-edamame && echo "saved /var/root/.edamame"
+  [ -d "\$APPSUP" ] && mv "\$APPSUP" /var/root/fp-lab/original/app-support && echo "saved \$APPSUP"
   touch /var/root/fp-lab/original/.saved
 fi
 defaults delete edamame_posture 2>/dev/null || true
-rm -rf /var/root/.edamame
+rm -rf /var/root/.edamame "\$APPSUP"
 echo "installing the owned posture"
 installer -pkg /Users/$USER_/fp-lab/bin/edamame-posture.pkg -target / | tail -2
 codesign -dvv "$POSTURE_BUNDLE/edamame_posture.app" 2>&1 | grep -E "Authority=Developer ID Application|TeamIdentifier" | head -2
@@ -287,11 +292,14 @@ if [ -f /var/root/fp-lab/original/.saved ]; then
   ts=\$(date +%Y%m%d%H%M%S); mkdir -p /var/root/fp-lab/lab-state-\$ts
   defaults export edamame_posture /var/root/fp-lab/lab-state-\$ts/edamame_posture.plist 2>/dev/null || true
   [ -d /var/root/.edamame ] && mv /var/root/.edamame /var/root/fp-lab/lab-state-\$ts/dot-edamame
+  APPSUP="/var/root/Library/Application Support/edamame_posture"
+  [ -d "\$APPSUP" ] && mv "\$APPSUP" /var/root/fp-lab/lab-state-\$ts/app-support
   defaults delete edamame_posture 2>/dev/null || true
   if [ -f /var/root/fp-lab/original/edamame_posture.plist ]; then
     defaults import edamame_posture /var/root/fp-lab/original/edamame_posture.plist && echo "restored the edamame_posture domain"
   fi
   [ -d /var/root/fp-lab/original/dot-edamame ] && mv /var/root/fp-lab/original/dot-edamame /var/root/.edamame && echo "restored /var/root/.edamame"
+  [ -d /var/root/fp-lab/original/app-support ] && mv /var/root/fp-lab/original/app-support "\$APPSUP" && echo "restored \$APPSUP"
   mv /var/root/fp-lab/original /var/root/fp-lab/restored-\$ts
 fi
 echo "re-enabling the helper"
