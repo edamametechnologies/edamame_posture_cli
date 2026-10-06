@@ -251,7 +251,7 @@ SCRIPT
     ;;
 
   status)
-    as_root "cat /var/root/fp-lab/pre-state 2>/dev/null; pgrep -x '$APP_NAME' >/dev/null && echo 'app: RUNNING' || echo 'app: stopped'; pgrep -f 'EDAMAME-Helper/edamame_helper.app' >/dev/null && echo 'helper: RUNNING' || echo 'helper: stopped'; pgrep -fl 'edamame_posture' | head -3"
+    as_root "cat /var/root/fp-lab/pre-state 2>/dev/null; pgrep -x '$APP_NAME' >/dev/null && echo 'app: RUNNING' || echo 'app: stopped'; pgrep -f 'EDAMAME-Helper/edamame_helper.app' >/dev/null && echo 'helper: RUNNING' || echo 'helper: stopped'; pgrep -l edamame_posture | head -3"
     user_bash <<'SCRIPT'
 show_state
 SCRIPT
