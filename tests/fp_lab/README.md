@@ -24,7 +24,8 @@ for review. LOW findings are recorded, never gating.
 | `lab_workspace.py` | Workspace fixtures (a small web-app repo, the same with agent instruction files, the same with secret-shaped test fixtures). Built under the lab root, never in OS temp. |
 | `direct_actions.py` | Agent-free scenarios: cargo / venv / npm builds in the workspace and in temp, git clone/fetch/push, curl to public APIs, rustup-init temp staging, a git credential helper. |
 | `run_fp_lab.py` | The runner: preflight, warm-up baseline, cases, settle ticks, collection and export, drain, summary. Also `list`, `validate`, `shape`. |
-| `deploy_owned_posture.sh` | Operator-side: fetch the CI build, push it and the harness to a host, record state, swap the released service for the owned daemon (isolated), run, collect, restore. Linux in v1. |
+| `daemon_perf.py` | Samples the candidate daemon's RSS and CPU every 30 s through the run (`perf.csv`, `perf.json`, the summary's "Daemon resources": peaks, slope, restarts, per-case peaks, flags). |
+| `deploy_owned_posture.sh` | Operator-side: fetch the CI build, push it and the harness to a host, record state, swap the released service for the owned daemon (isolated, on empty state), run, collect, restore. Linux here; `deploy_owned_posture_macos.sh` and `_windows.sh` for fmba-3 and shiawase. |
 | `owned_posture.md` | How the owned daemon is deployed and isolated, and what the macOS / Windows legs need. |
 
 Shared code, not copied: agent installation and driving, observer ticks and
@@ -140,7 +141,16 @@ PR, release gate) is unchanged.
   reported as the dogfood identity's) unless that is the point
   (`--allow-hub`).
 - The runner never clears history, suppressions or dismissals: it diffs
-  snapshots. A host's daemon state stays what the run left.
+  snapshots. A host's daemon state stays what the run left, which is why
+  every window's `start` gives the candidate an empty owned state (the
+  previous window's moves aside) and why `active_findings` must read 0
+  after it.
+- Live-check every host before a window (`<host> status`), and `stop`
+  after `collect` on every host: a window is over when the released
+  service, app and helper run again and the keys are gone.
+- One session drives the lab (`edamame_rules/edamame_app/release.mdc`,
+  Pre-Release FP Lab Gate): a second assistant that finds windows open
+  reports and stops.
 
 ## Adding a scenario
 
