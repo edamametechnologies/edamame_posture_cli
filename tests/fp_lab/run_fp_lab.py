@@ -391,10 +391,17 @@ def _model_spec(model: dict) -> dict:
             if isinstance(p.get(plane), dict):
                 spec[plane] = _spec_from(p[plane], SCOPE_SPEC_KEYS)
         # The transcript's birth and last write: the policies that place a
-        # write in the session's span (evaluator integrity) read them.
+        # write in the session's span (evaluator integrity) read them. The
+        # decoded tool calls ride along: the policies that ask whether the
+        # agent acted on a claim (growth, escalation) read those.
         raw = p.get("raw_input")
         if isinstance(raw, dict) and raw.get("started_at") and raw.get("modified_at"):
-            spec["transcript_span"] = {"started_at": raw["started_at"], "modified_at": raw["modified_at"]}
+            span = {"started_at": raw["started_at"], "modified_at": raw["modified_at"]}
+            events = [{"name": str(e.get("name") or ""), "target": str(e.get("target") or "")}
+                      for e in raw.get("tool_events") or [] if isinstance(e, dict) and e.get("name")]
+            if events:
+                span["tool_events"] = events
+            spec["transcript_span"] = span
         preds.append(spec)
     duration = 300
     try:
