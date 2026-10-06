@@ -216,6 +216,21 @@ if (-not (Test-Path "$Lab\state\pre-state.json")) {
   # baseline and hide a false positive that build raised too (2026-10-06).
   # The earlier state stays for forensics.
   $state | ConvertTo-Json | Set-Content "$Lab\state\pre-state.json"
+  # The released app's and helper's resources, shown beside the candidate's
+  # (daemon_perf). Not the same product (the app carries the UI, the helper
+  # the capture), so context, not a like-for-like reference.
+  $ref = [ordered]@{}
+  foreach ($n in 'edamame', 'edamame_helper') {
+    $p = Get-Process $n -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($p) {
+      $row = [ordered]@{ rss_mb = [math]::Round($p.WorkingSet64 / 1MB) }
+      try { $row.cpu_seconds = [math]::Round($p.TotalProcessorTime.TotalSeconds) } catch {}
+      try { $row.uptime_secs = [math]::Round(((Get-Date) - $p.StartTime).TotalSeconds) } catch {}
+      $ref[$n] = $row
+    }
+  }
+  ([ordered]@{ what = 'released app (edamame) and helper (edamame_helper)'; processes = $ref } |
+    ConvertTo-Json -Depth 4) | Set-Content "$Lab\state\released-perf.json"
   if (Test-Path "$Lab\state\AppData") {
     $prev = "AppData-$(Get-Date -Format yyyyMMddHHmmss)"
     Rename-Item "$Lab\state\AppData" $prev; "earlier owned state moved to $prev"
@@ -268,7 +283,7 @@ for /f "usebackq tokens=1,* delims==" %%a in ("$Lab\secrets\providers.env") do s
 set EDAMAME_CLI_BIN=$Cli
 set PATH=%PATH%;C:\Program Files\Git\bin;%APPDATA%\npm;%USERPROFILE%\.cargo\bin;%USERPROFILE%\.local\bin
 cd /d "$Lab\harness"
-python tests\fp_lab\run_fp_lab.py run --out "$Lab\runs\$Name" --expect-core-version $Owned --set-adjudication auto $Args2 > "$Lab\runs\$Name.log" 2>&1
+python tests\fp_lab\run_fp_lab.py run --out "$Lab\runs\$Name" --expect-core-version $Owned --set-adjudication auto --perf-reference "$Lab\state\released-perf.json" $Args2 > "$Lab\runs\$Name.log" 2>&1
 "@
 Set-Content -Encoding ascii "$Lab\bin\run-lab.cmd" $runner
 Run-Task "EdamameFpLabRun" "$Lab\bin\run-lab.cmd"

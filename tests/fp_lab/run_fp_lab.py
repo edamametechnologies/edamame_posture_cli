@@ -61,6 +61,7 @@ for _p in (TESTS / "security" / "triggers", TESTS / "e2e", HERE):
 
 from _edamame_cli import cli_rpc, find_cli_binary  # noqa: E402
 import supported_agents as reg  # noqa: E402
+import daemon_perf  # noqa: E402
 from agent_harness import (  # noqa: E402
     REAL_DRIVERS,
     _augment_path,
@@ -771,6 +772,10 @@ def run_cmd_run(args: argparse.Namespace) -> int:
     state = LabState()
     observer_agents = [a for a in lab_agents if a in (pf.get("transcript_observer") or {})]
     ambient: dict = {"alertable": [], "low": [], "incidents": []}
+    # The candidate's memory and CPU through the whole run, warm-up included
+    # (daemon_perf: the lab is also the release's realistic load test).
+    sampler = daemon_perf.PerfSampler(run_dir / "perf.csv", interval=args.perf_interval)
+    sampler.start()
 
     def keep_ambient(news: dict, _snap: dict) -> None:
         ambient["alertable"].extend(news["alertable"])
@@ -898,6 +903,8 @@ def run_cmd_run(args: argparse.Namespace) -> int:
         "transcript_observer": as_obj(rpc_or_none("get_transcript_observer_status")),
     }
     write_json(run_dir / "final_status.json", final_status)
+    sampler.stop()
+    write_json(run_dir / "perf.json", daemon_perf.summarize(sampler.samples, results))
     return write_summary(run_dir, pf, results, args)
 
 
@@ -908,12 +915,22 @@ def write_summary(run_dir: Path, pf: dict, results: List[dict], args: argparse.N
     for r in results:
         counts[r["status"]] = counts.get(r["status"], 0) + 1
     fails = [r for r in results if r["status"] == "FAIL"]
+    perf_path = run_dir / "perf.json"
+    perf = json.loads(perf_path.read_text(encoding="utf-8")) if perf_path.is_file() else None
+    perf_reference = None
+    reference_path = getattr(args, "perf_reference", "") or ""
+    if reference_path and Path(reference_path).expanduser().is_file():
+        try:
+            perf_reference = json.loads(Path(reference_path).expanduser().read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            perf_reference = None
     summary = {
         "run_dir": str(run_dir), "host": pf.get("host"), "platform": pf.get("platform"),
         "core_version": pf.get("core_version"), "generated_at": now_iso(),
         "adjudication": {"attack_pattern": (pf.get("attack_pattern_detector") or {}).get("adjudication_mode"),
                          "divergence": (pf.get("divergence_engine") or {}).get("adjudication_mode")},
         "counts": counts, "verdict": "FAIL" if fails else "PASS",
+        "perf": perf, "perf_reference": perf_reference,
         "cases": [{k: r.get(k) for k in ("case_id", "status", "reason", "fp_class", "kind", "agent", "error")}
                   | {"alertable": [e for e in r.get("attack_pattern", []) if e.get("alertable")],
                      "low": [e for e in r.get("attack_pattern", []) if not e.get("alertable")],
@@ -965,6 +982,8 @@ def write_summary(run_dir: Path, pf: dict, results: List[dict], args: argparse.N
             lines.append(f"- divergence verdict {e.get('verdict')} (deterministic {e.get('deterministic_verdict')}) "
                          f"without an incident: {', '.join(e.get('categories') or [])}")
         lines.append("")
+    if perf is not None:
+        lines += daemon_perf.markdown(perf, perf_reference)
     (run_dir / "summary.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
     section(f"FP lab verdict: {summary['verdict']}")
     log((run_dir / "summary.md").read_text(encoding="utf-8"))
@@ -1043,6 +1062,10 @@ def main() -> int:
     r.add_argument("--allow-no-llm", action="store_true")
     r.add_argument("--corpus-tool", default="")
     r.add_argument("--dry-run", action="store_true", help="print the plan and exit")
+    r.add_argument("--perf-interval", type=float, default=30.0,
+                   help="seconds between daemon resource samples (daemon_perf)")
+    r.add_argument("--perf-reference", default="",
+                   help="JSON file: the released daemon's resources on this host, shown beside the run's")
     sh = sub.add_parser("shape")
     sh.add_argument("run_dir")
     sh.add_argument("--corpus-tool", default="")
