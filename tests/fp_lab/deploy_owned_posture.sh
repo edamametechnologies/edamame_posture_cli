@@ -143,15 +143,62 @@ case "$CMD" in
     ;;
 
   agents)
-    # Claude Code and Codex through npm, user-level, when missing.
+    # Claude Code and Codex, user-level, when missing. A Codex binary alone
+    # is not an install: since 0.160 its tools run in codex-code-mode-host,
+    # beside the binary (test-mint 2026-10-06: a copied binary answered
+    # --version, ran no tool, and every Codex case was a SKIP). Without npm,
+    # Codex comes from the npm registry's platform tarball, verified against
+    # the registry's sha512.
     ssh_host 'bash -s' <<'EOF'
 export PATH="$HOME/.local/bin:$HOME/.npm-global/bin:$PATH"
-npm config get prefix | grep -q "$HOME" || npm config set prefix "$HOME/.npm-global"
-for pair in "claude:@anthropic-ai/claude-code:Claude Code" "codex:@openai/codex:codex-cli"; do
-  bin=${pair%%:*}; rest=${pair#*:}; pkg=${rest%%:*}; want=${rest#*:}
-  if "$bin" --version 2>/dev/null | grep -q "$want"; then echo "$bin: $(command -v $bin)"; else echo "installing $pkg"; npm install -g "$pkg" 2>&1 | tail -n 2; fi
-done
+codex_ok() {
+  codex --version 2>/dev/null | grep -q codex-cli || return 1
+  [ -x "$(dirname "$(readlink -f "$(command -v codex)")")/codex-code-mode-host" ]
+}
+install_codex_tarball() {
+  case "$(uname -m)" in x86_64) arch=x64 ;; aarch64|arm64) arch=arm64 ;; *) echo "no Codex build for $(uname -m)"; return 1 ;; esac
+  python3 - "$arch" <<'PY'
+import base64, hashlib, json, os, sys, tarfile, urllib.request
+arch = sys.argv[1]
+reg = "https://registry.npmjs.org/@openai%2Fcodex"
+ver = json.load(urllib.request.urlopen(reg))["dist-tags"]["latest"]
+meta = json.load(urllib.request.urlopen(f"{reg}/{ver}-linux-{arch}"))
+data = urllib.request.urlopen(meta["dist"]["tarball"]).read()
+algo, want = meta["dist"]["integrity"].split("-", 1)
+if base64.b64encode(hashlib.new(algo, data).digest()).decode() != want:
+    sys.exit("codex tarball integrity mismatch")
+root = os.path.expanduser(f"~/.local/share/codex/{ver}")
+os.makedirs(root, exist_ok=True)
+tmp = os.path.join(root, "package.tgz")
+open(tmp, "wb").write(data)
+with tarfile.open(tmp) as t:
+    t.extractall(root, filter="tar")
+os.remove(tmp)
+vendor = os.path.join(root, "package", "vendor")
+triple = next(d for d in os.listdir(vendor) if d.endswith("linux-musl"))
+binary = os.path.join(vendor, triple, "bin", "codex")
+link = os.path.expanduser("~/.local/bin/codex")
+os.makedirs(os.path.dirname(link), exist_ok=True)
+if os.path.lexists(link):
+    if os.path.islink(link):
+        os.remove(link)
+    else:
+        os.replace(link, link + ".standalone")
+os.symlink(binary, link)
+print(f"installed codex {ver} from the registry ({triple})")
+PY
+}
+if command -v npm >/dev/null; then
+  npm config get prefix | grep -q "$HOME" || npm config set prefix "$HOME/.npm-global"
+fi
+if claude --version 2>/dev/null | grep -q "Claude Code"; then echo "claude: $(command -v claude)"
+elif command -v npm >/dev/null; then echo "installing @anthropic-ai/claude-code"; npm install -g @anthropic-ai/claude-code 2>&1 | tail -n 2
+else echo "claude missing and no npm"; fi
+if codex_ok; then echo "codex: $(command -v codex)"
+elif command -v npm >/dev/null; then echo "installing @openai/codex"; npm install -g @openai/codex 2>&1 | tail -n 2
+else install_codex_tarball; fi
 for t in claude codex; do echo "$t version: $($t --version 2>&1 | head -1)"; done
+codex_ok && echo "codex: code-mode host present" || echo "codex: NOT USABLE (no code-mode host)"
 EOF
     ;;
 
