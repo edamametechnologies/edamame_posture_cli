@@ -177,7 +177,23 @@ mkdir -p /var/root/fp-lab
 } > /var/root/fp-lab/pre-state.now
 # Once per window: a second start (after a failed one) must not record the
 # app it stopped itself as "stopped".
-[ -f /var/root/fp-lab/pre-state ] || mv /var/root/fp-lab/pre-state.now /var/root/fp-lab/pre-state
+if [ ! -f /var/root/fp-lab/pre-state ]; then
+  mv /var/root/fp-lab/pre-state.now /var/root/fp-lab/pre-state
+  # The released app's and helper's resources, shown beside the candidate's
+  # (daemon_perf): the app carries the UI and its own core, the helper the
+  # capture, so context rather than a like-for-like reference.
+  ref=""
+  for pair in "app:\$(pgrep -x "$APP_NAME" | head -1)" "helper:\$(pgrep -f 'EDAMAME-Helper/edamame_helper.app' | head -1)"; do
+    name=\${pair%%:*}; pid=\${pair#*:}
+    [ -n "\$pid" ] || continue
+    row=\$(ps -o rss=,time=,etime= -p "\$pid" | awk '{printf "\\"rss_mb\\": %d, \\"cpu_time\\": \\"%s\\", \\"uptime\\": \\"%s\\"", \$1/1024, \$2, \$3}')
+    ref="\${ref:+\$ref, }\\"\$name\\": {\$row}"
+  done
+  mkdir -p /Users/$USER_/fp-lab/state && chown $USER_ /Users/$USER_/fp-lab/state
+  echo "{\\"what\\": \\"released app and helper\\", \\"processes\\": {\$ref}}" > /Users/$USER_/fp-lab/state/released-perf.json
+  chown $USER_ /Users/$USER_/fp-lab/state/released-perf.json
+  cat /Users/$USER_/fp-lab/state/released-perf.json
+fi
 rm -f /var/root/fp-lab/pre-state.now
 cat /var/root/fp-lab/pre-state
 /usr/sbin/netstat -an -p tcp | grep LISTEN | grep -q '\.40152 ' && echo 'port 40152: listening' || echo 'port 40152: free'
@@ -248,7 +264,8 @@ SCRIPT
 set -a; . ~/fp-lab/secrets/providers.env; set +a
 cd ~/fp-lab/harness
 nohup python3 tests/fp_lab/run_fp_lab.py run --out ~/fp-lab/runs/$NAME \\
-  --expect-core-version $OWNED_VERSION --set-adjudication auto $ARGS \\
+  --expect-core-version $OWNED_VERSION --set-adjudication auto \\
+  --perf-reference ~/fp-lab/state/released-perf.json $ARGS \\
   > ~/fp-lab/runs/$NAME.log 2>&1 < /dev/null &
 sleep 3; echo "started $NAME"; tail -n 5 ~/fp-lab/runs/$NAME.log
 SCRIPT

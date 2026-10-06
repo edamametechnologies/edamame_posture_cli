@@ -250,6 +250,17 @@ if [ ! -f ~/fp-lab/state/window ]; then
     prev=/var/lib/edamame-fplab/state-\$(date +%Y%m%d%H%M%S)
     sudo mv /var/lib/edamame-fplab/state "\$prev"; echo "earlier owned state moved to \$prev"
   fi
+  # The released daemon's resources, the reference beside the candidate's
+  # (daemon_perf): same product, same host, before the window.
+  rpid=\$(systemctl show $SERVICE -p MainPID --value 2>/dev/null)
+  if [ -n "\$rpid" ] && [ "\$rpid" != 0 ] && [ -r /proc/\$rpid/status ]; then
+    rss_kb=\$(awk '/^VmRSS:/{print \$2}' /proc/\$rpid/status)
+    up=\$(ps -o etimes= -p \$rpid | tr -d ' ')
+    cpu_ns=\$(systemctl show $SERVICE -p CPUUsageNSec --value)
+    printf '{"what": "released %s", "rss_mb": %s, "uptime_secs": %s, "cpu_seconds": %s}\\n' \
+      "$SERVICE" "\$((rss_kb / 1024))" "\${up:-0}" "\$((\${cpu_ns:-0} / 1000000000))" > ~/fp-lab/state/released-perf.json
+    cat ~/fp-lab/state/released-perf.json
+  fi
   touch ~/fp-lab/state/window
 fi
 sudo install -d -m 0700 /var/lib/edamame-fplab /var/lib/edamame-fplab/state
@@ -294,7 +305,8 @@ cd ~/fp-lab/harness
 export PATH="\$HOME/.local/bin:\$HOME/.npm-global/bin:\$PATH"
 if [ -f ~/fp-lab/secrets/providers.env ]; then set -a; . ~/fp-lab/secrets/providers.env; set +a; fi
 setsid -f python3 tests/fp_lab/run_fp_lab.py run --out ~/fp-lab/runs/$NAME \
-  --expect-core-version $OWNED_VERSION --set-adjudication auto $ARGS \
+  --expect-core-version $OWNED_VERSION --set-adjudication auto \
+  --perf-reference ~/fp-lab/state/released-perf.json $ARGS \
   > ~/fp-lab/runs/$NAME.log 2>&1 < /dev/null
 sleep 2; echo "started $NAME"; tail -n 5 ~/fp-lab/runs/$NAME.log
 EOF
