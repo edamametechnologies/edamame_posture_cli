@@ -300,8 +300,8 @@ SCENARIOS: List[Scenario] = [
         agents=("claude_code",),
         requests=(
             "Create a git worktree of this repository in a new `mktemp -d` directory on "
-            "a new branch named try-lint. In that worktree, make sure README.md ends with "
-            "exactly one newline and commit the change on that branch. Write the commit "
+            "a new branch named try-lint. In that worktree, append the line "
+            "`Last lint check: passed.` to README.md and commit it on that branch. Write the commit "
             "hash to notes/worktree.md in this checkout, then remove the worktree and "
             "delete the try-lint branch.",
         ),
