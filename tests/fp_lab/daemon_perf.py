@@ -164,10 +164,10 @@ class PerfSampler(threading.Thread):
         self.csv_path = csv_path
         self.interval = interval
         self.samples: List[dict] = []
-        self._stop = threading.Event()
+        self._halt = threading.Event()
 
     def stop(self) -> None:
-        self._stop.set()
+        self._halt.set()
         self.join(timeout=self.interval + 60)
 
     def run(self) -> None:
@@ -175,7 +175,7 @@ class PerfSampler(threading.Thread):
         with self.csv_path.open("w", newline="", encoding="utf-8") as fh:
             writer = csv.writer(fh)
             writer.writerow(["at", "pid", "rss_mb", "cpu_seconds"])
-            while not self._stop.is_set():
+            while not self._halt.is_set():
                 row = sample_daemon()
                 at = _now()
                 if row:
@@ -184,7 +184,7 @@ class PerfSampler(threading.Thread):
                     self.samples.append(sample)
                     writer.writerow([at.isoformat(), pid, f"{sample['rss_mb']:.1f}", f"{cpu:.2f}"])
                     fh.flush()
-                self._stop.wait(self.interval)
+                self._halt.wait(self.interval)
 
 
 def _parse(at: str) -> Optional[_dt.datetime]:
