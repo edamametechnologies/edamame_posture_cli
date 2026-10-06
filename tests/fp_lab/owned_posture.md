@@ -3,8 +3,10 @@
 The FP lab measures the detection code we are about to ship, so it runs
 against a posture daemon built from that code, on a real host, and gives the
 host back on its released service afterwards. `deploy_owned_posture.sh`
-does this for Linux (test-mint); this page is its design and the plan for the
-macOS and Windows legs.
+does this on test-mint (Linux) and dispatches to
+`deploy_owned_posture_macos.sh` (fmba-3) and `deploy_owned_posture_windows.sh`
+(shiawase); this page is their design. The end-to-end sequence is in the
+README ("The release candidate, end to end").
 
 ## Which binary
 
@@ -30,6 +32,12 @@ client of whichever daemon owns `127.0.0.1:40152`.
 
 `start`:
 
+0. refuses an owned daemon of another build (it must be `stop`ped first);
+   once per window (a marker `stop` removes) records whether the GUI ran and
+   the released service's RSS and CPU (`~/fp-lab/state/released-perf.json`,
+   the resources reference), and moves the previous window's owned state
+   aside (`/var/lib/edamame-fplab/state-<time>`), so the candidate starts
+   empty;
 1. installs the owned binary to `/var/lib/edamame-fplab/bin/`;
 2. stops `edamame_posture.service` and waits for port 40152 to free;
 3. starts the owned daemon as the transient unit `edamame-fplab`:
@@ -70,19 +78,21 @@ observer reads the home of the single logged-in non-root user
 Installed user-level, nothing system-wide:
 
 - Claude Code: official installer (`~/.local/bin/claude`, native build).
-- Codex: the `codex-x86_64-unknown-linux-musl` release binary, checked
-  against the release digest, at `~/.local/bin/codex`.
+- Codex: `agents` installs it from the npm registry's platform tarball
+  (integrity-checked) under `~/.local/share/codex/<ver>` and links
+  `~/.local/bin/codex`: since 0.160 a Codex binary without its
+  `codex-code-mode-host` runs no tool (2026-10-06).
 - uv (`~/.local/bin/uv`): test-mint has no `python3-venv`; the venv
   scenarios fall back to it.
 - No Node.js on test-mint: the npm scenarios report SKIP there.
 
-Provider keys for the agents are an operator step: they must be present in
-the lab user's environment on the host when `run_fp_lab.py run` starts
-(`ANTHROPIC_API_KEY` for Claude Code, `OPENAI_API_KEY` for Codex). The runner
-removes them from its own environment at start and hands each one only to the
-agent that needs it, for the length of its drive. Without them the agent
+Provider keys: `keys` copies them from the operator's
+`~/Programming/secrets` to an owner-only file on the host for the window
+(approved by Frank, 2026-10-05; over SSH stdin, never printed), and `stop`
+deletes it. `run` loads them into the runner's environment; the runner
+removes them from its own environment at start and hands each one only to
+the agent that needs it, for the length of its drive. Without them the agent
 scenarios report SKIP with the reason; the direct scenarios still run.
-`deploy_owned_posture.sh` does not provision credentials.
 
 ## macOS (fmba-3): what the leg needs
 
@@ -109,30 +119,37 @@ scenarios report SKIP with the reason; the direct scenarios still run.
   (TCC.db, granted 2026-05-29), so a posture started from that session gets
   ES without a GUI approval. `start` greps the daemon log for an ES failure.
 - **State isolation:** a root posture keeps its records under root's own
-  home whatever `$HOME` says (`storage_home`: root's defaults / records
-  directory, file secrets in `/var/root/.edamame/secrets` when it has no
-  keychain group), never in the console user's app domain. Check whether an
-  earlier root posture left state there and move it aside for the window.
+  home whatever `$HOME` says: the `edamame_posture` defaults domain,
+  `/var/root/.edamame` (file secrets) and, for records that outgrew the
+  defaults (2.0.3+), `/var/root/Library/Application Support/edamame_posture`.
+  `start` saves all three once per window (`/var/root/fp-lab/original`) and
+  clears them before every start; `stop` imports them back exactly and keeps
+  the lab's copy (`lab-state-<time>`) for forensics.
 - **edamame_cli:** do NOT use the brew 2.0.4 CLI on fmba-3: through 2.0.4 a
   CLI one-shot removes the app's Portal key and Hub PIN from
-  `~/.edamame/secrets` (fixed in core 0480c973, 2.0.5). The runner needs an
-  `edamame_cli` built against core 2.0.5 (`EDAMAME_CLI_BIN`), from CI or a
-  release, before this leg runs.
+  `~/.edamame/secrets` (fixed in core 0480c973, 2.0.5). `push` copies a 2.0.5
+  CLI (`FP_LAB_CLI`) to `~/fp-lab/bin/edamame_cli`, which the runner uses.
 - **Observer home:** start posture with `sudo` from the console user's shell
   (macOS sudoers keeps `HOME`), so the observer reads that user's
   `~/.claude` / `~/.codex`.
-- **Start/stop:** `sudo edamame_posture background-start-disconnected
-  --packet-capture --agentic-mode analyze --agentic-provider edamame` with the
-  Portal key in the root environment the way the security gate does it;
-  `sudo edamame_posture background-stop`; relaunch the app.
+- **Start/stop:** `start` installs the candidate pkg and starts it
+  disconnected with `--packet-capture --agentic-mode analyze
+  --agentic-provider edamame` and the Portal key from
+  `/var/root/fp-lab/portal.env`; it prints the ES status from the newest
+  posture log. `stop` removes the bundle, link and pkg receipt, restores
+  root's state, re-enables the helper and relaunches the app.
 
 ## Windows (shiawase): what the leg needs
 
 - **The app owns the RPC port and needs a logged-in session** (Parallels
-  Client RDP, see the dogfood-status skill). Close the app for the window;
-  posture is standalone (in-process capture via Npcap, ETW), so the helper is
-  not needed but must not be killed carelessly (2.0.3 helper recovery
-  actions).
+  Client RDP, see the dogfood-status skill). `start` records the app and the
+  helper (state, start mode, recovery action, resources), stops the app,
+  turns the helper's recovery action off, disables and stops it (posture is
+  standalone: Npcap and ETW in process), and checks 40151/40152 are free.
+  `stop` restores the start mode and recovery action, starts the helper and
+  relaunches the app in the user's session. Posture and the runner run as
+  scheduled tasks in that session (OpenSSH kills its own session's
+  processes when the connection ends).
 - **State isolation is NOT automatic here.** On Windows core keeps both its
   persisted JSON and its DPAPI secret store under
   `%APPDATA%\com.edamametech\EDAMAME Security` (`storage_userspace`,
@@ -140,12 +157,14 @@ scenarios report SKIP with the reason; the direct scenarios still run.
   the owned posture with `APPDATA` pointed at a lab directory: that isolates
   both, as the bind mounts do on Linux. Without it the owned build would
   load and rewrite the app's config, history and Hub credentials. The agents'
-  transcript roots resolve from the user profile, not `APPDATA`.
+  transcript roots resolve from the user profile, not `APPDATA`. `start`
+  points `APPDATA` / `LOCALAPPDATA` at `fp-lab\state\AppData`, moved aside
+  once per window so the candidate starts empty.
 - **Binary:** `posture-binary-windows-x64` is the Authenticode-signed exe;
   verify the signature before running it (Get-AuthenticodeSignature).
 - **Remote shell:** cmd over SSH; use PowerShell `-EncodedCommand` for
   anything with quotes (AMSI and quoting notes in the dogfood-status skill).
-- **Agents:** Claude Code native installer for Windows and the codex
-  `x86_64-pc-windows-msvc` release binary, user-level; Git Bash for the
-  POSIX-shaped prompts (the heredoc and rustup scenarios are POSIX-only in the
-  catalog).
+- **Agents:** `agents` installs Claude Code and Codex user-level through
+  `npm.cmd` (npm.ps1 is blocked by the execution policy); Git Bash for the
+  POSIX-shaped prompts (the heredoc and rustup scenarios are POSIX-only in
+  the catalog).

@@ -119,6 +119,69 @@ the `posture-binary-<label>` build of the run you name, runs the lab, and
 uploads the run directory as `fp-lab-<label>`. The default `fleet` mode (push,
 PR, release gate) is unchanged.
 
+## The release candidate, end to end
+
+The gate itself (what blocks, why) is `edamame_rules/edamame_app/release.mdc`,
+Pre-Release FP Lab Gate. This is the command sequence one session runs, with
+`<ver>` the release (`2.0.5`) and `rN` the candidate number.
+
+**1. Lab branches** (before the cascade: the candidate is built from branches
+whose git dependencies point at each other; `main` later receives the same
+commits). Work in throwaway worktrees, never in the clones' `main`.
+
+- flodbadd: `git push origin <local main sha>:refs/heads/fp-lab-<ver>`.
+- edamame_foundation: on `fp-lab-<ver>`, `git reset --hard main`, cherry-pick
+  the branch-only commit "fp lab: build against flodbadd fp-lab-<ver>",
+  `cargo update -p flodbadd`, commit `Cargo.lock`, `git push
+  --force-with-lease=fp-lab-<ver>:<head you started from>`.
+- edamame_core: the same, with "fp lab: build against foundation and
+  flodbadd fp-lab-<ver>" and `cargo update -p edamame_foundation -p flodbadd`.
+- edamame_posture: `git checkout -b fp-lab-<ver>-rN main`, cherry-pick the two
+  branch-only commits ("build against core, foundation and flodbadd
+  fp-lab-<ver>" and "production backends, as the main build", which passes
+  `main` as the backend branch), `cargo update -p edamame_core -p
+  edamame_foundation -p flodbadd`, commit the lock, push the branch.
+- Every branch-only commit says "(branch only, never main)".
+
+**2. Build:** `gh workflow run tests.yml --ref fp-lab-<ver>-rN -f run_tests=true
+-f run_perf=true -f run_security=true`. Its security jobs (CVE scenarios,
+idle baseline, lineage gate) and perf jobs are part of the gate.
+
+**3. Lab legs, once the four builds are green:**
+- CI: `gh workflow run agent_monitoring_e2e.yml --ref fp-lab-<ver>-rN -f
+  mode=fp_lab -f posture_build_run_id=<tests.yml run id>`; read it with `gh
+  run download <run> --dir ~/Library/Caches/edamame-agents/fp-lab/runs/ci-<run>`.
+- Dogfood, all three hosts in parallel, `export FP_LAB_RUN_ID=<tests.yml run id>`
+  first (every command reads it):
+
+  ```bash
+  D=tests/fp_lab/deploy_owned_posture.sh      # test-mint | fmba-3 | shiawase
+  $D <host> status                            # released service/app/helper up, no owned daemon
+  $D <host> fetch && $D <host> push
+  $D <host> keys && $D <host> agents          # keys for the window only
+  $D <host> start                             # check: active_findings 0, contributor_count 0
+  NAME=$($D <host> run | tail -1)
+  $D <host> wait "$NAME" && $D <host> collect "$NAME"
+  $D <host> stop                              # always; read its output
+  ```
+
+- Results: `~/Library/Caches/edamame-agents/fp-lab/runs/<name>/summary.md`
+  (verdict per case, "Daemon resources"), the bundles and corpus candidates
+  beside it.
+
+**4. Not clean:** fix the root cause (`falsepositive-analyze-fix`), commit the
+lab's candidate as a corpus entry, run `fp_replay`, `divergence_replay` and
+`divergence_ingest_replay` on core, and go back to 1 with `rN+1`. Restore the
+hosts (`stop`) between candidates.
+
+**5. Clean on all three platforms:** push flodbadd and edamame_foundation
+`main`; in edamame_core `cargo update -p edamame_foundation -p flodbadd` (core
+pins them by git revision); if an `src/api/` signature changed, run
+`edamame_app/tear_down_walls.sh` and commit core's and the app's regenerated
+bridge together; run `edamame_app/commit_all.sh` (the cascade pushes every
+repo); record the run in `edamame_app/NEXTRELEASE.md` (posture commit, legs,
+PASS / SKIP with reasons, resources, artifacts); then `release_all.sh`.
+
 ## Safety rules
 
 - The lab user is the host's console user; the runner refuses root unless
