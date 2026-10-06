@@ -214,6 +214,10 @@ PASS / SKIP with reasons, resources, artifacts); then `release_all.sh`.
 - One session drives the lab (`edamame_rules/edamame_app/release.mdc`,
   Pre-Release FP Lab Gate): a second assistant that finds windows open
   reports and stops.
+- The `dogfood-watch` LaunchAgent on the operator Mac reads an open window
+  as lab mode (the window markers or a candidate daemon): the candidate's
+  samples are recorded apart, nothing is graded or upgraded, and a host
+  still in lab mode after 8 h alerts qa-alerts.
 
 ## Adding a scenario
 
