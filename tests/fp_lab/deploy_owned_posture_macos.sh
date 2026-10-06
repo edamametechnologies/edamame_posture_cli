@@ -229,7 +229,9 @@ sleep 20
 show_state
 SCRIPT
     say "Endpoint Security status (daemon log)"
-    as_root 'grep -hE "ES client creation failed|ES disabled|ES subscribe failed|ES helper|Endpoint Security" /var/log/edamame*/* /var/root/Library/Logs/edamame*/* 2>/dev/null | tail -n 5 || true'
+    # The newest posture log only: the directory keeps earlier windows' logs,
+    # and a glob-order grep printed an older window's ES line (2026-10-06).
+    as_root 'f=$(ls -t /var/log/edamame*/edamame_posture_* /var/root/Library/Logs/edamame*/edamame_posture_* 2>/dev/null | head -n 1); echo "log: $f"; [ -n "$f" ] && grep -hE "ES client creation failed|ES disabled|ES subscribe failed|ES helper|Endpoint Security" "$f" | tail -n 5 || true'
     ;;
 
   status)
