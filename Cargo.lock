@@ -1883,7 +1883,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "2.0.5"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#d0093486d04bcd67681f337df6b7ec322dfc8abb"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#fc163e086e5c5d962b07dd785d453987457f981d"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -1970,7 +1970,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "2.0.5"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#8b6ed43172c06939b602f0ea835dd680ca72d9b9"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#664023d1ac69ac3701d523e30ea281bc95bd19f5"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -2018,6 +2018,7 @@ dependencies = [
  "sorted-vec",
  "strum",
  "strum_macros",
+ "sysinfo",
  "tempfile",
  "thiserror 2.0.21",
  "threatmodels_rs",
@@ -2393,7 +2394,7 @@ dependencies = [
 [[package]]
 name = "flodbadd"
 version = "2.0.5"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#11d5f87d436e9a3d837272328d2f1bc413e66c9b"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#d6e1acb05f4c7a899198e8af57b900750ae9be7c"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -3476,7 +3477,7 @@ dependencies = [
  "js-sys",
  "log",
  "wasm-bindgen",
- "windows-core 0.58.0",
+ "windows-core 0.62.2",
 ]
 
 [[package]]
@@ -4004,7 +4005,7 @@ dependencies = [
 [[package]]
 name = "l7_ebpf_program"
 version = "0.1.0"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#11d5f87d436e9a3d837272328d2f1bc413e66c9b"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#d6e1acb05f4c7a899198e8af57b900750ae9be7c"
 
 [[package]]
 name = "lazy_static"
@@ -7472,7 +7473,7 @@ dependencies = [
 [[package]]
 name = "threatmodels_rs"
 version = "0.1.1"
-source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#aa5ad566e01bd8ee13420f6cad6b3628c664f626"
+source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#75931eba12b28238941659d52ae1b69c0fcee179"
 dependencies = [
  "anyhow",
  "chrono",
