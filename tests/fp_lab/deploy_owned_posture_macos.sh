@@ -328,9 +328,15 @@ for _ in \$(seq 1 30); do pgrep -f "EDAMAME-Helper/edamame_helper.app" >/dev/nul
 pgrep -f "EDAMAME-Helper/edamame_helper.app" >/dev/null && echo "helper: running" || echo "helper: NOT RUNNING"
 echo "relaunching the app in the console session"
 uid=\$(id -u $USER_)
-launchctl asuser "\$uid" sudo -u $USER_ open -a "$APP_NAME" || echo "open failed (no console session?)"
+# The app inherits this environment through open(1): \`sudo -u\` alone keeps
+# root's HOME, and an app started with HOME=/var/root reads its records and
+# secrets under root's home -- it came up signed out of the Hub and the
+# Portal with protection off after every window (fmba-3, 2026-10-05..07).
+launchctl asuser "\$uid" sudo -H -u $USER_ /usr/bin/env HOME=/Users/$USER_ USER=$USER_ LOGNAME=$USER_ /usr/bin/open -a "$APP_NAME" || echo "open failed (no console session?)"
 for _ in \$(seq 1 60); do pgrep -x "$APP_NAME" >/dev/null && break; sleep 1; done
 pgrep -x "$APP_NAME" >/dev/null && echo "app: running" || echo "app: NOT RUNNING"
+app_home=\$(ps -E -p "\$(pgrep -x "$APP_NAME" | head -n 1)" -o command= 2>/dev/null | tr ' ' '\\n' | sed -n 's/^HOME=//p' | head -n 1)
+[ "\$app_home" = "/Users/$USER_" ] && echo "app HOME: \$app_home" || echo "app HOME: \${app_home:-unknown} (WRONG: expected /Users/$USER_; quit and relaunch it from the console session)"
 for _ in \$(seq 1 60); do /usr/sbin/netstat -an -p tcp | grep LISTEN | grep -q '\.40152 ' && break; sleep 2; done
 /usr/sbin/netstat -an -p tcp | grep LISTEN | grep -q '\.40152 ' && echo 'port 40152: listening' || echo 'port 40152: NOT LISTENING'
 echo "deleting the lab keys"
