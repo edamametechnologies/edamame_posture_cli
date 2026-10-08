@@ -584,7 +584,14 @@ jobs:
           SIG="$(pkgutil --check-signature "$PKG")"
           echo "$SIG" | sed -n '1,4p'
           grep -q "Developer ID Installer: Edamame Technologies (WSL782B48J)" <<< "$SIG"
-          grep -q "Notarization: trusted by the Apple notary service" <<< "$SIG"
+          # pkgutil prints its Notarization line from a live lookup with
+          # Apple; from the macos-15-intel runners that lookup failed for
+          # hours on 2026-10-08 on the 2.0.5 PKG, which is notarized and
+          # stapled (the other macOS legs and a local check showed the line).
+          # What ships is the stapled ticket: stapler validate and spctl's
+          # "source=Notarized Developer ID" below are the enforced checks.
+          grep -q "Notarization: trusted by the Apple notary service" <<< "$SIG" \
+            || echo "::warning::pkgutil did not report notarization (live lookup); the stapled ticket and spctl decide"
           xcrun stapler validate "$PKG"
           spctl -a -vv -t install "$PKG" 2>&1 | tee spctl.txt
           grep -q "source=Notarized Developer ID" spctl.txt
