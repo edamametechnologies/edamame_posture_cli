@@ -43,14 +43,32 @@ set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$HERE/../.." && pwd)"
 WORKSPACE="$(cd "$REPO/.." && pwd)"
-RUN_ID="${FP_LAB_RUN_ID:-37293583988}"
+RUN_ID="${FP_LAB_RUN_ID:?FP_LAB_RUN_ID: the tests.yml run that built posture-binary-ubuntu-x64}"
 GH_REPO="${FP_LAB_GH_REPO:-edamametechnologies/edamame_posture_cli}"
 CACHE="${FP_LAB_CACHE:-$HOME/Library/Caches/edamame-agents/fp-lab}"
-OWNED_VERSION="${FP_LAB_OWNED_VERSION:-2.0.5}"
-RELEASED_VERSION="${FP_LAB_RELEASED_VERSION:-2.0.4}"
+# The released service's version: FP_LAB_RELEASED_VERSION, else the host's
+# installed edamame-posture package (read on the host by `stop`).
+RELEASED_VERSION="${FP_LAB_RELEASED_VERSION:-}"
 
 die() { echo "deploy_owned_posture: $*" >&2; exit 2; }
 say() { echo "== $*" >&2; }
+
+# The owned build's version: FP_LAB_OWNED_VERSION, else the candidate run's
+# Cargo.toml at its head commit, cached beside the binary. A literal default
+# went stale every release: the first 2.0.6 windows aborted at preflight on
+# "core version 2.0.6 is not the owned build 2.0.5" (2026-10-09).
+owned_version() {
+  if [[ -n "${FP_LAB_OWNED_VERSION:-}" ]]; then echo "$FP_LAB_OWNED_VERSION"; return; fi
+  local f="$CACHE/bin/$RUN_ID/VERSION" sha v
+  if [[ ! -s "$f" ]]; then
+    sha=$(gh run view "$RUN_ID" --repo "$GH_REPO" --json headSha --jq .headSha) || die "cannot read run $RUN_ID"
+    v=$(gh api -H "Accept: application/vnd.github.raw" "repos/$GH_REPO/contents/Cargo.toml?ref=$sha" \
+      | sed -n 's/^version = "\([^"]*\)".*/\1/p' | head -n 1)
+    [[ -n "$v" ]] || die "no version in $GH_REPO Cargo.toml at $sha (set FP_LAB_OWNED_VERSION)"
+    mkdir -p "$(dirname "$f")"; echo "$v" > "$f"
+  fi
+  cat "$f"
+}
 
 HOST="${1:-}"; CMD="${2:-}"
 [[ -n "$HOST" && -n "$CMD" ]] || { sed -n '2,33p' "$0"; exit 2; }
@@ -75,6 +93,7 @@ esac
 
 ssh_host() { ssh -o ConnectTimeout=20 -o ServerAliveInterval=30 -i "$SSH_KEY" "$SSH_TARGET" "$@"; }
 BIN_DIR="$CACHE/bin/$RUN_ID/$LABEL"
+case "$CMD" in start|run) OWNED_VERSION=$(owned_version) ;; esac
 
 # Shell functions shipped to the host in front of each remote script.
 REMOTE_LIB='
@@ -299,6 +318,10 @@ EOF
   run)
     NAME="$HOST-$(date +%Y%m%d-%H%M%S)"
     ARGS=""; for a in "$@"; do ARGS="$ARGS $(printf '%q' "$a")"; done
+    # Only in an open window: after a failed start the released service
+    # answers, and the runner's preflight refusing it is the only guard
+    # (2026-10-09).
+    ssh_host "systemctl is-active --quiet $UNIT" || die "no owned daemon ($UNIT): run start first"
     ssh_host 'bash -s' <<EOF
 mkdir -p ~/fp-lab/runs
 cd ~/fp-lab/harness
@@ -319,7 +342,9 @@ EOF
       if ssh_host "test -f ~/fp-lab/runs/$NAME/summary.md"; then
         ssh_host "cat ~/fp-lab/runs/$NAME/summary.md"; break
       fi
-      if ! ssh_host "pgrep -f 'run_fp_lab.py run --out .*/$NAME' >/dev/null"; then
+      # [r]: the remote shell's own command line carries the pattern, so a
+      # plain one always matched and `wait` never saw the runner exit.
+      if ! ssh_host "pgrep -f '[r]un_fp_lab.py run --out .*/$NAME' >/dev/null"; then
         # The runner may have written its summary between the two checks.
         ssh_host "test -f ~/fp-lab/runs/$NAME/summary.md" && continue
         ssh_host "tail -n 40 ~/fp-lab/runs/$NAME.log"; die "runner exited without a summary"
@@ -355,7 +380,9 @@ sudo rm -f /var/lib/edamame-fplab/bin/edamame_posture
 for _ in \$(seq 1 30); do ss -ltn | grep -q '127.0.0.1:40152 ' || break; sleep 1; done
 echo "starting the released service"
 sudo systemctl start $SERVICE
-echo "released daemon: \$(wait_rpc $RELEASED_VERSION 240)"
+rel="$RELEASED_VERSION"
+[ -n "\$rel" ] || rel=\$(dpkg-query -W -f='\${Version}' edamame-posture 2>/dev/null | cut -d- -f1)
+echo "released daemon: \$(wait_rpc "\$rel" 240)"
 if [ "\$(cat ~/fp-lab/state/gui 2>/dev/null)" = running ]; then
   # Relaunch in the live desktop session (dogfood-status skill): inherit its
   # DISPLAY / DBUS from the running cinnamon-session.

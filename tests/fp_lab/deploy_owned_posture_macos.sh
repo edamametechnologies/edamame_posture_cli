@@ -53,7 +53,6 @@ WORKSPACE="$(cd "$REPO/.." && pwd)"
 RUN_ID="${FP_LAB_RUN_ID:?FP_LAB_RUN_ID: the tests.yml run that built posture-binary-macos-arm64}"
 GH_REPO="${FP_LAB_GH_REPO:-edamametechnologies/edamame_posture_cli}"
 CACHE="${FP_LAB_CACHE:-$HOME/Library/Caches/edamame-agents/fp-lab}"
-OWNED_VERSION="${FP_LAB_OWNED_VERSION:-2.0.5}"
 HOSTNAME_="${FP_LAB_MAC_HOST:-fmba-3.local}"
 USER_="${FP_LAB_MAC_USER:-flyonnet}"
 CLI_LOCAL="${FP_LAB_CLI:-/Volumes/Kari/flyonnet/Temporaire/edamame-agents/edamame_cli-2.0.5}"
@@ -70,6 +69,24 @@ die() { echo "deploy_owned_posture_macos: $*" >&2; exit 2; }
 say() { echo "== $*" >&2; }
 CMD="${1:-}"; [[ -n "$CMD" ]] || { sed -n '2,40p' "$0"; exit 2; }
 shift
+
+# The owned build's version: FP_LAB_OWNED_VERSION, else the candidate run's
+# Cargo.toml at its head commit, cached beside the binary. A literal default
+# went stale every release: the first 2.0.6 windows aborted at preflight on
+# "core version 2.0.6 is not the owned build 2.0.5" (2026-10-09).
+owned_version() {
+  if [[ -n "${FP_LAB_OWNED_VERSION:-}" ]]; then echo "$FP_LAB_OWNED_VERSION"; return; fi
+  local f="$CACHE/bin/$RUN_ID/VERSION" sha v
+  if [[ ! -s "$f" ]]; then
+    sha=$(gh run view "$RUN_ID" --repo "$GH_REPO" --json headSha --jq .headSha) || die "cannot read run $RUN_ID"
+    v=$(gh api -H "Accept: application/vnd.github.raw" "repos/$GH_REPO/contents/Cargo.toml?ref=$sha" \
+      | sed -n 's/^version = "\([^"]*\)".*/\1/p' | head -n 1)
+    [[ -n "$v" ]] || die "no version in $GH_REPO Cargo.toml at $sha (set FP_LAB_OWNED_VERSION)"
+    mkdir -p "$(dirname "$f")"; echo "$v" > "$f"
+  fi
+  cat "$f"
+}
+case "$CMD" in start|run) OWNED_VERSION=$(owned_version) ;; esac
 
 SSH_OPTS=(-o ConnectTimeout=20 -o ServerAliveInterval=30)
 as_user() { ssh "${SSH_OPTS[@]}" "$USER_@$HOSTNAME_" "$@"; }
@@ -260,6 +277,11 @@ SCRIPT
   run)
     NAME="fmba-3-$(date +%Y%m%d-%H%M%S)"
     ARGS=""; for a in "$@"; do ARGS="$ARGS $(printf '%q' "$a")"; done
+    # Only in an open window (helper disabled, app stopped, owned posture
+    # up): after a failed start the runner's preflight was the only guard
+    # (2026-10-09).
+    as_root "launchctl print-disabled system | grep -q '\"$HELPER_LABEL\" => disabled' && ! pgrep -x '$APP_NAME' >/dev/null && pgrep -x edamame_posture >/dev/null" \
+      || die "no lab window (helper enabled, app running or no owned posture): run start first"
     user_bash <<SCRIPT
 set -a; . ~/fp-lab/secrets/providers.env; set +a
 cd ~/fp-lab/harness
@@ -276,7 +298,8 @@ SCRIPT
     NAME="${1:?run name}"
     while :; do
       if as_user "test -f ~/fp-lab/runs/$NAME/summary.md"; then as_user "cat ~/fp-lab/runs/$NAME/summary.md"; break; fi
-      if ! as_user "pgrep -f 'run_fp_lab.py run --out .*/$NAME' >/dev/null"; then
+      # [r]: keeps the remote shell's own command line from matching.
+      if ! as_user "pgrep -f '[r]un_fp_lab.py run --out .*/$NAME' >/dev/null"; then
         as_user "test -f ~/fp-lab/runs/$NAME/summary.md" && continue
         as_user "tail -n 40 ~/fp-lab/runs/$NAME.log"; die "runner exited without a summary"
       fi

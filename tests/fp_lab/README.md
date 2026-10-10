@@ -89,7 +89,8 @@ On a dogfood host, with the owned daemon (see `owned_posture.md`):
 ```bash
 H=test-mint
 D=tests/fp_lab/deploy_owned_posture.sh
-FP_LAB_RUN_ID=<tests.yml run id> $D $H fetch
+export FP_LAB_RUN_ID=<tests.yml run id>  # every command, on every host
+$D $H fetch
 $D $H push
 $D $H record pre-lab
 $D $H start
@@ -99,6 +100,11 @@ $D $H collect "$NAME"                # -> ~/Library/Caches/edamame-agents/fp-lab
 $D $H stop
 $D $H record post-lab
 ```
+
+The owned build's version comes from the run (`Cargo.toml` at its head
+commit; `FP_LAB_OWNED_VERSION` overrides), the released one from the host.
+`push` verifies the binary's SHA-256 on the host before it replaces the
+previous one, and `run` refuses unless `start` opened the window.
 
 Directly on a host whose daemon is already the build under test:
 

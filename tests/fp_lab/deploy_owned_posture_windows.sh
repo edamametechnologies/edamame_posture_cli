@@ -45,7 +45,6 @@ WORKSPACE="$(cd "$REPO/.." && pwd)"
 RUN_ID="${FP_LAB_RUN_ID:?FP_LAB_RUN_ID: the tests.yml run that built posture-binary-windows-x64}"
 GH_REPO="${FP_LAB_GH_REPO:-edamametechnologies/edamame_posture_cli}"
 CACHE="${FP_LAB_CACHE:-$HOME/Library/Caches/edamame-agents/fp-lab}"
-OWNED_VERSION="${FP_LAB_OWNED_VERSION:-2.0.5}"
 TARGET="${FP_LAB_WIN_TARGET:-flyonnet@172.30.81.81}"
 ACCOUNT="${FP_LAB_WIN_ACCOUNT:-flyonnet}"
 SECRETS="${FP_LAB_SECRETS:-$WORKSPACE/secrets}"
@@ -57,6 +56,26 @@ die() { echo "deploy_owned_posture_windows: $*" >&2; exit 2; }
 say() { echo "== $*" >&2; }
 CMD="${1:-}"; [[ -n "$CMD" ]] || { sed -n '2,37p' "$0"; exit 2; }
 shift
+
+# The owned build's version: FP_LAB_OWNED_VERSION, else the candidate run's
+# Cargo.toml at its head commit, cached beside the binary. A literal default
+# went stale every release: the first 2.0.6 windows aborted at preflight on
+# "core version 2.0.6 is not the owned build 2.0.5" (2026-10-09).
+owned_version() {
+  if [[ -n "${FP_LAB_OWNED_VERSION:-}" ]]; then echo "$FP_LAB_OWNED_VERSION"; return; fi
+  local f="$CACHE/bin/$RUN_ID/VERSION" sha v
+  if [[ ! -s "$f" ]]; then
+    sha=$(gh run view "$RUN_ID" --repo "$GH_REPO" --json headSha --jq .headSha) || die "cannot read run $RUN_ID"
+    v=$(gh api -H "Accept: application/vnd.github.raw" "repos/$GH_REPO/contents/Cargo.toml?ref=$sha" \
+      | sed -n 's/^version = "\([^"]*\)".*/\1/p' | head -n 1)
+    [[ -n "$v" ]] || die "no version in $GH_REPO Cargo.toml at $sha (set FP_LAB_OWNED_VERSION)"
+    mkdir -p "$(dirname "$f")"; echo "$v" > "$f"
+  fi
+  cat "$f"
+}
+# Only start and run use it ($Owned in PRE).
+OWNED_VERSION=""
+case "$CMD" in start|run) OWNED_VERSION=$(owned_version) ;; esac
 
 SSH_OPTS=(-o ConnectTimeout=20 -o ServerAliveInterval=30 -o LogLevel=ERROR)
 ssh_win() { ssh "${SSH_OPTS[@]}" "$TARGET" "$@"; }
@@ -148,7 +167,17 @@ case "$CMD" in
 New-Item -ItemType Directory -Force -Path "$Lab\bin","$Lab\secrets","$Lab\runs","$Lab\state","$Lab\harness" | Out-Null
 "lab: $Lab"; "cli: $Cli $(& $Cli --version 2>&1 | Select-Object -First 1)"
 PS
-    scp -q "${SSH_OPTS[@]}" "$BIN_DIR/edamame_posture.exe" "$TARGET:fp-lab/bin/edamame_posture.exe"
+    # Through a .part copy checked against the fetched hash: a copy broken
+    # over ZeroTier left a wrong exe that only start caught (2026-10-09).
+    WANT_SHA=$(cut -d' ' -f1 "$BIN_DIR/SHA256" 2>/dev/null | tr 'a-f' 'A-F') || die "no $BIN_DIR/SHA256 (fetch first)"
+    scp -q "${SSH_OPTS[@]}" "$BIN_DIR/edamame_posture.exe" "$TARGET:fp-lab/bin/edamame_posture.exe.part"
+    ps_run "$PRE; \$Want = '$WANT_SHA'" <<'PS' || die "the exe copy did not arrive intact: push again"
+$part = "$Lab\bin\edamame_posture.exe.part"
+$got = (Get-FileHash $part -Algorithm SHA256).Hash
+if ($got -ne $Want) { Remove-Item -Force $part; "copied exe $got is not $Want"; exit 1 }
+Move-Item -Force $part "$Lab\bin\edamame_posture.exe"
+"exe verified $got"
+PS
     STAGE="$CACHE/stage-windows"; rm -rf "$STAGE"; mkdir -p "$STAGE/tests/fp_lab/tools" "$STAGE/tests/e2e" \
       "$STAGE/tests/security/triggers" "$STAGE/supported_agents"
     cp "$HERE"/*.py "$HERE"/*.md "$STAGE/tests/fp_lab/" 2>/dev/null || true
@@ -276,6 +305,14 @@ PS
   run)
     NAME="shiawase-$(date +%Y%m%d-%H%M%S)"
     ARGS=""; for a in "$@"; do ARGS="$ARGS $a"; done
+    # Only in an open window (owned posture task running, app stopped): after
+    # a failed start the runner's preflight was the only guard (2026-10-09).
+    # Get-ScheduledTask's State is an enum; schtasks' Status is localized.
+    WINDOW=$(ps_run "$PRE" <<'PS' | tr -d '\r' | tail -n 1
+"task=$((Get-ScheduledTask -TaskName EdamameFpLabPosture -ErrorAction SilentlyContinue).State) app=$([bool](Get-Process edamame -ErrorAction SilentlyContinue))"
+PS
+)
+    [[ "$WINDOW" == "task=Running app=False" ]] || die "no lab window ($WINDOW): run start first"
     ps_run "$PRE; \$Name = '$NAME'; \$Args2 = '$ARGS'" <<'PS'
 $runner = @"
 @echo off
@@ -297,7 +334,9 @@ PS
     while :; do
       OUT=$(ps_run "$PRE; \$Name = '$NAME'" <<'PS'
 if (Test-Path "$Lab\runs\$Name\summary.md") { "DONE"; Get-Content "$Lab\runs\$Name\summary.md"; exit 0 }
-$t = (schtasks /Query /TN EdamameFpLabRun /FO CSV 2>$null | ConvertFrom-Csv).Status
+# State is an enum (Ready / Running); schtasks' CSV Status is localized
+# ("Prêt" on shiawase), so it never read "Ready" there.
+$t = (Get-ScheduledTask -TaskName EdamameFpLabRun -ErrorAction SilentlyContinue).State
 "STATE $t"; Get-Content "$Lab\runs\$Name.log" -Tail 2 -ErrorAction SilentlyContinue
 PS
 )
