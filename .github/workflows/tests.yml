@@ -540,6 +540,13 @@ jobs:
         if: matrix.os == 'macos'
         shell: bash
         run: |
+          # The decoded keys, certificates, .p12 bundles and App Store Connect key
+          # only feed the keychain and the notarytool profile: owner-only, and
+          # removed when this step ends, so no later step (or the EDAMAME Posture
+          # gate's content scan) finds secret material on disk next to the job's
+          # GitHub traffic (FP-CI-23).
+          umask 077
+          trap 'rm -f certificate_*.cer certificate_*.key certificate_*.p12 appstore_connect_api_key.p8' EXIT
           echo ${{ secrets.APPLE_DEVELOPMENT_CER }} | base64 --decode > certificate_dev.cer
           echo ${{ secrets.APPLE_DEVELOPMENT_KEY }} | base64 --decode > certificate_dev.key
           echo ${{ secrets.APPLE_DEVELOPER_ID_INSTALLER_CER }} | base64 --decode > certificate_installer.cer
