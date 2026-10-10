@@ -4081,6 +4081,17 @@ pub fn background_observer_tick(agent_type: String) -> i32 {
     }
 }
 
+/// Core's busy outcome: another processing run held the slot, and the reply
+/// is the single `AGENTIC_PROCESSING_BUSY_TODO_ID` entry, nothing else.
+fn is_processing_busy(results: &AgenticResultsAPI) -> bool {
+    results.auto_resolved.is_empty()
+        && results.requires_confirmation.is_empty()
+        && results.escalated.is_empty()
+        && results.failed.len() == 1
+        && results.failed[0].todo_id
+            == edamame_core::agentic::types::AGENTIC_PROCESSING_BUSY_TODO_ID
+}
+
 /// Process security todos with AI in background mode
 pub fn background_process_agentic(mode: &str) {
     info!(
@@ -4098,6 +4109,13 @@ pub fn background_process_agentic(mode: &str) {
     };
 
     let results = agentic_process_todos(confirmation_level);
+
+    if is_processing_busy(&results) {
+        // The scheduled loop the daemon enabled just before is already
+        // running a pass: this one-shot is redundant, not a failure.
+        info!("AI Assistant: a processing run is already in progress (scheduled loop); skipping the start-up pass");
+        return;
+    }
 
     if mode == "analyze" {
         info!(
@@ -4435,6 +4453,46 @@ mod whitelist_tests {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn todo_result(todo_id: &str) -> TodoResultAPI {
+        TodoResultAPI {
+            todo_id: todo_id.to_string(),
+            advice_type: "SystemBusy".to_string(),
+            decision: TodoDecisionAPI {
+                action: "skipped".to_string(),
+                reasoning: String::new(),
+                risk_score: 0.0,
+                priority: "low".to_string(),
+            },
+            success: false,
+            error: None,
+        }
+    }
+
+    /// The daemon's start-up pass meets the scheduled loop it just enabled:
+    /// core's busy reply is skipped, a real failure is not.
+    #[test]
+    fn busy_reply_is_recognized_and_failures_are_not() {
+        let empty = AgenticResultsAPI {
+            auto_resolved: vec![],
+            requires_confirmation: vec![],
+            escalated: vec![],
+            failed: vec![],
+        };
+        let busy = AgenticResultsAPI {
+            failed: vec![todo_result(
+                edamame_core::agentic::types::AGENTIC_PROCESSING_BUSY_TODO_ID,
+            )],
+            ..empty.clone()
+        };
+        assert!(is_processing_busy(&busy));
+        let failed = AgenticResultsAPI {
+            failed: vec![todo_result("system_error")],
+            ..empty.clone()
+        };
+        assert!(!is_processing_busy(&failed));
+        assert!(!is_processing_busy(&empty));
+    }
 
     #[test]
     fn agentic_modes_map_to_core_confirmation_levels() {

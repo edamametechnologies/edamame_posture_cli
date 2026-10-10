@@ -236,6 +236,9 @@ pub fn background_process(
         // action's `adjudication_mode` input runs after start and overrides.
         crate::background::pin_llm_adjudication_when_auto();
 
+        // A start-up pass even when the persisted last run is recent. When
+        // the loop enabled above has already started its own pass, core
+        // answers "busy" and this one returns quietly.
         info!("AI Assistant: Processing security todos...");
         crate::background_process_agentic(&agentic_mode);
     } else {
