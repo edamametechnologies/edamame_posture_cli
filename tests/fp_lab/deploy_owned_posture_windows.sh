@@ -157,6 +157,14 @@ case "$CMD" in
     mkdir -p "$BIN_DIR"
     gh run view "$RUN_ID" --repo "$GH_REPO" --json headBranch,headSha,status,conclusion \
       --jq '"run \(.status)/\(.conclusion) on \(.headBranch)@\(.headSha)"'
+    # gh refuses to overwrite a downloaded artifact: a second window on the
+    # same run (2026-10-11) reuses the file when it still matches its hash.
+    if [[ -f "$BIN_DIR/edamame_posture.exe" && -s "$BIN_DIR/SHA256" ]] \
+      && [[ "$(shasum -a 256 "$BIN_DIR/edamame_posture.exe" | cut -d' ' -f1)" == "$(cut -d' ' -f1 "$BIN_DIR/SHA256")" ]]; then
+      say "already fetched: $BIN_DIR/edamame_posture.exe matches its SHA256"
+      cat "$BIN_DIR/SHA256"
+      exit 0
+    fi
     gh run download "$RUN_ID" --repo "$GH_REPO" -n "posture-binary-$LABEL" -D "$BIN_DIR"
     shasum -a 256 "$BIN_DIR/edamame_posture.exe" | tee "$BIN_DIR/SHA256"
     ;;
@@ -331,15 +339,26 @@ PS
 
   wait)
     NAME="${1:?run name}"
+    misses=0
     while :; do
-      OUT=$(ps_run "$PRE; \$Name = '$NAME'" <<'PS'
+      # A dropped link (ZeroTier, 2026-10-11) is not the runner's verdict: the
+      # failed probe used to end wait under set -e, and the window was then
+      # collected and stopped mid-run. Retry for up to 30 minutes.
+      if ! OUT=$(ps_run "$PRE; \$Name = '$NAME'" <<'PS'
 if (Test-Path "$Lab\runs\$Name\summary.md") { "DONE"; Get-Content "$Lab\runs\$Name\summary.md"; exit 0 }
 # State is an enum (Ready / Running); schtasks' CSV Status is localized
 # ("Prêt" on shiawase), so it never read "Ready" there.
 $t = (Get-ScheduledTask -TaskName EdamameFpLabRun -ErrorAction SilentlyContinue).State
 "STATE $t"; Get-Content "$Lab\runs\$Name.log" -Tail 2 -ErrorAction SilentlyContinue
 PS
-)
+); then
+        misses=$((misses + 1))
+        [ "$misses" -le 30 ] || die "host unreachable for 30 minutes while waiting for $NAME"
+        echo "host unreachable ($misses), retrying"
+        sleep 60
+        continue
+      fi
+      misses=0
       echo "$OUT" | tail -n 3
       case "$OUT" in DONE*) echo "$OUT"; break ;; esac
       if echo "$OUT" | grep -q "^STATE Ready"; then die "runner exited without a summary"; fi

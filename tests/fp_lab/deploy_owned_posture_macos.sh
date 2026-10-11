@@ -126,6 +126,14 @@ case "$CMD" in
     mkdir -p "$BIN_DIR"
     gh run view "$RUN_ID" --repo "$GH_REPO" --json headBranch,headSha,status,conclusion \
       --jq '"run \(.status)/\(.conclusion) on \(.headBranch)@\(.headSha)"'
+    # gh refuses to overwrite a downloaded artifact: a second window on the
+    # same run (2026-10-11) reuses the file when it still matches its hash.
+    if [[ -f "$BIN_DIR/edamame-posture.pkg" && -s "$BIN_DIR/SHA256" ]] \
+      && [[ "$(shasum -a 256 "$BIN_DIR/edamame-posture.pkg" | cut -d' ' -f1)" == "$(cut -d' ' -f1 "$BIN_DIR/SHA256")" ]]; then
+      say "already fetched: $BIN_DIR/edamame-posture.pkg matches its SHA256"
+      cat "$BIN_DIR/SHA256"
+      exit 0
+    fi
     gh run download "$RUN_ID" --repo "$GH_REPO" -n "posture-binary-$LABEL" -D "$BIN_DIR"
     pkgutil --check-signature "$BIN_DIR/edamame-posture.pkg" | sed -n '1,4p'
     shasum -a 256 "$BIN_DIR/edamame-posture.pkg" | tee "$BIN_DIR/SHA256"
@@ -296,14 +304,28 @@ SCRIPT
 
   wait)
     NAME="${1:?run name}"
+    # probe <cmd>: the remote command's own status. ssh's failure (255, a
+    # dropped link) is retried for up to 30 minutes, never read as the
+    # runner's: it used to end wait with "runner exited" (2026-10-11).
+    probe() {
+      local rc tries=0
+      while :; do
+        as_user "$1" && return 0 || rc=$?
+        [ "$rc" -ne 255 ] && return "$rc"
+        tries=$((tries + 1))
+        [ "$tries" -le 30 ] || die "host unreachable for 30 minutes while waiting for $NAME"
+        echo "host unreachable ($tries), retrying" >&2
+        sleep 60
+      done
+    }
     while :; do
-      if as_user "test -f ~/fp-lab/runs/$NAME/summary.md"; then as_user "cat ~/fp-lab/runs/$NAME/summary.md"; break; fi
+      if probe "test -f ~/fp-lab/runs/$NAME/summary.md"; then probe "cat ~/fp-lab/runs/$NAME/summary.md" || true; break; fi
       # [r]: keeps the remote shell's own command line from matching.
-      if ! as_user "pgrep -f '[r]un_fp_lab.py run --out .*/$NAME' >/dev/null"; then
-        as_user "test -f ~/fp-lab/runs/$NAME/summary.md" && continue
-        as_user "tail -n 40 ~/fp-lab/runs/$NAME.log"; die "runner exited without a summary"
+      if ! probe "pgrep -f '[r]un_fp_lab.py run --out .*/$NAME' >/dev/null"; then
+        probe "test -f ~/fp-lab/runs/$NAME/summary.md" && continue
+        probe "tail -n 40 ~/fp-lab/runs/$NAME.log" || true; die "runner exited without a summary"
       fi
-      as_user "tail -n 2 ~/fp-lab/runs/$NAME.log"
+      probe "tail -n 2 ~/fp-lab/runs/$NAME.log" || true
       sleep 60
     done
     ;;
