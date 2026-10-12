@@ -22,7 +22,10 @@ installed. The bundle also carries a copy of the trigger scripts.
   derive their state directory and file-name prefixes, so you can simulate
   different agents.
 - **Run cleanup**: stops running triggers and removes the files they created
-  for the selected agent type (`cleanup.py`).
+  for the selected agent type (`cleanup.py`). Progress streams into the panel
+  log; it is time-bounded so it never hangs. Anything a trigger installed as
+  root (for example a stand-in under `/usr/local/bin`) cannot be removed by the
+  panel and is listed as needing `sudo python3 cleanup.py`.
 
 You need a **running EDAMAME** to observe anything: either the EDAMAME
 Security app, or the `edamame-posture` daemon with protection enabled. The

@@ -99,6 +99,14 @@ jobs:
           VERSION="$(tr -d '[:space:]' < tools/trigger_panel/VERSION)"
           [ -n "$VERSION" ] || { echo "::error::tools/trigger_panel/VERSION is empty"; exit 1; }
           echo "EDAMAME_PANEL_VERSION=$VERSION" >> "$GITHUB_ENV"
+      - name: Run the panel unit tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          # uv's standalone CPython ships tkinter (the panel needs it); the
+          # runners' system python may not, so run the tests through uv.
+          uv python install 3.11
+          uv run --no-project --python 3.11 -- python -m unittest discover -s tests/trigger_panel -v
 
       # Developer ID Application signing + notarization (NO provisioning
       # profile -- the panel is a plain tkinter app and needs no Endpoint
@@ -201,6 +209,14 @@ jobs:
           VERSION="$(tr -d '[:space:]' < tools/trigger_panel/VERSION)"
           [ -n "$VERSION" ] || { echo "::error::tools/trigger_panel/VERSION is empty"; exit 1; }
           echo "EDAMAME_PANEL_VERSION=$VERSION" >> "$GITHUB_ENV"
+      - name: Run the panel unit tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          # uv's standalone CPython ships tkinter (the panel needs it); the
+          # runners' system python may not, so run the tests through uv.
+          uv python install 3.11
+          uv run --no-project --python 3.11 -- python -m unittest discover -s tests/trigger_panel -v
 
       - name: Setup .NET for Windows
         uses: actions/setup-dotnet@v4
@@ -298,6 +314,14 @@ jobs:
           VERSION="$(tr -d '[:space:]' < tools/trigger_panel/VERSION)"
           [ -n "$VERSION" ] || { echo "::error::tools/trigger_panel/VERSION is empty"; exit 1; }
           echo "EDAMAME_PANEL_VERSION=$VERSION" >> "$GITHUB_ENV"
+      - name: Run the panel unit tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          # uv's standalone CPython ships tkinter (the panel needs it); the
+          # runners' system python may not, so run the tests through uv.
+          uv python install 3.11
+          uv run --no-project --python 3.11 -- python -m unittest discover -s tests/trigger_panel -v
 
       - name: Build the Linux bundle (no signing)
         shell: bash

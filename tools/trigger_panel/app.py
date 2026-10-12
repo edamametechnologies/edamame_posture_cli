@@ -28,6 +28,91 @@ IS_WINDOWS = platform.system() == "Windows"
 
 AGENT_TYPES = ("openclaw", "cursor", "claude_code", "claude_desktop", "codex", "hermes")
 DEFAULT_AGENT_TYPE = "openclaw"
+
+# cleanup.py removes demo files and kills the injectors; it is normally quick,
+# but a killed trigger can leave a process group in an odd state. Bound it so
+# the panel never sits busy forever (what reads as a "hang").
+CLEANUP_TIMEOUT_SECS = 120
+
+
+def classify_cleanup_line(line: str) -> str:
+    """Tag a cleanup.py output line: 'removed', 'blocked', or 'info'.
+
+    'blocked' is a file/process cleanup could not touch as the current user
+    (it printed and moved on) -- usually something a trigger installed as root,
+    e.g. the stand-in under /usr/local/bin. The panel surfaces these so an
+    incomplete cleanup is visible instead of looking silently stuck.
+    """
+    stripped = line.strip().lower()
+    if stripped.startswith("removed ") or " removed " in stripped:
+        return "removed"
+    if (
+        "cannot remove" in stripped
+        or "could not" in stripped
+        or "permission denied" in stripped
+        or "cannot kill" in stripped
+    ):
+        return "blocked"
+    return "info"
+
+
+def _terminate_process_tree(proc: "subprocess.Popen") -> None:
+    """Hard-stop a stuck child and its group, cross-platform."""
+    try:
+        if IS_WINDOWS:
+            proc.kill()
+        else:
+            os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+    except (OSError, ProcessLookupError):
+        try:
+            proc.kill()
+        except OSError:
+            pass
+
+
+def run_and_stream(cmd, cwd, on_line, timeout_secs=CLEANUP_TIMEOUT_SECS):
+    """Run ``cmd``, deliver each output line to ``on_line``, enforce a timeout.
+
+    A watchdog kills the process group after ``timeout_secs`` even when the
+    child produces no output (a silent hang), so the read loop always ends.
+    Returns ``(returncode, timed_out)``; ``returncode`` is ``None`` only if the
+    process could not be waited on. Pure of any UI, so it is unit-testable with
+    a fake cleanup script.
+    """
+    proc = subprocess.Popen(
+        cmd,
+        cwd=str(cwd),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        start_new_session=not IS_WINDOWS,
+    )
+    timed_out = threading.Event()
+
+    def _watchdog() -> None:
+        timed_out.set()
+        _terminate_process_tree(proc)
+
+    watchdog = threading.Timer(timeout_secs, _watchdog)
+    watchdog.daemon = True
+    watchdog.start()
+    try:
+        assert proc.stdout is not None
+        for line in proc.stdout:
+            text = line.rstrip()
+            if text:
+                on_line(text)
+        returncode = proc.wait()
+    finally:
+        watchdog.cancel()
+        if proc.stdout is not None:
+            try:
+                proc.stdout.close()
+            except OSError:
+                pass
+    return returncode, timed_out.is_set()
 POLL_MS = 1500
 
 
@@ -1390,34 +1475,61 @@ class TriggerPanel(tk.Tk):
         self._busy = True
 
         def worker() -> None:
+            removed = 0
+            blocked: list[str] = []
+
+            def on_line(text: str) -> None:
+                nonlocal removed
+                kind = classify_cleanup_line(text)
+                if kind == "removed":
+                    removed += 1
+                elif kind == "blocked":
+                    blocked.append(text.strip())
+                self.after(0, lambda t=text: self.append_log(t))
+
             try:
-                result = subprocess.run(
-                    cmd,
-                    cwd=str(self.triggers_dir),
-                    capture_output=True,
-                    text=True,
-                    encoding="utf-8",
-                    errors="replace",
-                    check=False,
-                )
-                output = (result.stdout or "") + (result.stderr or "")
-                self.after(0, lambda: self.append_log(output or "(no output)"))
-                self.after(
-                    0,
-                    lambda: self.append_log(
-                        f"cleanup finished with code {result.returncode}"
-                    ),
+                code, timed_out = run_and_stream(
+                    cmd, self.triggers_dir, on_line, CLEANUP_TIMEOUT_SECS
                 )
             except OSError as exc:
-                self.after(0, lambda: self.append_log(f"cleanup failed: {exc}"))
-            finally:
-                def done() -> None:
-                    self._busy = False
-                    self.refresh_statuses()
+                self.after(0, lambda: self._cleanup_done(
+                    f"cleanup failed to run: {exc}", ok=False))
+                return
 
-                self.after(0, done)
+            if timed_out:
+                msg = (
+                    f"cleanup timed out after {CLEANUP_TIMEOUT_SECS}s and was "
+                    f"stopped; removed {removed} item(s). Some demo files may remain."
+                )
+                self.after(0, lambda: self._cleanup_done(
+                    msg, ok=False, blocked=blocked))
+            else:
+                msg = f"cleanup finished (exit {code}); removed {removed} item(s)."
+                self.after(0, lambda: self._cleanup_done(
+                    msg, ok=(code == 0 and not blocked), blocked=blocked))
 
         threading.Thread(target=worker, daemon=True).start()
+
+    def _cleanup_done(self, msg: str, ok: bool, blocked: list[str] | None = None) -> None:
+        blocked = blocked or []
+        self.append_log(msg)
+        if blocked:
+            self.append_log(
+                "These need elevated rights -- rerun as: "
+                "sudo python3 cleanup.py --agent-type <type>"
+            )
+            for line in blocked[:20]:
+                self.append_log(f"  {line}")
+        self._busy = False
+        self.refresh_statuses()
+        if ok:
+            self.append_log("Cleanup complete.")
+        else:
+            detail = msg
+            if blocked:
+                detail += "\n\n" + "\n".join(blocked[:10])
+                detail += "\n\nThese need root: sudo python3 cleanup.py"
+            messagebox.showwarning("Cleanup", detail)
 
 
 def main() -> int:
