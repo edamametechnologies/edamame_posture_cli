@@ -2,8 +2,14 @@ name: Build and publish the Trigger Panel
 
 # Builds the cross-platform EDAMAME Trigger Panel (a convenience GUI that
 # starts/stops the security demo triggers under tests/security/triggers and
-# runs their cleanup.py, for authorized local detection testing only) and
-# uploads the signed bundles to an EXISTING GitHub release's assets.
+# runs their cleanup.py, for authorized local detection testing only) and,
+# on an operator dispatch, uploads the signed bundles to an EXISTING GitHub
+# release's assets.
+#
+# A push that changes the panel or the triggers BUILDS and signs the bundles
+# (so a trigger change is validated) but uploads nothing. Uploading to a
+# release happens only on a workflow_dispatch with dry_run=false -- run by an
+# operator, or by edamame_app/release_all.sh during a release with tag=v<ver>.
 #
 # This workflow NEVER creates or moves a tag or release, never dispatches a
 # release_*.yml, and never runs the edamame_posture_action. It only ADDS
@@ -211,7 +217,7 @@ jobs:
       # the release (exact-match grep -qxF), upload the rest without --clobber.
       # Mirrors release_others.yml's "Upload assets to release (Windows)".
       - name: Upload the bundle to the release (macOS / Linux)
-        if: ${{ !inputs.dry_run && matrix.os != 'windows' }}
+        if: ${{ github.event_name == 'workflow_dispatch' && !inputs.dry_run && matrix.os != 'windows' }}
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -229,7 +235,7 @@ jobs:
           printf '%s\n' "$AFTER" | grep -qxF "$ASSET_NAME" || { echo "::error::asset not on release after upload: $ASSET_NAME"; exit 1; }
 
       - name: Upload the bundle to the release (Windows)
-        if: ${{ !inputs.dry_run && matrix.os == 'windows' }}
+        if: ${{ github.event_name == 'workflow_dispatch' && !inputs.dry_run && matrix.os == 'windows' }}
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -247,11 +253,11 @@ jobs:
           $after = (bash .github/scripts/release_lookup.sh assets "$env:GITHUB_REPOSITORY" "$env:TAG") -split "`n"
           if ($after -notcontains $asset) { Write-Error "asset not on release after upload: $asset"; exit 1 }
 
-      - name: Dry run notice
-        if: ${{ inputs.dry_run }}
+      - name: Build-only notice
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.dry_run }}
         shell: bash
         run: |
-          echo "Dry run: built and signed $ARTIFACT; nothing uploaded."
+          echo "Built and signed $ARTIFACT; nothing uploaded (upload runs only on an operator workflow_dispatch with dry_run=false)."
 
   # Compute trigger-panel-SHA256SUMS-<version>.txt over the three bundles and
   # upload it to the release (skipped on dry run / when already present).
@@ -290,7 +296,7 @@ jobs:
           echo "name=$SUMS" >> "$GITHUB_OUTPUT"
 
       - name: Upload SHA256SUMS to the release
-        if: ${{ !inputs.dry_run }}
+        if: ${{ github.event_name == 'workflow_dispatch' && !inputs.dry_run }}
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
