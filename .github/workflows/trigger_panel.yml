@@ -92,12 +92,12 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v6
 
-      - name: Resolve panel version from Cargo.toml
+      - name: Resolve the panel version
         shell: bash
         run: |
           set -euo pipefail
-          VERSION=$(grep '^version =' ./Cargo.toml | head -n1 | awk '{print $3}' | tr -d '"')
-          [ -n "$VERSION" ] || { echo "::error::could not read version from Cargo.toml"; exit 1; }
+          VERSION="$(tr -d '[:space:]' < tools/trigger_panel/VERSION)"
+          [ -n "$VERSION" ] || { echo "::error::tools/trigger_panel/VERSION is empty"; exit 1; }
           echo "EDAMAME_PANEL_VERSION=$VERSION" >> "$GITHUB_ENV"
 
       # Developer ID Application signing + notarization (NO provisioning
@@ -194,12 +194,12 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v6
 
-      - name: Resolve panel version from Cargo.toml
+      - name: Resolve the panel version
         shell: bash
         run: |
           set -euo pipefail
-          VERSION=$(grep '^version =' ./Cargo.toml | head -n1 | awk '{print $3}' | tr -d '"')
-          [ -n "$VERSION" ] || { echo "::error::could not read version from Cargo.toml"; exit 1; }
+          VERSION="$(tr -d '[:space:]' < tools/trigger_panel/VERSION)"
+          [ -n "$VERSION" ] || { echo "::error::tools/trigger_panel/VERSION is empty"; exit 1; }
           echo "EDAMAME_PANEL_VERSION=$VERSION" >> "$GITHUB_ENV"
 
       - name: Setup .NET for Windows
@@ -291,12 +291,12 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v6
 
-      - name: Resolve panel version from Cargo.toml
+      - name: Resolve the panel version
         shell: bash
         run: |
           set -euo pipefail
-          VERSION=$(grep '^version =' ./Cargo.toml | head -n1 | awk '{print $3}' | tr -d '"')
-          [ -n "$VERSION" ] || { echo "::error::could not read version from Cargo.toml"; exit 1; }
+          VERSION="$(tr -d '[:space:]' < tools/trigger_panel/VERSION)"
+          [ -n "$VERSION" ] || { echo "::error::tools/trigger_panel/VERSION is empty"; exit 1; }
           echo "EDAMAME_PANEL_VERSION=$VERSION" >> "$GITHUB_ENV"
 
       - name: Build the Linux bundle (no signing)
@@ -399,7 +399,13 @@ jobs:
             exit 1
           fi
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+          # The panel is versioned on its own (tools/trigger_panel/VERSION),
+          # not by the posture release tag: the bundles attach to this release
+          # but carry the panel version, so a new panel build never has to
+          # clobber an immutable asset of an earlier one.
+          PANEL_VERSION="$(tr -d '[:space:]' < tools/trigger_panel/VERSION)"
+          [ -n "$PANEL_VERSION" ] || { echo "::error::tools/trigger_panel/VERSION is empty"; exit 1; }
+          echo "version=$PANEL_VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Download the built bundles
         uses: actions/download-artifact@v4
