@@ -6,19 +6,18 @@ name: Build and publish the Trigger Panel
 # on an operator dispatch, uploads the signed bundles to an EXISTING GitHub
 # release's assets.
 #
-# Structure (the org IP allow list blocks the GitHub release API from a
-# hosted runner until the runner is registered, so release-API calls are kept
-# out of the build legs):
+# Like every other workflow, each job starts with `Setup EDAMAME Posture`
+# (attack pattern detection on the job; Hub registration so the org IP allow
+# list admits the runner) and ends with the `Dump EDAMAME Posture sessions`
+# vulnerability gate.
 #   * build-macos / build-windows / build-linux: build + sign + upload the
-#     bundle as an Actions artifact ONLY (the artifact API is not blocked).
-#     The version is read from Cargo.toml. No release API, no posture action.
-#     A push that changes the panel or the triggers runs only these, so a
+#     bundle as an Actions artifact. The version is read from Cargo.toml. A
+#     push that changes the panel or the triggers runs only these, so a
 #     trigger change is validated without touching any release.
-#   * publish: runs ONLY on a workflow_dispatch with dry_run=false. It first
-#     registers the runner with the Hub via edamame_posture_action (which adds
-#     the runner IP to the org allow list), then resolves the target release,
-#     downloads the three bundles, computes SHA256SUMS, and uploads every
-#     bundle plus SHA256SUMS to the release.
+#   * publish: runs ONLY on a workflow_dispatch with dry_run=false (an
+#     operator, or edamame_app/release_all.sh after Phase 1). It resolves the
+#     target release, downloads the three bundles, computes SHA256SUMS, and
+#     uploads every bundle plus SHA256SUMS to the release.
 #
 # This workflow NEVER creates or moves a tag or release, never dispatches a
 # release_*.yml. It only ADDS assets that are missing from the target release;
@@ -62,8 +61,33 @@ jobs:
     runs-on: macos-latest
     timeout-minutes: 60
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      # Every job runs the EDAMAME Posture action first, like the other
+      # workflows (self-hosted-runners / workspace rules): it watches the job
+      # and registers the runner so the org IP allow list admits it.
+      - name: Setup EDAMAME Posture
+        uses: edamametechnologies/edamame_posture_action@v1
+        with:
+          edamame_user: ${{ vars.EDAMAME_POSTURE_USER }}
+          edamame_domain: ${{ vars.EDAMAME_POSTURE_DOMAIN }}
+          edamame_pin: ${{ secrets.EDAMAME_POSTURE_PIN }}
+          edamame_id: ${{ github.run_id }}
+          network_scan: true
+          auto_whitelist: true
+          auto_whitelist_artifact_name: edamame-auto-whitelist-trigger-panel-macos
+          auto_remediate: true
+          checkout: true
+          token: ${{ secrets.DEV_GITHUB_TOKEN }}
+          wait_for_api: true
+          wait_repository: edamametechnologies/edamame_core
+          wait_for_https: true
+          packet_capture: true
+          vulnerability_detection: true
+          vulnerability_detection_interval: '60'
+          agentic_mode: analyze
+          agentic_provider: edamame
+          agentic_interval: 600
+        env:
+          EDAMAME_LLM_API_KEY: ${{ secrets.EDAMAME_LLM_API_KEY }}
 
       - name: Install uv
         uses: astral-sh/setup-uv@v6
@@ -120,12 +144,52 @@ jobs:
           path: ${{ env.ARTIFACT }}
           if-no-files-found: error
 
+      - name: Check job status before posture dump
+        id: job_status_check
+        if: failure()
+        run: echo "job_was_failing=true" >> "$GITHUB_OUTPUT"
+
+      - name: Dump EDAMAME Posture sessions
+        id: dump_sessions
+        if: always()
+        uses: edamametechnologies/edamame_posture_action@v1
+        with:
+          dump_sessions_log: true
+          promote_exceptions: ${{ vars.EDAMAME_AUTO_WHITELIST_PROMOTE_EXCEPTIONS }}
+          dump_vulnerability_findings: true
+          exit_on_vulnerability_findings: true
+
   build-windows:
     runs-on: windows-latest
     timeout-minutes: 60
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      # Every job runs the EDAMAME Posture action first, like the other
+      # workflows (self-hosted-runners / workspace rules): it watches the job
+      # and registers the runner so the org IP allow list admits it.
+      - name: Setup EDAMAME Posture
+        uses: edamametechnologies/edamame_posture_action@v1
+        with:
+          edamame_user: ${{ vars.EDAMAME_POSTURE_USER }}
+          edamame_domain: ${{ vars.EDAMAME_POSTURE_DOMAIN }}
+          edamame_pin: ${{ secrets.EDAMAME_POSTURE_PIN }}
+          edamame_id: ${{ github.run_id }}
+          network_scan: true
+          auto_whitelist: true
+          auto_whitelist_artifact_name: edamame-auto-whitelist-trigger-panel-windows
+          auto_remediate: true
+          checkout: true
+          token: ${{ secrets.DEV_GITHUB_TOKEN }}
+          wait_for_api: true
+          wait_repository: edamametechnologies/edamame_core
+          wait_for_https: true
+          packet_capture: true
+          vulnerability_detection: true
+          vulnerability_detection_interval: '60'
+          agentic_mode: analyze
+          agentic_provider: edamame
+          agentic_interval: 600
+        env:
+          EDAMAME_LLM_API_KEY: ${{ secrets.EDAMAME_LLM_API_KEY }}
 
       - name: Install uv
         uses: astral-sh/setup-uv@v6
@@ -177,12 +241,52 @@ jobs:
           path: ${{ env.ARTIFACT }}
           if-no-files-found: error
 
+      - name: Check job status before posture dump
+        id: job_status_check
+        if: failure()
+        run: echo "job_was_failing=true" >> "$GITHUB_OUTPUT"
+
+      - name: Dump EDAMAME Posture sessions
+        id: dump_sessions
+        if: always()
+        uses: edamametechnologies/edamame_posture_action@v1
+        with:
+          dump_sessions_log: true
+          promote_exceptions: ${{ vars.EDAMAME_AUTO_WHITELIST_PROMOTE_EXCEPTIONS }}
+          dump_vulnerability_findings: true
+          exit_on_vulnerability_findings: true
+
   build-linux:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      # Every job runs the EDAMAME Posture action first, like the other
+      # workflows (self-hosted-runners / workspace rules): it watches the job
+      # and registers the runner so the org IP allow list admits it.
+      - name: Setup EDAMAME Posture
+        uses: edamametechnologies/edamame_posture_action@v1
+        with:
+          edamame_user: ${{ vars.EDAMAME_POSTURE_USER }}
+          edamame_domain: ${{ vars.EDAMAME_POSTURE_DOMAIN }}
+          edamame_pin: ${{ secrets.EDAMAME_POSTURE_PIN }}
+          edamame_id: ${{ github.run_id }}
+          network_scan: true
+          auto_whitelist: true
+          auto_whitelist_artifact_name: edamame-auto-whitelist-trigger-panel-linux
+          auto_remediate: true
+          checkout: true
+          token: ${{ secrets.DEV_GITHUB_TOKEN }}
+          wait_for_api: true
+          wait_repository: edamametechnologies/edamame_core
+          wait_for_https: true
+          packet_capture: true
+          vulnerability_detection: true
+          vulnerability_detection_interval: '60'
+          agentic_mode: analyze
+          agentic_provider: edamame
+          agentic_interval: 600
+        env:
+          EDAMAME_LLM_API_KEY: ${{ secrets.EDAMAME_LLM_API_KEY }}
 
       - name: Install uv
         uses: astral-sh/setup-uv@v6
@@ -213,6 +317,21 @@ jobs:
           path: ${{ env.ARTIFACT }}
           if-no-files-found: error
 
+      - name: Check job status before posture dump
+        id: job_status_check
+        if: failure()
+        run: echo "job_was_failing=true" >> "$GITHUB_OUTPUT"
+
+      - name: Dump EDAMAME Posture sessions
+        id: dump_sessions
+        if: always()
+        uses: edamametechnologies/edamame_posture_action@v1
+        with:
+          dump_sessions_log: true
+          promote_exceptions: ${{ vars.EDAMAME_AUTO_WHITELIST_PROMOTE_EXCEPTIONS }}
+          dump_vulnerability_findings: true
+          exit_on_vulnerability_findings: true
+
   # ===========================================================================
   # Publish: operator dispatch only. Registers the runner with the Hub (adds
   # its IP to the org allow list so the release API is reachable), resolves the
@@ -224,24 +343,33 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      # Register the runner with the Hub so its IP is added to the org allow
-      # list and the GitHub release API becomes reachable with GITHUB_TOKEN.
-      # Minimal: wait for the allow list only -- no scan / capture / detection.
-      - name: Register runner for the org allow list
+      # Every job runs the EDAMAME Posture action first, like the other
+      # workflows (self-hosted-runners / workspace rules): it watches the job
+      # and registers the runner so the org IP allow list admits it.
+      - name: Setup EDAMAME Posture
         uses: edamametechnologies/edamame_posture_action@v1
         with:
           edamame_user: ${{ vars.EDAMAME_POSTURE_USER }}
           edamame_domain: ${{ vars.EDAMAME_POSTURE_DOMAIN }}
           edamame_pin: ${{ secrets.EDAMAME_POSTURE_PIN }}
           edamame_id: ${{ github.run_id }}
+          network_scan: true
+          auto_whitelist: true
+          auto_whitelist_artifact_name: edamame-auto-whitelist-trigger-panel-publish
+          auto_remediate: true
+          checkout: true
           token: ${{ secrets.DEV_GITHUB_TOKEN }}
-          checkout: false
           wait_for_api: true
-          wait_for_https: true
           wait_repository: edamametechnologies/edamame_core
+          wait_for_https: true
+          packet_capture: true
+          vulnerability_detection: true
+          vulnerability_detection_interval: '60'
+          agentic_mode: analyze
+          agentic_provider: edamame
+          agentic_interval: 600
+        env:
+          EDAMAME_LLM_API_KEY: ${{ secrets.EDAMAME_LLM_API_KEY }}
 
       - name: Resolve the target release tag
         id: pick
@@ -331,3 +459,18 @@ jobs:
             ASSET_NAME="$(basename "$ASSET_PATH")"
             printf '%s\n' "$AFTER" | grep -qxF "$ASSET_NAME" || { echo "::error::asset not on release after upload: $ASSET_NAME"; exit 1; }
           done
+
+      - name: Check job status before posture dump
+        id: job_status_check
+        if: failure()
+        run: echo "job_was_failing=true" >> "$GITHUB_OUTPUT"
+
+      - name: Dump EDAMAME Posture sessions
+        id: dump_sessions
+        if: always()
+        uses: edamametechnologies/edamame_posture_action@v1
+        with:
+          dump_sessions_log: true
+          promote_exceptions: ${{ vars.EDAMAME_AUTO_WHITELIST_PROMOTE_EXCEPTIONS }}
+          dump_vulnerability_findings: true
+          exit_on_vulnerability_findings: true
