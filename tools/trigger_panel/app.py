@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 """
-Simple macOS control panel for EDAMAME security trigger scripts.
+Cross-platform control panel for EDAMAME security trigger scripts.
 
 Start / stop each trigger under tests/security/triggers, and run cleanup.py.
-For authorized local detection testing only.
+Runs on macOS, Windows and Linux. For authorized local detection testing only.
 """
 
 from __future__ import annotations
 
+import importlib.util
 import os
+import platform
 import shutil
 import signal
 import subprocess
@@ -18,6 +20,8 @@ import tkinter as tk
 from pathlib import Path
 from tkinter import messagebox, scrolledtext, ttk
 
+IS_WINDOWS = platform.system() == "Windows"
+
 
 AGENT_TYPES = ("openclaw", "cursor", "claude_code", "claude_desktop", "codex", "hermes")
 DEFAULT_AGENT_TYPE = "openclaw"
@@ -25,12 +29,14 @@ POLL_MS = 1500
 
 
 def app_resources_dir() -> Path:
-    """Return Contents/Resources when running inside the macOS .app bundle."""
-    here = Path(__file__).resolve().parent
-    # .../App.app/Contents/Resources/app.py
-    if here.name == "Resources" and (here / "python").is_dir():
-        return here
-    return here
+    """Directory that holds app.py and the bundled ``python`` / ``triggers``.
+
+    macOS: ``App.app/Contents/Resources`` (app.py sits beside ``python`` and
+    ``triggers``). Windows / Linux: the directory the launcher ships app.py in,
+    with ``python`` and ``triggers`` beside it. In every bundle layout this is
+    simply the directory app.py lives in.
+    """
+    return Path(__file__).resolve().parent
 
 
 def resolve_triggers_dir() -> Path:
@@ -76,13 +82,38 @@ def _usable_python(path: Path) -> bool:
     )
 
 
-def _relocated_bundled_python() -> Path:
-    """Copy the embedded runtime to a path that is not inside the .app."""
-    bundled_root = app_resources_dir() / "python"
-    dest = Path.home() / "Library" / "Caches" / "edamame-trigger-panel" / "python"
+def _bundled_python_executable(root: Path) -> Path:
+    """The interpreter inside a bundled standalone CPython tree at ``root``.
+
+    Windows places ``python.exe`` at the tree root; macOS / Linux use the
+    POSIX ``bin/python3`` layout.
+    """
+    if IS_WINDOWS:
+        return root / "python.exe"
+    return root / "bin" / "python3"
+
+
+def _cache_root() -> Path:
+    """Per-user cache base, used only when the runtime must leave the bundle."""
+    if IS_WINDOWS:
+        base = os.environ.get("LOCALAPPDATA") or (Path.home() / "AppData" / "Local")
+        return Path(base) / "edamame-trigger-panel"
+    if platform.system() == "Darwin":
+        return Path.home() / "Library" / "Caches" / "edamame-trigger-panel"
+    base = os.environ.get("XDG_CACHE_HOME") or (Path.home() / ".cache")
+    return Path(base) / "edamame-trigger-panel"
+
+
+def _relocated_bundled_python(bundled_root: Path) -> Path:
+    """Copy the embedded runtime to a path that is not inside a ``.app``.
+
+    Only needed on macOS: a process whose path is inside a ``.app`` is
+    classified as the app reading its own files and the findings are dropped.
+    """
+    dest = _cache_root() / "python"
     marker = dest / ".bundle-source"
     source_id = str(bundled_root.resolve())
-    python = dest / "bin" / "python3"
+    python = _bundled_python_executable(dest)
     if python.is_file() and marker.is_file() and marker.read_text(encoding="utf-8").strip() == source_id:
         return python
     if dest.exists():
@@ -96,32 +127,67 @@ def _relocated_bundled_python() -> Path:
 def runtime_python() -> str:
     """Python used to launch trigger and cleanup scripts.
 
-    The shared .app always uses the Python it shipped with. That runtime is
-    copied out of the bundle first, because a process path inside a ``.app``
-    is classified as the app reading its own files and the findings are dropped.
-    A checkout without the embedded runtime falls back to another interpreter
-    whose path is also outside an app bundle.
+    The shared bundle always uses the Python it shipped with. On macOS that
+    runtime lives inside the ``.app``, so it is copied out first: a process
+    path inside a ``.app`` is classified as the app reading its own files and
+    the findings the triggers raise are dropped. On Windows / Linux the bundled
+    interpreter's path is not a ``.app`` and is used in place. A checkout
+    without the embedded runtime falls back to another interpreter whose path
+    is also outside an app bundle.
     """
-    bundled = app_resources_dir() / "python" / "bin" / "python3"
+    bundled_root = app_resources_dir() / "python"
+    bundled = _bundled_python_executable(bundled_root)
     if bundled.is_file():
-        relocated = _relocated_bundled_python()
-        if _usable_python(relocated):
-            return str(relocated.resolve())
+        if _path_inside_app_bundle(bundled):
+            relocated = _relocated_bundled_python(bundled_root)
+            if _usable_python(relocated):
+                return str(relocated.resolve())
+        elif _usable_python(bundled):
+            return str(bundled.resolve())
 
-    for candidate in (
-        Path("/opt/homebrew/bin/python3"),
-        Path("/usr/local/bin/python3"),
-        Path("/usr/bin/python3"),
-    ):
+    if IS_WINDOWS:
+        system_candidates = (
+            Path(sys.base_prefix) / "python.exe",
+            Path(os.environ.get("LOCALAPPDATA", "")) / "Programs" / "Python" / "python.exe",
+        )
+    else:
+        system_candidates = (
+            Path("/opt/homebrew/bin/python3"),
+            Path("/usr/local/bin/python3"),
+            Path("/usr/bin/python3"),
+        )
+    for candidate in system_candidates:
         if _usable_python(candidate):
             return str(candidate.resolve())
-    if not _path_inside_app_bundle(Path(sys.executable)):
-        return sys.executable
+    # Last resort: the interpreter running this panel, as long as it is not
+    # itself inside a .app (on Windows / Linux it never is).
     return sys.executable
 
 
-def state_dir_for(agent_type: str) -> Path:
-    return Path(f"/tmp/edamame_{agent_type}_demo")
+def state_dir_for(agent_type: str, triggers_dir: Path) -> Path:
+    """Demo state directory for ``agent_type``.
+
+    Must match what the triggers and cleanup.py compute, so the panel loads
+    ``_common.state_dir_for`` from the bundled triggers and calls it. If that
+    module cannot be loaded the logic is replicated inline (keep in sync with
+    ``tests/security/triggers/_common.py::state_dir_for``): Windows uses
+    ``%TEMP%``; every other platform uses ``/tmp``.
+    """
+    common_path = triggers_dir / "_common.py"
+    if common_path.is_file():
+        try:
+            spec = importlib.util.spec_from_file_location(
+                "_edamame_panel_common", str(common_path)
+            )
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)  # type: ignore[union-attr]
+            return Path(module.state_dir_for(agent_type))
+        except Exception:
+            pass
+    name = f"edamame_{agent_type}_demo"
+    if IS_WINDOWS:
+        return Path(os.environ.get("TEMP", "C:\\Temp")) / name
+    return Path(f"/tmp/{name}")
 
 
 def _strip_prefix(value: str, prefix: str) -> str:
@@ -167,7 +233,32 @@ def read_pid(pid_file):
         return None
 
 
+def _windows_process_alive(pid: int) -> bool:
+    import ctypes
+
+    PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+    STILL_ACTIVE = 259
+    kernel32 = ctypes.windll.kernel32  # type: ignore[attr-defined]
+    handle = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+    if not handle:
+        return False
+    try:
+        code = ctypes.c_ulong()
+        if kernel32.GetExitCodeProcess(handle, ctypes.byref(code)) == 0:
+            return False
+        return code.value == STILL_ACTIVE
+    finally:
+        kernel32.CloseHandle(handle)
+
+
 def process_alive(pid: int) -> bool:
+    if IS_WINDOWS:
+        # os.kill(pid, 0) on Windows calls TerminateProcess(handle, 0) -- it
+        # would KILL the process, not probe it. Query the handle instead.
+        try:
+            return _windows_process_alive(pid)
+        except OSError:
+            return False
     try:
         os.kill(pid, 0)
         return True
@@ -186,7 +277,28 @@ def _unlink(path) -> None:
         pass
 
 
+def _windows_kill_tree(pid) -> str:
+    # taskkill ends the whole process tree and fails softly, matching
+    # cleanup.py and tests/security/run_scenario.sh on Windows.
+    result = subprocess.run(
+        ["taskkill", "/PID", str(pid), "/T", "/F"],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+    )
+    if result.returncode == 0:
+        return f"stopped pid {pid} tree"
+    detail = (result.stderr or result.stdout or "").strip().replace("\n", " ")
+    return f"could not stop pid {pid}: {detail}" if detail else f"already stopped (pid {pid})"
+
+
 def kill_pid(pid, pid_file) -> str:
+    if IS_WINDOWS:
+        detail = _windows_kill_tree(pid)
+        _unlink(pid_file)
+        return detail
     try:
         try:
             pgid = os.getpgid(pid)
@@ -327,7 +439,7 @@ class TriggerPanel(tk.Tk):
         self.log.configure(state=tk.DISABLED)
 
     def current_state_dir(self) -> Path:
-        return state_dir_for(self.agent_type.get())
+        return state_dir_for(self.agent_type.get(), self.triggers_dir)
 
     def refresh_statuses(self) -> None:
         state_dir = self.current_state_dir()

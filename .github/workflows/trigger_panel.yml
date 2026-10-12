@@ -1,0 +1,306 @@
+name: Build and publish the Trigger Panel
+
+# Builds the cross-platform EDAMAME Trigger Panel (a convenience GUI that
+# starts/stops the security demo triggers under tests/security/triggers and
+# runs their cleanup.py, for authorized local detection testing only) and
+# uploads the signed bundles to an EXISTING GitHub release's assets.
+#
+# This workflow NEVER creates or moves a tag or release, never dispatches a
+# release_*.yml, and never runs the edamame_posture_action. It only ADDS
+# assets that are missing from the target release; an asset already present is
+# left untouched (published assets are immutable -- their checksum is fixed).
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to attach the panel assets to (e.g. v2.0.7). Empty = the repo''s latest release.'
+        type: string
+        default: ''
+      dry_run:
+        description: 'Build + sign + smoke-test only; do not upload any asset to the release.'
+        type: boolean
+        default: false
+  push:
+    branches: [main]
+    paths:
+      - 'tools/trigger_panel/**'
+      - 'tests/security/triggers/**'
+      - '.github/workflows/trigger_panel.yml'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+
+  # Resolve and verify the target release. Fails closed: a missing release is
+  # an error here, before anything is built -- this workflow never creates one.
+  resolve:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      tag: ${{ steps.pick.outputs.tag }}
+      version: ${{ steps.pick.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve the target release tag
+        id: pick
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          TAG="${INPUT_TAG:-}"
+          if [ -z "$TAG" ]; then
+            # Latest published release of this repo. A lookup failure is an
+            # error, not "no release" (same discipline as release_lookup.sh).
+            TAG="$(gh api "repos/${GITHUB_REPOSITORY}/releases/latest" --jq '.tag_name')"
+            if [ -z "$TAG" ] || [ "$TAG" = "null" ]; then
+              echo "::error::Could not resolve the latest release of ${GITHUB_REPOSITORY}."
+              exit 1
+            fi
+            echo "Resolved latest release tag: $TAG"
+          fi
+          # Confirm the release exists; release_lookup.sh fails on anything but
+          # a definite 404, which it reports as exists=false.
+          EXISTS="$(bash .github/scripts/release_lookup.sh release "${GITHUB_REPOSITORY}" "$TAG" | sed -n 's/^exists=//p')"
+          if [ "$EXISTS" != "true" ]; then
+            echo "::error::Release $TAG does not exist in ${GITHUB_REPOSITORY}; this workflow only uploads assets to an existing release, it does not create one."
+            exit 1
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: resolve
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos
+            runs-on: macos-latest
+            asset_glob: 'edamame-trigger-panel-macos-*'
+          - os: windows
+            runs-on: windows-latest
+            asset_glob: 'edamame-trigger-panel-windows-x64-*'
+          - os: linux
+            runs-on: ubuntu-latest
+            asset_glob: 'edamame-trigger-panel-linux-x64-*'
+    runs-on: ${{ matrix.runs-on }}
+    env:
+      EDAMAME_PANEL_VERSION: ${{ needs.resolve.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      # ---------------------------------------------------------------------
+      # macOS: Developer ID Application signing + notarization (NO provisioning
+      # profile -- the panel is a plain tkinter app and needs no Endpoint
+      # Security entitlement). Keychain + notarytool setup mirrors
+      # release_others.yml's "Setup signing for macOS": under umask 077 with a
+      # trap that removes the decoded key material when the step ends (FP-CI-23).
+      # ---------------------------------------------------------------------
+      - name: Setup signing for macOS
+        if: matrix.os == 'macos'
+        shell: bash
+        run: |
+          umask 077
+          trap 'rm -f certificate_application.cer certificate_application.key certificate_application.p12 appstore_connect_api_key.p8' EXIT
+
+          echo ${{ secrets.APPLE_DEVELOPER_ID_APPLICATION_CER }} | base64 --decode > certificate_application.cer
+          echo ${{ secrets.APPLE_DEVELOPER_ID_APPLICATION_KEY }} | base64 --decode > certificate_application.key
+          openssl pkcs12 -export -name zup -in certificate_application.cer -inkey certificate_application.key -passin pass:${{ secrets.APPLE_P12_PASSWORD }} -out certificate_application.p12 -passout pass:${{ secrets.MACOS_KEYCHAIN_PASSWORD }}
+
+          export KEYCHAIN_PATH=/tmp/trigger-panel-signing.keychain-db
+          security create-keychain -p "${{ secrets.MACOS_KEYCHAIN_PASSWORD }}" $KEYCHAIN_PATH
+          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+          security unlock-keychain -p "${{ secrets.MACOS_KEYCHAIN_PASSWORD }}" $KEYCHAIN_PATH
+          security import certificate_application.p12 -P "${{ secrets.APPLE_P12_PASSWORD }}" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+          security list-keychain -d user -s $KEYCHAIN_PATH
+
+          echo ${{ secrets.APPLE_APPSTORE_CONNECT_API_KEY }} | base64 --decode > appstore_connect_api_key.p8
+          xcrun notarytool store-credentials -k appstore_connect_api_key.p8 -d ${{ secrets.APPLE_APPSTORE_CONNECT_API_KEY_ID }} -i ${{ secrets.APPLE_APPSTORE_CONNECT_API_ISSUER_ID }} Edamame
+
+      - name: Build the macOS app (signed + notarized)
+        if: matrix.os == 'macos'
+        shell: bash
+        env:
+          EDAMAME_CODESIGN_IDENTITY: 'Developer ID Application: Edamame Technologies (WSL782B48J)'
+          EDAMAME_NOTARIZE_PROFILE: Edamame
+        run: |
+          set -euo pipefail
+          bash tools/trigger_panel/build_macos_app.sh "$RUNNER_TEMP/panel_dist" | tee "$RUNNER_TEMP/build.log"
+          ARTIFACT="$(sed -n 's/^ARTIFACT=//p' "$RUNNER_TEMP/build.log" | tail -n1)"
+          [ -n "$ARTIFACT" ] && [ -f "$ARTIFACT" ] || { echo "::error::macOS build produced no artifact"; exit 1; }
+          echo "ARTIFACT=$ARTIFACT" >> "$GITHUB_ENV"
+
+      # ---------------------------------------------------------------------
+      # Windows: build the launcher with MSVC, Authenticode-sign it with
+      # AzureSignTool (same AZURE_SIGN_* secrets as release_others.yml).
+      # ---------------------------------------------------------------------
+      - name: Setup .NET for Windows
+        if: matrix.os == 'windows'
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Install AzureSignTool
+        if: matrix.os == 'windows'
+        shell: pwsh
+        run: |
+          if (-not (dotnet tool list --global | Select-String -Pattern 'AzureSignTool')) {
+            dotnet tool install --global AzureSignTool
+          }
+
+      - name: Build the Windows bundle (signed)
+        if: matrix.os == 'windows'
+        shell: pwsh
+        env:
+          AZURE_SIGN_TENANT_ID: ${{ secrets.AZURE_SIGN_TENANT_ID }}
+          AZURE_SIGN_KEY_VAULT_URI: ${{ secrets.AZURE_SIGN_KEY_VAULT_URI }}
+          AZURE_SIGN_CLIENT_ID: ${{ secrets.AZURE_SIGN_CLIENT_ID }}
+          AZURE_SIGN_CLIENT_SECRET: ${{ secrets.AZURE_SIGN_CLIENT_SECRET }}
+          AZURE_SIGN_CERT_NAME: ${{ secrets.AZURE_SIGN_CERT_NAME }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $out = & tools/trigger_panel/build_windows.ps1 -DistDir "$env:RUNNER_TEMP/panel_dist"
+          $out | Tee-Object -FilePath "$env:RUNNER_TEMP/build.log"
+          $line = ($out | Select-String -Pattern '^ARTIFACT=').Line | Select-Object -Last 1
+          if (-not $line) { Write-Error 'Windows build produced no artifact'; exit 1 }
+          $artifact = $line -replace '^ARTIFACT=', ''
+          if (-not (Test-Path $artifact)) { Write-Error "Artifact not found: $artifact"; exit 1 }
+          "ARTIFACT=$artifact" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      # ---------------------------------------------------------------------
+      # Linux: no code signing.
+      # ---------------------------------------------------------------------
+      - name: Build the Linux bundle
+        if: matrix.os == 'linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y rsync
+          bash tools/trigger_panel/build_linux.sh "$RUNNER_TEMP/panel_dist" | tee "$RUNNER_TEMP/build.log"
+          ARTIFACT="$(sed -n 's/^ARTIFACT=//p' "$RUNNER_TEMP/build.log" | tail -n1)"
+          [ -n "$ARTIFACT" ] && [ -f "$ARTIFACT" ] || { echo "::error::Linux build produced no artifact"; exit 1; }
+          echo "ARTIFACT=$ARTIFACT" >> "$GITHUB_ENV"
+
+      # Keep the built bundle for the checksums job (always, incl. dry runs).
+      # env.ARTIFACT may be a Windows path; the action resolves it either way.
+      - name: Upload the built bundle as a workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: panel-${{ matrix.os }}
+          path: ${{ env.ARTIFACT }}
+          if-no-files-found: error
+
+      # Published assets are IMMUTABLE for a given version. A retry must ADD
+      # what is missing, never replace what is there: skip an asset already on
+      # the release (exact-match grep -qxF), upload the rest without --clobber.
+      # Mirrors release_others.yml's "Upload assets to release (Windows)".
+      - name: Upload the bundle to the release (macOS / Linux)
+        if: ${{ !inputs.dry_run && matrix.os != 'windows' }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.resolve.outputs.tag }}
+        run: |
+          set -euo pipefail
+          ASSET_NAME="$(basename "$ARTIFACT")"
+          EXISTING="$(bash .github/scripts/release_lookup.sh assets "${GITHUB_REPOSITORY}" "$TAG")"
+          if printf '%s\n' "$EXISTING" | grep -qxF "$ASSET_NAME"; then
+            echo "SKIP (already published, checksum is fixed): $ASSET_NAME"
+          else
+            gh release upload "$TAG" "$ARTIFACT" --repo "${GITHUB_REPOSITORY}"
+          fi
+          AFTER="$(bash .github/scripts/release_lookup.sh assets "${GITHUB_REPOSITORY}" "$TAG")"
+          printf '%s\n' "$AFTER" | grep -qxF "$ASSET_NAME" || { echo "::error::asset not on release after upload: $ASSET_NAME"; exit 1; }
+
+      - name: Upload the bundle to the release (Windows)
+        if: ${{ !inputs.dry_run && matrix.os == 'windows' }}
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.resolve.outputs.tag }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $asset = Split-Path -Leaf $env:ARTIFACT
+          $existing = (bash .github/scripts/release_lookup.sh assets "$env:GITHUB_REPOSITORY" "$env:TAG") -split "`n"
+          if ($existing -contains $asset) {
+            Write-Host "SKIP (already published, checksum is fixed): $asset"
+          } else {
+            gh release upload "$env:TAG" "$env:ARTIFACT" --repo "$env:GITHUB_REPOSITORY"
+            if ($LASTEXITCODE -ne 0) { Write-Error "gh release upload failed"; exit 1 }
+          }
+          $after = (bash .github/scripts/release_lookup.sh assets "$env:GITHUB_REPOSITORY" "$env:TAG") -split "`n"
+          if ($after -notcontains $asset) { Write-Error "asset not on release after upload: $asset"; exit 1 }
+
+      - name: Dry run notice
+        if: ${{ inputs.dry_run }}
+        shell: bash
+        run: |
+          echo "Dry run: built and signed $ARTIFACT; nothing uploaded."
+
+  # Compute trigger-panel-SHA256SUMS-<version>.txt over the three bundles and
+  # upload it to the release (skipped on dry run / when already present).
+  checksums:
+    needs: [resolve, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download the built bundles
+        uses: actions/download-artifact@v4
+        with:
+          pattern: panel-*
+          path: panel-artifacts
+          merge-multiple: true
+
+      - name: Compute SHA256SUMS
+        id: sums
+        shell: bash
+        env:
+          VERSION: ${{ needs.resolve.outputs.version }}
+        run: |
+          set -euo pipefail
+          SUMS="trigger-panel-SHA256SUMS-${VERSION}.txt"
+          cd panel-artifacts
+          # Sorted, base names only, so the file matches the uploaded assets.
+          find . -maxdepth 1 -type f -printf '%f\n' | LC_ALL=C sort | while IFS= read -r f; do
+            sha256sum "$f"
+          done > "../$SUMS"
+          cd ..
+          echo "Computed $SUMS:"
+          cat "$SUMS"
+          echo "path=$SUMS" >> "$GITHUB_OUTPUT"
+          echo "name=$SUMS" >> "$GITHUB_OUTPUT"
+
+      - name: Upload SHA256SUMS to the release
+        if: ${{ !inputs.dry_run }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.resolve.outputs.tag }}
+          SUMS: ${{ steps.sums.outputs.name }}
+        run: |
+          set -euo pipefail
+          EXISTING="$(bash .github/scripts/release_lookup.sh assets "${GITHUB_REPOSITORY}" "$TAG")"
+          if printf '%s\n' "$EXISTING" | grep -qxF "$SUMS"; then
+            echo "SKIP (already published): $SUMS"
+          else
+            gh release upload "$TAG" "$SUMS" --repo "${GITHUB_REPOSITORY}"
+          fi

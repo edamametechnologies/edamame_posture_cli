@@ -13,6 +13,13 @@ CONTENTS="$APP_DIR/Contents"
 MACOS="$CONTENTS/MacOS"
 RESOURCES="$CONTENTS/Resources"
 PYTHON_VERSION="${EDAMAME_EMBED_PYTHON_VERSION:-3.11}"
+# Release tag being built (asset name), e.g. 2.0.7; "dev" for a local build.
+VERSION="${EDAMAME_PANEL_VERSION:-dev}"
+# Optional Developer ID Application identity; CI sets it to produce a signed,
+# notarizable app. Unset -> ad-hoc ("-") signing for a local build.
+SIGN_IDENTITY="${EDAMAME_CODESIGN_IDENTITY:--}"
+# Optional notarytool keychain profile; CI sets it to notarize and staple.
+NOTARIZE_PROFILE="${EDAMAME_NOTARIZE_PROFILE:-}"
 # Prefer the machine arch over a Rosetta shell's uname (which reports x86_64).
 if [[ -n "${EDAMAME_EMBED_ARCH:-}" ]]; then
   ARCH="$EDAMAME_EMBED_ARCH"
@@ -155,15 +162,9 @@ PY
 
 xattr -cr "$APP_DIR" 2>/dev/null || true
 
-# Ad-hoc sign nested Mach-O files first, then the bundle. An unsigned
-# shell-script app is rejected on a Mac that did not build it.
-find "$APP_DIR" -type f -print0 | while IFS= read -r -d '' candidate; do
-  if file "$candidate" | grep -q 'Mach-O'; then
-    codesign --force --sign - "$candidate" >/dev/null 2>&1
-  fi
-done
-codesign --force --sign - "$APP_DIR"
-
+# Info.plist must be in place BEFORE signing: codesign seals it into
+# CodeResources, and a notarized Developer ID app rejects a plist written
+# afterwards.
 cat > "$CONTENTS/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -195,16 +196,47 @@ cat > "$CONTENTS/Info.plist" <<EOF
 </plist>
 EOF
 
+# Sign nested Mach-O files first, then the bundle. With a Developer ID
+# identity (CI) use the hardened runtime + a secure timestamp so the app can
+# be notarized; otherwise ad-hoc ("-") so a locally built app still launches.
+# An unsigned shell-script app is rejected on a Mac that did not build it.
+SIGN_ARGS=(--force --sign "$SIGN_IDENTITY")
+if [[ "$SIGN_IDENTITY" != "-" ]]; then
+  SIGN_ARGS+=(--options runtime --timestamp)
+fi
+find "$APP_DIR" -type f -print0 | while IFS= read -r -d '' candidate; do
+  if file "$candidate" | grep -q 'Mach-O'; then
+    codesign "${SIGN_ARGS[@]}" "$candidate" >/dev/null 2>&1
+  fi
+done
+codesign "${SIGN_ARGS[@]}" "$MACOS/EDAMAME Trigger Panel"
+codesign "${SIGN_ARGS[@]}" "$APP_DIR"
+
 EDAMAME_TRIGGER_PANEL_CHECK=1 "$MACOS/EDAMAME Trigger Panel"
 codesign --verify --deep --strict "$APP_DIR"
 echo "codesign ok"
 
-ZIP_NAME="EDAMAME-Trigger-Panel-${ARCH}.zip"
+ZIP_NAME="edamame-trigger-panel-macos-${ARCH}-${VERSION}.zip"
 ZIP_PATH="$DIST_DIR/$ZIP_NAME"
 rm -f "$ZIP_PATH"
 ditto -c -k --sequesterRsrc --keepParent "$APP_DIR" "$ZIP_PATH"
+
+# Notarize the zipped app, then staple the ticket into the .app and rebuild
+# the zip so Gatekeeper accepts it offline too. Only runs when CI provides a
+# notarytool keychain profile.
+if [[ -n "$NOTARIZE_PROFILE" ]]; then
+  echo "Submitting $ZIP_NAME for notarization (profile: $NOTARIZE_PROFILE)..."
+  xcrun notarytool submit "$ZIP_PATH" --keychain-profile "$NOTARIZE_PROFILE" --wait
+  xcrun stapler staple "$APP_DIR"
+  xcrun stapler validate "$APP_DIR"
+  rm -f "$ZIP_PATH"
+  ditto -c -k --sequesterRsrc --keepParent "$APP_DIR" "$ZIP_PATH"
+  echo "notarized and stapled"
+fi
 
 SIZE="$(du -sh "$APP_DIR" | awk '{print $1}')"
 echo "Built: $APP_DIR ($SIZE, $ARCH)"
 echo "Zip:   $ZIP_PATH"
 echo "Open:  open \"$APP_DIR\""
+# Final line: the artifact path (consumed by CI).
+echo "ARTIFACT=$ZIP_PATH"
