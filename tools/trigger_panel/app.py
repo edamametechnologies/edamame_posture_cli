@@ -11,12 +11,15 @@ from __future__ import annotations
 import importlib.util
 import os
 import platform
+import re
 import shutil
 import signal
 import subprocess
 import sys
 import threading
+import time
 import tkinter as tk
+import tkinter.font as tkfont
 from pathlib import Path
 from tkinter import messagebox, scrolledtext, ttk
 
@@ -322,115 +325,852 @@ def kill_pid(pid, pid_file) -> str:
     return detail
 
 
+# --- Presentation helpers ---------------------------------------------------
+#
+# Everything below here is pure UI: colors, text shaping and output parsing.
+# None of it changes how triggers are discovered, launched, or stopped.
+
+TICK_MS = 1000
+MAX_RAW_LINES = 1200
+
+# Check "families" -> a small, fixed palette. The pill backgrounds are chosen
+# to carry white text legibly on both light and dark window chromes (the pill
+# supplies its own background, so it does not depend on the theme).
+FAMILY_COLORS = {
+    "tamper": "#C2680E",        # file_system_tampering (amber)
+    "credential": "#C0392B",    # credential / token exfiltration (red)
+    "divergence": "#7D3C98",    # divergence / goal drift / memory poisoning (purple)
+    "sandbox": "#117A8B",       # sandbox escape (teal)
+    "supply_chain": "#2E6DB4",  # package / supply-chain compromise (blue)
+    "egress": "#2E8B57",        # blacklisted / tunnelled / relayed network egress (green)
+    "scrape": "#B03A79",        # process memory scrape (magenta)
+    "agent_control": "#3F51B5", # agent config / rules / denylist tampering (indigo)
+    "other": "#5A6472",         # anything else (slate)
+}
+
+FAMILY_LABEL = {
+    "tamper": "file tampering",
+    "credential": "credential / token",
+    "divergence": "divergence",
+    "sandbox": "sandbox escape",
+    "supply_chain": "supply chain",
+    "egress": "network egress",
+    "scrape": "memory scrape",
+    "agent_control": "agent control",
+    "other": "detection",
+}
+
+# A detected `check=` value maps straight to a family.
+CHECK_FAMILY = {
+    "file_system_tampering": "tamper",
+    "credential_harvest": "credential",
+    "sensitive_material_egress": "credential",
+    "divergence": "divergence",
+    "sandbox_exploitation": "sandbox",
+    "package_install_lifecycle": "supply_chain",
+    "process_memory_scrape": "scrape",
+    "agent_denylist_bypass": "agent_control",
+}
+
+# Otherwise the family is inferred from the script name. First match wins.
+NAME_FAMILY = (
+    ("file_events", "tamper"),
+    ("temp_modify", "tamper"),
+    ("nonsensitive_path", "tamper"),
+    ("token", "credential"),
+    ("cred", "credential"),
+    ("sprawl", "credential"),
+    ("sandbox", "sandbox"),
+    ("divergence", "divergence"),
+    ("goal_drift", "divergence"),
+    ("memory_poison", "divergence"),
+    ("process_memory", "scrape"),
+    ("memory_scrape", "scrape"),
+    ("supply_chain", "supply_chain"),
+    ("npm_rat", "supply_chain"),
+    ("pgserve", "supply_chain"),
+    ("package_install", "supply_chain"),
+    ("agent_config", "agent_control"),
+    ("agent_rules", "agent_control"),
+    ("agent_denylist", "agent_control"),
+    ("backdoor", "agent_control"),
+    ("blacklist", "egress"),
+    ("dns_tunnel", "egress"),
+    ("ntp_tunnel", "egress"),
+    ("loopback", "egress"),
+    ("daemon_lineage", "egress"),
+    ("relay", "egress"),
+)
+
+# Dark "cyber" palette. Fixed, not derived from the OS appearance: the panel
+# ships a single, consistent dark look on macOS / Windows / Linux by styling
+# the configurable ``clam`` ttk theme explicitly. One restrained neon accent.
+ACCENT = "#2BD6C6"       # teal/cyan -- accent, focus, running
+ACCENT_DIM = "#1F9E93"   # pressed / hover of a filled accent control
+ACCENT_INK = "#06211E"   # text on a filled accent control
+AMBER = "#E3B341"        # transitional (starting / stopping)
+DANGER = "#F85149"       # error / exited(non-zero)
+
+PALETTE = {
+    "window": "#0E1116",       # near-black slate
+    "card": "#161B22",         # raised card
+    "card_hover": "#1C222B",
+    "card_border": "#2A313C",
+    "detail": "#0B0E13",       # inset detail / log
+    "fg": "#C9D1D9",           # body text (light grey)
+    "heading": "#E6EDF3",      # titles
+    "muted": "#8B949E",
+    "faint": "#6E7681",
+    "accent": ACCENT,
+}
+
+# Live status -> label shown beside the status dot, and the dot's color.
+STATUS_LABEL = {
+    "idle": "idle",
+    "starting": "starting",
+    "running": "running",
+    "stopping": "stopping",
+    "stopped": "stopped",
+    "error": "exited",
+}
+DOT_COLORS = {
+    "idle": "#6E7681",
+    "starting": AMBER,
+    "running": ACCENT,
+    "stopping": AMBER,
+    "stopped": "#8B949E",
+    "error": DANGER,
+}
+
+# A banner line can carry several `key=value` tokens on one line
+# (``target=.. host=..``). Split only at a whitespace-preceded identifier so
+# values that themselves contain spaces (``threat=Meta AI inbox incident``)
+# stay whole.
+_KV_BOUNDARY = re.compile(r"(?:^|\s)([a-z][a-z0-9_]*)=")
+_ROUND_RE = re.compile(r"\bround=(\d+)")
+
+
+def family_for(check_value: str, script_name: str) -> str:
+    if check_value and check_value in CHECK_FAMILY:
+        return CHECK_FAMILY[check_value]
+    lowered = script_name.lower()
+    for needle, family in NAME_FAMILY:
+        if needle in lowered:
+            return family
+    return "other"
+
+
+def contrast_text(hex_color: str) -> str:
+    """Black or white text for a solid badge background."""
+    try:
+        r = int(hex_color[1:3], 16)
+        g = int(hex_color[3:5], 16)
+        b = int(hex_color[5:7], 16)
+    except (ValueError, IndexError):
+        return "#ffffff"
+    luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255.0
+    return "#111111" if luminance > 0.6 else "#ffffff"
+
+
+def doc_summary(script: Path) -> str:
+    """First meaningful sentence of the trigger's module docstring.
+
+    Gives each card a human subtitle before it is ever started. Purely
+    cosmetic; failure just yields an empty subtitle.
+    """
+    try:
+        text = script.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return ""
+    marker = '"""'
+    start = text.find(marker)
+    if start == -1:
+        return ""
+    end = text.find(marker, start + 3)
+    body = text[start + 3 : end if end != -1 else len(text)]
+    for raw_line in body.splitlines():
+        line = raw_line.strip()
+        if line:
+            return line
+    return ""
+
+
+def parse_kv_tokens(line: str):
+    """Yield (key, value) pairs from a banner line. Order preserved."""
+    matches = list(_KV_BOUNDARY.finditer(line))
+    for index, match in enumerate(matches):
+        key = match.group(1)
+        value_start = match.end()
+        value_end = matches[index + 1].start() if index + 1 < len(matches) else len(line)
+        yield key, line[value_start:value_end].strip()
+
+
+def _fmt_elapsed(seconds: float) -> str:
+    seconds = int(max(0, seconds))
+    hours, rem = divmod(seconds, 3600)
+    minutes, secs = divmod(rem, 60)
+    if hours:
+        return f"{hours}:{minutes:02d}:{secs:02d}"
+    return f"{minutes:02d}:{secs:02d}"
+
+
+def _ellipsize(text: str, limit: int) -> str:
+    text = text.replace("\n", " ").strip()
+    if len(text) <= limit:
+        return text
+    return text[: limit - 1].rstrip() + "…"
+
+
+class TriggerCard:
+    """Per-trigger UI state and widgets. Mutated only on the Tk main thread."""
+
+    def __init__(self, name: str, script: Path) -> None:
+        self.name = name
+        self.script = script
+        self.summary = doc_summary(script)
+        self.family = family_for("", script.name)
+        self.check_label = FAMILY_LABEL.get(self.family, "detection")
+
+        self.status = "idle"
+        self.start_time = None
+        self.frozen_elapsed = None
+        self.banner = {}          # ordered key -> value
+        self.banner_done = False
+        self.raw = []             # capped list of output lines
+        self.last_line = ""
+        self.round = None
+        self.progress_count = 0
+        self.has_worker = False
+        self.stop_requested = False
+        self.expanded = False
+
+        # Widgets, populated by TriggerPanel._build_card.
+        self.widgets = {}
+
+    def reset_run(self) -> None:
+        self.banner = {}
+        self.banner_done = False
+        self.raw = []
+        self.last_line = ""
+        self.round = None
+        self.progress_count = 0
+        self.frozen_elapsed = None
+
+    def elapsed(self) -> float:
+        if self.frozen_elapsed is not None:
+            return self.frozen_elapsed
+        if self.start_time is None:
+            return 0.0
+        return time.monotonic() - self.start_time
+
+
 class TriggerPanel(tk.Tk):
     def __init__(self, triggers_dir: Path) -> None:
         super().__init__()
         self.triggers_dir = triggers_dir
-        self.triggers = discover_triggers(triggers_dir)
         self.cleanup_script = triggers_dir / "cleanup.py"
-        self.row_widgets: dict[str, dict] = {}
+        self.cards = {}  # script.name -> TriggerCard
+        for name, script in discover_triggers(triggers_dir):
+            self.cards[script.name] = TriggerCard(name, script)
         self._busy = False
 
         self.title("EDAMAME Trigger Panel")
-        self.geometry("820x720")
-        self.minsize(640, 480)
+        self.geometry("900x760")
+        self.minsize(560, 420)
 
         self.agent_type = tk.StringVar(value=DEFAULT_AGENT_TYPE)
-        self.status_var = tk.StringVar(value=f"Triggers: {triggers_dir}")
+        self.summary_var = tk.StringVar(value="")
+        self.path_var = tk.StringVar(value="")
 
+        self.palette = dict(PALETTE)
+        self._build_fonts()
+        self._setup_style()
         self._build_ui()
         self.after(300, self.refresh_statuses)
+        self.after(TICK_MS, self._tick)
+
+    # -- theming ------------------------------------------------------------
+
+    def _build_fonts(self) -> None:
+        """Proportional UI fonts, plus monospace (TkFixedFont) for telemetry."""
+        mono_family = tkfont.nametofont("TkFixedFont").cget("family")
+        self.mono = tkfont.Font(family=mono_family, size=11)
+        self.mono_small = tkfont.Font(family=mono_family, size=10)
+
+    def _setup_style(self) -> None:
+        """Style the configurable ``clam`` theme into the dark palette.
+
+        Explicit colors everywhere so the panel looks the same on macOS,
+        Windows and Linux instead of inheriting each platform's native theme.
+        """
+        pal = self.palette
+        style = ttk.Style(self)
+        try:
+            style.theme_use("clam")
+        except tk.TclError:
+            pass
+
+        style.configure(
+            ".",
+            background=pal["window"],
+            foreground=pal["fg"],
+            bordercolor=pal["card_border"],
+            focuscolor=ACCENT,
+            fieldbackground=pal["card"],
+        )
+        style.configure("TFrame", background=pal["window"])
+        style.configure("TLabel", background=pal["window"], foreground=pal["fg"])
+
+        # Header buttons: flat dark chips that light to the accent on hover.
+        style.configure(
+            "Cyber.TButton",
+            background=pal["card"],
+            foreground=pal["fg"],
+            bordercolor=pal["card_border"],
+            relief="flat",
+            padding=(12, 6),
+        )
+        style.map(
+            "Cyber.TButton",
+            background=[("active", pal["card_hover"]), ("pressed", pal["card_hover"])],
+            foreground=[("active", ACCENT), ("pressed", ACCENT)],
+            bordercolor=[("active", ACCENT)],
+        )
+        # Filled accent button (Stop all).
+        style.configure(
+            "Accent.TButton",
+            background=ACCENT,
+            foreground=ACCENT_INK,
+            bordercolor=ACCENT,
+            relief="flat",
+            padding=(12, 6),
+        )
+        style.map(
+            "Accent.TButton",
+            background=[("active", ACCENT_DIM), ("pressed", ACCENT_DIM)],
+            foreground=[("active", ACCENT_INK)],
+        )
+
+        # Readonly combobox.
+        style.configure(
+            "TCombobox",
+            fieldbackground=pal["card"],
+            background=pal["card"],
+            foreground=pal["fg"],
+            arrowcolor=ACCENT,
+            bordercolor=pal["card_border"],
+            selectbackground=pal["card"],
+            selectforeground=pal["fg"],
+            padding=(6, 4),
+        )
+        style.map(
+            "TCombobox",
+            fieldbackground=[("readonly", pal["card"])],
+            foreground=[("readonly", pal["fg"])],
+            bordercolor=[("focus", ACCENT), ("active", ACCENT)],
+            arrowcolor=[("active", ACCENT)],
+        )
+        self.option_add("*TCombobox*Listbox.background", pal["card"])
+        self.option_add("*TCombobox*Listbox.foreground", pal["fg"])
+        self.option_add("*TCombobox*Listbox.selectBackground", ACCENT)
+        self.option_add("*TCombobox*Listbox.selectForeground", ACCENT_INK)
+
+        # Scrollbars.
+        for orient in ("Vertical.TScrollbar", "Horizontal.TScrollbar"):
+            style.configure(
+                orient,
+                background=pal["card"],
+                troughcolor=pal["window"],
+                bordercolor=pal["window"],
+                arrowcolor=pal["muted"],
+            )
+            style.map(orient, background=[("active", pal["card_hover"])])
+
+        # Panel-log label frame.
+        style.configure("Cyber.TLabelframe", background=pal["window"], bordercolor=pal["card_border"])
+        style.configure(
+            "Cyber.TLabelframe.Label", background=pal["window"], foreground=pal["muted"]
+        )
+
+    def _pill(self, parent, text: str, bg: str, fg=None, small=False):
+        return tk.Label(
+            parent,
+            text=text,
+            bg=bg,
+            fg=fg or contrast_text(bg),
+            font=("", 10 if small else 11, "bold"),
+            padx=8,
+            pady=1,
+        )
+
+    # -- layout -------------------------------------------------------------
 
     def _build_ui(self) -> None:
-        top = ttk.Frame(self, padding=12)
-        top.pack(fill=tk.X)
+        pal = self.palette
+        self.configure(bg=pal["window"])
 
-        ttk.Label(top, text="EDAMAME Trigger Panel", font=("", 16, "bold")).pack(
-            anchor=tk.W
-        )
-        ttk.Label(
-            top,
+        header = tk.Frame(self, bg=pal["window"])
+        header.pack(fill=tk.X, padx=16, pady=(14, 6))
+
+        title_row = tk.Frame(header, bg=pal["window"])
+        title_row.pack(fill=tk.X)
+        tk.Label(
+            title_row,
+            text="EDAMAME",
+            bg=pal["window"],
+            fg=ACCENT,
+            font=("", 18, "bold"),
+        ).pack(side=tk.LEFT)
+        tk.Label(
+            title_row,
+            text="  Trigger Panel",
+            bg=pal["window"],
+            fg=pal["heading"],
+            font=("", 18, "bold"),
+        ).pack(side=tk.LEFT)
+        tk.Label(
+            title_row,
+            textvariable=self.summary_var,
+            bg=pal["window"],
+            fg=pal["muted"],
+            font=self.mono,
+        ).pack(side=tk.RIGHT)
+
+        tk.Label(
+            header,
             text="Authorized local detection testing only. Stop triggers or run cleanup when finished.",
-            wraplength=780,
-        ).pack(anchor=tk.W, pady=(4, 8))
+            bg=pal["window"],
+            fg=pal["muted"],
+            font=("", 11),
+            anchor=tk.W,
+            justify=tk.LEFT,
+            wraplength=840,
+        ).pack(anchor=tk.W, pady=(4, 10))
 
-        controls = ttk.Frame(top)
+        controls = tk.Frame(header, bg=pal["window"])
         controls.pack(fill=tk.X)
-        ttk.Label(controls, text="Agent type").pack(side=tk.LEFT)
+        tk.Label(controls, text="Agent type", bg=pal["window"], fg=pal["fg"]).pack(
+            side=tk.LEFT
+        )
         agent = ttk.Combobox(
             controls,
             textvariable=self.agent_type,
             values=AGENT_TYPES,
             state="readonly",
-            width=16,
+            width=15,
         )
         agent.pack(side=tk.LEFT, padx=(8, 16))
-        agent.bind("<<ComboboxSelected>>", lambda _e: self.refresh_statuses())
+        agent.bind("<<ComboboxSelected>>", lambda _e: self._on_agent_change())
 
-        ttk.Button(controls, text="Refresh", command=self.refresh_statuses).pack(
+        ttk.Button(
+            controls, text="Refresh", style="Cyber.TButton", command=self.refresh_statuses
+        ).pack(side=tk.LEFT, padx=(0, 6))
+        ttk.Button(
+            controls, text="■  Stop all", style="Accent.TButton", command=self.stop_all
+        ).pack(side=tk.LEFT, padx=(0, 6))
+        ttk.Button(
+            controls, text="Run cleanup", style="Cyber.TButton", command=self.run_cleanup
+        ).pack(side=tk.LEFT)
+
+        legend = tk.Frame(header, bg=pal["window"])
+        legend.pack(fill=tk.X, pady=(10, 0))
+        tk.Label(legend, text="Status", bg=pal["window"], fg=pal["faint"]).pack(
             side=tk.LEFT, padx=(0, 8)
         )
-        ttk.Button(controls, text="Run cleanup", command=self.run_cleanup).pack(
-            side=tk.LEFT
-        )
+        for key in ("idle", "starting", "running", "stopping", "stopped", "error"):
+            cell = tk.Frame(legend, bg=pal["window"])
+            cell.pack(side=tk.LEFT, padx=(0, 12))
+            tk.Label(
+                cell, text="●", bg=pal["window"], fg=DOT_COLORS[key], font=("", 10)
+            ).pack(side=tk.LEFT, padx=(0, 4))
+            tk.Label(
+                cell, text=STATUS_LABEL[key], bg=pal["window"], fg=pal["muted"], font=("", 10)
+            ).pack(side=tk.LEFT)
 
-        ttk.Label(top, textvariable=self.status_var, foreground="#555").pack(
-            anchor=tk.W, pady=(8, 0)
-        )
+        tk.Label(
+            header,
+            textvariable=self.path_var,
+            bg=pal["window"],
+            fg=pal["faint"],
+            font=self.mono_small,
+            anchor=tk.W,
+            justify=tk.LEFT,
+        ).pack(anchor=tk.W, pady=(10, 0))
 
-        body = ttk.Frame(self, padding=(12, 0, 12, 8))
-        body.pack(fill=tk.BOTH, expand=True)
+        # Scrollable list of cards.
+        body = tk.Frame(self, bg=pal["window"])
+        body.pack(fill=tk.BOTH, expand=True, padx=12, pady=(4, 6))
 
-        canvas = tk.Canvas(body, highlightthickness=0)
-        scrollbar = ttk.Scrollbar(body, orient=tk.VERTICAL, command=canvas.yview)
-        self.list_frame = ttk.Frame(canvas)
+        self.canvas = tk.Canvas(body, highlightthickness=0, bg=pal["window"])
+        scrollbar = ttk.Scrollbar(body, orient=tk.VERTICAL, command=self.canvas.yview)
+        self.list_frame = tk.Frame(self.canvas, bg=pal["window"])
         self.list_frame.bind(
             "<Configure>",
-            lambda _e: canvas.configure(scrollregion=canvas.bbox("all")),
+            lambda _e: self.canvas.configure(scrollregion=self.canvas.bbox("all")),
         )
-        canvas.create_window((0, 0), window=self.list_frame, anchor=tk.NW)
-        canvas.configure(yscrollcommand=scrollbar.set)
-        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self._list_window = self.canvas.create_window(
+            (0, 0), window=self.list_frame, anchor=tk.NW
+        )
+        self.canvas.bind(
+            "<Configure>",
+            lambda e: self.canvas.itemconfigure(self._list_window, width=e.width),
+        )
+        self.canvas.configure(yscrollcommand=scrollbar.set)
+        self.canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        self._bind_mousewheel(self.canvas)
 
-        header = ttk.Frame(self.list_frame)
-        header.pack(fill=tk.X, pady=(0, 4))
-        ttk.Label(header, text="Trigger", width=28).pack(side=tk.LEFT)
-        ttk.Label(header, text="Status", width=12).pack(side=tk.LEFT)
-        ttk.Label(header, text="Actions").pack(side=tk.LEFT)
+        for card in self.cards.values():
+            self._build_card(card)
 
-        for name, script in self.triggers:
-            self._add_trigger_row(name, script)
-
-        log_frame = ttk.LabelFrame(self, text="Output", padding=8)
-        log_frame.pack(fill=tk.BOTH, expand=False, padx=12, pady=(0, 12))
-        self.log = scrolledtext.ScrolledText(log_frame, height=10, wrap=tk.WORD)
+        # Compact global log for cleanup output and panel-level messages.
+        log_frame = ttk.LabelFrame(
+            self, text="Panel log", padding=6, style="Cyber.TLabelframe"
+        )
+        log_frame.pack(fill=tk.X, expand=False, padx=12, pady=(0, 12))
+        self.log = scrolledtext.ScrolledText(
+            log_frame, height=6, wrap=tk.WORD, font=self.mono_small
+        )
         self.log.pack(fill=tk.BOTH, expand=True)
-        self.log.configure(state=tk.DISABLED)
-
-    def _add_trigger_row(self, name: str, script: Path) -> None:
-        row = ttk.Frame(self.list_frame)
-        row.pack(fill=tk.X, pady=2)
-
-        ttk.Label(row, text=name, width=28).pack(side=tk.LEFT)
-        status = ttk.Label(row, text="stopped", width=12, foreground="#666")
-        status.pack(side=tk.LEFT)
-
-        start_btn = ttk.Button(
-            row, text="Start", width=8, command=lambda s=script: self.start_trigger(s)
+        self.log.configure(
+            state=tk.DISABLED,
+            bg=pal["detail"],
+            fg=pal["fg"],
+            insertbackground=ACCENT,
+            selectbackground=ACCENT_DIM,
+            selectforeground=ACCENT_INK,
+            highlightthickness=0,
+            relief="flat",
+            borderwidth=0,
         )
-        start_btn.pack(side=tk.LEFT, padx=(0, 4))
-        stop_btn = ttk.Button(
-            row, text="Stop", width=8, command=lambda s=script: self.stop_trigger(s)
-        )
-        stop_btn.pack(side=tk.LEFT)
 
-        self.row_widgets[script.name] = {
-            "script": script,
-            "status": status,
-            "start": start_btn,
-            "stop": stop_btn,
+    def _bind_mousewheel(self, canvas: tk.Canvas) -> None:
+        def on_wheel(event):
+            if event.num == 4:
+                delta = -1
+            elif event.num == 5:
+                delta = 1
+            else:
+                delta = -1 if event.delta > 0 else 1
+            canvas.yview_scroll(delta, "units")
+
+        for seq in ("<MouseWheel>", "<Button-4>", "<Button-5>"):
+            canvas.bind_all(seq, on_wheel)
+
+    def _build_card(self, card: TriggerCard) -> None:
+        pal = self.palette
+        outer = tk.Frame(
+            self.list_frame,
+            bg=pal["card_border"],
+            padx=1,
+            pady=1,
+        )
+        outer.pack(fill=tk.X, pady=5, padx=2)
+        inner = tk.Frame(outer, bg=pal["card"])
+        inner.pack(fill=tk.X)
+
+        top = tk.Frame(inner, bg=pal["card"], padx=12, pady=9)
+        top.pack(fill=tk.X)
+
+        arrow = tk.Label(
+            top,
+            text="▸",
+            bg=pal["card"],
+            fg=pal["muted"],
+            font=("", 12),
+            cursor="hand2",
+            width=2,
+        )
+        arrow.pack(side=tk.LEFT)
+        arrow.bind("<Button-1>", lambda _e, c=card: self._toggle_detail(c))
+
+        name_lbl = tk.Label(
+            top,
+            text=card.name,
+            bg=pal["card"],
+            fg=pal["heading"],
+            font=("", 13, "bold"),
+            cursor="hand2",
+        )
+        name_lbl.pack(side=tk.LEFT, padx=(2, 8))
+        name_lbl.bind("<Button-1>", lambda _e, c=card: self._toggle_detail(c))
+
+        badge = self._pill(
+            top, card.check_label, FAMILY_COLORS.get(card.family, FAMILY_COLORS["other"])
+        )
+        badge.pack(side=tk.LEFT)
+
+        # Right-aligned: a single run/stop toggle, preceded by the status dot
+        # and its label. One clear affordance per row.
+        toggle = tk.Label(
+            top,
+            text="▶  Start",
+            bg=pal["card"],
+            fg=ACCENT,
+            font=("", 11, "bold"),
+            padx=12,
+            pady=3,
+            cursor="hand2",
+            highlightthickness=1,
+            highlightbackground=ACCENT,
+            highlightcolor=ACCENT,
+            borderwidth=0,
+            relief="flat",
+            width=7,
+        )
+        toggle.pack(side=tk.RIGHT, padx=(10, 0))
+        toggle.bind("<Button-1>", lambda _e, c=card: self.toggle_trigger(c))
+        toggle.bind("<Enter>", lambda _e, c=card: self._toggle_hover(c, True))
+        toggle.bind("<Leave>", lambda _e, c=card: self._toggle_hover(c, False))
+
+        status_text = tk.Label(
+            top,
+            text="idle",
+            bg=pal["card"],
+            fg=DOT_COLORS["idle"],
+            font=self.mono_small,
+            width=9,
+            anchor=tk.W,
+        )
+        status_text.pack(side=tk.RIGHT, padx=(6, 0))
+        dot = tk.Label(
+            top, text="●", bg=pal["card"], fg=DOT_COLORS["idle"], font=("", 12)
+        )
+        dot.pack(side=tk.RIGHT, padx=(10, 0))
+
+        summary_lbl = tk.Label(
+            inner,
+            text=_ellipsize(card.summary, 120) if card.summary else "",
+            bg=pal["card"],
+            fg=pal["muted"],
+            font=("", 11),
+            anchor=tk.W,
+            justify=tk.LEFT,
+        )
+        summary_lbl.pack(fill=tk.X, padx=(40, 12), pady=(0, 2))
+
+        meta_lbl = tk.Label(
+            inner,
+            text="",
+            bg=pal["card"],
+            fg=pal["faint"],
+            font=self.mono_small,
+            anchor=tk.W,
+            justify=tk.LEFT,
+        )
+        meta_lbl.pack(fill=tk.X, padx=(40, 12), pady=(0, 9))
+
+        card.widgets = {
+            "outer": outer,
+            "inner": inner,
+            "top": top,
+            "arrow": arrow,
+            "name": name_lbl,
+            "badge": badge,
+            "dot": dot,
+            "status_text": status_text,
+            "toggle": toggle,
+            "summary": summary_lbl,
+            "meta": meta_lbl,
+            "detail": None,
+            "kv_frame": None,
+            "raw_text": None,
         }
+        self._apply_status(card)
+        self._update_meta(card)
+
+    def _ensure_detail(self, card: TriggerCard) -> None:
+        if card.widgets.get("detail") is not None:
+            return
+        pal = self.palette
+        detail = tk.Frame(card.widgets["inner"], bg=pal["detail"])
+        kv_frame = tk.Frame(detail, bg=pal["detail"], padx=40, pady=8)
+        kv_frame.pack(fill=tk.X)
+        raw_label = tk.Label(
+            detail,
+            text="Raw output",
+            bg=pal["detail"],
+            fg=pal["faint"],
+            font=("", 10, "bold"),
+            anchor=tk.W,
+        )
+        raw_label.pack(fill=tk.X, padx=40, pady=(2, 2))
+        raw_text = scrolledtext.ScrolledText(
+            detail, height=8, wrap=tk.NONE, font=self.mono_small
+        )
+        raw_text.pack(fill=tk.BOTH, expand=True, padx=40, pady=(0, 10))
+        raw_text.configure(
+            state=tk.DISABLED,
+            bg=pal["detail"],
+            fg=pal["fg"],
+            insertbackground=ACCENT,
+            selectbackground=ACCENT_DIM,
+            selectforeground=ACCENT_INK,
+            highlightthickness=0,
+            relief="flat",
+            borderwidth=0,
+        )
+        card.widgets["detail"] = detail
+        card.widgets["kv_frame"] = kv_frame
+        card.widgets["raw_text"] = raw_text
+
+    def _toggle_detail(self, card: TriggerCard) -> None:
+        card.expanded = not card.expanded
+        if card.expanded:
+            self._ensure_detail(card)
+            card.widgets["arrow"].configure(text="▾")
+            card.widgets["detail"].pack(fill=tk.BOTH, expand=True)
+            self._render_kv(card)
+            self._fill_raw(card)
+        else:
+            card.widgets["arrow"].configure(text="▸")
+            if card.widgets.get("detail") is not None:
+                card.widgets["detail"].pack_forget()
+
+    def _render_kv(self, card: TriggerCard) -> None:
+        frame = card.widgets.get("kv_frame")
+        if frame is None:
+            return
+        for child in frame.winfo_children():
+            child.destroy()
+        pal = self.palette
+        if not card.banner:
+            tk.Label(
+                frame,
+                text="No banner captured yet. Start the trigger to see its parameters.",
+                bg=pal["detail"],
+                fg=pal["faint"],
+                font=("", 10),
+                anchor=tk.W,
+            ).grid(row=0, column=0, sticky=tk.W)
+            return
+        frame.columnconfigure(1, weight=1)
+        for row, (key, value) in enumerate(card.banner.items()):
+            tk.Label(
+                frame,
+                text=key,
+                bg=pal["detail"],
+                fg=ACCENT,
+                font=self.mono_small,
+                anchor=tk.NE,
+            ).grid(row=row, column=0, sticky=tk.NE, padx=(0, 12), pady=1)
+            tk.Label(
+                frame,
+                text=value,
+                bg=pal["detail"],
+                fg=pal["fg"],
+                font=self.mono_small,
+                anchor=tk.W,
+                justify=tk.LEFT,
+                wraplength=560,
+            ).grid(row=row, column=1, sticky=tk.W, pady=1)
+
+    def _fill_raw(self, card: TriggerCard) -> None:
+        widget = card.widgets.get("raw_text")
+        if widget is None:
+            return
+        widget.configure(state=tk.NORMAL)
+        widget.delete("1.0", tk.END)
+        widget.insert(tk.END, "\n".join(card.raw))
+        widget.see(tk.END)
+        widget.configure(state=tk.DISABLED)
+
+    # -- status + meta rendering -------------------------------------------
+
+    def _apply_status(self, card: TriggerCard) -> None:
+        dot_color = DOT_COLORS.get(card.status, DOT_COLORS["idle"])
+        label = STATUS_LABEL.get(card.status, "idle")
+        if card.status == "error" and card.banner.get("_exit_code"):
+            label = f"exit {card.banner['_exit_code']}"
+        card.widgets["dot"].configure(fg=dot_color)
+        card.widgets["status_text"].configure(text=label, fg=dot_color)
+        self._style_toggle(card, hover=False)
+
+    def _style_toggle(self, card: TriggerCard, hover: bool) -> None:
+        """Render the single run/stop control for the card's current state.
+
+        Idle/stopped/exited -> an outlined accent "Start"; running/starting ->
+        a filled accent "Stop". Stopping is a dimmed, non-interactive "Stop".
+        """
+        toggle = card.widgets["toggle"]
+        pal = self.palette
+        if card.status in ("starting", "running"):
+            bg = ACCENT_DIM if hover else ACCENT
+            toggle.configure(
+                text="■  Stop",
+                bg=bg,
+                fg=ACCENT_INK,
+                highlightthickness=0,
+                cursor="hand2",
+            )
+        elif card.status == "stopping":
+            toggle.configure(
+                text="■  Stop",
+                bg=pal["card"],
+                fg=pal["faint"],
+                highlightthickness=1,
+                highlightbackground=pal["card_border"],
+                highlightcolor=pal["card_border"],
+                cursor="arrow",
+            )
+        else:  # idle / stopped / error -> Start (outlined accent)
+            toggle.configure(
+                text="▶  Start",
+                bg=pal["card_hover"] if hover else pal["card"],
+                fg=ACCENT,
+                highlightthickness=1,
+                highlightbackground=ACCENT,
+                highlightcolor=ACCENT,
+                cursor="hand2",
+            )
+
+    def _toggle_hover(self, card: TriggerCard, entering: bool) -> None:
+        if card.status == "stopping":
+            return
+        self._style_toggle(card, hover=entering)
+
+    def _update_meta(self, card: TriggerCard) -> None:
+        pal = self.palette
+        parts = []
+        if card.status in ("starting", "running", "stopping") or card.frozen_elapsed is not None:
+            parts.append("⏱ " + _fmt_elapsed(card.elapsed()))
+        if card.round is not None:
+            parts.append(f"round {card.round}")
+        elif card.progress_count:
+            parts.append(f"{card.progress_count} updates")
+        if card.last_line:
+            parts.append(_ellipsize(card.last_line, 72))
+        text = "   ·   ".join(parts)
+        card.widgets["meta"].configure(text=text, fg=pal["faint"])
+
+    def _set_status(self, card: TriggerCard, status: str) -> None:
+        if status in ("starting", "running") and card.status not in ("starting", "running"):
+            if card.start_time is None:
+                card.start_time = time.monotonic()
+            card.frozen_elapsed = None
+        if status in ("stopped", "error", "idle"):
+            if card.start_time is not None and card.frozen_elapsed is None:
+                card.frozen_elapsed = card.elapsed()
+        card.status = status
+        self._apply_status(card)
+        self._update_meta(card)
+        self._update_summary_count()
+
+    def _update_badge(self, card: TriggerCard) -> None:
+        check_value = card.banner.get("check", "")
+        family = family_for(check_value, card.script.name)
+        card.family = family
+        card.check_label = check_value if check_value else FAMILY_LABEL.get(family, "detection")
+        color = FAMILY_COLORS.get(family, FAMILY_COLORS["other"])
+        card.widgets["badge"].configure(
+            text=card.check_label, bg=color, fg=contrast_text(color)
+        )
+
+    def _update_summary_count(self) -> None:
+        running = sum(
+            1 for c in self.cards.values() if c.status in ("starting", "running", "stopping")
+        )
+        self.summary_var.set(f"{running} running / {len(self.cards)} total")
 
     def append_log(self, text: str) -> None:
         self.log.configure(state=tk.NORMAL)
@@ -441,44 +1181,128 @@ class TriggerPanel(tk.Tk):
     def current_state_dir(self) -> Path:
         return state_dir_for(self.agent_type.get(), self.triggers_dir)
 
+    # -- periodic refresh ---------------------------------------------------
+
+    def _tick(self) -> None:
+        for card in self.cards.values():
+            if card.status in ("starting", "running", "stopping"):
+                self._update_meta(card)
+        self.after(TICK_MS, self._tick)
+
     def refresh_statuses(self) -> None:
         state_dir = self.current_state_dir()
-        self.status_var.set(f"Triggers: {self.triggers_dir}  ·  State: {state_dir}")
-        for widgets in self.row_widgets.values():
-            script: Path = widgets["script"]
-            pid_file = pid_file_for(script, state_dir)
+        self.path_var.set(f"Triggers: {self.triggers_dir}    State: {state_dir}")
+        for card in self.cards.values():
+            pid_file = pid_file_for(card.script, state_dir)
             pid = read_pid(pid_file)
             running = pid is not None and process_alive(pid)
-            label: ttk.Label = widgets["status"]
+            if card.has_worker:
+                # The worker thread owns this card's transitions.
+                continue
             if running:
-                label.configure(text=f"running ({pid})", foreground="#0a7a2f")
+                if card.status not in ("running", "starting", "stopping"):
+                    # Started outside the panel (e.g. CLI); reflect it.
+                    self._set_status(card, "running")
             else:
-                if pid_file is not None and pid_file.exists() and (
-                    pid is None or not running
-                ):
+                if pid_file is not None and pid_file.exists():
                     _unlink(pid_file)
-                label.configure(text="stopped", foreground="#666")
+                if card.status in ("running", "starting", "stopping"):
+                    self._set_status(card, "stopped")
+        self._update_summary_count()
         self.after(POLL_MS, self.refresh_statuses)
 
-    def start_trigger(self, script: Path) -> None:
-        if self._busy:
+    def _on_agent_change(self) -> None:
+        # State dir changes with agent type; re-reconcile idle cards.
+        for card in self.cards.values():
+            if not card.has_worker and card.status != "error":
+                card.status = "idle"
+                card.start_time = None
+                card.frozen_elapsed = None
+                self._apply_status(card)
+                self._update_meta(card)
+        self.refresh_statuses()
+
+    # -- output parsing -----------------------------------------------------
+
+    def _ingest_line(self, card: TriggerCard, raw_line: str) -> None:
+        line = raw_line.rstrip("\n")
+        card.raw.append(line)
+        if len(card.raw) > MAX_RAW_LINES:
+            del card.raw[: len(card.raw) - MAX_RAW_LINES]
+
+        stripped = line.strip()
+        if stripped:
+            card.last_line = stripped
+
+        if not card.banner_done:
+            tokens = list(parse_kv_tokens(line))
+            if tokens:
+                for key, value in tokens:
+                    card.banner.setdefault(key, value)
+                    if key == "stop_with":
+                        card.banner_done = True
+                if "check" in card.banner:
+                    self._update_badge(card)
+                if card.expanded:
+                    self._render_kv(card)
+        else:
+            card.progress_count += 1
+            match = _ROUND_RE.search(line)
+            if match:
+                card.round = int(match.group(1))
+
+        if card.status == "starting" and (card.banner or stripped):
+            self._set_status(card, "running")
+
+        if card.expanded and card.widgets.get("raw_text") is not None:
+            widget = card.widgets["raw_text"]
+            widget.configure(state=tk.NORMAL)
+            widget.insert(tk.END, line + "\n")
+            widget.see(tk.END)
+            widget.configure(state=tk.DISABLED)
+
+        self._update_meta(card)
+
+    # -- lifecycle ----------------------------------------------------------
+
+    def toggle_trigger(self, card: TriggerCard) -> None:
+        """Single per-row control: start when idle, stop when active."""
+        if card.status in ("starting", "running"):
+            self.stop_trigger(card)
+        elif card.status == "stopping":
+            return
+        else:
+            self.start_trigger(card)
+
+    def start_trigger(self, card: TriggerCard) -> None:
+        if self._busy or card.has_worker:
             return
         state_dir = self.current_state_dir()
-        pid_file = pid_file_for(script, state_dir)
+        pid_file = pid_file_for(card.script, state_dir)
         pid = read_pid(pid_file)
         if pid is not None and process_alive(pid):
-            messagebox.showinfo("Already running", f"{humanize(script.name)} is already running (pid {pid}).")
+            messagebox.showinfo(
+                "Already running", f"{card.name} is already running (pid {pid})."
+            )
             return
+
+        card.reset_run()
+        card.stop_requested = False
+        card.has_worker = True
+        card.start_time = time.monotonic()
+        self._set_status(card, "starting")
+        if card.expanded:
+            self._render_kv(card)
+            self._fill_raw(card)
 
         cmd = [
             runtime_python(),
-            str(script),
+            str(card.script),
             "--agent-type",
             self.agent_type.get(),
             "--state-dir",
             str(state_dir),
         ]
-        self.append_log(f"$ {' '.join(cmd)}")
 
         def worker() -> None:
             try:
@@ -495,37 +1319,55 @@ class TriggerPanel(tk.Tk):
                     start_new_session=True,
                     env=env,
                 )
-                self.after(
-                    0,
-                    lambda: self.append_log(
-                        f"started {humanize(script.name)} (launcher pid {proc.pid})"
-                    ),
-                )
                 assert proc.stdout is not None
                 for line in proc.stdout:
-                    self.after(0, lambda l=line: self.append_log(l))
+                    self.after(0, lambda l=line, c=card: self._ingest_line(c, l))
                 code = proc.wait()
-                self.after(
-                    0,
-                    lambda: self.append_log(
-                        f"{humanize(script.name)} exited with code {code}"
-                    ),
-                )
+                self.after(0, lambda cd=code, c=card: self._finish_worker(c, cd))
             except OSError as exc:
-                self.after(0, lambda: self.append_log(f"failed to start: {exc}"))
+                self.after(0, lambda e=exc, c=card: self._fail_worker(c, e))
 
         threading.Thread(target=worker, daemon=True).start()
 
-    def stop_trigger(self, script: Path) -> None:
+    def _finish_worker(self, card: TriggerCard, code: int) -> None:
+        card.has_worker = False
+        if card.stop_requested or code == 0 or code < 0:
+            self._set_status(card, "stopped")
+        else:
+            card.banner["_exit_code"] = str(code)
+            self._set_status(card, "error")
+            self.append_log(f"{card.name} exited with code {code}")
+
+    def _fail_worker(self, card: TriggerCard, exc: OSError) -> None:
+        card.has_worker = False
+        card.banner["_exit_code"] = "launch failed"
+        self._set_status(card, "error")
+        self.append_log(f"{card.name}: failed to start: {exc}")
+
+    def stop_trigger(self, card: TriggerCard) -> None:
         state_dir = self.current_state_dir()
-        pid_file = pid_file_for(script, state_dir)
+        pid_file = pid_file_for(card.script, state_dir)
         pid = read_pid(pid_file)
+        card.stop_requested = True
         if pid is None:
-            self.append_log(f"{humanize(script.name)} is not running")
+            self.append_log(f"{card.name} is not running")
+            if not card.has_worker:
+                self._set_status(card, "stopped")
             return
+        self._set_status(card, "stopping")
         detail = kill_pid(pid, pid_file)
-        self.append_log(f"{humanize(script.name)}: {detail}")
-        self.refresh_statuses()
+        self.append_log(f"{card.name}: {detail}")
+        if not card.has_worker:
+            self._set_status(card, "stopped")
+
+    def stop_all(self) -> None:
+        stopped = 0
+        for card in self.cards.values():
+            if card.status in ("starting", "running"):
+                self.stop_trigger(card)
+                stopped += 1
+        if stopped == 0:
+            self.append_log("Stop all: nothing running")
 
     def run_cleanup(self) -> None:
         if self._busy:
@@ -579,6 +1421,15 @@ class TriggerPanel(tk.Tk):
 
 
 def main() -> int:
+    if os.environ.get("EDAMAME_TRIGGER_PANEL_CHECK"):
+        # Headless smoke test for the build scripts: exercise discovery without
+        # ever constructing a Tk window, and exit 0.
+        try:
+            discover_triggers(resolve_triggers_dir())
+        except SystemExit:
+            pass
+        return 0
+
     try:
         triggers_dir = resolve_triggers_dir()
     except SystemExit as exc:
