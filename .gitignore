@@ -5,6 +5,7 @@ npcap-*
 /tests_temp/
 __pycache__/
 *.pyc
+/tools/trigger_panel/dist/
 
 .cursor
 
