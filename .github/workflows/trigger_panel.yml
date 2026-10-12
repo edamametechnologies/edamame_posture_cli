@@ -529,10 +529,15 @@ jobs:
 
           mkdir -p s3_out
           cd s3_out
-          gh release download "$TAG" --repo "${GITHUB_REPOSITORY}" -p 'edamame-trigger-panel-*'
+          # Only THIS panel version's bundles: the release accumulates every
+          # panel version (independent versioning), so an unversioned glob would
+          # pull them all. Mirror exactly the three for $VERSION.
+          gh release download "$TAG" --repo "${GITHUB_REPOSITORY}" \
+            -p "edamame-trigger-panel-*-${VERSION}.zip" \
+            -p "edamame-trigger-panel-*-${VERSION}.tar.gz"
           shopt -s nullglob
-          files=(edamame-trigger-panel-*)
-          [ "${#files[@]}" -eq 3 ] || { echo "::error::expected 3 bundles on $TAG, found ${#files[@]}"; exit 1; }
+          files=(edamame-trigger-panel-*-"${VERSION}".zip edamame-trigger-panel-*-"${VERSION}".tar.gz)
+          [ "${#files[@]}" -eq 3 ] || { echo "::error::expected 3 bundles for $VERSION on $TAG, found ${#files[@]}"; exit 1; }
           for f in "${files[@]}"; do
             case "$f" in
               *-"${VERSION}".tar.gz) base="${f%-"${VERSION}".tar.gz}"; ext=tar.gz ;;
