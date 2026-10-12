@@ -303,8 +303,18 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          sudo apt-get update
-          sudo apt-get install -y rsync
+          # rsync is pre-installed on ubuntu-latest; only reach for apt when it
+          # is genuinely missing, and wait out the dpkg lock the posture action's
+          # own install can still hold (the unguarded install raced it and failed
+          # on the frontend lock).
+          if ! command -v rsync >/dev/null 2>&1; then
+            for _ in $(seq 1 60); do
+              sudo fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1 || break
+              echo "waiting for the dpkg lock..."; sleep 5
+            done
+            sudo apt-get update
+            sudo apt-get install -y rsync
+          fi
           bash tools/trigger_panel/build_linux.sh "$RUNNER_TEMP/panel_dist" | tee "$RUNNER_TEMP/build.log"
           ARTIFACT="$(sed -n 's/^ARTIFACT=//p' "$RUNNER_TEMP/build.log" | tail -n1)"
           [ -n "$ARTIFACT" ] && [ -f "$ARTIFACT" ] || { echo "::error::Linux build produced no artifact"; exit 1; }
