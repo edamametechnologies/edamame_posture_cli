@@ -30,17 +30,23 @@ panel only produces the activity; EDAMAME is what detects it.
 
 ## Download
 
-Get the bundle for your platform from this repository's **release assets**
-(the same release page as `edamame-posture`):
+Latest version:
 
-| Platform | Asset |
-|---|---|
-| macOS (Apple silicon) | `edamame-trigger-panel-macos-arm64-<version>.zip` |
-| Windows (x64) | `edamame-trigger-panel-windows-x64-<version>.zip` |
-| Linux (x64) | `edamame-trigger-panel-linux-x64-<version>.tar.gz` |
+| Platform | Download | SHA-256 |
+|---|---|---|
+| macOS (Apple silicon) | [edamame-trigger-panel-macos-arm64-latest.zip](https://edamame.s3.eu-west-1.amazonaws.com/trigger-panel/edamame-trigger-panel-macos-arm64-latest.zip) | [.sha256](https://edamame.s3.eu-west-1.amazonaws.com/trigger-panel/edamame-trigger-panel-macos-arm64-latest.zip.sha256) |
+| Windows (x64) | [edamame-trigger-panel-windows-x64-latest.zip](https://edamame.s3.eu-west-1.amazonaws.com/trigger-panel/edamame-trigger-panel-windows-x64-latest.zip) | [.sha256](https://edamame.s3.eu-west-1.amazonaws.com/trigger-panel/edamame-trigger-panel-windows-x64-latest.zip.sha256) |
+| Linux (x64) | [edamame-trigger-panel-linux-x64-latest.tar.gz](https://edamame.s3.eu-west-1.amazonaws.com/trigger-panel/edamame-trigger-panel-linux-x64-latest.tar.gz) | [.sha256](https://edamame.s3.eu-west-1.amazonaws.com/trigger-panel/edamame-trigger-panel-linux-x64-latest.tar.gz.sha256) |
 
-`trigger-panel-SHA256SUMS-<version>.txt` on the same release lists the SHA-256
-of each bundle; verify your download against it.
+[`LATEST`](https://edamame.s3.eu-west-1.amazonaws.com/trigger-panel/LATEST)
+holds the version these links serve. To check a download, run
+`shasum -a 256 -c <file>.sha256` in the folder holding both files.
+
+A specific version is attached to each
+[release of this repository](https://github.com/edamametechnologies/edamame_posture_cli/releases)
+(the same release page as `edamame-posture`), as
+`edamame-trigger-panel-<platform>-<version>.zip` (`.tar.gz` on Linux), with
+`trigger-panel-SHA256SUMS-<version>.txt` listing the SHA-256 of each bundle.
 
 ## Opening it
 

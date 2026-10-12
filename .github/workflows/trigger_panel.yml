@@ -460,6 +460,60 @@ jobs:
             printf '%s\n' "$AFTER" | grep -qxF "$ASSET_NAME" || { echo "::error::asset not on release after upload: $ASSET_NAME"; exit 1; }
           done
 
+      # Stable download links, like the app's standalone builds: under
+      # s3://edamame/trigger-panel/ each bundle gets a versioned key and a
+      # moving "-latest" key, each with a .sha256 sidecar in `shasum -c`
+      # format, plus LATEST holding the version. The files are downloaded back
+      # from the release, so S3 always serves exactly what the release
+      # publishes (a re-run that skipped an asset already on the release still
+      # mirrors that asset). The "-latest" keys only move when the tag is the
+      # repository's latest release, so a dispatch for an older tag never
+      # rolls them back.
+      - name: Publish the bundles to S3 (versioned + latest)
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.pick.outputs.tag }}
+          VERSION: ${{ steps.pick.outputs.version }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+        run: |
+          set -euo pipefail
+          BUCKET_PATH="s3://edamame/trigger-panel"
+          LATEST_TAG="$(gh api "repos/${GITHUB_REPOSITORY}/releases/latest" --jq '.tag_name')"
+          [ -n "$LATEST_TAG" ] && [ "$LATEST_TAG" != "null" ] || { echo "::error::cannot read the latest release"; exit 1; }
+          MOVE_LATEST=false
+          [ "$TAG" = "$LATEST_TAG" ] && MOVE_LATEST=true
+          echo "Target $TAG, latest release $LATEST_TAG: moving the -latest keys: $MOVE_LATEST"
+
+          mkdir -p s3_out
+          cd s3_out
+          gh release download "$TAG" --repo "${GITHUB_REPOSITORY}" -p 'edamame-trigger-panel-*'
+          shopt -s nullglob
+          files=(edamame-trigger-panel-*)
+          [ "${#files[@]}" -eq 3 ] || { echo "::error::expected 3 bundles on $TAG, found ${#files[@]}"; exit 1; }
+          for f in "${files[@]}"; do
+            case "$f" in
+              *-"${VERSION}".tar.gz) base="${f%-"${VERSION}".tar.gz}"; ext=tar.gz ;;
+              *-"${VERSION}".zip)    base="${f%-"${VERSION}".zip}";    ext=zip ;;
+              *) echo "::error::$f does not carry version $VERSION"; exit 1 ;;
+            esac
+            names=("$f")
+            if [ "$MOVE_LATEST" = true ]; then names+=("${base}-latest.${ext}"); fi
+            sha="$(sha256sum "$f" | awk '{print $1}')"
+            for name in "${names[@]}"; do
+              aws s3 cp "$f" "$BUCKET_PATH/$name" --acl public-read
+              printf '%s  %s\n' "$sha" "$name" > "$name.sha256"
+              aws s3 cp "$name.sha256" "$BUCKET_PATH/$name.sha256" --acl public-read
+              echo "https://edamame.s3.eu-west-1.amazonaws.com/trigger-panel/$name"
+            done
+          done
+          if [ "$MOVE_LATEST" = true ]; then
+            echo "$VERSION" > LATEST
+            aws s3 cp LATEST "$BUCKET_PATH/LATEST" --acl public-read
+          fi
+
       - name: Check job status before posture dump
         id: job_status_check
         if: failure()
