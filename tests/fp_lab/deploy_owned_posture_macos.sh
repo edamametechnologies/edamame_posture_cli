@@ -347,6 +347,15 @@ echo "stopping the owned posture"
 HOME=/Users/$USER_ "$POSTURE_LINK" background-stop >/dev/null 2>&1 || true
 for _ in \$(seq 1 20); do pgrep -f "EDAMAME-Posture/edamame_posture.app" >/dev/null || break; sleep 1; done
 pkill -f "EDAMAME-Posture/edamame_posture.app" 2>/dev/null || true
+# The app must not start while the lab daemon still holds its ports: it then
+# skips its MCP server until restarted ("held by another EDAMAME core"), and
+# the port check below passed on the daemon's listener (fmba-3, 2026-10-13).
+for _ in \$(seq 1 30); do pgrep -f "EDAMAME-Posture/edamame_posture.app" >/dev/null || break; sleep 1; done
+pkill -KILL -f "EDAMAME-Posture/edamame_posture.app" 2>/dev/null || true
+for _ in \$(seq 1 30); do
+  /usr/sbin/lsof -nP -iTCP:40152 -sTCP:LISTEN >/dev/null 2>&1 || /usr/sbin/lsof -nP -iTCP:3000 -sTCP:LISTEN >/dev/null 2>&1 || break
+  sleep 1
+done
 echo "removing the owned posture"
 if [ -L "$POSTURE_LINK" ] && readlink "$POSTURE_LINK" | grep -q "EDAMAME-Posture"; then rm -f "$POSTURE_LINK"; fi
 rm -rf "$POSTURE_BUNDLE"
@@ -382,8 +391,12 @@ for _ in \$(seq 1 60); do pgrep -x "$APP_NAME" >/dev/null && break; sleep 1; don
 pgrep -x "$APP_NAME" >/dev/null && echo "app: running" || echo "app: NOT RUNNING"
 app_home=\$(ps -E -p "\$(pgrep -x "$APP_NAME" | head -n 1)" -o command= 2>/dev/null | tr ' ' '\\n' | sed -n 's/^HOME=//p' | head -n 1)
 [ "\$app_home" = "/Users/$USER_" ] && echo "app HOME: \$app_home" || echo "app HOME: \${app_home:-unknown} (WRONG: expected /Users/$USER_; quit and relaunch it from the console session)"
-for _ in \$(seq 1 60); do /usr/sbin/netstat -an -p tcp | grep LISTEN | grep -q '\.40152 ' && break; sleep 2; done
-/usr/sbin/netstat -an -p tcp | grep LISTEN | grep -q '\.40152 ' && echo 'port 40152: listening' || echo 'port 40152: NOT LISTENING'
+# The listener must be the app itself: any EDAMAME core answers on 40152.
+app_pid=\$(pgrep -x "$APP_NAME" | head -n 1)
+for _ in \$(seq 1 60); do /usr/sbin/lsof -nP -a -p "\$app_pid" -iTCP:40152 -sTCP:LISTEN >/dev/null 2>&1 && break; sleep 2; done
+/usr/sbin/lsof -nP -a -p "\$app_pid" -iTCP:40152 -sTCP:LISTEN >/dev/null 2>&1 && echo 'port 40152: the app listens' || echo 'port 40152: NOT the app (lsof -nP -iTCP:40152 -sTCP:LISTEN)'
+for _ in \$(seq 1 10); do /usr/sbin/lsof -nP -a -p "\$app_pid" -iTCP:3000 -sTCP:LISTEN >/dev/null 2>&1 && break; sleep 2; done
+/usr/sbin/lsof -nP -a -p "\$app_pid" -iTCP:3000 -sTCP:LISTEN >/dev/null 2>&1 && echo 'MCP 3000: the app listens' || echo 'MCP 3000: not the app (off by configuration, or held at its start: rpc mcp_get_server_status)'
 echo "deleting the lab keys"
 rm -f /var/root/fp-lab/portal.env
 mv /var/root/fp-lab/pre-state /var/root/fp-lab/pre-state.done 2>/dev/null || true
