@@ -5,7 +5,7 @@ use crate::EDAMAME_CLIENT_PEM;
 use crate::EDAMAME_TARGET;
 use crate::{
     base_get_core_info, base_get_core_version, base_lanscan, connect_domain, ERROR_CODE_MISMATCH,
-    ERROR_CODE_PARAM,
+    ERROR_CODE_PARAM, GATEWAY_DETECTION_TIMEOUT,
 };
 use edamame_core::api::api_core::*;
 use edamame_core::api::api_flodbadd::*;
@@ -13,7 +13,7 @@ use edamame_core::api::api_score::*;
 use edamame_core::api::api_trust::*;
 use std::env;
 use std::thread::sleep;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tracing::{error, info, warn};
 
 pub fn background_process(
@@ -157,15 +157,26 @@ pub fn background_process(
         info!("Scanning network interfaces...");
 
         if packet_capture {
-            // Wait for the gateway detection to complete
+            // Wait for the gateway detection, bounded: the Hub connection
+            // below must not depend on the LAN. A network the scan cannot
+            // reach (or with no consent) used to keep the daemon from ever
+            // connecting (Windows CI, 2026-10-13).
+            let deadline = Instant::now() + GATEWAY_DETECTION_TIMEOUT;
             let mut last_gateway_scan = get_last_gateway_scan();
-            while last_gateway_scan.is_empty() {
+            while last_gateway_scan.is_empty() && Instant::now() < deadline {
                 info!("Waiting for gateway detection to complete...");
                 sleep(Duration::from_secs(5));
                 last_gateway_scan = get_last_gateway_scan();
             }
 
-            info!("Gateway detection complete, requesting a LAN scan...");
+            if last_gateway_scan.is_empty() {
+                warn!(
+                    "Gateway detection did not complete within {}s; continuing without it (the LAN scan may not run)",
+                    GATEWAY_DETECTION_TIMEOUT.as_secs()
+                );
+            } else {
+                info!("Gateway detection complete, requesting a LAN scan...");
+            }
         } else {
             info!("Packet capture disabled; requesting LAN scan without waiting for gateway detection.");
         }

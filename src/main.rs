@@ -22,7 +22,7 @@ use regex::Regex;
 use std::io;
 use std::process::exit;
 use std::thread::sleep;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 #[cfg(target_os = "windows")]
 use tracing::{error, info, warn};
 use uuid::Uuid;
@@ -31,6 +31,12 @@ const ERROR_CODE_MISMATCH: i32 = 1;
 const ERROR_CODE_SERVER_ERROR: i32 = 2;
 const ERROR_CODE_PARAM: i32 = 3;
 const ERROR_CODE_TIMEOUT: i32 = 4;
+
+/// How long the daemon and `lanscan` wait for the gateway detection. A LAN
+/// this host cannot reach (the probe fails, or no consent holds for the
+/// network) never completes it; the daemon used to wait forever there, before
+/// even connecting to the Hub.
+pub(crate) const GATEWAY_DETECTION_TIMEOUT: Duration = Duration::from_secs(120);
 
 lazy_static! {
     pub static ref EDAMAME_TARGET: String =
@@ -416,20 +422,29 @@ fn run_base() {
             // Grant consent
             grant_consent();
 
-            // Wait for the gateway detection to complete
+            // Wait for the gateway detection to complete, bounded
+            let deadline = Instant::now() + GATEWAY_DETECTION_TIMEOUT;
             let mut last_gateway_scan = get_last_gateway_scan();
-            while last_gateway_scan == "" {
+            while last_gateway_scan.is_empty() && Instant::now() < deadline {
                 println!("Waiting for gateway detection to complete...");
-                sleep(Duration::from_secs(20));
+                sleep(Duration::from_secs(5));
                 last_gateway_scan = get_last_gateway_scan();
             }
-            println!("Gateway detection complete");
+            if last_gateway_scan.is_empty() {
+                eprintln!(
+                    "Gateway detection did not complete within {} seconds: the LAN is not reachable from this host.",
+                    GATEWAY_DETECTION_TIMEOUT.as_secs()
+                );
+                exit_code = ERROR_CODE_TIMEOUT;
+            } else {
+                println!("Gateway detection complete");
 
-            // Request a LAN scan
-            _ = get_lanscan(true, false, false);
+                // Request a LAN scan
+                _ = get_lanscan(true, false, false);
 
-            // Wait for the LAN scan to complete
-            base_lanscan();
+                // Wait for the LAN scan to complete
+                base_lanscan();
+            }
         }
         Some(("capture", sub_matches)) => {
             // Initialize the core with all options disabled
