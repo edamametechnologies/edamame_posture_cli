@@ -1,0 +1,859 @@
+{
+  "catalog_version": "2.0.0",
+  "scenarios": {
+    "agent_config_tamper": {
+      "trigger": "trigger_agent_config_tamper.py",
+      "title": "Poison an AI agent's configuration",
+      "one_liner": "Writes hostile startup hooks and a rogue tool entry into an AI coding agent's own config files, so the attacker's code re-runs every time the agent opens the project.",
+      "reference": {
+        "name": "CurXecute (CVE-2025-54135) — rogue MCP entry written into a Cursor config",
+        "year": "2025",
+        "url": "https://nvd.nist.gov/vuln/detail/CVE-2025-54135",
+        "kind": "incident"
+      },
+      "see_in_edamame": "Security > Detections shows a File system tampering finding naming the agent config files that were changed.",
+      "appears_within": "usually within a minute or two",
+      "talk_track": "This is the number-one way attackers get persistence on a developer's machine today: they don't re-infect, they just write a startup hook into the AI agent's own config so their code runs again every session. EDAMAME watches those exact config files and flags the write at its next detection tick, within a minute or two — including a rogue MCP server entry that would quietly point the agent at an attacker's tool.",
+      "terms": [
+        "mcp"
+      ],
+      "needs_admin": false,
+      "platforms": [
+        "macos",
+        "windows",
+        "linux"
+      ],
+      "expected_checks": [
+        "file_system_tampering"
+      ],
+      "gate_scenarios": [
+        "agent_config_tamper"
+      ]
+    },
+    "agent_cred_harvest": {
+      "trigger": "trigger_agent_cred_harvest.py",
+      "title": "Sweep an AI agent's credential stores",
+      "one_liner": "One process opens several of a coding agent's own credential and sign-in files at once — across SSH, cloud and agent accounts — while sending traffic out, the classic first move of an AI-credential stealer.",
+      "reference": {
+        "name": "Credentials from password stores (MITRE ATT&CK T1555); the AI-credential sweep class (IronWorm, Djinn Stealer)",
+        "year": "",
+        "url": "https://attack.mitre.org/techniques/T1555/",
+        "kind": "technique"
+      },
+      "see_in_edamame": "Security > Detections shows a Credential harvest finding listing the categories of secrets the process held open.",
+      "appears_within": "usually within a minute or two",
+      "talk_track": "AI agents keep their own keys — for the model, for the cloud, for your repos — and malware has learned to grab all of them in one pass. EDAMAME ties the open files and the outbound traffic back to a single process and raises it as a credential sweep. For the demo it writes throwaway fake files; where one of those agent files already exists it opens it read-only for a single byte and sends nothing from it.",
+      "terms": [
+        "credential_harvest",
+        "exfiltration"
+      ],
+      "needs_admin": false,
+      "platforms": [
+        "macos",
+        "windows",
+        "linux"
+      ],
+      "expected_checks": [
+        "credential_harvest"
+      ],
+      "gate_scenarios": [
+        "agent_cred_harvest"
+      ]
+    },
+    "agent_denylist_bypass": {
+      "trigger": "trigger_agent_denylist_bypass.py",
+      "title": "An AI agent walks around its own guardrail",
+      "one_liner": "Reproduces an agent transcript where a blocked command is simply re-spelled a different way and runs anyway, with the blocking rule still switched on.",
+      "reference": {
+        "name": "Indirect command execution to bypass restrictions (MITRE ATT&CK T1202); as shown in Ona's Claude Code denylist research",
+        "year": "",
+        "url": "https://attack.mitre.org/techniques/T1202/",
+        "kind": "technique"
+      },
+      "see_in_edamame": "Security > Detections shows an Agent denylist bypass finding tying the denied attempt to the later success.",
+      "appears_within": "usually within a minute or two",
+      "talk_track": "Guardrails on AI agents give a false sense of safety. Block a command one way and the agent re-issues the same action under a different spelling that the rule never matched — the rule is still on, and the agent walks right around it. EDAMAME reads the agent's own transcript, ties the denied attempt to the later success, and shows you the bypass. This is the gap between 'we configured a policy' and 'the policy actually held'.",
+      "terms": [
+        "denylist"
+      ],
+      "needs_admin": false,
+      "platforms": [
+        "macos",
+        "windows",
+        "linux"
+      ],
+      "expected_checks": [
+        "agent_denylist_bypass"
+      ],
+      "gate_scenarios": [
+        "agent_denylist_bypass"
+      ]
+    },
+    "agent_rules_backdoor": {
+      "trigger": "trigger_agent_rules_backdoor.py",
+      "title": "Hide commands an AI agent will obey, invisible to the reviewer",
+      "one_liner": "Plants instructions in the files an AI agent reads as policy, using invisible characters so a human sees nothing in the diff but the model reads and follows the hidden text.",
+      "reference": {
+        "name": "Rules File Backdoor (Pillar Security) — hidden-Unicode instructions in AI editor rule files",
+        "year": "2025",
+        "url": "https://pillar.security/blog/new-vulnerability-in-github-copilot-and-cursor-how-hackers-can-weaponize-code-agents",
+        "kind": "incident"
+      },
+      "see_in_edamame": "Security > Detections shows a critical File system tampering finding on the agent rules file, flagged for hidden characters.",
+      "appears_within": "usually within a minute or two",
+      "talk_track": "This one unsettles every engineering leader in the room: the malicious instructions are literally invisible. A teammate reviews the pull request, sees a clean rules file, approves it — and the AI quietly follows hidden orders on every future change. The payload carries no script and no network address. EDAMAME reads the raw bytes of the file and flags the smuggled text itself.",
+      "terms": [
+        "unicode_smuggling"
+      ],
+      "needs_admin": false,
+      "platforms": [
+        "macos",
+        "windows",
+        "linux"
+      ],
+      "expected_checks": [
+        "file_system_tampering"
+      ],
+      "gate_scenarios": [
+        "agent_rules_backdoor"
+      ]
+    },
+    "blacklist_comm": {
+      "trigger": "trigger_blacklist_comm.py",
+      "title": "Talk to a known-bad address",
+      "one_liner": "Makes a steady connection to an address on public threat-intelligence blocklists while holding a credential file open.",
+      "reference": {
+        "name": "FireHOL IP blocklists — aggregated public threat-intelligence ranges",
+        "year": "",
+        "url": "https://iplists.firehol.org/",
+        "kind": "technique"
+      },
+      "see_in_edamame": "Security > Detections shows a Skill supply chain finding, and the session is flagged as talking to a blacklisted destination.",
+      "appears_within": "usually within a minute or two",
+      "talk_track": "The simplest check, and still one of the most valuable: is this machine talking to an address the security community already knows is bad? EDAMAME matches live traffic against threat-intelligence blocklists and flags the connection — and because a credential is open at the same time, raises the stakes. The demo targets published sinkhole ranges, never a live attacker.",
+      "terms": [
+        "c2"
+      ],
+      "needs_admin": false,
+      "platforms": [
+        "macos",
+        "windows",
+        "linux"
+      ],
+      "expected_checks": [
+        "blacklisted_sessions",
+        "skill_supply_chain"
+      ],
+      "gate_scenarios": [
+        "blacklist_comm",
+        "skill_supply_chain"
+      ]
+    },
+    "credential_sprawl": {
+      "trigger": "trigger_credential_sprawl.py",
+      "title": "Grab every credential store on the machine",
+      "one_liner": "One process opens credentials across five different categories — SSH, AWS, Kubernetes, GnuPG and environment files — while streaming data to an undeclared destination.",
+      "reference": {
+        "name": "Credentials in files — co-located secret stores swept together (MITRE ATT&CK T1552.001)",
+        "year": "",
+        "url": "https://attack.mitre.org/techniques/T1552/001/",
+        "kind": "technique"
+      },
+      "see_in_edamame": "Security > Detections shows a Token exfiltration finding tying the open credential files to the outbound stream.",
+      "appears_within": "within a few minutes",
+      "talk_track": "Developers keep a lot of keys in one place, and attackers know it. This scenario grabs five different credential stores at once — exactly what a malicious tool or skill does before it leaves. EDAMAME ties that breadth of open credentials to the outbound stream on one process and raises it, well before the data is gone. The demo only ever opens throwaway fakes.",
+      "terms": [
+        "credential_harvest",
+        "exfiltration"
+      ],
+      "needs_admin": false,
+      "platforms": [
+        "macos",
+        "windows",
+        "linux"
+      ],
+      "expected_checks": [
+        "token_exfiltration"
+      ],
+      "gate_scenarios": [
+        "credential_sprawl"
+      ]
+    },
+    "cve_sandbox_escape": {
+      "trigger": "trigger_cve_sandbox_escape.py",
+      "title": "Break out of a sandbox and reach the network",
+      "one_liner": "Models the aftermath of a real sandbox-escape CVE: a program launched from a temporary folder makes its own outbound network connections.",
+      "reference": {
+        "name": "CVE-2026-24763 — OpenClaw Docker command injection via unsafe PATH handling",
+        "year": "2026",
+        "url": "https://nvd.nist.gov/vuln/detail/CVE-2026-24763",
+        "kind": "incident"
+      },
+      "see_in_edamame": "Security > Detections shows a Sandbox exploitation finding on the network program's temporary-folder lineage.",
+      "appears_within": "within a few minutes",
+      "talk_track": "Agent sandboxes are meant to contain damage, but escapes keep happening. Once out, the attacker's code runs from a temporary location and reaches the network. EDAMAME reads a program's lineage and treats a network program running from a temporary folder as the strong signal it is — whether or not the underlying CVE is patched.",
+      "terms": [
+        "sandbox_escape",
+        "lineage"
+      ],
+      "needs_admin": false,
+      "platforms": [
+        "macos",
+        "windows",
+        "linux"
+      ],
+      "expected_checks": [
+        "sandbox_exploitation"
+      ],
+      "gate_scenarios": [
+        "cve_sandbox_escape"
+      ]
+    },
+    "cve_token_exfil": {
+      "trigger": "trigger_cve_token_exfil.py",
+      "title": "Steal an agent's token through a known CVE",
+      "one_liner": "Reproduces the host-visible behaviour of two real agent CVEs: a process holds sensitive credential files open while sending a sustained stream of data to an external destination.",
+      "reference": {
+        "name": "CVE-2025-52882 — Claude Code IDE extension unauthorized WebSocket connections",
+        "year": "2025",
+        "url": "https://nvd.nist.gov/vuln/detail/CVE-2025-52882",
+        "kind": "incident"
+      },
+      "see_in_edamame": "Security > Detections shows a Token exfiltration finding on the session, listing the credential file held open.",
+      "appears_within": "within a few minutes",
+      "talk_track": "AI coding tools ship with the same kinds of bugs as any other software — here, flaws that let an attacker ride the tool's own connection to leak a token. EDAMAME doesn't need the CVE to be patched to protect you: it sees a credential file held open alongside a steady outbound stream and flags the exfiltration directly.",
+      "terms": [
+        "exfiltration"
+      ],
+      "needs_admin": false,
+      "platforms": [
+        "macos",
+        "windows",
+        "linux"
+      ],
+      "expected_checks": [
+        "token_exfiltration"
+      ],
+      "gate_scenarios": [
+        "cve_token_exfil"
+      ]
+    },
+    "daemon_lineage_egress": {
+      "trigger": "trigger_daemon_lineage_egress.py",
+      "title": "A trusted system service goes off-script",
+      "one_liner": "Models the exploitation shape of the XZ backdoor: a program in a trusted system-service location makes outbound connections that the agent's declared plan forbids for it.",
+      "reference": {
+        "name": "CVE-2024-3094 — the XZ Utils / liblzma supply-chain backdoor in sshd",
+        "year": "2024",
+        "url": "https://nvd.nist.gov/vuln/detail/CVE-2024-3094",
+        "kind": "incident"
+      },
+      "see_in_edamame": "Security > Detections shows a Divergence finding (Not expected): a trusted system location reaching a destination its plan does not allow.",
+      "appears_within": "within a few minutes, only on a machine where EDAMAME already holds a behavioural model of the AI agent that rules this out; elsewhere nothing appears",
+      "talk_track": "The XZ backdoor hid inside a trusted system library and came close to shipping in major Linux distributions. The giveaway at runtime is a trusted service doing something its role should never do — making outbound connections it never declared. EDAMAME compares a program's declared plan to what it actually does and flags the divergence, even when the code itself looks trusted. It installs a harmless stand-in in a system folder, which needs an administrator password; Run cleanup lists it for removal.",
+      "terms": [
+        "supply_chain",
+        "lineage",
+        "divergence"
+      ],
+      "needs_admin": true,
+      "platforms": [
+        "macos",
+        "linux"
+      ],
+      "expected_checks": [
+        "correlation:not_expected"
+      ],
+      "gate_scenarios": [
+        "daemon_lineage_egress"
+      ]
+    },
+    "divergence": {
+      "trigger": "trigger_divergence.py",
+      "title": "An AI agent drifts off its declared plan",
+      "one_liner": "An agent process reaches out to many public destinations it never declared — the behavioural signature of an agent that has been steered off course.",
+      "reference": {
+        "name": "Excessive Agency — agents taking undeclared actions (OWASP Top 10 for LLM Applications)",
+        "year": "",
+        "url": "https://genai.owasp.org/llmrisk/llm062025-excessive-agency/",
+        "kind": "technique"
+      },
+      "see_in_edamame": "Security > Detections shows a Divergence finding (Unexplained destinations): the agent went to destinations outside its declared behaviour.",
+      "appears_within": "within a few minutes, once EDAMAME has watched an AI coding agent on this machine for a while (protection on)",
+      "talk_track": "You give an AI agent a goal; a prompt-injection or a bad tool result sends it somewhere else. EDAMAME learns what an agent said it would do and compares it to what the machine actually does on the network. When the two diverge — lots of undeclared destinations — it raises a verdict. This is governance you can prove, not just trust.",
+      "terms": [
+        "divergence"
+      ],
+      "needs_admin": false,
+      "platforms": [
+        "macos",
+        "windows",
+        "linux"
+      ],
+      "expected_checks": [
+        "correlation:unexplained"
+      ],
+      "gate_scenarios": []
+    },
+    "dns_tunnel": {
+      "trigger": "trigger_dns_tunnel.py",
+      "title": "Smuggle data out inside DNS lookups",
+      "one_liner": "Streams stolen-looking data out as a steady run of DNS lookups to a public resolver while holding a credential file open — the covert channel that usually hides in plain sight.",
+      "reference": {
+        "name": "DNS as a command-and-control channel (MITRE ATT&CK T1071.004); the technique behind iodine, dnscat2 and Cobalt Strike",
+        "year": "",
+        "url": "https://attack.mitre.org/techniques/T1071/004/",
+        "kind": "technique"
+      },
+      "see_in_edamame": "Security > Detections shows a Token exfiltration finding on the high-volume DNS traffic.",
+      "appears_within": "within a few minutes",
+      "talk_track": "DNS is the traffic everyone allows and almost nobody inspects, which is exactly why attackers tunnel stolen data through it. EDAMAME measures the volume going out over DNS and, with a credential open at the same time, calls it exfiltration — a channel many networks never inspect. Every lookup here is harmless test data to a reserved domain.",
+      "terms": [
+        "dns_tunnel",
+        "exfiltration",
+        "c2"
+      ],
+      "needs_admin": false,
+      "platforms": [
+        "macos",
+        "windows",
+        "linux"
+      ],
+      "expected_checks": [
+        "token_exfiltration"
+      ],
+      "gate_scenarios": [
+        "dns_tunnel"
+      ]
+    },
+    "dns_tunnel_reconnect": {
+      "trigger": "trigger_dns_tunnel_reconnect.py",
+      "title": "A stealthier DNS tunnel that reconnects each time",
+      "one_liner": "The same DNS smuggling, but opening a brand-new connection for every single lookup so no one conversation ever looks big — the trick real tunnels use to slip under volume limits.",
+      "reference": {
+        "name": "Protocol tunnelling to evade volume-based detection (MITRE ATT&CK T1572); the per-query reconnect pattern of real DNS tunnels",
+        "year": "",
+        "url": "https://attack.mitre.org/techniques/T1572/",
+        "kind": "technique"
+      },
+      "see_in_edamame": "Security > Detections shows a Token exfiltration finding on the DNS traffic even though each connection is tiny.",
+      "appears_within": "within a few minutes",
+      "talk_track": "Clever attackers spread their tunnel across thousands of tiny connections so no single one looks suspicious — the evasion that slips past volume checks that only watch one conversation at a time. EDAMAME adds the traffic up across all of them back to the same process and destination, so the trickle still shows as a flood.",
+      "terms": [
+        "dns_tunnel",
+        "exfiltration"
+      ],
+      "needs_admin": false,
+      "platforms": [
+        "macos",
+        "windows",
+        "linux"
+      ],
+      "expected_checks": [
+        "token_exfiltration"
+      ],
+      "gate_scenarios": [
+        "dns_tunnel_reconnect"
+      ]
+    },
+    "file_events": {
+      "trigger": "trigger_file_events.py",
+      "title": "Tamper with sensitive files",
+      "one_liner": "Creates and changes sensitive credential files in watched folders and drops a suspicious file into a temporary one — the on-disk footprint of a supply-chain compromise.",
+      "reference": {
+        "name": "CVE-2025-30066 — tj-actions/changed-files supply-chain compromise (CISA)",
+        "year": "2025",
+        "url": "https://www.cisa.gov/news-events/alerts/2025/03/18/supply-chain-compromise-third-party-tj-actionschanged-files-cve-2025-30066-and-reviewdogaction",
+        "kind": "incident"
+      },
+      "see_in_edamame": "Security > Detections shows File system tampering findings naming the files that were created or changed.",
+      "appears_within": "usually within a minute or two",
+      "talk_track": "When a trusted CI action was compromised, the first host-visible sign was files appearing and changing where they shouldn't. EDAMAME's file integrity monitoring watches your sensitive folders and raises a finding at its next tick, usually within a minute or two — well before anything is exfiltrated.",
+      "terms": [
+        "supply_chain",
+        "fim"
+      ],
+      "needs_admin": false,
+      "platforms": [
+        "macos",
+        "windows",
+        "linux"
+      ],
+      "expected_checks": [
+        "file_system_tampering"
+      ],
+      "gate_scenarios": [
+        "file_events"
+      ]
+    },
+    "goal_drift": {
+      "trigger": "trigger_goal_drift.py",
+      "title": "A runaway agent fans out in a burst",
+      "one_liner": "An agent process opens a sudden burst of connections to many undeclared destinations at once — the shape of an agent that has lost the plot or been hijacked mid-task.",
+      "reference": {
+        "name": "Agent Session Smuggling in Agent2Agent systems (Palo Alto Unit 42)",
+        "year": "2025",
+        "url": "https://unit42.paloaltonetworks.com/agent-session-smuggling-in-agent2agent-systems/",
+        "kind": "incident"
+      },
+      "see_in_edamame": "Security > Detections shows a Divergence finding (Unexplained destinations) on the burst of undeclared connections.",
+      "appears_within": "within a few minutes, once EDAMAME has watched an AI coding agent on this machine for a while (protection on)",
+      "talk_track": "When one agent hands off to another, a hijacked hand-off can send the whole chain off task in a sudden burst of activity. EDAMAME watches for exactly that shape — a rush of connections the agent never declared — and flags the drift. As teams wire agents together, this is the behaviour that tells you one of them has gone rogue.",
+      "terms": [
+        "divergence"
+      ],
+      "needs_admin": false,
+      "platforms": [
+        "macos",
+        "windows",
+        "linux"
+      ],
+      "expected_checks": [
+        "correlation:unexplained"
+      ],
+      "gate_scenarios": []
+    },
+    "loopback_relay": {
+      "trigger": "trigger_loopback_relay.py",
+      "title": "Two programs cooperate to hide a leak",
+      "one_liner": "Splits the theft across two cooperating programs — one opens the secrets and hands them over the machine's own loopback, the other does the sending out — so neither looks guilty alone.",
+      "reference": {
+        "name": "Process relay / split exfiltration (MITRE ATT&CK T1055)",
+        "year": "",
+        "url": "https://attack.mitre.org/techniques/T1055/",
+        "kind": "technique"
+      },
+      "see_in_edamame": "Security > Detections shows a Sensitive material egress finding that ties the secret-holder and the sender together.",
+      "appears_within": "within a few minutes",
+      "talk_track": "This is how a careful attacker defeats single-process monitoring: one program touches the credentials, a second program does the sending, and they pass the data between themselves over the machine's own loopback. Look at either one alone and it seems innocent. EDAMAME correlates the two through their process family tree and sees the whole relay.",
+      "terms": [
+        "loopback",
+        "exfiltration"
+      ],
+      "needs_admin": false,
+      "platforms": [
+        "macos",
+        "windows",
+        "linux"
+      ],
+      "expected_checks": [
+        "sensitive_material_egress"
+      ],
+      "gate_scenarios": [
+        "loopback_relay"
+      ]
+    },
+    "memory_poisoning": {
+      "trigger": "trigger_memory_poisoning.py",
+      "title": "Poisoned agent memory leads to a data leak",
+      "one_liner": "Simulates the host-visible aftermath of a poisoned agent memory: the agent holds a tainted memory file and a credential path open while making unexplained outbound connections.",
+      "reference": {
+        "name": "Indirect Prompt Injection Poisons AI Long-Term Memory (Palo Alto Unit 42)",
+        "year": "2025",
+        "url": "https://unit42.paloaltonetworks.com/indirect-prompt-injection-poisons-ai-longterm-memory/",
+        "kind": "incident"
+      },
+      "see_in_edamame": "Security > Detections shows a Token exfiltration finding on the agent's session, with the credential files it held open.",
+      "appears_within": "within a few minutes (EDAMAME first needs a little observation time)",
+      "talk_track": "Researchers have shown you can plant instructions in an agent's long-term memory that persist across sessions. EDAMAME can't read the model's mind — but it doesn't need to: it watches what the machine actually does. Here the agent holds secrets open and ships data to a destination it never declared, and EDAMAME catches that behaviour regardless of how the agent was tricked.",
+      "terms": [
+        "exfiltration",
+        "anomaly_detection"
+      ],
+      "needs_admin": false,
+      "platforms": [
+        "macos",
+        "windows",
+        "linux"
+      ],
+      "expected_checks": [
+        "token_exfiltration"
+      ],
+      "gate_scenarios": [
+        "memory_poisoning"
+      ]
+    },
+    "nonsensitive_path": {
+      "trigger": "trigger_nonsensitive_path.py",
+      "title": "Hide credentials where scanners don't look",
+      "one_liner": "Stages a credential blob in an ordinary-looking folder outside the usual sensitive locations, then holds it open while sending data out — betting the scanner only watches the obvious paths.",
+      "reference": {
+        "name": "Data staged for exfiltration in non-standard locations (MITRE ATT&CK T1074)",
+        "year": "",
+        "url": "https://attack.mitre.org/techniques/T1074/",
+        "kind": "technique"
+      },
+      "see_in_edamame": "Security > Detections shows a Sensitive material egress finding, caught by the content of the file rather than its location.",
+      "appears_within": "within a few minutes",
+      "talk_track": "A simple evasion: don't leave the secret in ~/.ssh where everyone watches — drop it in a normal-looking project folder instead. EDAMAME looks at what's actually inside the file being sent, not just where it lives, so moving the secret to an unwatched path doesn't hide it.",
+      "terms": [
+        "exfiltration"
+      ],
+      "needs_admin": false,
+      "platforms": [
+        "macos",
+        "windows",
+        "linux"
+      ],
+      "expected_checks": [
+        "sensitive_material_egress"
+      ],
+      "gate_scenarios": [
+        "nonsensitive_path"
+      ]
+    },
+    "npm_rat_beacon": {
+      "trigger": "trigger_npm_rat_beacon.py",
+      "title": "A malicious npm package drops a remote-access trojan",
+      "one_liner": "Reproduces a compromised package's two-stage move: a dropper writes a second-stage program into a temporary folder, which then beacons out on a timer while holding credential files open.",
+      "reference": {
+        "name": "axios npm compromise — malicious versions dropped a remote-access trojan (StepSecurity)",
+        "year": "2026",
+        "url": "https://www.stepsecurity.io/blog/axios-compromised-on-npm-malicious-versions-drop-remote-access-trojan",
+        "kind": "incident"
+      },
+      "see_in_edamame": "Security > Detections shows a Token exfiltration finding on the beacon's session that is running from a temporary folder.",
+      "appears_within": "within a few minutes",
+      "talk_track": "When a popular package like axios gets hijacked, every project that installs it runs the attacker's code. The real payload wrote a trojan into a temp folder and had it call home on a timer. EDAMAME spots the giveaway lineage — a network program launched from a temporary path — and the steady beacon traffic, and ties them together.",
+      "terms": [
+        "supply_chain",
+        "rat",
+        "dropper",
+        "beacon"
+      ],
+      "needs_admin": false,
+      "platforms": [
+        "macos",
+        "windows",
+        "linux"
+      ],
+      "expected_checks": [
+        "token_exfiltration"
+      ],
+      "gate_scenarios": [
+        "npm_rat_beacon"
+      ]
+    },
+    "ntp_tunnel": {
+      "trigger": "trigger_ntp_tunnel.py",
+      "title": "Smuggle data out inside clock-sync traffic",
+      "one_liner": "Streams data out inside NTP packets — the messages computers use to set their clock — to a time server, while holding a credential file open.",
+      "reference": {
+        "name": "Protocol tunnelling over NTP (MITRE ATT&CK T1572); the ntp_tunnel covert-channel technique",
+        "year": "",
+        "url": "https://attack.mitre.org/techniques/T1572/",
+        "kind": "technique"
+      },
+      "see_in_edamame": "Security > Detections shows a Token exfiltration finding on the high-volume NTP traffic.",
+      "appears_within": "within a few minutes",
+      "talk_track": "If DNS is allowed everywhere, clock-sync traffic is allowed and ignored everywhere. Attackers tunnel data through NTP for exactly that reason. EDAMAME treats a flood of outbound NTP with a credential open the same way it treats any other covert channel — as data leaving — instead of waving it through as routine system noise.",
+      "terms": [
+        "ntp_tunnel",
+        "exfiltration",
+        "c2"
+      ],
+      "needs_admin": false,
+      "platforms": [
+        "macos",
+        "windows",
+        "linux"
+      ],
+      "expected_checks": [
+        "token_exfiltration"
+      ],
+      "gate_scenarios": [
+        "ntp_tunnel"
+      ]
+    },
+    "package_install_lifecycle": {
+      "trigger": "trigger_package_install_lifecycle.py",
+      "title": "A self-spreading worm writes itself outside its package",
+      "one_liner": "Reproduces the persistence step of a self-replicating package worm: an install-time program writes a startup hook out of its own dependency folder and into an agent config, so it keeps running.",
+      "reference": {
+        "name": "Shai-Hulud — self-replicating npm worm (KrebsOnSecurity)",
+        "year": "2025",
+        "url": "https://krebsonsecurity.com/2025/09/self-replicating-worm-hits-180-software-packages/",
+        "kind": "incident"
+      },
+      "see_in_edamame": "Security > Detections shows a Package install lifecycle finding: an install-time program wrote a persistence file outside its package.",
+      "appears_within": "usually within a minute or two",
+      "talk_track": "The Shai-Hulud worm didn't just steal secrets — it rewrote itself into other places so it would survive and spread, hitting hundreds of packages. The structural giveaway is an install-time program reaching outside its own package folder to drop a startup hook. EDAMAME catches that write-out-of-tree directly, no signature needed, so it works on the next worm too.",
+      "terms": [
+        "supply_chain",
+        "postinstall"
+      ],
+      "needs_admin": false,
+      "platforms": [
+        "macos",
+        "windows",
+        "linux"
+      ],
+      "expected_checks": [
+        "package_install_lifecycle"
+      ],
+      "gate_scenarios": [
+        "package_install_lifecycle"
+      ]
+    },
+    "pgserve_postinstall": {
+      "trigger": "trigger_pgserve_postinstall.py",
+      "title": "An install-time script harvests your secrets",
+      "one_liner": "Reproduces a package whose install-time script quietly reads secrets across many categories — npm, SSH, cloud, wallets — and posts an encrypted bundle out.",
+      "reference": {
+        "name": "pgserve npm compromise — postinstall stealer harvesting credentials (StepSecurity)",
+        "year": "2026",
+        "url": "https://www.stepsecurity.io/blog/pgserve-compromised-on-npm-malicious-versions-harvest-credentials",
+        "kind": "incident"
+      },
+      "see_in_edamame": "Security > Detections shows a Credential harvest finding on the installer's session.",
+      "appears_within": "within a few minutes",
+      "talk_track": "You run one npm install and a hidden postinstall script rifles through your npm token, SSH keys, cloud credentials and even crypto wallets, encrypts the lot and ships it out — all before the install even finishes. EDAMAME sees one process touch secrets across many categories while sending data out, and raises it as a harvest. The demo uses only fake credentials and never contacts the real attacker addresses.",
+      "terms": [
+        "supply_chain",
+        "postinstall",
+        "credential_harvest",
+        "exfiltration"
+      ],
+      "needs_admin": false,
+      "platforms": [
+        "macos",
+        "windows",
+        "linux"
+      ],
+      "expected_checks": [
+        "credential_harvest"
+      ],
+      "gate_scenarios": [
+        "pgserve_postinstall"
+      ]
+    },
+    "process_memory_scrape": {
+      "trigger": "trigger_process_memory_scrape.py",
+      "title": "Read a secret out of another program's memory",
+      "one_liner": "One program reaches into another running program's memory to read it — the file-less way attackers lift tokens that are never written to disk.",
+      "reference": {
+        "name": "Credential dumping from process memory (MITRE ATT&CK T1003): the TanStack npm compromise read a CI token out of the runner's memory, and the Codecov uploader compromise read the CI job's environment, which this scenario also reads",
+        "year": "",
+        "url": "https://attack.mitre.org/techniques/T1003/",
+        "kind": "technique"
+      },
+      "see_in_edamame": "Security > Detections shows a Process memory scrape finding naming the reaching process and its target.",
+      "appears_within": "within a few minutes",
+      "talk_track": "Some of the nastiest thefts never touch a file — the attacker reads the secret straight out of another program's live memory, which is how a recent npm compromise lifted a build system's cloud token. Nothing is written to disk, so a file watcher sees nothing. EDAMAME watches process-to-process memory access at the kernel level and flags the reach. The demo reads only a harmless helper process it started itself.",
+      "terms": [
+        "oidc_token"
+      ],
+      "needs_admin": true,
+      "platforms": [
+        "macos",
+        "windows",
+        "linux"
+      ],
+      "expected_checks": [
+        "process_memory_scrape"
+      ],
+      "gate_scenarios": [
+        "process_memory_scrape",
+        "agent_memory_scrape"
+      ]
+    },
+    "supply_chain_exfil": {
+      "trigger": "trigger_supply_chain_exfil.py",
+      "title": "A poisoned Python package steals cloud keys",
+      "one_liner": "Reproduces a compromised PyPI package that opens credentials from many categories at once — SSH, AWS, GCP, Azure, git, Kubernetes — while posting data to an undeclared destination.",
+      "reference": {
+        "name": "litellm PyPI compromise — malicious wheel auto-ran and harvested credentials (BerriAI)",
+        "year": "2026",
+        "url": "https://github.com/BerriAI/litellm/issues/24518",
+        "kind": "incident"
+      },
+      "see_in_edamame": "Security > Detections shows a Credential harvest finding spanning several secret categories.",
+      "appears_within": "within a few minutes",
+      "talk_track": "This is the Python-ecosystem twin of the npm attacks: a malicious wheel that runs automatically on import and sweeps every cloud and git credential it can find. The breadth is the tell — no honest tool opens SSH, AWS, GCP, git and Kubernetes secrets in the same breath. EDAMAME counts those categories on one process and flags the harvest.",
+      "terms": [
+        "supply_chain",
+        "credential_harvest",
+        "exfiltration"
+      ],
+      "needs_admin": false,
+      "platforms": [
+        "macos",
+        "windows",
+        "linux"
+      ],
+      "expected_checks": [
+        "credential_harvest"
+      ],
+      "gate_scenarios": [
+        "supply_chain_exfil"
+      ]
+    },
+    "temp_modify": {
+      "trigger": "trigger_temp_modify.py",
+      "title": "A payload swapped in after a harmless decoy",
+      "one_liner": "Drops a harmless-looking file into a temporary folder, then overwrites it with a malicious script — the staged-payload trick that beats checks which only look at a file when it first appears.",
+      "reference": {
+        "name": "Staged dropper payload in a temporary folder (MITRE ATT&CK T1105)",
+        "year": "",
+        "url": "https://attack.mitre.org/techniques/T1105/",
+        "kind": "technique"
+      },
+      "see_in_edamame": "Security > Detections shows a File system tampering finding on the temporary file after it was changed.",
+      "appears_within": "usually within a minute or two",
+      "talk_track": "A classic evasion: drop an innocent placeholder first so a one-time check passes, then swap in the real payload later. EDAMAME watches for the change too, scans the new content, and flags the swapped-in script.",
+      "terms": [
+        "dropper",
+        "fim"
+      ],
+      "needs_admin": false,
+      "platforms": [
+        "macos",
+        "windows",
+        "linux"
+      ],
+      "expected_checks": [
+        "file_system_tampering"
+      ],
+      "gate_scenarios": [
+        "temp_modify"
+      ]
+    }
+  },
+  "themes": [
+    {
+      "id": "ai_agents",
+      "title": "AI coding agents",
+      "summary": "Attacks aimed at the AI coding agents developers now run every day — poisoning their config, their rules and their memory, or sweeping their credentials. This is the ground EDAMAME is built to defend.",
+      "scenarios": [
+        "agent_config_tamper",
+        "agent_rules_backdoor",
+        "agent_denylist_bypass",
+        "agent_cred_harvest",
+        "memory_poisoning"
+      ]
+    },
+    {
+      "id": "supply_chain",
+      "title": "Software supply chain",
+      "summary": "Malicious packages and build steps that run the moment a dependency is installed — the npm and PyPI compromises that have hit thousands of developers.",
+      "scenarios": [
+        "npm_rat_beacon",
+        "pgserve_postinstall",
+        "supply_chain_exfil",
+        "package_install_lifecycle"
+      ]
+    },
+    {
+      "id": "credential_theft",
+      "title": "Credential theft",
+      "summary": "Stealing the keys to everything — SSH keys, cloud credentials and tokens — from files on disk or straight out of another program's memory.",
+      "scenarios": [
+        "cve_token_exfil",
+        "credential_sprawl",
+        "process_memory_scrape"
+      ]
+    },
+    {
+      "id": "data_exfiltration",
+      "title": "Data exfiltration",
+      "summary": "Sneaking stolen data off the machine over channels built to blend in — DNS and NTP lookups, loopback relays, and credentials staged where scanners do not look.",
+      "scenarios": [
+        "dns_tunnel",
+        "dns_tunnel_reconnect",
+        "ntp_tunnel",
+        "loopback_relay",
+        "nonsensitive_path"
+      ]
+    },
+    {
+      "id": "tampering",
+      "title": "File tampering",
+      "summary": "Unauthorized writes to sensitive files and staged payloads dropped into temporary folders — flagged at the detector's next tick, usually within a minute or two of touching disk.",
+      "scenarios": [
+        "file_events",
+        "temp_modify"
+      ]
+    },
+    {
+      "id": "network",
+      "title": "Network & behaviour",
+      "summary": "Suspicious network behaviour: talking to known-bad destinations, escaping a sandbox to reach the network, a trusted system service going off-script, and AI agents drifting from their declared plan.",
+      "scenarios": [
+        "blacklist_comm",
+        "cve_sandbox_escape",
+        "daemon_lineage_egress",
+        "divergence",
+        "goal_drift"
+      ]
+    }
+  ],
+  "glossary": {
+    "exfiltration": "Stealing data off a machine — copying files, secrets or other information out to somewhere the attacker controls.",
+    "c2": "Command and control: the channel a piece of malware uses to phone home to the attacker, receive orders and send stolen data back.",
+    "supply_chain": "An attack that hides in software you install and trust — a package, dependency or build tool — so it runs on every machine that pulls it in.",
+    "mcp": "Model Context Protocol (MCP): the standard way AI coding agents connect to external tools and data sources. A tampered MCP config can point an agent at an attacker's tool.",
+    "postinstall": "A script a software package is allowed to run automatically the moment it is installed — a favourite place for malicious packages to hide their payload.",
+    "lineage": "The family tree of a process: which program started which. Attack tools often give themselves away by their lineage, for example a network program launched from a temporary folder.",
+    "divergence": "When an AI agent's actual behaviour drifts away from what it said it would do — for example reaching out to destinations it never declared.",
+    "sandbox_escape": "Breaking out of the restricted environment a program is supposed to stay inside, so the attacker's code can run with fuller access to the machine.",
+    "dns_tunnel": "Smuggling stolen data out inside DNS lookups — the ordinary requests computers make to turn a name into an address — so it blends in with normal traffic.",
+    "ntp_tunnel": "Smuggling stolen data out inside NTP packets — the ordinary requests computers make to sync their clock — so it blends in with normal traffic.",
+    "loopback": "The machine talking to itself (address 127.0.0.1). Attackers relay data between two of their own programs over loopback to hide the hand-off.",
+    "anomaly_detection": "Machine learning that flags network behaviour as unusual for this machine, without needing a list of known-bad addresses.",
+    "fim": "File integrity monitoring: watching sensitive files and folders and raising a finding when one is created or changed.",
+    "credential_harvest": "Collecting many of a machine's stored secrets at once — SSH keys, cloud credentials, tokens — usually as the first step before exfiltration.",
+    "oidc_token": "A short-lived identity token (OpenID Connect) that proves who a build job or service is, so it can access cloud resources. Prized by attackers because it unlocks the accounts behind it.",
+    "unicode_smuggling": "Hiding instructions in text using invisible or display-reversing characters, so a human reviewer sees nothing but an AI model reads the hidden commands.",
+    "denylist": "A rule that blocks specific commands an AI agent is not allowed to run. A bypass re-spells the same command so the rule does not match it.",
+    "dropper": "A small first-stage program whose only job is to fetch and launch the real malware — often staged in a temporary folder.",
+    "beacon": "A regular check-in a piece of malware sends to its command-and-control server, like a heartbeat, to report in and ask for orders.",
+    "rat": "Remote access trojan: malware that gives an attacker hands-on remote control of the infected machine."
+  },
+  "demo_path": {
+    "title": "Recommended 10-minute demo",
+    "intro": "A short sequence that shows the breadth of EDAMAME across the themes buyers care about. Start each scenario, switch to EDAMAME's Security > Detections to show the finding land, then move on. Press Run cleanup at the end.",
+    "steps": [
+      {
+        "scenario": "agent_config_tamper",
+        "note": "Open with EDAMAME's home turf: an attack on the AI coding agent itself. The finding lands fast and sets the theme."
+      },
+      {
+        "scenario": "agent_rules_backdoor",
+        "note": "The 'invisible to the reviewer' moment — always the one that gets a reaction."
+      },
+      {
+        "scenario": "pgserve_postinstall",
+        "note": "Show the supply-chain angle: one install, every secret swept."
+      },
+      {
+        "scenario": "process_memory_scrape",
+        "note": "File-less theft — reading a secret straight out of memory, where file-watchers see nothing."
+      },
+      {
+        "scenario": "dns_tunnel",
+        "note": "Covert exfiltration over DNS: the channel everyone allows and nobody inspects."
+      },
+      {
+        "scenario": "blacklist_comm",
+        "note": "A quick, unambiguous win: talking to a known-bad address, flagged within a minute or two."
+      },
+      {
+        "scenario": "divergence",
+        "note": "Close on governance: an AI agent drifting off its declared plan, proven, not trusted."
+      }
+    ],
+    "closing": "Finish by pressing Run cleanup so the machine is left exactly as it started."
+  },
+  "safety": {
+    "headline": "Simulation only: no real attack is carried out.",
+    "summary": "Every scenario is a simulation built on test data: decoy credentials and files, harmless test processes, and public test endpoints. No real secret leaves this machine; where a scenario has to touch a real file, it opens it read-only and sends nothing from it.",
+    "scenario_note": "Simulation on test data. No real attack is carried out.",
+    "points": [
+      "Everything runs locally on this machine. No real malware is downloaded or executed.",
+      "No real secrets are sent anywhere. Where a scenario needs a credential file, it writes a throwaway fake one and reads only that; a few scenarios open a real file read-only for one byte and send nothing from it.",
+      "Simulated network traffic goes to public test endpoints (for example portquiz.net) or to well-known sinkhole ranges — never to a real attacker.",
+      "Each scenario writes its demo files under a per-agent folder in your temporary directory, and tracks exactly what it created.",
+      "Press Run cleanup when you are done and the simulator stops everything and removes the demo files it created. Anything a scenario had to place in a system location is listed so you can remove it with administrator rights."
+    ]
+  }
+}

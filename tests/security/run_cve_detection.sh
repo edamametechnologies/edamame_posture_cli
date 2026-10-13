@@ -19,6 +19,7 @@
 #     [--readiness-wait <seconds>]       # default: 120
 #     [--agent-type <string>]            # default: openclaw
 #     [--scenarios <comma,separated>]    # default: the full CVE scenario set
+#     [--export-matched <count>]         # default: 3 (0: no alertable export)
 #
 # Detection timing defaults are tuned so iForest has enough observation time on
 # the token-exfil scenarios; see the per-flag defaults below.
@@ -31,8 +32,16 @@
 #   results.json       full result object: platform, scenarios[], totals
 #   results.ndjson     one JSON per scenario, for streaming consumers
 #   detector_ticks.log stdout/stderr from forced detector ticks
-#   findings/<scenario>.export.json  diagnostic export of the matched findings
-#                      when the scenario ended demoted_below_alertable
+#   findings/<scenario>.json  the matched findings and a sessions snapshot
+#   findings/<scenario>.meta.json  what the scenario asserts: expected check,
+#                      markers, ports, expected tier (read offline by
+#                      edamame_core/tools/attack_corpus_from_gate.py)
+#   findings/<scenario>.export.json  diagnostic exports of matched findings:
+#                      `exports` when the scenario ended demoted_below_alertable
+#                      (or an adjudicator-demotable finding is below alert);
+#                      `alertable_exports`, up to --export-matched alertable
+#                      ones, newest first, whose `finding_input_slice` is the
+#                      detector's input the attack corpus replays
 
 set -Euo pipefail
 
@@ -50,6 +59,10 @@ COOLDOWN=8
 POLL_ATTEMPTS=6
 POLL_INTERVAL=30
 READINESS_WAIT=120
+# Alertable matched findings exported per scenario (export_alertable_findings):
+# a handful covers the scenario's distinct finding shapes and bounds the RPC
+# calls and the artifact.
+EXPORT_MATCHED=3
 AGENT_TYPE="openclaw"
 SCENARIOS_CSV="blacklist_comm,cve_token_exfil,cve_sandbox_escape,memory_poisoning,credential_sprawl,supply_chain_exfil,npm_rat_beacon,file_events,skill_supply_chain,pgserve_postinstall,package_install_lifecycle,temp_modify,nonsensitive_path,agent_config_tamper,agent_rules_backdoor,agent_cred_harvest,agent_denylist_bypass,dns_tunnel,dns_tunnel_reconnect,ntp_tunnel,loopback_relay,process_memory_scrape,agent_memory_scrape"
 
@@ -65,13 +78,15 @@ while [[ $# -gt 0 ]]; do
     --readiness-wait)    READINESS_WAIT="$2"; shift 2;;
     --agent-type)        AGENT_TYPE="$2"; shift 2;;
     --scenarios)         SCENARIOS_CSV="$2"; shift 2;;
-    -h|--help) sed -n '2,30p' "$0"; exit 0;;
+    --export-matched)    EXPORT_MATCHED="$2"; shift 2;;
+    -h|--help) sed -n '2,/^$/p' "$0"; exit 0;;
     *) die "unknown flag: $1";;
   esac
 done
 
 [[ -n "$TRIGGERS_DIR" ]] || die "--triggers-dir required"
 [[ -n "$OUTPUT_DIR"   ]] || die "--output-dir required"
+[[ "$EXPORT_MATCHED" =~ ^[0-9]+$ ]] || die "--export-matched must be a non-negative integer"
 [[ -d "$TRIGGERS_DIR" ]] || die "triggers dir not found: $TRIGGERS_DIR"
 [[ -n "${EDAMAME_CLI:-}" && -x "${EDAMAME_CLI:-}" ]] || die "EDAMAME_CLI must point to an executable edamame_cli"
 
@@ -975,7 +990,8 @@ PY
 # (`export_attack_pattern_finding_details`) carries the originating report's
 # debug trace (the adjudication decision and the per-finding input slice).
 # Save one export per non-alertable matched finding_key to
-# findings/<scenario>.export.json. Must run before the post-scenario
+# findings/<scenario>.export.json (the `exports` section; the alertable one,
+# export_alertable_findings, is kept). Must run before the post-scenario
 # clear_vuln_history: the RPC looks the key up in the detector history.
 # Diagnostic only: a failed export is logged and never changes the result.
 export_demoted_findings() {
@@ -990,6 +1006,7 @@ export_demoted_findings() {
 import json, os, sys, time
 sys.path.insert(0, os.environ["TRIGGERS_DIR_ENV"])
 from _edamame_cli import cli_rpc
+from _finding_export import update_export_document
 from _finding_match import is_alertable, normalize_severity
 
 # Bounds the RPC calls and the artifact size when a scenario matched many
@@ -1023,20 +1040,17 @@ for key in keys[:MAX_EXPORTS]:
         response = {"success": False, "error": f"rpc failed: {exc}"}
     exports.append({"finding_key": key, "severity": severity_of[key], "export": response})
 
-with open(os.environ["EXPORT_DUMP"], "w", encoding="utf-8") as fh:
-    json.dump(
-        {
-            "scenario": scenario,
-            "check": evidence.get("check"),
-            "exported_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-            "demoted_finding_keys": len(keys),
-            "exported": len(exports),
-            "exports": exports,
-        },
-        fh,
-        indent=2,
-        default=str,
-    )
+update_export_document(
+    os.environ["EXPORT_DUMP"],
+    scenario,
+    evidence.get("check"),
+    {
+        "exported_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "demoted_finding_keys": len(keys),
+        "exported": len(exports),
+        "exports": exports,
+    },
+)
 ok = sum(1 for e in exports if isinstance(e["export"], dict) and e["export"].get("success"))
 print(f"[{scenario}] diagnostic export: {ok}/{len(exports)} succeeded ({len(keys)} demoted finding_key(s))")
 PY
@@ -1063,6 +1077,112 @@ except Exception:
     raise SystemExit(0)
 print(sum(1 for e in dump.get("exports") or []
           if isinstance(e, dict) and demoted_by_adjudicator(e.get("finding_key", ""), e.get("export"))))
+PY
+}
+
+# The alertable matched findings are the attack this scenario proves
+# detectable. Their exports carry the detector's own input for each finding
+# (`details.finding_input_slice`), which edamame_core/tools/
+# attack_corpus_from_gate.py shapes into replayable attack-corpus envelopes,
+# so a detector or params change is checked against every attack offline.
+# Saves up to --export-matched of them, newest first, as `alertable_exports`
+# in findings/<scenario>.export.json (export_demoted_findings' section is
+# kept). Must run before the post-scenario clear_vuln_history: the RPC looks
+# the key up in the detector history. Diagnostic only: a failed export is
+# logged and never changes the result.
+export_alertable_findings() {
+  local scenario="$1"
+  (( EXPORT_MATCHED > 0 )) || return 0
+  log "  saving the diagnostic export of up to $EXPORT_MATCHED alertable finding(s) to findings/$scenario.export.json"
+  EVIDENCE_DUMP="$OUTPUT_DIR_ABS/findings/$scenario.json" \
+  EXPORT_DUMP="$OUTPUT_DIR_ABS/findings/$scenario.export.json" \
+  EXPORT_LIMIT="$EXPORT_MATCHED" \
+  SCENARIO="$scenario" \
+  TRIGGERS_DIR_ENV="$TRIGGERS_DIR" \
+  "$PYTHON" - <<'PY' >>"$TICK_LOG" 2>&1 || log "  WARNING: alertable export failed for $scenario (see detector_ticks.log)"
+import json, os, sys, time
+sys.path.insert(0, os.environ["TRIGGERS_DIR_ENV"])
+from _edamame_cli import cli_rpc
+from _finding_export import (
+    alertable_by_key,
+    export_entry,
+    export_request_args,
+    export_succeeded,
+    matched_findings,
+    update_export_document,
+)
+from _finding_match import normalize_severity
+
+scenario = os.environ["SCENARIO"]
+limit = int(os.environ["EXPORT_LIMIT"])
+with open(os.environ["EVIDENCE_DUMP"], "r", encoding="utf-8") as fh:
+    evidence = json.load(fh)
+alertable = alertable_by_key(matched_findings(evidence))
+
+entries = []
+for key, finding in alertable[:limit]:
+    try:
+        # The FP lab allows this RPC the same margin on a busy daemon.
+        response = cli_rpc("export_attack_pattern_finding_details", export_request_args(key), timeout=180)
+    except Exception as exc:
+        # A daemon that did not answer one export will not answer the next
+        # in time either: stop here rather than spend the margin per key.
+        entries.append(export_entry(key, normalize_severity(finding),
+                                    {"success": False, "error": f"rpc failed: {exc}"}))
+        break
+    entries.append(export_entry(key, normalize_severity(finding), response))
+
+update_export_document(
+    os.environ["EXPORT_DUMP"],
+    scenario,
+    evidence.get("check"),
+    {
+        "alertable_exported_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "alertable_finding_keys": len(alertable),
+        "alertable_exported": len(entries),
+        "alertable_exports": entries,
+    },
+)
+ok = sum(1 for e in entries if export_succeeded(e))
+print(f"[{scenario}] alertable export: {ok}/{len(entries)} succeeded "
+      f"({len(alertable)} alertable finding_key(s), limit {limit})")
+PY
+}
+
+# findings/<scenario>.meta.json: what this runner asserts for the scenario
+# (expected check, attribution markers and ports, expected tier, whether it
+# must alert), written from the tables above so offline consumers (the
+# attack-corpus shaper, report tooling) read the runner's own table instead of
+# a copy of it. Diagnostic only, like the exports.
+write_scenario_meta() {
+  local scenario="$1"
+  local check="$2"
+  SCENARIO="$scenario" \
+  CHECK="$check" \
+  MARKERS_JSON="$(scenario_markers_json "$scenario")" \
+  PORTS_JSON="$(scenario_ports_json "$scenario")" \
+  EXPECTED_SEVERITY="$(expected_severity_for "$scenario")" \
+  REQUIRES_ALERT="$(scenario_requires_alert "$scenario")" \
+  EXPORT_LIMIT="$EXPORT_MATCHED" \
+  META_DUMP="$OUTPUT_DIR_ABS/findings/$scenario.meta.json" \
+  TRIGGERS_DIR_ENV="$TRIGGERS_DIR" \
+  "$PYTHON" - <<'PY' >>"$TICK_LOG" 2>&1 || log "  WARNING: could not write findings/$scenario.meta.json (see detector_ticks.log)"
+import json, os, sys
+sys.path.insert(0, os.environ["TRIGGERS_DIR_ENV"])
+from _finding_export import scenario_meta, write_json
+
+write_json(
+    os.environ["META_DUMP"],
+    scenario_meta(
+        os.environ["SCENARIO"],
+        os.environ["CHECK"],
+        json.loads(os.environ.get("MARKERS_JSON") or "[]"),
+        json.loads(os.environ.get("PORTS_JSON") or "[]"),
+        os.environ.get("EXPECTED_SEVERITY", ""),
+        os.environ.get("REQUIRES_ALERT", "1").strip() != "0",
+        int(os.environ["EXPORT_LIMIT"]),
+    ),
+)
 PY
 }
 
@@ -1289,6 +1409,7 @@ run_one_scenario() {
     record_scenario_result "$scenario" "unknown" "skip" 0 0 0 0 "no_expected_check" 0 "none"
     return 0
   fi
+  write_scenario_meta "$scenario" "$check"
   local trigger_script
   trigger_script="$(trigger_script_for "$scenario")"
   if [[ ! -f "$trigger_script" ]]; then
@@ -1378,6 +1499,13 @@ run_one_scenario() {
     else
       extra_note="adjudicator_demoted"
     fi
+  fi
+
+  # The detector inputs of the alertable findings (pass, or a tier miss),
+  # before the post-scenario clear_vuln_history drops the history the export
+  # reads. blacklisted_sessions asserts on the session list: no finding.
+  if [[ "$check" != "blacklisted_sessions" ]] && (( ALERTABLE > 0 )); then
+    export_alertable_findings "$scenario"
   fi
   record_scenario_result "$scenario" "$check" "$final_status" "$TOTAL" "$CURRENT" "$HISTORY" "$total_elapsed" "$extra_note" "$ALERTABLE" "$SEVERITIES" "$requirement" "$ADJ_DEMOTED"
   log "  RESULT: $final_status  alertable=$ALERTABLE total=$TOTAL current=$CURRENT history=$HISTORY severities=$SEVERITIES  elapsed=${total_elapsed}s attempts=$scen_attempt"

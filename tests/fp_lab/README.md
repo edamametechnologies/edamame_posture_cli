@@ -125,6 +125,20 @@ the `posture-binary-<label>` build of the run you name, runs the lab, and
 uploads the run directory as `fp-lab-<label>`. The default `fleet` mode (push,
 PR, release gate) is unchanged.
 
+## Local loop (the operator Mac)
+
+`tests/local_loop/run_local_loop.sh` opens the same owned-daemon window on
+the operator Mac itself, for a posture built from the workspace (`--build`)
+instead of a CI pkg: it records and stops the app and the helper, saves root's
+posture state, and its EXIT trap puts all of it back. In that window it runs a
+short idle baseline, the CVE scenarios with their alertable exports, and this
+lab's agent-free `direct-*` scenarios (`--agents ""`), then shapes the
+evidence: attack exports into staged `edamame_core/tests/attack_corpus`
+envelopes (`tools/attack_corpus_from_gate.py`, `--promote` copies them), this
+lab's alertables into staged FP candidates. It is the live step between the
+offline replay (`edamame_core/tools/fp_loop/`) and CI; `--dry-run` prints
+every step and changes nothing. See `tests/local_loop/README.md`.
+
 ## The release candidate, end to end
 
 The gate itself (what blocks, why) is `edamame_rules/edamame_app/release.mdc`,
