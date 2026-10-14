@@ -66,6 +66,7 @@ from _common import (
     resolve_agent_type,
     state_dir_for,
 )
+from _common import prepare_state_dir
 
 PID_FILE = "agent_rules_backdoor.pid"
 CREATED_MARKER = "agent_rules_backdoor.created"
@@ -101,7 +102,7 @@ def handle_signal(signum: int, _frame: object) -> None:
 
 
 def ensure_state_dir(d: Path) -> None:
-    d.mkdir(parents=True, exist_ok=True)
+    prepare_state_dir(d)
 
 
 def record_created(state_dir: Path, path: Path) -> None:

@@ -15,6 +15,8 @@ import os
 import platform
 import shutil
 import stat
+import subprocess
+import time
 from pathlib import Path
 
 VALID_AGENT_TYPES = ("openclaw", "cursor", "claude_code", "claude_desktop", "codex", "hermes")
@@ -41,10 +43,16 @@ def resolve_agent_type(cli_value: str | None) -> str:
 
 
 def state_dir_for(agent_type: str) -> Path:
-    name = f"edamame_{agent_type}_demo"
+    # The working directory is kept under the OS temp root on purpose: two
+    # scenarios assert on a writer/parent executable path that matches the
+    # detector's temp-dir patterns ("/tmp/", "\\Temp\\"), so moving it off the
+    # temp root would change what those scenarios detect. On POSIX /tmp is
+    # shared between users, so the leaf carries the owner's id and
+    # `prepare_state_dir` refuses a symlinked or foreign-owned directory; on
+    # Windows %TEMP% is already per-user.
     if platform.system() == "Windows":
-        return Path(os.environ.get("TEMP", "C:\\Temp")) / name
-    return Path(f"/tmp/{name}")
+        return Path(os.environ.get("TEMP", "C:\\Temp")) / f"edamame_{agent_type}_demo"
+    return Path(f"/tmp/edamame_{agent_type}_demo_{os.geteuid()}")
 
 
 def file_prefix_for(agent_type: str) -> str:
@@ -301,3 +309,246 @@ class TriggerFileManifest:
         self.files[key] = sha256_hex(data)
         self.save()
         return True
+
+
+# --- Secure state directory -------------------------------------------------
+#
+# The state directory holds the control files cleanup.py trusts (pid files,
+# created/restored markers, content-hashed manifests, canonical backups). On
+# POSIX the leaf lives under the shared /tmp, so it is created privately
+# (0700) and is used only when it is a real directory owned by the current
+# user and not a symlink; the owner id is part of the leaf name
+# (`state_dir_for`) so unrelated accounts do not share one directory.
+
+
+class StateDirError(SystemExit):
+    """Raised (as a fatal exit) when the state directory cannot be trusted."""
+
+
+def _refuse_state_dir(state_dir: Path, reason: str) -> "StateDirError":
+    return StateDirError(
+        f"refusing to use state directory {state_dir}: {reason}. "
+        "Remove it by hand after checking what it is, then re-run."
+    )
+
+
+def state_dir_is_safe(state_dir: Path) -> tuple[bool, str]:
+    """(ok, reason) for an EXISTING state dir, without creating anything.
+
+    Used by cleanup.py: a directory that is a symlink, is not a directory, or
+    is owned by another user is not one this process created and must not be
+    trusted to drive deletes/kills. ``reason`` is empty when ok.
+    """
+    sd = Path(state_dir)
+    if os.path.islink(str(sd)):
+        return False, "it is a symbolic link"
+    try:
+        st = os.lstat(str(sd))
+    except FileNotFoundError:
+        return True, ""
+    except OSError as exc:
+        return False, f"it cannot be inspected ({exc})"
+    if not stat.S_ISDIR(st.st_mode):
+        return False, "it is not a directory"
+    if hasattr(os, "geteuid") and st.st_uid != os.geteuid():
+        return False, f"it is owned by uid {st.st_uid}, not this user"
+    return True, ""
+
+
+def prepare_state_dir(state_dir: Path) -> Path:
+    """Create ``state_dir`` privately (0700) and return it, refusing a
+    symlinked or foreign-owned directory. Fatal (``SystemExit``) on refusal:
+    a trigger must not run against a directory it cannot trust.
+    """
+    sd = Path(state_dir)
+    # The parent (the OS temp root) is shared and system-owned; only the leaf
+    # is made private.
+    sd.parent.mkdir(parents=True, exist_ok=True)
+    if os.path.islink(str(sd)):
+        raise _refuse_state_dir(sd, "it is a symbolic link")
+    if sd.exists():
+        ok, reason = state_dir_is_safe(sd)
+        if not ok:
+            raise _refuse_state_dir(sd, reason)
+    else:
+        try:
+            os.mkdir(str(sd), 0o700)
+        except FileExistsError:
+            ok, reason = state_dir_is_safe(sd)
+            if not ok:
+                raise _refuse_state_dir(sd, reason)
+    # Force 0700 even when it pre-existed with looser bits (POSIX only).
+    if hasattr(os, "geteuid"):
+        try:
+            os.chmod(str(sd), 0o700)
+        except OSError:
+            pass
+    return sd
+
+
+# --- Targets cleanup is allowed to touch ------------------------------------
+
+
+def _within(child: Path, parent: Path) -> bool:
+    try:
+        child_r = os.path.realpath(str(child))
+        parent_r = os.path.realpath(str(parent))
+    except OSError:
+        return False
+    try:
+        return os.path.commonpath([child_r, parent_r]) == parent_r
+    except ValueError:
+        return False
+
+
+# Agent config files the triggers write under their canonical (non-prefixed)
+# names, because the shipped sensitive-path patterns for them are
+# file-specific. (basename, parent-directory name)
+_CANONICAL_AGENT_FILES = {
+    ("mcp.json", ".cursor"),
+    ("credentials.json", ".claude"),
+    ("auth.json", ".codex"),
+    ("config", ".aws"),
+}
+
+
+def is_catalog_creatable_target(path: Path, state_dir: Path) -> bool:
+    """True when ``path`` is something a catalog scenario could have created,
+    so cleanup may restore or delete it. Everything else is left in place.
+
+    Allowed: anything inside the (validated) state dir; a demo-prefixed name
+    (``demo_*`` / ``DEMO_*``); the canonical agent-config files the triggers
+    write by their real names; agent rule files under ``.cursor/rules``; the
+    per-run Claude transcript probe under ``.claude/projects/edamame-*``; and
+    the stand-in daemon installed for the lineage scenario.
+    """
+    p = Path(path).expanduser()
+    if _within(p, state_dir):
+        return True
+    name = p.name
+    if name.startswith("demo_") or name.startswith("DEMO_"):
+        return True
+    if (name, p.parent.name) in _CANONICAL_AGENT_FILES:
+        return True
+    if name.endswith(".mdc") and p.parent.name == "rules" and p.parent.parent.name == ".cursor":
+        return True
+    parts = p.parts
+    if ".claude" in parts and "projects" in parts and any(part.startswith("edamame-") for part in parts):
+        return True
+    if name.endswith("_xz_sshd_standin"):
+        return True
+    return False
+
+
+# --- Process identity (stale / reused pid guard) ----------------------------
+#
+# A pid file records a pid only. A pid is reused after a reboot (and, rarely,
+# within one), so cleanup must not signal a process just because something with
+# that pid is alive. Two reader-side checks, needing no cooperation from the
+# writer: the pid file cannot predate the last boot, and the live process must
+# not have started after the pid file was written (the trigger writes the file
+# right after the process starts, so a legitimate target started no later).
+
+_PID_SLACK_SECS = 5.0
+
+
+def boot_time_epoch() -> "float | None":
+    system = platform.system()
+    try:
+        if system == "Linux":
+            with open("/proc/stat", "r", encoding="utf-8") as fh:
+                for line in fh:
+                    if line.startswith("btime "):
+                        return float(line.split()[1])
+            return None
+        if system == "Darwin":
+            out = subprocess.run(
+                ["sysctl", "-n", "kern.boottime"],
+                capture_output=True, text=True, encoding="utf-8", errors="replace",
+                timeout=5, check=False,
+            ).stdout
+            # e.g. "{ sec = 1699999999, usec = 0 } Mon ..."
+            import re
+            m = re.search(r"sec\s*=\s*(\d+)", out)
+            return float(m.group(1)) if m else None
+        if system == "Windows":
+            import ctypes
+            ticks = ctypes.windll.kernel32.GetTickCount64()  # ms since boot
+            return time.time() - (ticks / 1000.0)
+    except Exception:
+        return None
+    return None
+
+
+def process_start_epoch(pid: int) -> "float | None":
+    system = platform.system()
+    try:
+        if system == "Linux":
+            with open(f"/proc/{pid}/stat", "r", encoding="utf-8") as fh:
+                data = fh.read()
+            # Field 22 (starttime) in clock ticks since boot; the comm field
+            # (in parens) can contain spaces, so split after the last ')'.
+            rparen = data.rfind(")")
+            fields = data[rparen + 2:].split()
+            starttime_ticks = float(fields[19])
+            clk = os.sysconf("SC_CLK_TCK")
+            bt = boot_time_epoch()
+            if bt is None or clk <= 0:
+                return None
+            return bt + starttime_ticks / clk
+        if system == "Darwin":
+            out = subprocess.run(
+                ["ps", "-p", str(pid), "-o", "lstart="],
+                capture_output=True, text=True, encoding="utf-8", errors="replace",
+                timeout=5, check=False,
+            ).stdout.strip()
+            if not out:
+                return None
+            return time.mktime(time.strptime(out, "%a %b %d %H:%M:%S %Y"))
+        if system == "Windows":
+            import ctypes
+            from ctypes import wintypes
+            PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+            k32 = ctypes.windll.kernel32
+            handle = k32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, int(pid))
+            if not handle:
+                return None
+            try:
+                creation = wintypes.FILETIME()
+                exit_t = wintypes.FILETIME()
+                kernel_t = wintypes.FILETIME()
+                user_t = wintypes.FILETIME()
+                ok = k32.GetProcessTimes(
+                    handle, ctypes.byref(creation), ctypes.byref(exit_t),
+                    ctypes.byref(kernel_t), ctypes.byref(user_t),
+                )
+                if not ok:
+                    return None
+                ft = (creation.dwHighDateTime << 32) | creation.dwLowDateTime
+                # FILETIME is 100ns ticks since 1601-01-01.
+                return ft / 1e7 - 11644473600.0
+            finally:
+                k32.CloseHandle(handle)
+    except Exception:
+        return None
+    return None
+
+
+def pid_file_is_trustworthy(pid: int, pid_file: Path) -> bool:
+    """True when the live ``pid`` is plausibly the process the trigger recorded
+    in ``pid_file`` -- not a pid reused after a reboot or by an unrelated
+    process. Conservative: when a fact cannot be read it does not block the
+    kill (the alive check still gates it), it only blocks on positive evidence
+    of a mismatch.
+    """
+    try:
+        mtime = os.stat(str(pid_file)).st_mtime
+    except OSError:
+        return True
+    bt = boot_time_epoch()
+    if bt is not None and mtime < bt - _PID_SLACK_SECS:
+        return False  # the pid file predates the current boot: pid is reused
+    start = process_start_epoch(pid)
+    if start is not None and start > mtime + _PID_SLACK_SECS:
+        return False  # the live process started after the file was written
+    return True

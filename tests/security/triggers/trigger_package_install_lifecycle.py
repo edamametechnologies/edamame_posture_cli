@@ -50,6 +50,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _common import AGENT_TYPE_ARG_HELP, resolve_agent_type, state_dir_for  # noqa: E402
+from _common import prepare_state_dir
 
 PID_FILE = "package_install_lifecycle.pid"
 CREATED_MARKER = "package_install_lifecycle.created"
@@ -185,7 +186,7 @@ def main() -> int:
     args = parse_args()
     agent_type = resolve_agent_type(args.agent_type)
     state_dir = args.state_dir or state_dir_for(agent_type)
-    state_dir.mkdir(parents=True, exist_ok=True)
+    prepare_state_dir(state_dir)
     signal.signal(signal.SIGINT, handle_signal)
     signal.signal(signal.SIGTERM, handle_signal)
     (state_dir / PID_FILE).write_text(f"{os.getpid()}\n", encoding="utf-8")

@@ -68,6 +68,7 @@ import time
 from pathlib import Path
 
 from _common import AGENT_TYPE_ARG_HELP, resolve_agent_type, state_dir_for
+from _common import prepare_state_dir
 
 PID_FILE = "process_memory_scrape.pid"
 CREATED_MARKER = "process_memory_scrape.created"
@@ -411,7 +412,7 @@ def main() -> int:
 
     agent_type = resolve_agent_type(args.agent_type)
     state_dir = args.state_dir or state_dir_for(agent_type)
-    state_dir.mkdir(parents=True, exist_ok=True)
+    prepare_state_dir(state_dir)
     signal.signal(signal.SIGINT, handle_signal)
     signal.signal(signal.SIGTERM, handle_signal)
     pid_file = state_dir / PID_FILE

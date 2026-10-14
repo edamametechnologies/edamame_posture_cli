@@ -846,14 +846,14 @@
   },
   "safety": {
     "headline": "Simulation only: no real attack is carried out.",
-    "summary": "Every scenario is a simulation built on test data: decoy credentials and files, harmless test processes, and public test endpoints. No real secret leaves this machine; where a scenario has to touch a real file, it opens it read-only and sends nothing from it.",
+    "summary": "Every scenario is a simulation built on test data: throwaway decoy credentials, harmless test processes, and placeholder files. No real secret ever leaves this machine. To be realistic, scenarios create their decoy files in the same real locations an attacker would read — your home configuration folders such as .ssh, .aws, .gnupg, .kube, .cursor, .codex and .claude — and one scenario connects to addresses that appear on public threat-intel blocklists so you can watch EDAMAME flag a known-bad destination. Run cleanup removes everything the scenarios created.",
     "scenario_note": "Simulation on test data. No real attack is carried out.",
     "points": [
-      "Everything runs locally on this machine. No real malware is downloaded or executed.",
-      "No real secrets are sent anywhere. Where a scenario needs a credential file, it writes a throwaway fake one and reads only that; a few scenarios open a real file read-only for one byte and send nothing from it.",
-      "Simulated network traffic goes to public test endpoints (for example portquiz.net) or to well-known sinkhole ranges — never to a real attacker.",
-      "Each scenario writes its demo files under a per-agent folder in your temporary directory, and tracks exactly what it created.",
-      "Press Run cleanup when you are done and the simulator stops everything and removes the demo files it created. Anything a scenario had to place in a system location is listed so you can remove it with administrator rights."
+      "Everything runs locally on this machine. No real malware is downloaded or executed, and no real secret is ever sent anywhere.",
+      "To look like the real thing, scenarios write throwaway decoy credentials and config files into your real home folders (for example .ssh, .aws, .gnupg, .kube, .cursor, .codex, .claude) and read only those decoys. One scenario, after backing up your real file first, writes a demo entry into an AI agent config (.cursor/mcp.json) and Run cleanup puts the original back.",
+      "Most simulated traffic goes to public test endpoints (for example portquiz.net) or to well-known sinkhole ranges. One scenario deliberately connects to addresses listed on public threat-intel blocklists — it sends only harmless filler, never any secret — so EDAMAME has a known-bad destination to detect.",
+      "Scenarios keep their working files under a per-agent folder in your temporary directory and record exactly what they created, so cleanup can undo it.",
+      "Press Run cleanup when you are done: the simulator stops every scenario, restores any file it replaced, and removes the decoy files it created. Anything a scenario had to place in a system location is listed so you can remove it with administrator rights."
     ]
   }
 }

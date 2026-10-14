@@ -9,6 +9,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from _common import prepare_state_dir
+
 C_SOURCE = r"""
 #include <signal.h>
 #include <stdlib.h>
@@ -102,7 +104,7 @@ int main(int argc, char **argv) {
 
 
 def ensure_state_dir(state_dir: Path) -> None:
-    state_dir.mkdir(parents=True, exist_ok=True)
+    prepare_state_dir(state_dir)
 
 
 def record_created(state_dir: Path, marker_name: str, path: Path) -> None:

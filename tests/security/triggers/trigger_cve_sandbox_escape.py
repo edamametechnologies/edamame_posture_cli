@@ -36,6 +36,7 @@ import time
 from pathlib import Path
 
 from _common import AGENT_TYPE_ARG_HELP, resolve_agent_type, state_dir_for
+from _common import prepare_state_dir
 
 PID_FILE = "cve_sandbox.pid"
 CREATED_MARKER = "cve_sandbox.created"
@@ -200,7 +201,7 @@ def terminate_process_tree(proc: subprocess.Popen) -> None:
 
 
 def ensure_state_dir(d: Path) -> None:
-    d.mkdir(parents=True, exist_ok=True)
+    prepare_state_dir(d)
 
 
 def record_created(state_dir: Path, path: Path) -> None:

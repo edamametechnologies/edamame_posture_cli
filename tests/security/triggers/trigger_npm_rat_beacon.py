@@ -57,6 +57,7 @@ from _common import (
     state_dir_for,
     upper_prefix_for,
 )
+from _common import prepare_state_dir
 
 PID_FILE = "npm_rat_beacon.pid"
 CREATED_MARKER = "npm_rat_beacon.created"
@@ -233,7 +234,7 @@ def terminate_process_tree(proc: subprocess.Popen) -> None:
 
 
 def ensure_state_dir(d: Path) -> None:
-    d.mkdir(parents=True, exist_ok=True)
+    prepare_state_dir(d)
 
 
 def record_created(state_dir: Path, path: Path) -> None:

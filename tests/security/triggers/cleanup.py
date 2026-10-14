@@ -19,13 +19,18 @@ from pathlib import Path
 
 from _common import (
     AGENT_TYPE_ARG_HELP,
+    VALID_AGENT_TYPES,
     file_prefix_for,
+    is_catalog_creatable_target,
+    pid_file_is_trustworthy,
     read_trigger_manifest,
     regular_file_sha256,
     resolve_agent_type,
     state_dir_for,
+    state_dir_is_safe,
     upper_prefix_for,
 )
+from _common import _within as _path_within
 
 PID_FILES = [
     "blacklist_comm.pid",
@@ -138,6 +143,13 @@ def parse_args():
     p = argparse.ArgumentParser(description="Clean up demo trigger state.")
     p.add_argument("--agent-type", default=None, help=AGENT_TYPE_ARG_HELP)
     p.add_argument("--state-dir", type=Path, default=None)
+    p.add_argument(
+        "--sweep",
+        action="store_true",
+        help="Also remove demo-prefixed files the catalog creates in your home "
+             "config folders, even when the state directory is gone (e.g. a "
+             "temporary directory that was cleared at reboot).",
+    )
     return p.parse_args()
 
 
@@ -145,8 +157,18 @@ def kill_from_pid_file(pid_file: Path) -> None:
     if not pid_file.exists():
         return
     try:
-        pid = int(pid_file.read_text("utf-8").strip())
-    except (ValueError, OSError):
+        pid = int(pid_file.read_text("utf-8").splitlines()[0].strip())
+    except (ValueError, IndexError, OSError):
+        pid_file.unlink(missing_ok=True)
+        return
+
+    # A pid is reused after a reboot (and, rarely, within one). Do not signal a
+    # process this cleanup did not start: if the pid file predates the current
+    # boot, or the live process started after the file was written, the pid is
+    # not the one the trigger recorded. Drop the stale file and move on.
+    if not pid_file_is_trustworthy(pid, pid_file):
+        print(f"  skipped pid={pid} ({pid_file.name}): not the process that wrote this "
+              f"file (stale after reboot or pid reused); removed the stale pid file")
         pid_file.unlink(missing_ok=True)
         return
 
@@ -205,6 +227,7 @@ def kill_from_pid_file(pid_file: Path) -> None:
 def restore_backups(marker: Path) -> None:
     if not marker.exists():
         return
+    state_dir = marker.parent
     for line in marker.read_text("utf-8").splitlines():
         entry = line.strip()
         if not entry or "\t" not in entry:
@@ -212,6 +235,15 @@ def restore_backups(marker: Path) -> None:
         original_raw, backup_raw = entry.split("\t", 1)
         original = Path(original_raw.strip())
         backup = Path(backup_raw.strip())
+        # Only restore over a path a scenario could have taken over, and only
+        # from a backup kept inside the state directory. Anything else in the
+        # marker is left untouched and reported.
+        if not is_catalog_creatable_target(original, state_dir):
+            print(f"  left {original}: not a path a scenario creates; not restoring over it")
+            continue
+        if not _path_within(backup, state_dir):
+            print(f"  left {original}: its recorded backup {backup} is not inside the state dir")
+            continue
         if not backup.exists():
             # Nothing to put back. Leaving the trigger's payload in place
             # would be worse than removing it: the payload is a rogue MCP
@@ -235,12 +267,20 @@ def restore_backups(marker: Path) -> None:
 def remove_created_files(marker: Path) -> None:
     if not marker.exists():
         return
+    state_dir = marker.parent
     removed_parents: set[Path] = set()
     for line in marker.read_text("utf-8").splitlines():
         path = line.strip()
         if not path:
             continue
         target = Path(path)
+        # Only delete something a catalog scenario could have created (inside
+        # the state dir, a demo-prefixed name, or one of the canonical agent
+        # paths the triggers write). A marker listing anything else is left
+        # alone and reported.
+        if not is_catalog_creatable_target(target, state_dir):
+            print(f"  left {target}: not a path a scenario creates; not removing it")
+            continue
         if target.exists():
             try:
                 target.unlink()
@@ -320,6 +360,59 @@ def report_legacy_marker(marker: Path) -> None:
     marker.unlink(missing_ok=True)
 
 
+# Home-config folders where the catalog writes demo-prefixed decoy files. The
+# --sweep fallback removes only demo-prefixed names here, so it cannot touch a
+# user's real credentials.
+_SWEEP_HOME_SUBDIRS = (
+    ".ssh", ".aws", ".gnupg", ".kube", ".azure", ".docker",
+    ".config/gcloud", ".config/solana", ".ethereum/keystore", ".bitcoin",
+    ".cursor/rules",
+)
+
+
+def sweep_demo_artifacts(state_dir: Path) -> None:
+    """Remove demo-prefixed files the catalog creates in the user's home,
+    independent of the markers. The fallback for when the state directory (and
+    its markers) is gone -- e.g. a temp dir cleared at reboot -- while the decoy
+    files it caused in the home folders remain. Only ever removes catalog
+    targets (``is_catalog_creatable_target``)."""
+    print("  sweeping demo-prefixed files in home config folders")
+    home = Path.home()
+
+    def _remove(target: Path) -> None:
+        if not os.path.lexists(str(target)):
+            return
+        if not is_catalog_creatable_target(target, state_dir):
+            return
+        try:
+            if target.is_dir() and not target.is_symlink():
+                shutil.rmtree(target)
+            else:
+                target.unlink()
+            print(f"  removed {target}")
+        except OSError as exc:
+            print(f"  cannot remove {target}: {exc}")
+
+    for agent in VALID_AGENT_TYPES:
+        pfx = file_prefix_for(agent)
+        upfx = upper_prefix_for(agent)
+        for sub in _SWEEP_HOME_SUBDIRS:
+            d = home / sub
+            if not d.is_dir():
+                continue
+            for pattern in (f"{pfx}*", f"{upfx}*"):
+                for match in sorted(d.glob(pattern)):
+                    _remove(match)
+        # Home-root decoys and demo workspaces/config dirs.
+        for pattern in (f".env_{pfx}*", f".npmrc_{pfx}*", f".netrc_{pfx}*",
+                        f".{pfx}_*", f"{pfx}_*"):
+            for match in sorted(home.glob(pattern)):
+                _remove(match)
+
+    # The per-run Claude transcript probe (not demo-prefixed, but catalog-owned).
+    _remove(home / ".claude" / "projects" / "edamame-denylist-bypass-probe")
+
+
 def main() -> int:
     args = parse_args()
     agent_type = resolve_agent_type(args.agent_type)
@@ -327,7 +420,20 @@ def main() -> int:
         args.state_dir = state_dir_for(agent_type)
     state_dir = args.state_dir
     if not state_dir.exists():
-        print("No demo state directory found; nothing to clean up.")
+        print("No demo state directory found.")
+        if args.sweep:
+            sweep_demo_artifacts(state_dir)
+        else:
+            print("Nothing to clean up (pass --sweep to also remove demo files left in your home folders).")
+        print("Cleanup complete.")
+        return 0
+
+    ok, reason = state_dir_is_safe(state_dir)
+    if not ok:
+        print(f"  cannot clean up {state_dir}: {reason}; left it untouched. Remove it by hand after checking what it is.")
+        if args.sweep:
+            sweep_demo_artifacts(state_dir)
+        print("Cleanup complete.")
         return 0
 
     print(f"Cleaning up demo state in {state_dir}")
@@ -348,6 +454,9 @@ def main() -> int:
 
     for name in LEGACY_UNHASHED_MARKERS:
         report_legacy_marker(state_dir / name)
+
+    if args.sweep:
+        sweep_demo_artifacts(state_dir)
 
     # Prune any empty subdirectories left behind by triggers that stage
     # nested layouts (e.g. node_modules/pgserve/scripts/).  Walks

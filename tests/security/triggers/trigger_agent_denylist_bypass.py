@@ -41,6 +41,7 @@ import uuid
 from pathlib import Path
 
 from _common import AGENT_TYPE_ARG_HELP, resolve_agent_type, state_dir_for
+from _common import prepare_state_dir
 
 PID_FILE = "agent_denylist_bypass.pid"
 CREATED_MARKER = "agent_denylist_bypass.created"
@@ -126,7 +127,7 @@ def main() -> int:
     args = parse_args()
     agent_type = resolve_agent_type(args.agent_type)
     state_dir = args.state_dir or state_dir_for(agent_type)
-    state_dir.mkdir(parents=True, exist_ok=True)
+    prepare_state_dir(state_dir)
 
     signal.signal(signal.SIGINT, handle_signal)
     signal.signal(signal.SIGTERM, handle_signal)
