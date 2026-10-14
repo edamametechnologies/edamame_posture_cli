@@ -361,8 +361,17 @@ def _augment_path(*dirs: str) -> None:
 #   Linux / macOS / WSL2 / Android (Termux):  curl -fsSL .../install.sh | bash
 #   Windows (native PowerShell):              iex (irm .../install.ps1)
 # (https://hermes-agent.nousresearch.com/docs/getting-started/installation)
+# The installers clone Hermes from its main branch, which moves many times a
+# day: on 2026-10-14 its provider-resolution changes after 79651b71 sent
+# `chat --provider anthropic` to an OpenAI-compatible endpoint (HTTP 404, no
+# session written) and failed the drive on every platform. Both installers
+# take a commit; HERMES_INSTALL_COMMIT overrides the pin (empty: main).
+HERMES_INSTALL_COMMIT = os.environ.get(
+    "HERMES_INSTALL_COMMIT", "79651b71bd56efd76d06f3de1df64dde09b58ff3"
+)
 HERMES_INSTALL_SH = (
     "curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash -s -- --skip-browser"
+    + (f" --commit {HERMES_INSTALL_COMMIT}" if HERMES_INSTALL_COMMIT else "")
 )
 # The scriptblock form passes the installer's switches, which `iex (irm ...)`
 # cannot: -SkipBrowser mirrors the Unix --skip-browser (no browser tools on a
@@ -370,6 +379,7 @@ HERMES_INSTALL_SH = (
 HERMES_INSTALL_PS1 = (
     "& ([scriptblock]::Create((irm https://hermes-agent.nousresearch.com/install.ps1)))"
     " -SkipBrowser -NonInteractive"
+    + (f" -Commit {HERMES_INSTALL_COMMIT}" if HERMES_INSTALL_COMMIT else "")
 )
 _HERMES_BIN_DIRS = ("~/.local/bin", "/usr/local/bin", "~/.hermes/bin")
 # uv/console_scripts + the PS1 installer drop the launcher in one of these on Windows.
