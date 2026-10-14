@@ -65,9 +65,13 @@ on:
       - 'tests/security/test_trigger_catalog.py'
       - '.github/workflows/attack_simulator.yml'
 
+# A push (CI validation) may cancel an earlier push on the same ref, but a
+# release-dispatched publish must never be cancelled mid-upload by a push that
+# lands while it runs: push and dispatch sit in separate concurrency groups,
+# and only push runs cancel in progress.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name == 'push' && 'push' || 'dispatch' }}
+  cancel-in-progress: ${{ github.event_name == 'push' }}
 
 # contents: write is for the Trigger Panel retirement (this repository's own
 # release assets); the simulator's release is in edamame_security and is
@@ -106,6 +110,10 @@ jobs:
           auto_remediate: true
           checkout: true
           token: ${{ secrets.DEV_GITHUB_TOKEN }}
+          # This job then runs code from edamame_security at an operator-chosen
+          # ref; no later step needs git auth to this repository, so the token
+          # is not left in the checkout's git config.
+          persist_credentials: false
           wait_for_api: true
           wait_repository: edamametechnologies/edamame_core
           wait_for_https: true
@@ -227,6 +235,10 @@ jobs:
           auto_remediate: true
           checkout: true
           token: ${{ secrets.DEV_GITHUB_TOKEN }}
+          # This job then runs code from edamame_security at an operator-chosen
+          # ref; no later step needs git auth to this repository, so the token
+          # is not left in the checkout's git config.
+          persist_credentials: false
           wait_for_api: true
           wait_repository: edamametechnologies/edamame_core
           wait_for_https: true
@@ -342,6 +354,10 @@ jobs:
           auto_remediate: true
           checkout: true
           token: ${{ secrets.DEV_GITHUB_TOKEN }}
+          # This job then runs code from edamame_security at an operator-chosen
+          # ref; no later step needs git auth to this repository, so the token
+          # is not left in the checkout's git config.
+          persist_credentials: false
           wait_for_api: true
           wait_repository: edamametechnologies/edamame_core
           wait_for_https: true
@@ -465,6 +481,10 @@ jobs:
           auto_remediate: true
           checkout: true
           token: ${{ secrets.DEV_GITHUB_TOKEN }}
+          # This job then runs code from edamame_security at an operator-chosen
+          # ref; no later step needs git auth to this repository, so the token
+          # is not left in the checkout's git config.
+          persist_credentials: false
           wait_for_api: true
           wait_repository: edamametechnologies/edamame_core
           wait_for_https: true
@@ -622,15 +642,27 @@ jobs:
               *-"${VERSION}".zip)    base="${f%-"${VERSION}".zip}";    ext=zip ;;
               *) echo "::error::$f does not carry version $VERSION"; exit 1 ;;
             esac
-            names=("$f")
-            if [ "$MOVE_LATEST" = true ]; then names+=("${base}-latest.${ext}"); fi
             sha="$(sha256sum "$f" | awk '{print $1}')"
-            for name in "${names[@]}"; do
-              aws s3 cp "$f" "$BUCKET_PATH/$name" --acl public-read
-              printf '%s  %s\n' "$sha" "$name" > "$name.sha256"
-              aws s3 cp "$name.sha256" "$BUCKET_PATH/$name.sha256" --acl public-read
-              echo "https://edamame.s3.eu-west-1.amazonaws.com/attack-simulator/$name"
-            done
+            # A versioned key is immutable: its bytes and checksum are fixed for
+            # that version, so a re-run (or a later dispatch for the same tag)
+            # must never overwrite one that is already published. Only the
+            # moving "-latest" keys are rewritten. Each versioned key is
+            # uploaded once and left alone thereafter.
+            if aws s3api head-object --bucket edamame --key "attack-simulator/$f" >/dev/null 2>&1; then
+              echo "SKIP (versioned key already published, checksum is fixed): $f"
+            else
+              aws s3 cp "$f" "$BUCKET_PATH/$f" --acl public-read
+              printf '%s  %s\n' "$sha" "$f" > "$f.sha256"
+              aws s3 cp "$f.sha256" "$BUCKET_PATH/$f.sha256" --acl public-read
+              echo "https://edamame.s3.eu-west-1.amazonaws.com/attack-simulator/$f"
+            fi
+            if [ "$MOVE_LATEST" = true ]; then
+              latest_name="${base}-latest.${ext}"
+              aws s3 cp "$f" "$BUCKET_PATH/$latest_name" --acl public-read
+              printf '%s  %s\n' "$sha" "$latest_name" > "$latest_name.sha256"
+              aws s3 cp "$latest_name.sha256" "$BUCKET_PATH/$latest_name.sha256" --acl public-read
+              echo "https://edamame.s3.eu-west-1.amazonaws.com/attack-simulator/$latest_name"
+            fi
           done
           if [ "$MOVE_LATEST" = true ]; then
             echo "$VERSION" > LATEST
