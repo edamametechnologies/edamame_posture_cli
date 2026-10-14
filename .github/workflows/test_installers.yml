@@ -592,7 +592,23 @@ jobs:
           # "source=Notarized Developer ID" below are the enforced checks.
           grep -q "Notarization: trusted by the Apple notary service" <<< "$SIG" \
             || echo "::warning::pkgutil did not report notarization (live lookup); the stapled ticket and spctl decide"
-          xcrun stapler validate "$PKG"
+          # stapler validate looks the ticket up in Apple's ticket service
+          # (api.apple-cloudkit.com); from the macos-15-intel runners that
+          # connection drops for hours (NSURLErrorDomain -1005, exit 68,
+          # 2026-10-13/14). Retried; when every attempt fails on the network,
+          # spctl below (enforced) decides, from the stapled ticket when Apple
+          # cannot be reached. Any other stapler error fails the job.
+          stapled=false
+          for attempt in 1 2 3; do
+            if out="$(xcrun stapler validate "$PKG" 2>&1)"; then
+              echo "$out"; stapled=true; break
+            fi
+            echo "$out"
+            grep -q "NSURLErrorDomain" <<< "$out" || exit 1
+            [[ $attempt -lt 3 ]] && sleep 20
+          done
+          [[ "$stapled" == true ]] \
+            || echo "::warning::stapler validate could not reach Apple's ticket service (3 attempts); spctl decides"
           spctl -a -vv -t install "$PKG" 2>&1 | tee spctl.txt
           grep -q "source=Notarized Developer ID" spctl.txt
           pkgutil --expand "$PKG" expanded
