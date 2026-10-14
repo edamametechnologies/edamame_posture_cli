@@ -344,21 +344,29 @@ def export_attack_finding(f: dict, out_dir: Path) -> dict:
     return entry
 
 
-def capture_near_misses(report_ids: List[str], snap_attack: Dict[str, dict], out_dir: Path) -> List[dict]:
+def capture_near_misses(report_ids: List[str], snap_attack: Dict[str, dict], out_dir: Path,
+                        alertable_entries: Optional[List[dict]] = None) -> List[dict]:
     """HIGH/CRITICAL raw detector findings that did not land as alertable:
     the adjudicator (or a deterministic suppression) caught them. Each is an
-    FP that alerts whenever the Portal does not answer in advisory mode."""
+    FP that alerts whenever the Portal does not answer in advisory mode.
+
+    The trace of a report that raised a finding which did land as alertable
+    is kept too, beside its export (`attack_pattern/<report>.trace.json`,
+    listed in the entry's `trace_paths`): it holds the tick's inputs and the
+    adjudicator's prompt, which the export does not always carry."""
     misses: List[dict] = []
     for rid in report_ids[:50]:
         trace = as_obj(rpc_or_none("get_attack_pattern_debug_trace", {"report_id": rid}, timeout=READ_TIMEOUT))
         if not isinstance(trace, dict):
             continue
         hits = []
+        alertable_keys = set()
         for r in trace.get("raw_findings") or []:
             if not isinstance(r, dict) or sev(r) not in ALERTABLE:
                 continue
             final = snap_attack.get(finding_key(r))
             if final is not None and is_alertable(final):
+                alertable_keys.add(finding_key(r))
                 continue
             hits.append({"finding_key": finding_key(r), "check": r.get("check"), "raw_severity": sev(r),
                          "final_severity": sev(final) if final else "absent",
@@ -370,6 +378,11 @@ def capture_near_misses(report_ids: List[str], snap_attack: Dict[str, dict], out
             for h in hits:
                 h["trace_path"] = str(path)
             misses.extend(hits)
+        owners = [e for e in alertable_entries or [] if e.get("finding_key") in alertable_keys]
+        if owners:
+            path = write_json(out_dir.parent / "attack_pattern" / f"{safe_name(rid)}.trace.json", trace)
+            for e in owners:
+                e.setdefault("trace_paths", []).append(str(path))
     return misses
 
 
@@ -818,7 +831,8 @@ def run_cmd_run(args: argparse.Namespace) -> int:
                 case["divergence"].append(entry)
                 log(f"  [{case['case_id']}] DIVERGENCE INCIDENT {entry.get('severity')} {entry.get('title')}")
             if news["reports"]:
-                case["near_misses"].extend(capture_near_misses(news["reports"], snap["attack"], case_dir / "near_miss"))
+                case["near_misses"].extend(capture_near_misses(news["reports"], snap["attack"], case_dir / "near_miss",
+                                                               [e for e in case["attack_pattern"] if e.get("alertable")]))
             case["non_clean_verdicts"].extend(
                 {"entry_id": v.get("entry_id"), "verdict": v.get("verdict"),
                  "deterministic_verdict": v.get("deterministic_verdict"),
@@ -962,7 +976,8 @@ def write_summary(run_dir: Path, pf: dict, results: List[dict], args: argparse.N
         for e in c["alertable"]:
             lines.append(f"- ALERTABLE {e.get('severity')} `{e.get('check')}` {e.get('process')} -> "
                          f"{e.get('subject_path') or e.get('destination')}; export `{e.get('export_path')}`; "
-                         f"candidate `{e.get('corpus_candidate') or e.get('reason')}`")
+                         f"candidate `{e.get('corpus_candidate') or e.get('reason')}`"
+                         + "".join(f"; trace `{t}`" for t in e.get("trace_paths") or []))
         for e in c["divergence_incidents"]:
             lines.append(f"- INCIDENT {e.get('severity')} {e.get('title')} ({', '.join(e.get('categories') or [])}); "
                          f"bundle `{e.get('bundle_path')}`; candidate `{e.get('corpus_candidate')}`")
