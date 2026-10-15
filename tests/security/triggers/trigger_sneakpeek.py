@@ -14,11 +14,10 @@ the render engine holds cold credential files open while generating sustained
 outbound egress. It implements no part of the browser exploit (no preview pane,
 no 256 KB threshold, no file:// / data: CSP bypass).
 
-The stand-in runs under the real renderer's process NAME ("Claude Helper
-(Renderer)", Claude Desktop's macOS helper), by copying this interpreter to
-that name. The name is what decides whether the detector's browser exclusion
-(destination_history::is_browser_process) drops the finding: a web browser is
-excluded, an agent-embedded render engine is not, so the finding stands.
+The stand-in runs under a render engine's process NAME ("Claude Helper
+(Renderer)", Claude Desktop's macOS helper; "claude-renderer" on Linux and
+Windows), by copying this interpreter to that name, so the finding names the
+render engine rather than an interpreter.
 
 Detection path:
   flodbadd iForest -> session marked anomalous (sustained high-port flow)
@@ -59,9 +58,13 @@ CREATED_MARKER = "sneakpeek.created"
 DEFAULT_TARGET_HOST = "portquiz.net"
 DEFAULT_TARGET_PORT = 61942
 DEFAULT_PAYLOAD_BYTES = 4096
-# Claude Desktop's macOS renderer helper. The process NAME is the point of the
-# scenario; overridable for the Linux/Windows image name.
-DEFAULT_RENDERER_NAME = "Claude Helper (Renderer)"
+# The process NAME is the point of the scenario: EDAMAME names the render
+# engine, not an interpreter. macOS: Claude Desktop's renderer helper. Linux
+# shows at most 15 characters of a process name, so a short stand-in there and
+# on Windows (".exe" is added on Windows).
+DEFAULT_RENDERER_NAME = (
+    "Claude Helper (Renderer)" if platform.system() == "Darwin" else "claude-renderer"
+)
 
 KEEP_RUNNING = True
 
@@ -119,19 +122,59 @@ def resolve_target(target_ip: str, target_host: str) -> str:
     return socket.gethostbyname(target_host)
 
 
+def renderer_source() -> Path:
+    """The interpreter binary to copy under the render engine's name.
+
+    A macOS framework build's bin/python3.x only re-executes
+    Resources/Python.app, so a renamed copy of it still runs as "Python": copy
+    the binary it starts. A Windows venv's python.exe is a redirector to the
+    base interpreter: copy the base.
+    """
+    if platform.system() == "Darwin" and getattr(sys, "_framework", ""):
+        app_binary = (Path(sys.base_prefix) / "Resources" / "Python.app"
+                      / "Contents" / "MacOS" / "Python")
+        if app_binary.exists():
+            return app_binary
+    if platform.system() == "Windows":
+        return Path(getattr(sys, "_base_executable", "") or sys.executable)
+    return Path(sys.executable)
+
+
+def renderer_env() -> dict[str, str]:
+    """Environment that lets the relocated copy run this interpreter's runtime.
+
+    A standalone runtime (the one the EDAMAME Attack Simulator ships) finds its
+    standard library, and on Linux and Windows its shared library, next to its
+    own executable; the copy runs from the state dir. No bytecode is written:
+    the stdlib may sit inside a signed app bundle.
+    """
+    env = dict(os.environ)
+    env["PYTHONHOME"] = sys.base_prefix
+    env["PYTHONDONTWRITEBYTECODE"] = "1"
+    system = platform.system()
+    if system == "Linux":
+        lib_dir = str(Path(sys.base_prefix) / "lib")
+        env["LD_LIBRARY_PATH"] = os.pathsep.join(
+            p for p in (lib_dir, env.get("LD_LIBRARY_PATH", "")) if p)
+    elif system == "Windows":
+        exe_dir = str(renderer_source().resolve().parent)
+        env["PATH"] = os.pathsep.join(p for p in (exe_dir, env.get("PATH", "")) if p)
+    return env
+
+
 def copy_renderer(state_dir: Path, renderer_name: str) -> Path | None:
     """Copy this interpreter under the render engine's name.
 
-    The copied binary takes the renderer's process_name -- what
-    is_browser_process() reads -- while running the same stdlib. Returns None
-    when the interpreter cannot be copied or the copy cannot run (a relocated
-    standalone build that cannot find its stdlib); the caller then runs the
-    worker in-process, so the detection still fires, under this interpreter's
-    own name.
+    The copy runs the same stdlib under the renderer's process name, which is
+    the name EDAMAME reports. Returns None when the interpreter cannot be
+    copied or the copy cannot run; the caller then runs the worker in-process,
+    so the detection still fires, under this interpreter's own name.
     """
-    src = Path(sys.executable)
+    src = renderer_source()
     if not src.exists():
         return None
+    if platform.system() == "Windows" and not renderer_name.lower().endswith(".exe"):
+        renderer_name += ".exe"
     dest = state_dir / renderer_name
     try:
         shutil.copy2(src, dest)
@@ -150,7 +193,8 @@ def copy_renderer(state_dir: Path, renderer_name: str) -> Path | None:
     try:
         import subprocess
         r = subprocess.run([str(dest), "-c", "import socket,sys;print('ok')"],
-                           capture_output=True, text=True, timeout=30, check=False)
+                           capture_output=True, text=True, timeout=30, check=False,
+                           env=renderer_env())
         if r.returncode != 0 or "ok" not in r.stdout:
             return None
     except (OSError, subprocess.SubprocessError):
@@ -289,7 +333,7 @@ def main() -> int:
     signal.signal(signal.SIGTERM, handle_signal)
 
     if renderer is not None:
-        child = subprocess.Popen([str(renderer)] + worker_args)
+        child = subprocess.Popen([str(renderer)] + worker_args, env=renderer_env())
         pid_file.write_text(f"{child.pid}\n", encoding="utf-8")
         try:
             return child.wait()

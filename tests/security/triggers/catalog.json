@@ -730,7 +730,7 @@
       },
       "see_in_edamame": "Security > Detections shows a Token exfiltration finding attributed to the render-engine process, listing the credential files it held open.",
       "appears_within": "within a few minutes",
-      "talk_track": "SneakPeek let a booby-trapped page in an AI desktop app read your SSH and cloud keys and send them out -- with no prompt and no agent action, so nothing inside the agent could see it. EDAMAME watches from outside the process: it sees a render engine open credential files and then reach a destination it never uses, and flags the exfiltration. The bug is patched, and the first patch was bypassed -- which is exactly why host-side observation matters.",
+      "talk_track": "SneakPeek let a booby-trapped page in an AI desktop app read your SSH and cloud keys and send them out -- with no prompt and no agent action, so nothing inside the agent could see it. EDAMAME watches from outside the process: it sees a render engine holding credential files open while it streams data out, and flags the exfiltration under that process's name. The bug is patched, and the first patch was bypassed -- which is exactly why host-side observation matters.",
       "terms": [
         "exfiltration"
       ],
