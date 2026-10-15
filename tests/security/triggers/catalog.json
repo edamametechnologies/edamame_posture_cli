@@ -721,7 +721,7 @@
     "sneakpeek": {
       "trigger": "trigger_sneakpeek.py",
       "title": "Steal credentials through an AI app's HTML preview (SneakPeek)",
-      "one_liner": "Reproduces the host-visible behaviour of SneakPeek (CVSS 8.7): a render engine embedded in an AI desktop app holds credential files open while sending data to a destination it has never contacted -- a zero-click theft the agent never initiated.",
+      "one_liner": "A SneakPeek-style theft: a render engine embedded in an AI desktop app holds credential files open while streaming data to a destination it has never contacted.",
       "reference": {
         "name": "SneakPeek -- Claude Code Desktop preview-pane data exfiltration (Noma Labs)",
         "year": "2026",
