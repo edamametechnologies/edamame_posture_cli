@@ -26,9 +26,12 @@ name: Build and publish the EDAMAME Attack Simulator
 #     triggers, the gate or this workflow runs only these, so a trigger change
 #     that leaves the catalog behind fails without touching any release.
 #   * publish: runs ONLY on a workflow_dispatch with dry_run=false (an
-#     operator, or edamame_app/release_all.sh after Phase 1). It resolves the
-#     target edamame_security release, uploads every bundle plus SHA256SUMS to
-#     it, and mirrors them to s3://edamame/attack-simulator/.
+#     operator, or edamame_app/release_all.sh Phase 1c). It resolves the
+#     target edamame_security release, uploads every bundle, a sources record
+#     (attack-simulator-SOURCES-<version>.txt) and SHA256SUMS to it, and
+#     mirrors the bundles to s3://edamame/attack-simulator/. Each simulator
+#     version is published once: a version already on another release is
+#     refused, so new content needs a new tools/attack_simulator/VERSION.
 #
 # This workflow NEVER creates or moves a tag or release, never dispatches a
 # release_*.yml. It only ADDS assets that are missing from the target release;
@@ -337,6 +340,8 @@ jobs:
   build-linux:
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    outputs:
+      simulator_sha: ${{ steps.simver.outputs.simulator_sha }}
     steps:
       # Every job runs the EDAMAME Posture action first, like the other
       # workflows (self-hosted-runners / workspace rules): it watches the job
@@ -382,6 +387,7 @@ jobs:
         uses: astral-sh/setup-uv@v6
 
       - name: Resolve the simulator version
+        id: simver
         shell: bash
         run: |
           set -euo pipefail
@@ -389,6 +395,8 @@ jobs:
           [ -n "$VERSION" ] || { echo "::error::tools/attack_simulator/VERSION is empty"; exit 1; }
           echo "EDAMAME_SIMULATOR_VERSION=$VERSION" >> "$GITHUB_ENV"
           echo "EDAMAME_TRIGGERS_DIR=$GITHUB_WORKSPACE/tests/security/triggers" >> "$GITHUB_ENV"
+          # The simulator revision this build used, recorded by the publish job.
+          echo "simulator_sha=$(git -C simulator rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Run the simulator unit tests
         shell: bash
@@ -542,6 +550,29 @@ jobs:
           [ -n "$VERSION" ] || { echo "::error::tools/attack_simulator/VERSION is empty"; exit 1; }
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
+      # Each simulator version is published once: its SHA256SUMS on another
+      # release means that version's bytes are already out, and a rebuild
+      # under the same version would give one version two checksums. New
+      # content needs a new tools/attack_simulator/VERSION. A retry on the same
+      # tag passes (the upload below skips what is already there). A lookup
+      # failure is an error, never "not published".
+      - name: Refuse a simulator version published on another release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.DEV_GITHUB_TOKEN }}
+          TAG: ${{ steps.pick.outputs.tag }}
+          VERSION: ${{ steps.pick.outputs.version }}
+        run: |
+          set -euo pipefail
+          SUMS="attack-simulator-SHA256SUMS-${VERSION}.txt"
+          OTHER="$(gh api --paginate "repos/${SIMULATOR_REPO}/releases?per_page=100" \
+            --jq ".[] | select(.tag_name != \"${TAG}\") | select(any(.assets[]; .name == \"${SUMS}\")) | .tag_name")"
+          if [ -n "$OTHER" ]; then
+            echo "::error::Attack Simulator ${VERSION} is already published on $(echo "$OTHER" | paste -sd, -). Bump tools/attack_simulator/VERSION in ${SIMULATOR_REPO} to publish new content."
+            exit 1
+          fi
+          echo "Attack Simulator ${VERSION} is not on any other release: publishing to ${TAG}."
+
       - name: Download the built bundles
         uses: actions/download-artifact@v4
         with:
@@ -567,6 +598,26 @@ jobs:
           cat "$SUMS"
           echo "name=$SUMS" >> "$GITHUB_OUTPUT"
 
+      # What the bundles were built from, one "<repo> <sha> <path>" line per
+      # source tree. release_all.sh reads it to tell whether a published
+      # version's content changed since (then VERSION needs a bump).
+      - name: Record the sources
+        id: sources
+        shell: bash
+        env:
+          VERSION: ${{ steps.pick.outputs.version }}
+          SIMULATOR_SHA: ${{ needs.build-linux.outputs.simulator_sha }}
+        run: |
+          set -euo pipefail
+          [ -n "$SIMULATOR_SHA" ] || { echo "::error::build-linux reported no simulator revision"; exit 1; }
+          SOURCES="attack-simulator-SOURCES-${VERSION}.txt"
+          {
+            echo "${GITHUB_REPOSITORY} ${GITHUB_SHA} tests/security/triggers"
+            echo "${SIMULATOR_REPO} ${SIMULATOR_SHA} tools/attack_simulator"
+          } > "$SOURCES"
+          cat "$SOURCES"
+          echo "name=$SOURCES" >> "$GITHUB_OUTPUT"
+
       # Published assets are IMMUTABLE for a given version. A retry must ADD
       # what is missing, never replace what is there: skip an asset already on
       # the release (exact-match grep -qxF), upload the rest without --clobber.
@@ -576,11 +627,14 @@ jobs:
           GH_TOKEN: ${{ secrets.DEV_GITHUB_TOKEN }}
           TAG: ${{ steps.pick.outputs.tag }}
           SUMS: ${{ steps.sums.outputs.name }}
+          SOURCES: ${{ steps.sources.outputs.name }}
         run: |
           set -euo pipefail
           EXISTING="$(bash .github/scripts/release_lookup.sh assets "${SIMULATOR_REPO}" "$TAG")"
           UPLOADED=0
-          for ASSET_PATH in simulator-artifacts/* "$SUMS"; do
+          # SHA256SUMS goes last: its presence marks the version published, so
+          # the bundles and the sources record are there whenever it is.
+          for ASSET_PATH in simulator-artifacts/* "$SOURCES" "$SUMS"; do
             ASSET_NAME="$(basename "$ASSET_PATH")"
             if printf '%s\n' "$EXISTING" | grep -qxF "$ASSET_NAME"; then
               echo "SKIP (already published, checksum is fixed): $ASSET_NAME"
@@ -593,7 +647,7 @@ jobs:
 
           # Verify every expected asset is present afterwards.
           AFTER="$(bash .github/scripts/release_lookup.sh assets "${SIMULATOR_REPO}" "$TAG")"
-          for ASSET_PATH in simulator-artifacts/* "$SUMS"; do
+          for ASSET_PATH in simulator-artifacts/* "$SOURCES" "$SUMS"; do
             ASSET_NAME="$(basename "$ASSET_PATH")"
             printf '%s\n' "$AFTER" | grep -qxF "$ASSET_NAME" || { echo "::error::asset not on release after upload: $ASSET_NAME"; exit 1; }
           done
