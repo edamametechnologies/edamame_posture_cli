@@ -63,6 +63,7 @@ PID_FILES = [
     # this one pid stops both halves of the lineage.
     "daemon_lineage_egress.pid",
     "agent_rules_backdoor.pid",
+    "sneakpeek.pid",
 ]
 
 CREATED_MARKERS = [
@@ -78,6 +79,7 @@ CREATED_MARKERS = [
     "pgserve_postinstall.created",
     "temp_modify.created",
     "nonsensitive_path.created",
+    "sneakpeek.created",
     "agent_config_tamper.created",
     "agent_cred_harvest.created",
     "agent_denylist_bypass.created",

@@ -717,6 +717,33 @@
       "gate_scenarios": [
         "temp_modify"
       ]
+    },
+    "sneakpeek": {
+      "trigger": "trigger_sneakpeek.py",
+      "title": "Steal credentials through an AI app's HTML preview (SneakPeek)",
+      "one_liner": "Reproduces the host-visible behaviour of SneakPeek (CVSS 8.7): a render engine embedded in an AI desktop app holds credential files open while sending data to a destination it has never contacted -- a zero-click theft the agent never initiated.",
+      "reference": {
+        "name": "SneakPeek -- Claude Code Desktop preview-pane data exfiltration (Noma Labs)",
+        "year": "2026",
+        "url": "https://noma.security/noma-labs/sneakpeek-how-the-preview-pane-in-claude-code-desktop-can-exfiltrate-your-data",
+        "kind": "incident"
+      },
+      "see_in_edamame": "Security > Detections shows a Token exfiltration finding attributed to the render-engine process, listing the credential files it held open.",
+      "appears_within": "within a few minutes",
+      "talk_track": "SneakPeek let a booby-trapped page in an AI desktop app read your SSH and cloud keys and send them out -- with no prompt and no agent action, so nothing inside the agent could see it. EDAMAME watches from outside the process: it sees a render engine open credential files and then reach a destination it never uses, and flags the exfiltration. The bug is patched, and the first patch was bypassed -- which is exactly why host-side observation matters.",
+      "terms": [
+        "exfiltration"
+      ],
+      "needs_admin": false,
+      "platforms": [
+        "macos",
+        "windows",
+        "linux"
+      ],
+      "expected_checks": [
+        "token_exfiltration"
+      ],
+      "gate_scenarios": []
     }
   },
   "themes": [
@@ -750,7 +777,8 @@
       "scenarios": [
         "cve_token_exfil",
         "credential_sprawl",
-        "process_memory_scrape"
+        "process_memory_scrape",
+        "sneakpeek"
       ]
     },
     {

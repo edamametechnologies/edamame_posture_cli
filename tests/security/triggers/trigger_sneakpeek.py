@@ -1,0 +1,325 @@
+#!/usr/bin/env python3
+"""
+Trigger the host-side credential-exfiltration detector for the SneakPeek shape.
+
+SneakPeek (Noma Security, 14 Oct 2026; Anthropic fix 17 Aug 2026, CVSS 8.7):
+Claude Desktop's HTML preview pane renders attacker HTML that reads local
+credentials (~/.ssh, ~/.aws, the Claude token) and sends them out. It is
+zero-click -- the agent takes no action; the render engine reads and sends --
+so every control INSIDE the agent is blind by construction, and only a host
+observer sees read-of-secret followed by a never-seen destination.
+
+This trigger reproduces ONLY that host sequence: a process that stands in for
+the render engine holds cold credential files open while generating sustained
+outbound egress. It implements no part of the browser exploit (no preview pane,
+no 256 KB threshold, no file:// / data: CSP bypass).
+
+The stand-in runs under the real renderer's process NAME ("Claude Helper
+(Renderer)", Claude Desktop's macOS helper), by copying this interpreter to
+that name. The name is what decides whether the detector's browser exclusion
+(destination_history::is_browser_process) drops the finding: a web browser is
+excluded, an agent-embedded render engine is not, so the finding stands.
+
+Detection path:
+  flodbadd iForest -> session marked anomalous (sustained high-port flow)
+  L7 open_files holds cold credential paths -> token_exfiltration, naming the
+  render-engine process.
+
+References:
+  SneakPeek (Noma Security disclosure, 2026) -- Claude Desktop preview-pane
+  credential theft, CVSS 8.7.
+
+Cross-platform: macOS, Linux, Windows.
+"""
+
+from __future__ import annotations
+
+import argparse
+import os
+import platform
+import shutil
+import signal
+import socket
+import sys
+import time
+from pathlib import Path
+
+from _common import (
+    AGENT_TYPE_ARG_HELP,
+    file_prefix_for,
+    prepare_state_dir,
+    resolve_agent_type,
+    state_dir_for,
+    upper_prefix_for,
+)
+
+PID_FILE = "sneakpeek.pid"
+CREATED_MARKER = "sneakpeek.created"
+
+DEFAULT_TARGET_HOST = "portquiz.net"
+DEFAULT_TARGET_PORT = 61942
+DEFAULT_PAYLOAD_BYTES = 4096
+# Claude Desktop's macOS renderer helper. The process NAME is the point of the
+# scenario; overridable for the Linux/Windows image name.
+DEFAULT_RENDERER_NAME = "Claude Helper (Renderer)"
+
+KEEP_RUNNING = True
+
+
+def handle_signal(signum: int, _frame: object) -> None:
+    global KEEP_RUNNING
+    _ = signum
+    KEEP_RUNNING = False
+
+
+def parse_args() -> argparse.Namespace:
+    p = argparse.ArgumentParser(
+        description="Trigger token_exfiltration for the SneakPeek shape: a render "
+                    "engine holding credential files open while streaming out."
+    )
+    p.add_argument("--target-host", default=DEFAULT_TARGET_HOST)
+    p.add_argument("--target-ip", default="", help="Pre-resolved IP; skips DNS if set")
+    p.add_argument("--target-port", type=int, default=DEFAULT_TARGET_PORT)
+    p.add_argument("--interval", type=float, default=0.2, help="Seconds between bursts")
+    p.add_argument("--duration", type=float, default=0.0,
+                   help="Runtime limit in seconds; 0 = until interrupted")
+    p.add_argument("--payload-bytes", type=int, default=DEFAULT_PAYLOAD_BYTES)
+    p.add_argument("--renderer-name", default=DEFAULT_RENDERER_NAME,
+                   help="Process name to run the stand-in under (the render engine's name)")
+    p.add_argument("--agent-type", default=None, help=AGENT_TYPE_ARG_HELP)
+    p.add_argument("--state-dir", type=Path, default=None)
+    # Internal: the renderer-named child that holds the creds and egresses.
+    p.add_argument("--worker", action="store_true", help=argparse.SUPPRESS)
+    p.add_argument("--cred-paths", default="", help=argparse.SUPPRESS)
+    return p.parse_args()
+
+
+def ensure_demo_sensitive_file(path: Path, content: str, state_dir: Path) -> Path:
+    path = path.expanduser()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if path.exists():
+        return path
+    path.write_text(content, encoding="utf-8")
+    try:
+        path.chmod(0o600)
+    except OSError:
+        pass
+    marker = state_dir / CREATED_MARKER
+    existing = set()
+    if marker.exists():
+        existing = {l.strip() for l in marker.read_text("utf-8").splitlines() if l.strip()}
+    existing.add(str(path))
+    marker.write_text("\n".join(sorted(existing)) + "\n", encoding="utf-8")
+    return path
+
+
+def resolve_target(target_ip: str, target_host: str) -> str:
+    if target_ip.strip():
+        return target_ip.strip()
+    return socket.gethostbyname(target_host)
+
+
+def copy_renderer(state_dir: Path, renderer_name: str) -> Path | None:
+    """Copy this interpreter under the render engine's name.
+
+    The copied binary takes the renderer's process_name -- what
+    is_browser_process() reads -- while running the same stdlib. Returns None
+    when the interpreter cannot be copied or the copy cannot run (a relocated
+    standalone build that cannot find its stdlib); the caller then runs the
+    worker in-process, so the detection still fires, under this interpreter's
+    own name.
+    """
+    src = Path(sys.executable)
+    if not src.exists():
+        return None
+    dest = state_dir / renderer_name
+    try:
+        shutil.copy2(src, dest)
+        if platform.system() != "Windows":
+            dest.chmod(0o755)
+    except OSError:
+        return None
+    # Record the copy so cleanup.py removes it with the staged creds.
+    marker = state_dir / CREATED_MARKER
+    existing = set()
+    if marker.exists():
+        existing = {l.strip() for l in marker.read_text("utf-8").splitlines() if l.strip()}
+    existing.add(str(dest))
+    marker.write_text("\n".join(sorted(existing)) + "\n", encoding="utf-8")
+    # Confirm the copy can run this stdlib before relying on it.
+    try:
+        import subprocess
+        r = subprocess.run([str(dest), "-c", "import socket,sys;print('ok')"],
+                           capture_output=True, text=True, timeout=30, check=False)
+        if r.returncode != 0 or "ok" not in r.stdout:
+            return None
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return dest
+
+
+def run_worker(args: argparse.Namespace) -> int:
+    """Hold the credential files open and stream sustained egress."""
+    cred_paths = [Path(p) for p in args.cred_paths.split(",") if p]
+    handles = []
+    for p in cred_paths:
+        if p.exists():
+            h = p.open("rb")
+            h.read(1)
+            h.seek(0)
+            handles.append(h)
+
+    signal.signal(signal.SIGINT, handle_signal)
+    signal.signal(signal.SIGTERM, handle_signal)
+
+    payload = b"X" * max(args.payload_bytes, 256)
+    target_ip = resolve_target(args.target_ip, args.target_host)
+    started = time.monotonic()
+    duration = max(args.duration, 0.0)
+    interval = max(args.interval, 0.05)
+
+    print(f"sneakpeek worker active  pid={os.getpid()}  exe={sys.executable}")
+    for p in cred_paths:
+        print(f"  open_path={p}")
+    print(f"  target={target_ip}:{args.target_port} host={args.target_host}")
+    sys.stdout.flush()
+
+    sock: socket.socket | None = None
+    try:
+        while KEEP_RUNNING:
+            if duration > 0 and (time.monotonic() - started) >= duration:
+                break
+            if sock is None:
+                try:
+                    sock = socket.create_connection((target_ip, args.target_port), timeout=10.0)
+                    sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+                    sock.settimeout(30.0)
+                except OSError:
+                    time.sleep(min(interval, 1.0))
+                    continue
+            try:
+                sock.sendall(payload)
+            except OSError:
+                try:
+                    sock.close()
+                except OSError:
+                    pass
+                sock = None
+                time.sleep(min(interval, 0.5))
+                continue
+            try:
+                sock.setblocking(False)
+                try:
+                    sock.recv(65536)
+                except (BlockingIOError, OSError):
+                    pass
+                finally:
+                    sock.setblocking(True)
+                    sock.settimeout(30.0)
+            except OSError:
+                pass
+            time.sleep(interval)
+    finally:
+        if sock is not None:
+            try:
+                sock.close()
+            except OSError:
+                pass
+        for h in handles:
+            try:
+                h.close()
+            except OSError:
+                pass
+    return 0
+
+
+def main() -> int:
+    args = parse_args()
+
+    if args.worker:
+        return run_worker(args)
+
+    agent_type = resolve_agent_type(args.agent_type)
+    if args.state_dir is None:
+        args.state_dir = state_dir_for(agent_type)
+    state_dir = args.state_dir
+    prepare_state_dir(state_dir)
+
+    pfx = file_prefix_for(agent_type)
+    upfx = upper_prefix_for(agent_type)
+    # Cold credential stores an attacker reads, in their real home locations.
+    # Classified by directory label (ssh / aws), never by these names.
+    ssh_cred = ensure_demo_sensitive_file(
+        Path(f"~/.ssh/{pfx}_sneakpeek_id"),
+        f"-----BEGIN OPENSSH PRIVATE KEY-----\n{upfx}_SNEAKPEEK\n-----END OPENSSH PRIVATE KEY-----\n",
+        state_dir,
+    )
+    aws_cred = ensure_demo_sensitive_file(
+        Path(f"~/.aws/{pfx}_sneakpeek_credentials"),
+        f"[default]\naws_access_key_id = {upfx}_SNEAKPEEK\naws_secret_access_key = not-a-real-key\n",
+        state_dir,
+    )
+    cred_paths = [ssh_cred, aws_cred]
+
+    worker_args = [
+        __file__, "--worker",
+        "--cred-paths", ",".join(str(p) for p in cred_paths),
+        "--target-host", args.target_host,
+        "--target-ip", args.target_ip,
+        "--target-port", str(args.target_port),
+        "--interval", str(args.interval),
+        "--duration", str(args.duration),
+        "--payload-bytes", str(args.payload_bytes),
+    ]
+
+    import subprocess
+    renderer = copy_renderer(state_dir, args.renderer_name)
+    pid_file = state_dir / PID_FILE
+
+    print("trigger_sneakpeek.py active")
+    print(f"  renderer_name='{args.renderer_name}' copied={renderer is not None}")
+    for p in cred_paths:
+        print(f"  open_path={p}")
+    print("  reference=SneakPeek (Noma Security, 2026) -- Claude Desktop preview-pane theft")
+    print("  detection=token_exfiltration, named on the render-engine process")
+    print("  stop_with=Ctrl-C or python3 cleanup.py")
+    sys.stdout.flush()
+
+    signal.signal(signal.SIGINT, handle_signal)
+    signal.signal(signal.SIGTERM, handle_signal)
+
+    if renderer is not None:
+        child = subprocess.Popen([str(renderer)] + worker_args)
+        pid_file.write_text(f"{child.pid}\n", encoding="utf-8")
+        try:
+            return child.wait()
+        finally:
+            if child.poll() is None:
+                child.terminate()
+                try:
+                    child.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    child.kill()
+            try:
+                pid_file.unlink()
+            except FileNotFoundError:
+                pass
+
+    # Fallback: no usable renderer copy (e.g. a relocated standalone
+    # interpreter). Run the worker in-process so the detection still fires,
+    # under this interpreter's own name.
+    print("  WARNING: renderer copy unavailable; running in-process (name not spoofed)")
+    pid_file.write_text(f"{os.getpid()}\n", encoding="utf-8")
+    args.worker = True
+    args.cred_paths = ",".join(str(p) for p in cred_paths)
+    try:
+        return run_worker(args)
+    finally:
+        try:
+            pid_file.unlink()
+        except FileNotFoundError:
+            pass
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
