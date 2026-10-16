@@ -353,7 +353,7 @@ pkill -f "EDAMAME-Posture/edamame_posture.app" 2>/dev/null || true
 for _ in \$(seq 1 30); do pgrep -f "EDAMAME-Posture/edamame_posture.app" >/dev/null || break; sleep 1; done
 pkill -KILL -f "EDAMAME-Posture/edamame_posture.app" 2>/dev/null || true
 for _ in \$(seq 1 30); do
-  /usr/sbin/lsof -nP -iTCP:40152 -sTCP:LISTEN >/dev/null 2>&1 || /usr/sbin/lsof -nP -iTCP:3000 -sTCP:LISTEN >/dev/null 2>&1 || break
+  /usr/sbin/netstat -an -p tcp | grep LISTEN | grep -qE "\.(40152|3000) " || break
   sleep 1
 done
 echo "removing the owned posture"
@@ -393,10 +393,10 @@ app_home=\$(ps -E -p "\$(pgrep -x "$APP_NAME" | head -n 1)" -o command= 2>/dev/n
 [ "\$app_home" = "/Users/$USER_" ] && echo "app HOME: \$app_home" || echo "app HOME: \${app_home:-unknown} (WRONG: expected /Users/$USER_; quit and relaunch it from the console session)"
 # The listener must be the app itself: any EDAMAME core answers on 40152.
 app_pid=\$(pgrep -x "$APP_NAME" | head -n 1)
-for _ in \$(seq 1 60); do /usr/sbin/lsof -nP -a -p "\$app_pid" -iTCP:40152 -sTCP:LISTEN >/dev/null 2>&1 && break; sleep 2; done
-/usr/sbin/lsof -nP -a -p "\$app_pid" -iTCP:40152 -sTCP:LISTEN >/dev/null 2>&1 && echo 'port 40152: the app listens' || echo 'port 40152: NOT the app (lsof -nP -iTCP:40152 -sTCP:LISTEN)'
-for _ in \$(seq 1 10); do /usr/sbin/lsof -nP -a -p "\$app_pid" -iTCP:3000 -sTCP:LISTEN >/dev/null 2>&1 && break; sleep 2; done
-/usr/sbin/lsof -nP -a -p "\$app_pid" -iTCP:3000 -sTCP:LISTEN >/dev/null 2>&1 && echo 'MCP 3000: the app listens' || echo 'MCP 3000: not the app (off by configuration, or held at its start: rpc mcp_get_server_status)'
+# netstat, never lsof (header): the listener pid is not read, only that the port is held after the app came up.
+for _ in \$(seq 1 60); do /usr/sbin/netstat -an -p tcp | grep LISTEN | grep -q "\\.40152 " && break; sleep 2; done
+/usr/sbin/netstat -an -p tcp | grep LISTEN | grep -q "\\.40152 " && echo 'port 40152: listening (app started)' || echo 'port 40152: NOT LISTENING'
+/usr/sbin/netstat -an -p tcp | grep LISTEN | grep -q "\\.3000 " && echo 'MCP 3000: listening' || echo 'MCP 3000: not listening (off by configuration, or not yet up)'
 echo "deleting the lab keys"
 rm -f /var/root/fp-lab/portal.env
 mv /var/root/fp-lab/pre-state /var/root/fp-lab/pre-state.done 2>/dev/null || true
