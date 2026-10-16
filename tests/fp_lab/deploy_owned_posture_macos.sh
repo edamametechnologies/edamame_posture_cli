@@ -273,6 +273,20 @@ SCRIPT
     # The newest posture log only: the directory keeps earlier windows' logs,
     # and a glob-order grep printed an older window's ES line (2026-10-06).
     as_root 'f=$(ls -t /var/log/edamame*/edamame_posture_* /var/root/Library/Logs/edamame*/edamame_posture_* 2>/dev/null | head -n 1); echo "log: $f"; [ -n "$f" ] && grep -hE "ES client creation failed|ES disabled|ES subscribe failed|ES helper|Endpoint Security" "$f" | tail -n 5 || true'
+    # The ES client can come up long after the daemon (fmba-3, 2026-10-16:
+    # 35 min, its Full Disk Access preflight queued behind Gatekeeper's
+    # network assessment of the freshly installed binary), while the daemon
+    # reports "Disabled" after 200 ms and FIM has already picked the
+    # sysinfo/lsof fallback, whose lsof hangs on this host. A window that
+    # runs in that state grades file events with no writer (one HIGH on a
+    # Claude Code output file in temp). So: wait for the subscription, then
+    # restart the file monitor so FIM re-selects Endpoint Security.
+    say "waiting for the Endpoint Security client (up to 45 min)"
+    as_root 'f=$(ls -t /var/log/edamame*/edamame_posture_* /var/root/Library/Logs/edamame*/edamame_posture_* 2>/dev/null | head -n 1); t0=$(date +%s); while ! grep -q "ES client subscribed" "$f"; do [ $(( $(date +%s) - t0 )) -lt 2700 ] || { echo "ES client not subscribed after 45 min"; exit 1; }; sleep 15; done; echo "ES client subscribed after $(( $(date +%s) - t0 )) s"' || die "Endpoint Security never came up: the window would grade file events without a writer"
+    user_bash <<'SCRIPT'
+for m in stop_file_monitor start_file_monitor; do timeout 60 edamame_cli rpc "$m" >/dev/null 2>&1 || echo "rpc $m failed"; sleep 3; done
+SCRIPT
+    as_root 'f=$(ls -t /var/log/edamame*/edamame_posture_* /var/root/Library/Logs/edamame*/edamame_posture_* 2>/dev/null | head -n 1); grep -q "FIM: Endpoint Security is the event source" "$f" && grep -h "FIM: Endpoint Security is the event source" "$f" | tail -n 1 | cut -c1-160 || { echo "FIM is not on Endpoint Security"; exit 1; }' || die "FIM did not re-select Endpoint Security"
     ;;
 
   status)
