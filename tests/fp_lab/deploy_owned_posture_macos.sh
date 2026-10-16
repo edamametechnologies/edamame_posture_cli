@@ -283,10 +283,21 @@ SCRIPT
     # restart the file monitor so FIM re-selects Endpoint Security.
     say "waiting for the Endpoint Security client (up to 45 min)"
     as_root 'f=$(ls -t /var/log/edamame*/edamame_posture_* /var/root/Library/Logs/edamame*/edamame_posture_* 2>/dev/null | head -n 1); t0=$(date +%s); while ! grep -q "ES client subscribed" "$f"; do [ $(( $(date +%s) - t0 )) -lt 2700 ] || { echo "ES client not subscribed after 45 min"; exit 1; }; sleep 15; done; echo "ES client subscribed after $(( $(date +%s) - t0 )) s"' || die "Endpoint Security never came up: the window would grade file events without a writer"
-    user_bash <<'SCRIPT'
-for m in stop_file_monitor start_file_monitor; do timeout 60 edamame_cli rpc "$m" >/dev/null 2>&1 || echo "rpc $m failed"; sleep 3; done
+    # FIM picked its source when it started: on Endpoint Security already
+    # (the usual case) nothing to do; else restart the monitor now that the
+    # client is up. `start_file_monitor` takes the custom paths (none).
+    if as_root 'f=$(ls -t /var/log/edamame*/edamame_posture_* /var/root/Library/Logs/edamame*/edamame_posture_* 2>/dev/null | head -n 1); grep -q "FIM: Endpoint Security is the event source" "$f"'; then
+      say "FIM is on Endpoint Security"
+    else
+      say "FIM started before the ES client: restarting the file monitor"
+      user_bash <<'SCRIPT'
+timeout 60 edamame_cli rpc stop_file_monitor >/dev/null 2>&1 || echo "rpc stop_file_monitor failed"; sleep 3
+timeout 60 edamame_cli rpc start_file_monitor '[[]]' >/dev/null 2>&1 || echo "rpc start_file_monitor failed"
+for _ in $(seq 1 20); do timeout 60 edamame_cli rpc get_file_monitor_status 2>/dev/null | grep -q '"is_monitoring": true' && break; sleep 3; done
+timeout 60 edamame_cli rpc get_file_monitor_status 2>/dev/null | grep -oE '"is_monitoring": [a-z]+'
 SCRIPT
-    as_root 'f=$(ls -t /var/log/edamame*/edamame_posture_* /var/root/Library/Logs/edamame*/edamame_posture_* 2>/dev/null | head -n 1); grep -q "FIM: Endpoint Security is the event source" "$f" && grep -h "FIM: Endpoint Security is the event source" "$f" | tail -n 1 | cut -c1-160 || { echo "FIM is not on Endpoint Security"; exit 1; }' || die "FIM did not re-select Endpoint Security"
+      as_root 'f=$(ls -t /var/log/edamame*/edamame_posture_* /var/root/Library/Logs/edamame*/edamame_posture_* 2>/dev/null | head -n 1); grep -q "FIM: Endpoint Security is the event source" "$f" && grep -h "FIM: Endpoint Security is the event source" "$f" | tail -n 1 | cut -c1-160 || { echo "FIM is not on Endpoint Security"; exit 1; }' || die "FIM did not re-select Endpoint Security"
+    fi
     ;;
 
   status)
