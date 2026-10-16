@@ -139,6 +139,49 @@ scenarios report SKIP with the reason; the direct scenarios still run.
   posture log. `stop` removes the bundle, link and pkg receipt, restores
   root's state, re-enables the helper and relaunches the app.
 
+- **Reaching fmba-3:** it moves between networks; resolve the address with
+  `edamame_app/.claude/skills/dogfood-status/scripts/fmba_host.sh` and pass
+  it as `FP_LAB_MAC_HOST=<addr>` (rule `self-hosted-runners.mdc` "Reaching
+  fmba-3"). If it leaves the network mid-window, the run is not a gate leg:
+  run `stop` as soon as it answers again.
+- **A fresh install can take minutes** (fmba-3, 2026-10-16: 3 min and 35
+  min). Both the pkg `installer` and the daemon's Endpoint Security client
+  wait on macOS after a new binary is installed; the installer looked hung
+  twice. If the receipt is written (`pkgutil --pkg-info
+  com.edamametechnologies.edamame-posture`) and `installer` still runs, the
+  install is done: killing it lets `start` continue. `start` then waits for
+  "ES client subscribed" (up to 45 min) and checks that FIM runs on Endpoint
+  Security, restarting the file monitor only if it started before the client
+  (posture a341c3a, d3ff67d). A window that ran without it grades file
+  events with no writer (FP-MAC-37): not a valid leg.
+- **Never `lsof` on fmba-3:** a stale Time Machine SMB mount makes it hang
+  uninterruptibly (five stuck after one window). The scripts check ports with
+  `netstat` (posture e30ef79).
+
+## macOS on kralizec-3 (when fmba-3 is away)
+
+The operator's workstation can carry the macOS leg, with the operator's
+consent: the window quits the `flutter run` debug app and the hand-started
+helper.
+- Driver: `/Volumes/Kari/flyonnet/Temporaire/edamame-agents/fp_lab_window_kralizec_<version>.sh`
+  (`FP_LAB_MAC_HOST=localhost`); its stop runs a copy of
+  `deploy_owned_posture_macos.sh` regenerated from the current script with
+  one change, the relaunch of the debug bundle
+  (`edamame_app/build/macos/Build/Products/Debug/EDAMAME Security.app`)
+  instead of `open -a`: `/Applications` holds an old app that must never be
+  opened against the 2.0 state. Regenerate that copy before every window.
+- Pause both cargo-hygiene LaunchAgents (`launchctl bootout gui/$UID
+  ~/Library/LaunchAgents/tech.edamame.cargo-hygiene{,-lowwater}.plist`)
+  for the whole window and `bootstrap` them after: with the debug app down
+  the hourly job runs `make clean` and deletes the debug build.
+- Do not run other lab windows from this Mac at the same time: their SSH
+  traffic and keys are observed as ambient activity.
+- Ambient findings are expected (the operator's own agent sessions, desktop
+  apps). Classify each FAIL by what it names: a divergence incident whose
+  session `source_path` is not under `fp-lab/ws/`, or an attack-pattern
+  finding on a process the lab does not drive, is ambient; a lab-session or
+  lab-process finding is a blocker.
+
 ## Windows (shiawase): what the leg needs
 
 - **The app owns the RPC port and needs a logged-in session** (Parallels
