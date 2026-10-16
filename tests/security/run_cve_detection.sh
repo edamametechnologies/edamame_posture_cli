@@ -64,7 +64,7 @@ READINESS_WAIT=120
 # calls and the artifact.
 EXPORT_MATCHED=3
 AGENT_TYPE="openclaw"
-SCENARIOS_CSV="blacklist_comm,cve_token_exfil,cve_sandbox_escape,memory_poisoning,credential_sprawl,supply_chain_exfil,npm_rat_beacon,file_events,skill_supply_chain,pgserve_postinstall,package_install_lifecycle,temp_modify,nonsensitive_path,agent_config_tamper,agent_rules_backdoor,agent_cred_harvest,agent_denylist_bypass,dns_tunnel,dns_tunnel_reconnect,ntp_tunnel,loopback_relay,process_memory_scrape,agent_memory_scrape"
+SCENARIOS_CSV="blacklist_comm,cve_token_exfil,cve_sandbox_escape,memory_poisoning,credential_sprawl,supply_chain_exfil,npm_rat_beacon,file_events,skill_supply_chain,pgserve_postinstall,package_install_lifecycle,temp_modify,nonsensitive_path,agent_config_tamper,agent_rules_backdoor,agent_cred_harvest,agent_denylist_bypass,dns_tunnel,dns_tunnel_reconnect,ntp_tunnel,loopback_relay,process_memory_scrape,agent_memory_scrape,sneakpeek"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -165,6 +165,14 @@ expected_check_for() {
     # outside its dependency tree (Shai-Hulud). FIM writer attribution +
     # INC-19 lineage; no new sensor.
     package_install_lifecycle) echo "package_install_lifecycle" ;;
+    # G-50 / 4.4.2 (SneakPeek shape, 2026-10-16): a render-engine stand-in
+    # holds credential files open while streaming sustained egress to a host
+    # it has never contacted. Both FINDINGS runs graded the token_exfiltration
+    # finding HIGH (corroborated: session anomaly + sensitive held open); the
+    # sensitive_material_egress sibling may grade CRITICAL (EvidenceFloor when
+    # corroborated), but this scenario asserts the stable check the catalog
+    # names.
+    sneakpeek)             echo "token_exfiltration" ;;
     *) echo "" ;;
   esac
 }
@@ -237,6 +245,11 @@ scenario_markers_json() {
     ntp_tunnel)             echo '["_ntp_tunnel_key", "_ntp_tunnel"]' ;;
     # The lineage finding attributes Process A's held credential files.
     loopback_relay)         echo '["demo_relay_ssh_key", "demo_relay_aws_credentials"]' ;;
+    # SneakPeek decoys: the trigger stages its own ~/.ssh and ~/.aws fixtures
+    # (suffix unique to this scenario), so either an open-file attribution or
+    # the destination port below proves the finding is this scenario's and
+    # not residue from a neighbouring exfil scenario sharing portquiz.net.
+    sneakpeek)             echo '["_sneakpeek"]' ;;
     agent_memory_scrape)    echo '["ssh-agent", "vault.exe"]' ;;
     package_install_lifecycle) echo '["demo_openclaw_pil_persist"]' ;;
     *) echo '[]' ;;
@@ -262,6 +275,8 @@ scenario_ports_json() {
     ntp_tunnel)             echo '[123]' ;;
     # Process B's external exfil port, unique across the suite.
     loopback_relay)         echo '[63180]' ;;
+    # SneakPeek's egress port, unique across the suite.
+    sneakpeek)             echo '[61942]' ;;
     *) echo '[]' ;;
   esac
 }
@@ -312,6 +327,12 @@ scenario_poll_attempts_for() {
   case "$1" in
     cve_sandbox_escape)     echo "${SANDBOX_POLL_ATTEMPTS:-12}" ;;
     memory_poisoning)       echo "${MEMORY_POLL_ATTEMPTS:-12}" ;;
+    # FINDINGS Scenario 10 measured first detection 6-11 min after trigger
+    # start (the session must turn anomalous under the iForest cast and the
+    # finding needs it corroborated), so the default 6x30 s poll window is
+    # far too short. The knobs only bound how long the harness waits for the
+    # alertable finding; they never relax what the gate asserts.
+    sneakpeek)              echo "${SNEAKPEEK_POLL_ATTEMPTS:-30}" ;;
     *) echo "$POLL_ATTEMPTS" ;;
   esac
 }
@@ -320,6 +341,10 @@ scenario_trigger_duration_for() {
   case "$1" in
     cve_sandbox_escape)     echo "${SANDBOX_TRIGGER_DURATION:-600}" ;;
     memory_poisoning)       echo "${MEMORY_TRIGGER_DURATION:-600}" ;;
+    # Keep the stream alive past the measured 6-11 min detection latency:
+    # the verify loop stops polling soon after the trigger ends, so a 300 s
+    # duration would almost always end before the anomaly flag attaches.
+    sneakpeek)              echo "${SNEAKPEEK_TRIGGER_DURATION:-900}" ;;
     *) echo "$TRIGGER_DURATION" ;;
   esac
 }

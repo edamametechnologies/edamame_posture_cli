@@ -50,6 +50,7 @@ SCENARIO_ORDER = [
     "loopback_relay",
     "process_memory_scrape",
     "agent_memory_scrape",
+    "sneakpeek",
     # Divergence-plane scenarios (run_divergence_detection.sh) land in the same
     # results.json, so they render in the same table.
     "daemon_lineage_egress",
@@ -79,6 +80,7 @@ SCENARIO_LABELS = {
     "loopback_relay": "Loopback relay, split-process egress (N-05 / BS-7)",
     "process_memory_scrape": "Process memory scrape (BS-9 task-port / procfs)",
     "agent_memory_scrape": "Agent / credential-daemon memory scrape (BS-9 CRITICAL)",
+    "sneakpeek": "SneakPeek preview-pane exfiltration (render engine holds credentials open)",
     "daemon_lineage_egress": (
         "Daemon-lineage egress (CVE-2024-3094 XZ Utils exploitation-time shape)"
     ),
@@ -111,6 +113,7 @@ SCENARIO_CHECKS = {
     "loopback_relay": "sensitive_material_egress",
     "process_memory_scrape": "process_memory_scrape",
     "agent_memory_scrape": "process_memory_scrape",
+    "sneakpeek": "token_exfiltration",
     # Divergence evidence category, not a vulnerability check. Mirrors
     # expected_check_for() in run_divergence_detection.sh.
     "daemon_lineage_egress": "correlation:not_expected",

@@ -743,7 +743,9 @@
       "expected_checks": [
         "token_exfiltration"
       ],
-      "gate_scenarios": []
+      "gate_scenarios": [
+        "sneakpeek"
+      ]
     }
   },
   "themes": [
