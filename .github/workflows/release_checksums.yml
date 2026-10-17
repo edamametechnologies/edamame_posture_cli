@@ -49,13 +49,41 @@ jobs:
       github.event_name == 'workflow_dispatch' ||
       (github.event.workflow_run.head_branch == 'main' &&
        (github.event.workflow_run.conclusion == 'success' || github.event.workflow_run.conclusion == 'failure'))
-    # Self-hosted: the org IP allow list refuses GitHub API calls (and the
-    # private checkout) from hosted runners.
+    # Self-hosted Linux; the Setup EDAMAME Posture step admits the runner to
+    # the org IP allow list and runs the detector for the job.
     runs-on: vm-runner-linux
     timeout-minutes: 30
     steps:
       # The script always comes from the default branch; only the version is
       # read from the commit the release workflow built.
+      # First step of every job on a self-hosted runner (rule: edamame_app
+      # workspace.mdc "Self-Hosted Runner Protection" and the IP allow list's
+      # "Required pattern"): the detector watches the job and the Hub admits the
+      # runner. The checkout below stays (it needs the tags: fetch-depth 0).
+      - name: Setup EDAMAME Posture
+        uses: edamametechnologies/edamame_posture_action@v1
+        with:
+          edamame_user: ${{ vars.EDAMAME_POSTURE_USER }}
+          edamame_domain: ${{ vars.EDAMAME_POSTURE_DOMAIN }}
+          edamame_pin: ${{ secrets.EDAMAME_POSTURE_PIN }}
+          edamame_id: ${{ github.run_id }}-release-checksums
+          network_scan: true
+          auto_whitelist: true
+          auto_whitelist_artifact_name: edamame-auto-whitelist-release-checksums
+          auto_remediate: true
+          token: ${{ secrets.DEV_GITHUB_TOKEN }}
+          wait_for_api: true
+          wait_repository: edamametechnologies/edamame_core
+          wait_for_https: true
+          packet_capture: true
+          vulnerability_detection: true
+          vulnerability_detection_interval: "60"
+          agentic_mode: analyze
+          agentic_provider: edamame
+          agentic_interval: 600
+        env:
+          EDAMAME_LLM_API_KEY: ${{ secrets.EDAMAME_LLM_API_KEY }}
+
       - name: Checkout
         uses: actions/checkout@v4
         with:
@@ -90,3 +118,18 @@ jobs:
         run: |
           # shellcheck disable=SC2086
           .github/scripts/release_checksums.sh "${{ github.repository }}" "$TAG" $ALLOW_REPLACED
+
+      - name: Check job status before posture dump
+        id: job_status_check
+        if: failure()
+        run: echo "job_was_failing=true" >> "$GITHUB_OUTPUT"
+
+      - name: Dump EDAMAME Posture sessions
+        id: dump_sessions
+        if: always()
+        uses: edamametechnologies/edamame_posture_action@v1
+        with:
+          dump_sessions_log: true
+          promote_exceptions: ${{ vars.EDAMAME_AUTO_WHITELIST_PROMOTE_EXCEPTIONS }}
+          dump_vulnerability_findings: true
+          exit_on_vulnerability_findings: true
