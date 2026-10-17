@@ -173,15 +173,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d67af77d68a931ecd5cbd8a3b5987d63a1d1d1278f7f6a60ae33db485cdebb69"
 
 [[package]]
-name = "arbitrary"
-version = "1.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3bc62ac97cc33321f50863d514c3bc38a453947a8f9e781137e47c7401020aed"
-dependencies = [
- "derive_arbitrary",
-]
-
-[[package]]
 name = "arc-swap"
 version = "1.9.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1681,17 +1672,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "derive_arbitrary"
-version = "1.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1b034bd7d5f032402a2479444dcc6f74e36a03f31854d41680fb240ef682a1ac"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 3.0.9",
-]
-
-[[package]]
 name = "digest"
 version = "0.10.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1868,7 +1848,7 @@ dependencies = [
 [[package]]
 name = "edamame_backend"
 version = "0.3.5"
-source = "git+https://github.com/edamametechnologies/edamame_backend?branch=main#f72f80029d56ee04bbbf3a25043cd3d4d620813f"
+source = "git+https://github.com/edamametechnologies/edamame_backend?branch=main#7712976f3fd222f9d9cf5e30d146d9e4ed4a7ced"
 dependencies = [
  "anyhow",
  "blake3",
@@ -1883,7 +1863,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "2.0.9"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#5e4717c6121283b0c228949cd166218f07f39ce2"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#106bd69f276cb4260c69957687a1705461e8bd7f"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -1964,13 +1944,12 @@ dependencies = [
  "whoami",
  "winapi",
  "windows 0.62.2",
- "zip 8.6.0",
 ]
 
 [[package]]
 name = "edamame_foundation"
 version = "2.0.9"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#1902f0ab2365c673c378d72002ec892f7b53cd94"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#1cc76f75d5d39bd1a7c037c9b294df2ba3c4c617"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -2035,7 +2014,6 @@ dependencies = [
  "uzers",
  "wez-mdns",
  "windows 0.62.2",
- "zip 8.6.0",
 ]
 
 [[package]]
@@ -2068,7 +2046,6 @@ dependencies = [
  "widestring",
  "windows 0.58.0",
  "windows-service",
- "zip 2.4.2",
 ]
 
 [[package]]
@@ -2393,7 +2370,7 @@ dependencies = [
 [[package]]
 name = "flodbadd"
 version = "2.0.9"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#2984a63b892d7d50723e6f4093c31e4fd2c721c9"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#459bbbfd8a6eba237343fcf2cae35b0cac1a2794"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -2448,7 +2425,7 @@ dependencies = [
  "uzers",
  "wez-mdns",
  "windows 0.62.2",
- "zip 7.2.0",
+ "zip",
 ]
 
 [[package]]
@@ -3476,7 +3453,7 @@ dependencies = [
  "js-sys",
  "log",
  "wasm-bindgen",
- "windows-core 0.58.0",
+ "windows-core 0.62.2",
 ]
 
 [[package]]
@@ -4004,7 +3981,7 @@ dependencies = [
 [[package]]
 name = "l7_ebpf_program"
 version = "0.1.0"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#2984a63b892d7d50723e6f4093c31e4fd2c721c9"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#459bbbfd8a6eba237343fcf2cae35b0cac1a2794"
 
 [[package]]
 name = "lazy_static"
@@ -7471,7 +7448,7 @@ dependencies = [
 [[package]]
 name = "threatmodels_rs"
 version = "0.1.1"
-source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#8a1546769417a8bdef708c1fc072d7d6165091f0"
+source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#e4a38877977d02540f3a0affc444c345d02a6749"
 dependencies = [
  "anyhow",
  "chrono",
@@ -7913,7 +7890,7 @@ checksum = "b6f5e870be6c3b371b77fe0ee0bafb859fa4964b4404c27de1d380043c4dda20"
 [[package]]
 name = "undeadlock"
 version = "1.2.0"
-source = "git+https://github.com/edamametechnologies/undeadlock?branch=main#37c1fd0e26f296c8c9c3d47251981267665e6bbf"
+source = "git+https://github.com/edamametechnologies/undeadlock?branch=main#df54446ff5bf473df3ee605009ffbdc89bcfa94a"
 dependencies = [
  "dashmap 6.2.1",
  "tokio",
@@ -9146,40 +9123,9 @@ dependencies = [
 
 [[package]]
 name = "zip"
-version = "2.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fabe6324e908f85a1c52063ce7aa26b68dcb7eb6dbc83a2d148403c9bc3eba50"
-dependencies = [
- "arbitrary",
- "crc32fast",
- "crossbeam-utils",
- "displaydoc",
- "flate2",
- "indexmap 2.14.2",
- "memchr",
- "thiserror 2.0.21",
- "zopfli",
-]
-
-[[package]]
-name = "zip"
 version = "7.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c42e33efc22a0650c311c2ef19115ce232583abbe80850bc8b66509ebef02de0"
-dependencies = [
- "crc32fast",
- "flate2",
- "indexmap 2.14.2",
- "memchr",
- "typed-path",
- "zopfli",
-]
-
-[[package]]
-name = "zip"
-version = "8.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2d04a6b5381502aa6087c94c669499eb1602eb9c5e8198e534de571f7154809b"
 dependencies = [
  "crc32fast",
  "flate2",
