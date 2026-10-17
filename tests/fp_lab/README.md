@@ -42,7 +42,7 @@ E2E, which imports it too); the RPC wrapper is
    connected to the Hub (`--allow-hub` to override); the LLM / Portal answers
    (`agentic_test_llm`); both engines' effective adjudication mode
    (`--set-adjudication auto` puts both on the shipped default, advisory with
-   the Portal; `deterministic` is refused); capture, file monitor,
+   the Portal; `deterministic` is refused on the LLM leg); capture, file monitor,
    attack-pattern detector, divergence engine and the transcript observer for
    each lab agent running. Any miss: exit 2.
 2. **Warm-up** (`--warmup-secs`, default 120): ticks and snapshots with no
@@ -114,6 +114,7 @@ python3 tests/fp_lab/run_fp_lab.py run --dry-run          # the plan, with SKIP 
 python3 tests/fp_lab/run_fp_lab.py run --set-adjudication auto \
     --scenarios div-instruction-files-read,direct-git-lab-repo
 python3 tests/fp_lab/run_fp_lab.py shape <run_dir>       # where jq and the core tools exist
+python3 tests/fp_lab/run_fp_lab.py run --leg deterministic   # the no-model user's leg
 python3 tests/fp_lab/run_fp_lab.py summarize <run_dir>   # re-render the summary from the case files
 ```
 
@@ -124,6 +125,16 @@ In CI: `agent_monitoring_e2e.yml` has an `fp_lab` mode (workflow_dispatch
 the `posture-binary-<label>` build of the run you name, runs the lab, and
 uploads the run directory as `fp-lab-<label>`. The default `fleet` mode (push,
 PR, release gate) is unchanged.
+
+### The deterministic leg
+
+`run --leg deterministic` is the same scenarios with both engines pinned to
+`deterministic` and no model required: what a user without a Portal or own
+model sees. Its summary is labelled (`leg: deterministic`), its alertable
+findings are the deterministic layer's rate on benign work and are never
+shaped as corpus candidates (`shape` refuses the run directory): a finding
+is evidence only once the Portal adjudicated it. Run it beside the LLM leg
+in every pre-release lab window, on a separate run directory.
 
 ## Local loop (the operator Mac)
 

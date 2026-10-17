@@ -127,6 +127,12 @@ on:
         description: 'fp_lab only: CSV of scenario or case ids (empty = whole catalog)'
         required: false
         default: ''
+      fp_lab_leg:
+        description: 'fp_lab only: llm = what users see with the Portal (default); deterministic = both engines pinned, no model, the no-model baseline measured on the same scenarios'
+        type: choice
+        required: false
+        default: llm
+        options: [llm, deterministic]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -414,6 +420,7 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           FP_LAB_SCENARIOS: ${{ github.event.inputs.fp_lab_scenarios }}
+          FP_LAB_LEG: ${{ github.event.inputs.fp_lab_leg || 'llm' }}
         run: |
           PY=python3
           command -v python3 >/dev/null 2>&1 || PY=python
@@ -425,7 +432,8 @@ jobs:
           # no credentials, so the core reconnects with the saved ones. The
           # security gate's daemon runs the same way; detection does not read
           # the Hub connection.
-          ARGS=(run --out "$OUT" --set-adjudication auto --scenarios "$FP_LAB_SCENARIOS" --allow-hub)
+          # --leg deterministic pins both engines instead and needs no model.
+          ARGS=(run --out "$OUT" --set-adjudication auto --leg "$FP_LAB_LEG" --scenarios "$FP_LAB_SCENARIOS" --allow-hub)
           if [ "$RUNNER_OS" = "Linux" ]; then
             # Same reason as the fleet driver: the root daemon's observer reads
             # /root, so the agents run as root with HOME=/root (--allow-root).
@@ -445,7 +453,7 @@ jobs:
         if: always() && github.event.inputs.mode == 'fp_lab'
         uses: actions/upload-artifact@v4
         with:
-          name: fp-lab-${{ matrix.posture_label }}
+          name: fp-lab-${{ github.event.inputs.fp_lab_leg == 'deterministic' && 'deterministic-' || '' }}${{ matrix.posture_label }}
           path: fp-lab-run
           if-no-files-found: warn
           retention-days: 14

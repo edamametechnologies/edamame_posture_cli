@@ -563,7 +563,8 @@ def shape_attack_candidate(export_path: Path, fp_id: str, case_id: str, run_dir:
 # ── preflight ───────────────────────────────────────────────────────────
 
 def preflight(args: argparse.Namespace, lab_agents: List[str]) -> Tuple[bool, dict]:
-    pf: dict = {"at": now_iso(), "host": socket.gethostname(), "platform": host_os(), "problems": []}
+    pf: dict = {"at": now_iso(), "host": socket.gethostname(), "platform": host_os(), "problems": [],
+                "leg": getattr(args, "leg", "llm")}
     problems: List[str] = pf["problems"]
     try:
         pf["edamame_cli"] = find_cli_binary()
@@ -623,7 +624,10 @@ def preflight(args: argparse.Namespace, lab_agents: List[str]) -> Tuple[bool, di
             problems.append(f"transcript observer disabled for {agent}")
     for engine in ("attack_pattern_detector", "divergence_engine"):
         mode = (pf.get(engine) or {}).get("adjudication_mode") if isinstance(pf.get(engine), dict) else None
-        if mode == "deterministic":
+        if pf["leg"] == "deterministic":
+            if mode != "deterministic":
+                problems.append(f"{engine} adjudication is {mode}: the deterministic leg pins both engines")
+        elif mode == "deterministic":
             problems.append(f"{engine} adjudication is deterministic: the lab measures what users see with the LLM")
     return not problems, pf
 
@@ -772,6 +776,11 @@ def run_cmd_run(args: argparse.Namespace) -> int:
     if args.dry_run:
         return 0
 
+    if args.leg == "deterministic":
+        # The no-model user's leg: the deterministic layer alone, measured on
+        # the same scenarios. Nothing here is Portal-adjudicated.
+        args.set_adjudication = "deterministic"
+        args.allow_no_llm = True
     ok, pf = preflight(args, lab_agents)
     write_json(run_dir / "preflight.json", pf)
     log(json.dumps({k: pf.get(k) for k in ("core_version", "hub_connected", "llm_ok", "llm_probe",
@@ -820,9 +829,13 @@ def run_cmd_run(args: argparse.Namespace) -> int:
             for f in news["alertable"] + news["low"]:
                 entry = export_attack_finding(f, case_dir / "attack_pattern")
                 if entry.get("alertable") and entry.get("export_path"):
-                    entry.update(shape_attack_candidate(Path(entry["export_path"]),
-                                                        attack_fp_id(scenario.fp_class, scenario.id),
-                                                        case["case_id"], run_dir, tool))
+                    if args.leg == "deterministic":
+                        entry["shaped"] = False
+                        entry["shape_skipped"] = "deterministic leg: not Portal-adjudicated"
+                    else:
+                        entry.update(shape_attack_candidate(Path(entry["export_path"]),
+                                                            attack_fp_id(scenario.fp_class, scenario.id),
+                                                            case["case_id"], run_dir, tool))
                 case["attack_pattern"].append(entry)
                 log(f"  [{case['case_id']}] {'ALERTABLE' if entry.get('alertable') else 'low'} "
                     f"{entry.get('severity')} {entry.get('check')} {entry.get('process')} -> {entry.get('subject_path') or entry.get('destination')}")
@@ -941,6 +954,7 @@ def write_summary(run_dir: Path, pf: dict, results: List[dict], args: argparse.N
     summary = {
         "run_dir": str(run_dir), "host": pf.get("host"), "platform": pf.get("platform"),
         "core_version": pf.get("core_version"), "generated_at": now_iso(),
+        "leg": pf.get("leg", "llm"),
         "adjudication": {"attack_pattern": (pf.get("attack_pattern_detector") or {}).get("adjudication_mode"),
                          "divergence": (pf.get("divergence_engine") or {}).get("adjudication_mode")},
         "counts": counts, "verdict": "FAIL" if fails else "PASS",
@@ -960,6 +974,9 @@ def write_summary(run_dir: Path, pf: dict, results: List[dict], args: argparse.N
              f"- Host: {pf.get('host')} ({pf.get('platform')}), core {pf.get('core_version')}",
              f"- Adjudication: attack pattern {summary['adjudication']['attack_pattern']}, "
              f"divergence {summary['adjudication']['divergence']}; LLM ok: {pf.get('llm_ok')}",
+             f"- Leg: {summary['leg']}" + (" (what a user without a model sees: the deterministic layer's "
+                                           "rate; alertable findings here are not corpus evidence)"
+                                           if summary["leg"] == "deterministic" else ""),
              f"- Verdict: **{summary['verdict']}** ({', '.join(f'{k} {v}' for k, v in sorted(counts.items()))})", "",
              "| Case | Status | Alertable | LOW | Incidents | Near misses | Note |",
              "|---|---|---|---|---|---|---|"]
@@ -1014,6 +1031,15 @@ def write_summary(run_dir: Path, pf: dict, results: List[dict], args: argparse.N
 
 def run_cmd_shape(args: argparse.Namespace) -> int:
     run_dir = Path(args.run_dir).resolve()
+    preflight_path = run_dir / "preflight.json"
+    if preflight_path.is_file():
+        try:
+            leg = json.loads(preflight_path.read_text(encoding="utf-8")).get("leg", "llm")
+        except (OSError, ValueError):
+            leg = "llm"
+        if leg == "deterministic":
+            log("deterministic leg: its findings are the deterministic layer's rate, not corpus evidence; nothing shaped")
+            return 2
     tool = find_corpus_tool(args.corpus_tool)
     shaped = 0
     for case_file in sorted((run_dir / "cases").glob("*/case.json")):
@@ -1071,6 +1097,10 @@ def main() -> int:
     r.add_argument("--claude-model", default="sonnet")
     r.add_argument("--codex-model", default="")
     r.add_argument("--set-adjudication", default="keep", choices=["keep", "auto", "llm", "advisory", "deterministic"])
+    r.add_argument("--leg", default="llm", choices=["llm", "deterministic"],
+                   help="llm: what users see with the Portal (default); deterministic: both engines pinned "
+                        "to deterministic, no model required, findings measured but never shaped as corpus "
+                        "evidence (a finding is evidence only once the Portal adjudicated it)")
     r.add_argument("--expect-core-version", default="")
     r.add_argument("--allow-root", action="store_true")
     r.add_argument("--allow-hub", action="store_true")
