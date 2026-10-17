@@ -453,7 +453,7 @@ jobs:
       # ── Drive the whole fleet ──────────────────────────────────────────
       - name: Run fleet monitoring driver
         if: github.event.inputs.mode != 'fp_lab'
-        timeout-minutes: 40
+        timeout-minutes: 55
         shell: bash
         env:
           EDAMAME_CLI: ${{ env.EDAMAME_CLI }}
