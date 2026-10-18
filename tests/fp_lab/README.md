@@ -133,8 +133,11 @@ PR, release gate) is unchanged.
 model sees. Its summary is labelled (`leg: deterministic`), its alertable
 findings are the deterministic layer's rate on benign work and are never
 shaped as corpus candidates (`shape` refuses the run directory): a finding
-is evidence only once the Portal adjudicated it. Run it beside the LLM leg
-in every pre-release lab window, on a separate run directory.
+is evidence only once the Portal adjudicated it. Run it in the CI leg after
+the LLM leg (`fp_lab_leg: deterministic`): the workflow cancels a run on the
+same branch, so the two legs go one after the other. In a dogfood window it
+needs a window of its own: a second leg in the same window inherits the
+first leg's findings, which the runner baselines, and hides repeats.
 
 ## Local loop (the operator Mac)
 
