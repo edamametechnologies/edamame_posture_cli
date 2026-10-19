@@ -64,7 +64,7 @@ READINESS_WAIT=120
 # calls and the artifact.
 EXPORT_MATCHED=3
 AGENT_TYPE="openclaw"
-SCENARIOS_CSV="blacklist_comm,cve_token_exfil,cve_sandbox_escape,memory_poisoning,credential_sprawl,supply_chain_exfil,npm_rat_beacon,file_events,skill_supply_chain,pgserve_postinstall,package_install_lifecycle,temp_modify,nonsensitive_path,agent_config_tamper,agent_rules_backdoor,agent_cred_harvest,agent_denylist_bypass,dns_tunnel,dns_tunnel_reconnect,ntp_tunnel,loopback_relay,process_memory_scrape,agent_memory_scrape,sneakpeek"
+SCENARIOS_CSV="blacklist_comm,cve_token_exfil,cve_sandbox_escape,memory_poisoning,credential_sprawl,supply_chain_exfil,npm_rat_beacon,file_events,skill_supply_chain,pgserve_postinstall,package_install_lifecycle,temp_modify,nonsensitive_path,agent_config_tamper,agent_rules_backdoor,agent_cred_harvest,agent_denylist_bypass,dns_tunnel,dns_tunnel_reconnect,ntp_tunnel,loopback_relay,process_memory_scrape,agent_memory_scrape,sneakpeek,credential_courier"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -173,6 +173,14 @@ expected_check_for() {
     # corroborated), but this scenario asserts the stable check the catalog
     # names.
     sneakpeek)             echo "token_exfiltration" ;;
+    # DETECTION-APPROACH-2026-10 P1 (2.1.0): the courier shape. A process
+    # holds a decoy SSH key open while its only external sessions trickle
+    # filler to a web host on port 443 -- a resolved name on a routine port,
+    # no breadth, no burst. The key's class is never used there (ssh's native
+    # services are port 22 and the forges' SSH hosts), so the finding is
+    # credential_misrouted, HIGH, which needs neither an anomaly score nor a
+    # non-routine destination.
+    credential_courier)    echo "credential_misrouted" ;;
     *) echo "" ;;
   esac
 }
@@ -250,6 +258,10 @@ scenario_markers_json() {
     # the destination port below proves the finding is this scenario's and
     # not residue from a neighbouring exfil scenario sharing portquiz.net.
     sneakpeek)             echo '["_sneakpeek"]' ;;
+    # The courier's own decoy key (suffix unique to this scenario): the
+    # destination port is 443, which other sessions share, so the held key
+    # is what proves the finding is this scenario's.
+    credential_courier)    echo '["_courier_id"]' ;;
     agent_memory_scrape)    echo '["ssh-agent", "vault.exe"]' ;;
     package_install_lifecycle) echo '["demo_openclaw_pil_persist"]' ;;
     *) echo '[]' ;;
@@ -333,6 +345,10 @@ scenario_poll_attempts_for() {
     # far too short. The knobs only bound how long the harness waits for the
     # alertable finding; they never relax what the gate asserts.
     sneakpeek)              echo "${SNEAKPEEK_POLL_ATTEMPTS:-30}" ;;
+    # The finding needs the held key in an L7 sample, a holder alive 30 s
+    # and a tick with the model's answer; the default 6x30 s window is
+    # tight on shared runners. The knob only bounds the wait.
+    credential_courier)     echo "${COURIER_POLL_ATTEMPTS:-16}" ;;
     *) echo "$POLL_ATTEMPTS" ;;
   esac
 }
@@ -345,6 +361,8 @@ scenario_trigger_duration_for() {
     # the verify loop stops polling soon after the trigger ends, so a 300 s
     # duration would almost always end before the anomaly flag attaches.
     sneakpeek)              echo "${SNEAKPEEK_TRIGGER_DURATION:-900}" ;;
+    # Keep the holder alive across the whole poll window.
+    credential_courier)     echo "${COURIER_TRIGGER_DURATION:-600}" ;;
     *) echo "$TRIGGER_DURATION" ;;
   esac
 }

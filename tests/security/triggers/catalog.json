@@ -746,6 +746,35 @@
       "gate_scenarios": [
         "sneakpeek"
       ]
+    },
+    "credential_courier": {
+      "trigger": "trigger_credential_courier.py",
+      "title": "Carry a stolen key to a service it is never used with",
+      "one_liner": "A quiet single-key theft: a process holds an SSH key open while it trickles data to an ordinary web server on port 443, a place that key is never used.",
+      "reference": {
+        "name": "s1ngularity -- malicious Nx versions published to npm (GitHub advisory GHSA-cxm3-wv7p-598c)",
+        "year": "2025",
+        "url": "https://github.com/nrwl/nx/security/advisories/GHSA-cxm3-wv7p-598c",
+        "kind": "incident"
+      },
+      "see_in_edamame": "Security > Detections shows a Credential misrouted finding attributed to the process that held the key, with the decoy key it read and the web server it talked to.",
+      "appears_within": "within a few minutes",
+      "talk_track": "Much credential theft does not look like an attack on the wire: one key, read once, sent over ordinary HTTPS to a well-known host. The s1ngularity compromise of Nx moved what it collected exactly that way, into a GitHub repository in the victim's own account. EDAMAME knows which services each kind of credential is used with -- an SSH key with SSH servers, a cloud key with its own cloud -- so when a process that read one talks only to places that credential is never used, EDAMAME flags it under that process's name, even when the destination and the traffic look ordinary.",
+      "terms": [
+        "exfiltration"
+      ],
+      "needs_admin": false,
+      "platforms": [
+        "macos",
+        "windows",
+        "linux"
+      ],
+      "expected_checks": [
+        "credential_misrouted"
+      ],
+      "gate_scenarios": [
+        "credential_courier"
+      ]
     }
   },
   "themes": [
@@ -780,7 +809,8 @@
         "cve_token_exfil",
         "credential_sprawl",
         "process_memory_scrape",
-        "sneakpeek"
+        "sneakpeek",
+        "credential_courier"
       ]
     },
     {
@@ -858,6 +888,10 @@
       {
         "scenario": "process_memory_scrape",
         "note": "File-less theft — reading a secret straight out of memory, where file-watchers see nothing."
+      },
+      {
+        "scenario": "credential_courier",
+        "note": "The quiet theft: one key, ordinary HTTPS, nothing suspicious on the wire -- flagged because the key went somewhere it is never used."
       },
       {
         "scenario": "dns_tunnel",

@@ -64,6 +64,7 @@ PID_FILES = [
     "daemon_lineage_egress.pid",
     "agent_rules_backdoor.pid",
     "sneakpeek.pid",
+    "credential_courier.pid",
 ]
 
 CREATED_MARKERS = [
@@ -80,6 +81,7 @@ CREATED_MARKERS = [
     "temp_modify.created",
     "nonsensitive_path.created",
     "sneakpeek.created",
+    "credential_courier.created",
     "agent_config_tamper.created",
     "agent_cred_harvest.created",
     "agent_denylist_bypass.created",
