@@ -194,6 +194,34 @@ run_cleanup() {
   "$PYTHON" "$TRIGGERS_DIR/cleanup.py" --agent-type "$AGENT_TYPE" >>"$TICK_LOG" 2>&1 || true
 }
 
+# Stop a trigger started with `&`, with the processes it started. On Windows a
+# trigger is a native process under a Git Bash stub, and Git Bash's kill ends
+# it together with every process naming it as parent, with no check that the
+# "child" is younger: Windows keeps the parent pid of a process whose parent
+# exited and gives the pid to a later process. The posture daemon's parent is
+# the `background-start` launcher, which exits at once, so stopping a trigger
+# that had received the launcher's pid stopped the daemon. `taskkill /T` skips
+# a process created before the parent it names; /proc/<pid>/winpid is the
+# stub's Windows pid, and the trigger is the stub's child.
+stop_trigger() {
+  local pid="$1"
+  kill -0 "$pid" 2>/dev/null || return 0
+  case "$(uname -s 2>/dev/null || true)" in
+    MINGW*|MSYS*|CYGWIN*)
+      local winpid
+      winpid="$(cat "/proc/$pid/winpid" 2>/dev/null || true)"
+      if [[ "$winpid" =~ ^[0-9]+$ ]]; then
+        taskkill //PID "$winpid" //T //F >/dev/null 2>&1 || true
+      else
+        log "  no Windows pid for trigger pid=$pid; it runs to the end of its duration"
+      fi
+      ;;
+    *)
+      kill -TERM "$pid" 2>/dev/null || true
+      ;;
+  esac
+}
+
 # Rewrite the model fixture for this run: window timestamps to now / now+20m and
 # the agent prefix to match --agent-type. Prints the prepared file path.
 prepare_model() {
@@ -571,7 +599,7 @@ run_one_scenario() {
   fi
 
   if kill -0 "$trigger_pid" 2>/dev/null; then
-    kill -TERM "$trigger_pid" 2>/dev/null || true
+    stop_trigger "$trigger_pid"
     wait "$trigger_pid" 2>/dev/null || true
   fi
 

@@ -399,6 +399,36 @@ clear_vuln_history() {
   call_rpc clear_attack_pattern_history >>"$TICK_LOG" 2>&1 || true
 }
 
+# Stop a trigger started with `&`, with the processes it started. On Windows a
+# trigger is a native process under a Git Bash stub, and Git Bash's kill ends
+# it together with every process naming it as parent, with no check that the
+# "child" is younger: Windows keeps the parent pid of a process whose parent
+# exited and gives the pid to a later process. The posture daemon's parent is
+# the `background-start` launcher, which exits at once, so stopping a trigger
+# that had received the launcher's pid stopped the daemon. `taskkill /T` skips
+# a process created before the parent it names; /proc/<pid>/winpid is the
+# stub's Windows pid, and the trigger is the stub's child.
+stop_trigger() {
+  local pid="$1"
+  kill -0 "$pid" 2>/dev/null || return 0
+  case "$(uname -s 2>/dev/null || true)" in
+    MINGW*|MSYS*|CYGWIN*)
+      local winpid
+      winpid="$(cat "/proc/$pid/winpid" 2>/dev/null || true)"
+      if [[ "$winpid" =~ ^[0-9]+$ ]]; then
+        taskkill //PID "$winpid" //T //F >/dev/null 2>&1 || true
+      else
+        log "  no Windows pid for trigger pid=$pid; it runs to the end of its duration"
+      fi
+      ;;
+    *)
+      kill -TERM "$pid" 2>/dev/null || true
+      sleep 2
+      kill -9 "$pid" 2>/dev/null || true
+      ;;
+  esac
+}
+
 # A daemon that stops answering RPC mid-suite (native crash, external kill)
 # must fail the suite at once with an unambiguous message. Every finding
 # helper tolerates a failed RPC as "no finding", so without this probe the
@@ -425,9 +455,7 @@ assert_daemon_reachable() {
   printf 'daemon_unreachable at %s (%s)\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$where" \
     >"$OUTPUT_DIR_ABS/daemon_unreachable.log"
   if [[ -n "$CURRENT_TRIGGER_PID" ]]; then
-    kill -TERM "$CURRENT_TRIGGER_PID" 2>/dev/null || true
-    sleep 1
-    kill -9 "$CURRENT_TRIGGER_PID" 2>/dev/null || true
+    stop_trigger "$CURRENT_TRIGGER_PID"
   fi
   run_cleanup
   exit 1
@@ -1375,9 +1403,7 @@ run_one_scenario_attempt() {
 
   if kill -0 "$trigger_pid" 2>/dev/null; then
     log "  stopping trigger pid=$trigger_pid"
-    kill -TERM "$trigger_pid" 2>/dev/null || true
-    sleep 2
-    kill -9 "$trigger_pid" 2>/dev/null || true
+    stop_trigger "$trigger_pid"
   fi
   wait "$trigger_pid" 2>/dev/null || true
   CURRENT_TRIGGER_PID=""
