@@ -1848,7 +1848,7 @@ dependencies = [
 [[package]]
 name = "edamame_backend"
 version = "0.3.5"
-source = "git+https://github.com/edamametechnologies/edamame_backend?branch=main#7712976f3fd222f9d9cf5e30d146d9e4ed4a7ced"
+source = "git+https://github.com/edamametechnologies/edamame_backend?branch=main#2981e3f6a46ad5698ac2744340cc505cc4712730"
 dependencies = [
  "anyhow",
  "blake3",
@@ -1862,8 +1862,8 @@ dependencies = [
 
 [[package]]
 name = "edamame_core"
-version = "2.0.9"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#bfd430e07dae4b3575dd4bc236f76a6037722039"
+version = "2.1.0"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#bd457f0a81d6c62bb5d339173be26494edd02e12"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -1948,8 +1948,8 @@ dependencies = [
 
 [[package]]
 name = "edamame_foundation"
-version = "2.0.9"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#46898cce895bcf9581e7b950e1e2118aa9d0711b"
+version = "2.1.0"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#c76b5f732142325c3dc3ec9dd8a6d53d054978ec"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -2369,8 +2369,8 @@ dependencies = [
 
 [[package]]
 name = "flodbadd"
-version = "2.0.9"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#63362e7fb7179bcc4eb5e6ea02d9d19d894127fa"
+version = "2.1.0"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#28ea11f68040c6300d9b278d3ddcf3996f17523c"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -3453,7 +3453,7 @@ dependencies = [
  "js-sys",
  "log",
  "wasm-bindgen",
- "windows-core 0.62.2",
+ "windows-core 0.58.0",
 ]
 
 [[package]]
@@ -3981,7 +3981,7 @@ dependencies = [
 [[package]]
 name = "l7_ebpf_program"
 version = "0.1.0"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#63362e7fb7179bcc4eb5e6ea02d9d19d894127fa"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#28ea11f68040c6300d9b278d3ddcf3996f17523c"
 
 [[package]]
 name = "lazy_static"
@@ -7448,7 +7448,7 @@ dependencies = [
 [[package]]
 name = "threatmodels_rs"
 version = "0.1.1"
-source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#c7a82a92f4426cc12fd28ba468f9830ccd79ef05"
+source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#37d55eb3ce46a0cd9b099dafe461de5dbb6f8653"
 dependencies = [
  "anyhow",
  "chrono",
@@ -7890,7 +7890,7 @@ checksum = "b6f5e870be6c3b371b77fe0ee0bafb859fa4964b4404c27de1d380043c4dda20"
 [[package]]
 name = "undeadlock"
 version = "1.2.0"
-source = "git+https://github.com/edamametechnologies/undeadlock?branch=main#df54446ff5bf473df3ee605009ffbdc89bcfa94a"
+source = "git+https://github.com/edamametechnologies/undeadlock?branch=main#b7357fede61aa1765bdd4f52a50c4710aa7d1113"
 dependencies = [
  "dashmap 6.2.1",
  "tokio",
@@ -9123,14 +9123,15 @@ dependencies = [
 
 [[package]]
 name = "zip"
-version = "7.2.0"
+version = "9.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c42e33efc22a0650c311c2ef19115ce232583abbe80850bc8b66509ebef02de0"
+checksum = "6e04976da629d3b04204ba8105b396a193af8ad2583b2c79bfb3ab8af580a11e"
 dependencies = [
  "crc32fast",
  "flate2",
  "indexmap 2.14.2",
  "memchr",
+ "nix 0.31.3",
  "typed-path",
  "zopfli",
 ]
