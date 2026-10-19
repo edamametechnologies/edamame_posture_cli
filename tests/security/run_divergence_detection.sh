@@ -65,7 +65,7 @@ POLL_INTERVAL=15
 ENGINE_INTERVAL=30
 AGENT_TYPE="openclaw"
 APPEND=0
-SCENARIOS_CSV="daemon_lineage_egress"
+SCENARIOS_CSV="daemon_lineage_egress,poisoned_mcp_tool"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -114,6 +114,7 @@ IFS=',' read -r -a SCENARIOS <<<"$SCENARIOS_CSV"
 model_file_for() {
   case "$1" in
     daemon_lineage_egress) echo "$MODELS_DIR/daemon_lineage_egress.json" ;;
+    poisoned_mcp_tool) echo "$MODELS_DIR/poisoned_mcp_tool.json" ;;
     *) echo "" ;;
   esac
 }
@@ -126,6 +127,7 @@ trigger_script_for() {
 expected_check_for() {
   case "$1" in
     daemon_lineage_egress) echo "correlation:not_expected" ;;
+    poisoned_mcp_tool) echo "policy:evaluator_integrity" ;;
     *) echo "" ;;
   esac
 }
@@ -138,6 +140,7 @@ expected_check_for() {
 evidence_prefix_for() {
   case "$1" in
     daemon_lineage_egress) echo "Parent path '" ;;
+    poisoned_mcp_tool) echo "Measurement surface '" ;;
     *) echo "" ;;
   esac
 }
@@ -145,8 +148,55 @@ evidence_prefix_for() {
 evidence_marker_for() {
   case "$1" in
     daemon_lineage_egress) echo "<PFX>_xz_sshd_standin" ;;
+    poisoned_mcp_tool) echo "<PFX>_changelog_project/tests/test_access_control.py" ;;
     *) echo "" ;;
   esac
+}
+
+# Scenarios graded on a file write: the file monitor must watch the trigger's
+# state directory, and the trigger lays its project down first and waits for
+# the go file (see trigger_poisoned_mcp_tool.py). The runner clears the file
+# events in between, so what the engine reads is the scenario's write, not the
+# setup's.
+scenario_needs_file_handshake() {
+  case "$1" in
+    poisoned_mcp_tool) return 0 ;;
+  esac
+  return 1
+}
+
+trigger_state_dir() {
+  TRIGGERS_DIR_ENV="$TRIGGERS_DIR" AGENT_TYPE_ENV="$AGENT_TYPE" "$PYTHON" - <<'PY'
+import os, sys
+sys.path.insert(0, os.environ["TRIGGERS_DIR_ENV"])
+from _common import prepare_state_dir, state_dir_for
+print(prepare_state_dir(state_dir_for(os.environ["AGENT_TYPE_ENV"])))
+PY
+}
+
+# Watch the trigger's state directory. Prints the directory.
+arm_file_monitor() {
+  local state_dir
+  state_dir="$(trigger_state_dir)" || return 1
+  [[ -n "$state_dir" ]] || return 1
+  call_rpc start_file_monitor "[[\"$state_dir\"]]" >>"$TICK_LOG" 2>&1 || return 1
+  echo "$state_dir"
+}
+
+# Wait for the trigger's staged marker, clear the file events, write the go
+# file. Returns non-zero when the trigger never staged.
+file_handshake() {
+  local scenario="$1" state_dir="$2" trigger_pid="$3"
+  local staged="$state_dir/$scenario.staged" go="$state_dir/$scenario.go"
+  local waited=0
+  while [[ ! -f "$staged" ]] && (( waited < 60 )); do
+    kill -0 "$trigger_pid" 2>/dev/null || return 1
+    sleep 1
+    waited=$((waited + 1))
+  done
+  [[ -f "$staged" ]] || return 1
+  call_rpc clear_file_events >>"$TICK_LOG" 2>&1 || true
+  : >"$go"
 }
 
 # Scenarios with no sensor or no install path on a platform. Mirrors
@@ -531,6 +581,17 @@ run_one_scenario() {
   log "  model planted: $prepared"
   start_engine
 
+  local handshake_dir=""
+  if scenario_needs_file_handshake "$scenario"; then
+    if ! handshake_dir="$(arm_file_monitor)"; then
+      log "  FAIL: could not start the file monitor on the trigger's state directory"
+      record_scenario_result "$scenario" "$check" "fail" 0 0 0 "file_monitor_not_started"
+      divergence_reset
+      return 0
+    fi
+    log "  file monitor watching $handshake_dir"
+  fi
+
   local trigger_log="$OUTPUT_DIR_ABS/${scenario}.trigger.log"
   : >"$trigger_log"
   "$PYTHON" "$trigger_script" \
@@ -539,6 +600,14 @@ run_one_scenario() {
     >>"$trigger_log" 2>&1 &
   local trigger_pid=$!
   log "  trigger launched (pid=$trigger_pid): $trigger_script"
+
+  if [[ -n "$handshake_dir" ]]; then
+    if file_handshake "$scenario" "$handshake_dir" "$trigger_pid"; then
+      log "  file events cleared after the trigger staged; go file written"
+    else
+      log "  trigger did not stage its project (see its log); continuing"
+    fi
+  fi
 
   sleep "$POST_WAIT"
 

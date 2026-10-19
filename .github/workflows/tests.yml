@@ -86,7 +86,7 @@ on:
       security_divergence_scenarios:
         description: "Comma-separated divergence scenarios to run (run_divergence_detection.sh). Not yet part of the gate's required set; a `fail` still blocks, an absent row does not."
         required: false
-        default: "daemon_lineage_egress"
+        default: "daemon_lineage_egress,poisoned_mcp_tool"
       security_log_level:
         description: "EDAMAME_LOG_LEVEL for the security-suite daemon (tracing EnvFilter spec, e.g. info,vdiag=debug,edamame_core::agentic=debug). Default: info."
         required: false
@@ -183,7 +183,7 @@ jobs:
           # against `get_vulnerability_findings`. Kept as its own list because
           # `security_scenarios` is passed verbatim to run_cve_detection.sh,
           # which would record an unknown name as a `skip`.
-          DEFAULT_SEC_DIV_SCEN="daemon_lineage_egress"
+          DEFAULT_SEC_DIV_SCEN="daemon_lineage_egress,poisoned_mcp_tool"
           DEFAULT_PLATFORMS="ubuntu-x64,ubuntu-arm64,macos-arm64,windows-x64,ubuntu-20.04,ubuntu-18.04,alpine-x64,alpine-arm64"
 
           RT="${IN_RUN_TESTS:-true}"
@@ -1742,6 +1742,7 @@ jobs:
             trigger_npm_rat_beacon.py
             trigger_file_events.py
             trigger_daemon_lineage_egress.py
+            trigger_poisoned_mcp_tool.py
           )
           for f in "${REQUIRED_FILES[@]}"; do
             test -s "$TRIGGERS_DIR/$f"
@@ -1996,8 +1997,8 @@ jobs:
         # Same precondition as the CVE suite: a dirty idle baseline means the
         # host is already producing findings with no stimulus.
         if: steps.baseline.outcome == 'success' && runner.os != 'Windows'
-        # One scenario x (post-wait + 240s trigger + 12x15s verify poll).
-        timeout-minutes: 20
+        # Two scenarios x (post-wait + 240s trigger + 12x15s verify poll).
+        timeout-minutes: 35
         shell: bash
         env:
           EDAMAME_CLI: ${{ env.EDAMAME_CLI }}
@@ -2009,7 +2010,9 @@ jobs:
           if [[ $(id -u) -ne 0 ]] && command -v sudo >/dev/null 2>&1; then
             SUDO="sudo -E"
           fi
+          # PATH crosses sudo so poisoned_mcp_tool's stand-in tool finds node.
           $SUDO env \
+            PATH="$PATH" \
             EDAMAME_CLI="$EDAMAME_CLI" \
             PYTHON="$(command -v python3)" \
             bash tests/security/run_divergence_detection.sh \

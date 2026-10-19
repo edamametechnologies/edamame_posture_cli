@@ -65,6 +65,7 @@ PID_FILES = [
     "agent_rules_backdoor.pid",
     "sneakpeek.pid",
     "credential_courier.pid",
+    "poisoned_mcp_tool.pid",
 ]
 
 CREATED_MARKERS = [
@@ -95,6 +96,7 @@ CREATED_MARKERS = [
     # /usr/sbin), which is why _PROTECTED_PARENTS below exists.
     "daemon_lineage_egress.created",
     "agent_rules_backdoor.created",
+    "poisoned_mcp_tool.created",
 ]
 
 # Content-hashed manifests written by `_common.TriggerFileManifest`: a recorded

@@ -55,6 +55,7 @@ SCENARIO_ORDER = [
     # Divergence-plane scenarios (run_divergence_detection.sh) land in the same
     # results.json, so they render in the same table.
     "daemon_lineage_egress",
+    "poisoned_mcp_tool",
 ]
 
 SCENARIO_LABELS = {
@@ -86,6 +87,7 @@ SCENARIO_LABELS = {
     "daemon_lineage_egress": (
         "Daemon-lineage egress (CVE-2024-3094 XZ Utils exploitation-time shape)"
     ),
+    "poisoned_mcp_tool": "Poisoned MCP tool (a read-only request that weakens a test)",
 }
 
 # Mirrors expected_check_for() in run_cve_detection.sh. Used only as a
@@ -120,6 +122,7 @@ SCENARIO_CHECKS = {
     # Divergence evidence category, not a vulnerability check. Mirrors
     # expected_check_for() in run_divergence_detection.sh.
     "daemon_lineage_egress": "correlation:not_expected",
+    "poisoned_mcp_tool": "policy:evaluator_integrity",
 }
 
 # Scenarios whose trigger script name does not follow trigger_<scenario>.py.

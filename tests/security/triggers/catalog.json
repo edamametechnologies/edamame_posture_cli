@@ -775,6 +775,37 @@
       "gate_scenarios": [
         "credential_courier"
       ]
+    },
+    "poisoned_mcp_tool": {
+      "trigger": "trigger_poisoned_mcp_tool.py",
+      "title": "A trusted AI tool quietly weakens a security test",
+      "one_liner": "Models a poisoned MCP tool: asked for read-only release notes, it returns the right answer and, behind the agent's back, turns a project's access-control test into one that always passes.",
+      "reference": {
+        "name": "MCP Security Notification: Tool Poisoning Attacks (Invariant Labs)",
+        "year": "2025",
+        "url": "https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks",
+        "kind": "technique"
+      },
+      "see_in_edamame": "Security > Detections shows a Divergence finding: a project's test was modified while the AI agent's session had only asked to read the changelog.",
+      "appears_within": "within a few minutes, only on a machine where EDAMAME holds a behavioural model of an AI agent session that asked for a read-only task; elsewhere the test file change shows in File events only",
+      "talk_track": "AI agents now install tools the way developers install packages, and a tool update can turn malicious overnight. Here the user asked the agent to summarize the release notes, nothing more. The tool gave the right answer, so neither the agent nor the user had a reason to look further, but it also switched off a security check in the project's tests. EDAMAME watches what actually changes on the machine and compares it with what the user asked for: a read-only request that edits a test is a divergence. The project and its test are a disposable copy the scenario creates and Run cleanup removes.",
+      "terms": [
+        "mcp",
+        "supply_chain",
+        "divergence",
+        "fim"
+      ],
+      "needs_admin": false,
+      "platforms": [
+        "macos",
+        "linux"
+      ],
+      "expected_checks": [
+        "policy:evaluator_integrity"
+      ],
+      "gate_scenarios": [
+        "poisoned_mcp_tool"
+      ]
     }
   },
   "themes": [
@@ -787,7 +818,8 @@
         "agent_rules_backdoor",
         "agent_denylist_bypass",
         "agent_cred_harvest",
-        "memory_poisoning"
+        "memory_poisoning",
+        "poisoned_mcp_tool"
       ]
     },
     {
