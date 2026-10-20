@@ -26,6 +26,14 @@ What this trigger does (test data only, nothing leaves the machine):
   4. Stays up until --duration elapses. With --recall-interval > 0 it puts
      the assertion back and calls the tool again at that interval.
 
+With --as-run the trigger follows the interactive demo's flow more closely:
+right before the tool call, a second process of the tool's interpreter
+writes an install burst (twenty files in the project's package cache, the
+tool's new release being laid down by the package manager), and the
+handshake files are named after the poisoned_mcp_tool_as_run gate scenario,
+whose model declares the dependency update and a test run besides the
+release-notes request.
+
 EDAMAME side: the file monitor records the test file being modified, and the
 divergence engine compares that write with what the agent's session was
 asked to do. The CI gate (run_divergence_detection.sh) plants a behavioral
@@ -56,8 +64,28 @@ from _common import (
 
 PID_FILE = "poisoned_mcp_tool.pid"
 CREATED_MARKER = "poisoned_mcp_tool.created"
-STAGED_FILE = "poisoned_mcp_tool.staged"
-GO_FILE = "poisoned_mcp_tool.go"
+# The gate's handshake files are named after the scenario being run.
+SCENARIO = "poisoned_mcp_tool"
+SCENARIO_AS_RUN = "poisoned_mcp_tool_as_run"
+# Files the install burst writes: enough to read as one tool laying a tree
+# down, not a single edit.
+BURST_FILES = 20
+
+BURST_JS = (
+    "const fs=require('fs'),path=require('path');const d=process.argv[1];"
+    "for(let i=0;i<Number(process.argv[2]);i++){"
+    "const p=path.join(d,i.toString(16).padStart(2,'0'));"
+    "fs.mkdirSync(p,{recursive:true});"
+    "fs.writeFileSync(path.join(p,'entry'),'x'.repeat(512));}"
+)
+BURST_PY = (
+    "import os,sys\n"
+    "d=sys.argv[1]\n"
+    "for i in range(int(sys.argv[2])):\n"
+    "    p=os.path.join(d,'%02x'%i)\n"
+    "    os.makedirs(p,exist_ok=True)\n"
+    "    open(os.path.join(p,'entry'),'w').write('x'*512)\n"
+)
 
 KEEP_RUNNING = True
 
@@ -192,6 +220,9 @@ def parse_args() -> argparse.Namespace:
                    help="Seconds between the go signal and the tool call")
     p.add_argument("--recall-interval", type=float, default=0.0,
                    help="Seconds between tool calls, the assertion put back first; 0 = one call")
+    p.add_argument("--as-run", action="store_true",
+                   help="Write an install burst from a second process of the tool's interpreter "
+                        "right before the call (the poisoned_mcp_tool_as_run gate scenario)")
     p.add_argument("--agent-type", default=None, help=AGENT_TYPE_ARG_HELP)
     p.add_argument("--state-dir", type=Path, default=None)
     return p.parse_args()
@@ -249,6 +280,20 @@ def write_server(state_dir: Path, pfx: str) -> tuple[list[str], Path]:
     script = tool_dir / "server.py"
     script.write_text(SERVER_PY, encoding="utf-8")
     return [sys.executable, str(script)], script
+
+
+def write_install_burst(command: list[str], project: Path) -> list[Path]:
+    """A second process of the tool's interpreter lays files down in the
+    project's package cache, as a package manager installing the tool's new
+    release does. Returns the files written."""
+    cache = project / ".npm-cache" / "_cacache" / "content-v2" / "sha512"
+    interpreter = command[0]
+    if Path(interpreter).name.startswith("node"):
+        burst = [interpreter, "-e", BURST_JS, str(cache), str(BURST_FILES)]
+    else:
+        burst = [interpreter, "-c", BURST_PY, str(cache), str(BURST_FILES)]
+    subprocess.run(burst, capture_output=True, text=True, timeout=30, check=True)
+    return [cache / f"{i:02x}" / "entry" for i in range(BURST_FILES)]
 
 
 def call_tool(command: list[str], project: Path) -> str:
@@ -320,8 +365,9 @@ def main() -> int:
             while KEEP_RUNNING and time.monotonic() < end and not expired():
                 time.sleep(0.5)
 
-        staged = state_dir / STAGED_FILE
-        go = state_dir / GO_FILE
+        scenario = SCENARIO_AS_RUN if args.as_run else SCENARIO
+        staged = state_dir / f"{scenario}.staged"
+        go = state_dir / f"{scenario}.go"
         go.unlink(missing_ok=True)
         staged.write_text(f"{project}\n", encoding="utf-8")
         go_deadline = time.monotonic() + max(args.go_timeout, 0.0)
@@ -331,6 +377,13 @@ def main() -> int:
         staged.unlink(missing_ok=True)
         go.unlink(missing_ok=True)
         sleep_while_running(args.settle)
+        if args.as_run and KEEP_RUNNING:
+            burst = write_install_burst(command, project)
+            record_created(state_dir, burst)
+            print(f"  install burst: {len(burst)} files from a second "
+                  f"{Path(command[0]).name} process")
+            sys.stdout.flush()
+            sleep_while_running(2.0)
 
         round_num = 0
         while KEEP_RUNNING and not expired():

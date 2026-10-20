@@ -65,7 +65,7 @@ POLL_INTERVAL=15
 ENGINE_INTERVAL=30
 AGENT_TYPE="openclaw"
 APPEND=0
-SCENARIOS_CSV="daemon_lineage_egress,poisoned_mcp_tool"
+SCENARIOS_CSV="daemon_lineage_egress,poisoned_mcp_tool,poisoned_mcp_tool_as_run"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -115,12 +115,24 @@ model_file_for() {
   case "$1" in
     daemon_lineage_egress) echo "$MODELS_DIR/daemon_lineage_egress.json" ;;
     poisoned_mcp_tool) echo "$MODELS_DIR/poisoned_mcp_tool.json" ;;
+    poisoned_mcp_tool_as_run) echo "$MODELS_DIR/poisoned_mcp_tool_as_run.json" ;;
     *) echo "" ;;
   esac
 }
 
 trigger_script_for() {
-  echo "$TRIGGERS_DIR/trigger_$1.py"
+  case "$1" in
+    poisoned_mcp_tool_as_run) echo "$TRIGGERS_DIR/trigger_poisoned_mcp_tool.py" ;;
+    *) echo "$TRIGGERS_DIR/trigger_$1.py" ;;
+  esac
+}
+
+# Extra trigger flags for scenarios that share a trigger.
+trigger_args_for() {
+  case "$1" in
+    poisoned_mcp_tool_as_run) echo "--as-run" ;;
+    *) echo "" ;;
+  esac
 }
 
 # The evidence category the scenario must produce.
@@ -128,6 +140,7 @@ expected_check_for() {
   case "$1" in
     daemon_lineage_egress) echo "correlation:not_expected" ;;
     poisoned_mcp_tool) echo "policy:evaluator_integrity" ;;
+    poisoned_mcp_tool_as_run) echo "policy:evaluator_integrity" ;;
     *) echo "" ;;
   esac
 }
@@ -141,6 +154,7 @@ evidence_prefix_for() {
   case "$1" in
     daemon_lineage_egress) echo "Parent path '" ;;
     poisoned_mcp_tool) echo "Measurement surface '" ;;
+    poisoned_mcp_tool_as_run) echo "Measurement surface '" ;;
     *) echo "" ;;
   esac
 }
@@ -149,6 +163,7 @@ evidence_marker_for() {
   case "$1" in
     daemon_lineage_egress) echo "<PFX>_xz_sshd_standin" ;;
     poisoned_mcp_tool) echo "<PFX>_changelog_project/tests/test_access_control.py" ;;
+    poisoned_mcp_tool_as_run) echo "<PFX>_changelog_project/tests/test_access_control.py" ;;
     *) echo "" ;;
   esac
 }
@@ -160,7 +175,7 @@ evidence_marker_for() {
 # setup's.
 scenario_needs_file_handshake() {
   case "$1" in
-    poisoned_mcp_tool) return 0 ;;
+    poisoned_mcp_tool|poisoned_mcp_tool_as_run) return 0 ;;
   esac
   return 1
 }
@@ -597,6 +612,7 @@ run_one_scenario() {
   "$PYTHON" "$trigger_script" \
     --agent-type "$AGENT_TYPE" \
     --duration "$TRIGGER_DURATION" \
+    $(trigger_args_for "$scenario") \
     >>"$trigger_log" 2>&1 &
   local trigger_pid=$!
   log "  trigger launched (pid=$trigger_pid): $trigger_script"

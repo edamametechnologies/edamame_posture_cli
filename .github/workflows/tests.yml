@@ -86,7 +86,7 @@ on:
       security_divergence_scenarios:
         description: "Comma-separated divergence scenarios to run (run_divergence_detection.sh). Not yet part of the gate's required set; a `fail` still blocks, an absent row does not."
         required: false
-        default: "daemon_lineage_egress,poisoned_mcp_tool"
+        default: "daemon_lineage_egress,poisoned_mcp_tool,poisoned_mcp_tool_as_run"
       security_log_level:
         description: "EDAMAME_LOG_LEVEL for the security-suite daemon (tracing EnvFilter spec, e.g. info,vdiag=debug,edamame_core::agentic=debug). Default: info."
         required: false
@@ -183,7 +183,7 @@ jobs:
           # against `get_vulnerability_findings`. Kept as its own list because
           # `security_scenarios` is passed verbatim to run_cve_detection.sh,
           # which would record an unknown name as a `skip`.
-          DEFAULT_SEC_DIV_SCEN="daemon_lineage_egress,poisoned_mcp_tool"
+          DEFAULT_SEC_DIV_SCEN="daemon_lineage_egress,poisoned_mcp_tool,poisoned_mcp_tool_as_run"
           DEFAULT_PLATFORMS="ubuntu-x64,ubuntu-arm64,macos-arm64,windows-x64,ubuntu-20.04,ubuntu-18.04,alpine-x64,alpine-arm64"
 
           RT="${IN_RUN_TESTS:-true}"

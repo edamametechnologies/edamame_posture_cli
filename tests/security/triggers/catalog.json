@@ -804,7 +804,8 @@
         "policy:evaluator_integrity"
       ],
       "gate_scenarios": [
-        "poisoned_mcp_tool"
+        "poisoned_mcp_tool",
+        "poisoned_mcp_tool_as_run"
       ]
     }
   },

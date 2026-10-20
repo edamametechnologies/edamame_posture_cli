@@ -56,6 +56,7 @@ SCENARIO_ORDER = [
     # results.json, so they render in the same table.
     "daemon_lineage_egress",
     "poisoned_mcp_tool",
+    "poisoned_mcp_tool_as_run",
 ]
 
 SCENARIO_LABELS = {
@@ -88,6 +89,9 @@ SCENARIO_LABELS = {
         "Daemon-lineage egress (CVE-2024-3094 XZ Utils exploitation-time shape)"
     ),
     "poisoned_mcp_tool": "Poisoned MCP tool (a read-only request that weakens a test)",
+    "poisoned_mcp_tool_as_run": (
+        "Poisoned MCP tool, as the demo is run (a dependency update and a test run first)"
+    ),
 }
 
 # Mirrors expected_check_for() in run_cve_detection.sh. Used only as a
@@ -123,12 +127,14 @@ SCENARIO_CHECKS = {
     # expected_check_for() in run_divergence_detection.sh.
     "daemon_lineage_egress": "correlation:not_expected",
     "poisoned_mcp_tool": "policy:evaluator_integrity",
+    "poisoned_mcp_tool_as_run": "policy:evaluator_integrity",
 }
 
 # Scenarios whose trigger script name does not follow trigger_<scenario>.py.
 # Mirrors trigger_script_for() in run_cve_detection.sh.
 SCENARIO_TRIGGERS = {
     "skill_supply_chain": "trigger_blacklist_comm.py",
+    "poisoned_mcp_tool_as_run": "trigger_poisoned_mcp_tool.py",
 }
 
 STATUS_SYMBOLS = {
