@@ -489,6 +489,30 @@ jobs:
         if: matrix.os == 'windows'
         run: |
           choco install protoc wget
+          # A feed outage can leave choco reporting success with nothing installed:
+          # protoc then comes from its own release, checked by SHA-256.
+          if (-not (Get-Command protoc.exe -ErrorAction SilentlyContinue)) {
+            Write-Host "::warning::protoc is not on PATH after choco install; taking protoc 25.3 from its GitHub release"
+            $zip = Join-Path $env:RUNNER_TEMP 'protoc-25.3-win64.zip'
+            for ($i = 1; $i -le 3; $i++) {
+              try {
+                Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/protocolbuffers/protobuf/releases/download/v25.3/protoc-25.3-win64.zip' -OutFile $zip
+                break
+              } catch {
+                if ($i -eq 3) { throw }
+                Start-Sleep -Seconds 10
+              }
+            }
+            if ((Get-FileHash -Algorithm SHA256 $zip).Hash -ne 'd6b336b852726364313330631656b7f395dde5b1141b169f5c4b8d43cdf01482') {
+              throw "protoc-25.3-win64.zip does not match its SHA-256"
+            }
+            $protocDir = Join-Path $env:RUNNER_TEMP 'protoc'
+            Expand-Archive -Path $zip -DestinationPath $protocDir -Force
+            $env:Path = "$protocDir\bin;$env:Path"
+            Add-Content -Path $env:GITHUB_PATH -Value "$protocDir\bin"
+          }
+          protoc --version
+          if ($LASTEXITCODE -ne 0) { throw "protoc --version failed (exit $LASTEXITCODE)" }
           if (-not (dotnet tool list --global | Select-String -Pattern "AzureSignTool")) {
             dotnet tool install --global AzureSignTool
           }
@@ -766,6 +790,30 @@ jobs:
         if: matrix.os == 'windows'
         run: |
           choco install protoc wget
+          # A feed outage can leave choco reporting success with nothing installed:
+          # protoc then comes from its own release, checked by SHA-256.
+          if (-not (Get-Command protoc.exe -ErrorAction SilentlyContinue)) {
+            Write-Host "::warning::protoc is not on PATH after choco install; taking protoc 25.3 from its GitHub release"
+            $zip = Join-Path $env:RUNNER_TEMP 'protoc-25.3-win64.zip'
+            for ($i = 1; $i -le 3; $i++) {
+              try {
+                Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/protocolbuffers/protobuf/releases/download/v25.3/protoc-25.3-win64.zip' -OutFile $zip
+                break
+              } catch {
+                if ($i -eq 3) { throw }
+                Start-Sleep -Seconds 10
+              }
+            }
+            if ((Get-FileHash -Algorithm SHA256 $zip).Hash -ne 'd6b336b852726364313330631656b7f395dde5b1141b169f5c4b8d43cdf01482') {
+              throw "protoc-25.3-win64.zip does not match its SHA-256"
+            }
+            $protocDir = Join-Path $env:RUNNER_TEMP 'protoc'
+            Expand-Archive -Path $zip -DestinationPath $protocDir -Force
+            $env:Path = "$protocDir\bin;$env:Path"
+            Add-Content -Path $env:GITHUB_PATH -Value "$protocDir\bin"
+          }
+          protoc --version
+          if ($LASTEXITCODE -ne 0) { throw "protoc --version failed (exit $LASTEXITCODE)" }
 
       - name: Configure Windows clang-cl toolchain
         if: matrix.os == 'windows'
