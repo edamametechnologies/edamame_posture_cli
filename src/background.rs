@@ -3087,7 +3087,7 @@ fn attack_pattern_gate_since(status_count: u64, since: crate::gate_scope::UtcTim
 
 /// Dump the `VulnerabilityDebugTrace` JSON for a past attack pattern report.
 ///
-/// Calls `get_vulnerability_debug_trace(report_id)` on the running daemon and
+/// Calls `get_attack_pattern_debug_trace(report_id)` on the running daemon and
 /// pretty-prints the trace (`input_slices`, `deterministic_findings`,
 /// `llm_decision`, etc.). This is the canonical FP corpus capture input:
 /// the trace can be replayed deterministically through the detector to
@@ -3106,7 +3106,7 @@ pub fn background_attack_pattern_debug_trace(report_id: Option<String>) -> i32 {
     let resolved_id = match report_id {
         Some(id) if !id.trim().is_empty() => id.trim().to_string(),
         _ => {
-            // Resolve latest report_id from get_vulnerability_findings.
+            // Resolve latest report_id from get_attack_pattern_findings.
             match rpc_get_attack_pattern_findings(
                 &EDAMAME_CA_PEM,
                 &EDAMAME_CLIENT_PEM,

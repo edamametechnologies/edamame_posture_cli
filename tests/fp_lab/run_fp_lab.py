@@ -302,7 +302,7 @@ class LabState:
 def tick_everything(observer_agents: Iterable[str]) -> None:
     for agent in observer_agents:
         observer_tick(agent, timeout=TICK_TIMEOUT)
-    rpc_quiet("debug_run_vulnerability_detector_tick", timeout=TICK_TIMEOUT)
+    rpc_quiet("debug_run_attack_pattern_detector_tick", timeout=TICK_TIMEOUT)
     rpc_quiet("debug_run_divergence_tick", timeout=TICK_TIMEOUT)
 
 

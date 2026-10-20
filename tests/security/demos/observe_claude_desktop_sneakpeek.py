@@ -540,7 +540,7 @@ def run(args: argparse.Namespace) -> int:
 
     if args.clear_history:
         print("\nclearing vulnerability history and FIM events (--clear-history)")
-        cli_rpc("clear_vulnerability_history", timeout=60.0, retries=1)
+        cli_rpc("clear_attack_pattern_history", timeout=60.0, retries=1)
         try:
             cli_rpc("clear_file_events", timeout=60.0, retries=1)
         except Exception as exc:  # noqa: BLE001
