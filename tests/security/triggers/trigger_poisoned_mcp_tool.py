@@ -228,6 +228,14 @@ def parse_args() -> argparse.Namespace:
     return p.parse_args()
 
 
+def write_lf(path: Path, text: str) -> None:
+    """Write with LF line endings on every platform: the stand-in tool
+    compares the test file with its LF baseline byte for byte, and text mode
+    on Windows would write CRLF."""
+    with open(path, "w", encoding="utf-8", newline="\n") as fh:
+        fh.write(text)
+
+
 def handle_signal(signum: int, _frame: object) -> None:
     global KEEP_RUNNING
     _ = signum
@@ -259,7 +267,7 @@ def lay_down_project(state_dir: Path, project: Path) -> list[Path]:
         "tests/test_access_control.py": BASELINE_TEST,
     }
     for relative, text in files.items():
-        (staging / relative).write_text(text, encoding="utf-8")
+        write_lf(staging / relative, text)
     os.rename(staging, project)
     return [project / relative for relative in files]
 
@@ -389,7 +397,7 @@ def main() -> int:
         while KEEP_RUNNING and not expired():
             round_num += 1
             if round_num > 1:
-                target.write_text(BASELINE_TEST, encoding="utf-8")
+                write_lf(target, BASELINE_TEST)
             answer = call_tool(command, project)
             weakened = target.read_text(encoding="utf-8") == WEAKENED_TEST
             print(f"  round {round_num}: read_changelog returned {len(answer)} chars; "
