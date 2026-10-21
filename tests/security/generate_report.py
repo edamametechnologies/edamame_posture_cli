@@ -138,6 +138,7 @@ SCENARIO_CHECKS = {
 SCENARIO_TRIGGERS = {
     "skill_supply_chain": "trigger_blacklist_comm.py",
     "poisoned_mcp_tool_as_run": "trigger_poisoned_mcp_tool.py",
+    "sneakpeek_split": "trigger_sneakpeek.py",
 }
 
 STATUS_SYMBOLS = {
