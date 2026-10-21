@@ -798,6 +798,7 @@
       "needs_admin": false,
       "platforms": [
         "macos",
+        "windows",
         "linux"
       ],
       "expected_checks": [

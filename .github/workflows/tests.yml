@@ -84,7 +84,7 @@ on:
         required: false
         default: "blacklist_comm,cve_token_exfil,cve_sandbox_escape,memory_poisoning,credential_sprawl,supply_chain_exfil,npm_rat_beacon,file_events,skill_supply_chain,pgserve_postinstall,package_install_lifecycle,temp_modify,nonsensitive_path,agent_config_tamper,agent_rules_backdoor,agent_cred_harvest,agent_denylist_bypass,dns_tunnel,dns_tunnel_reconnect,ntp_tunnel,loopback_relay,process_memory_scrape,agent_memory_scrape,sneakpeek,credential_courier"
       security_divergence_scenarios:
-        description: "Comma-separated divergence scenarios to run (run_divergence_detection.sh). Not yet part of the gate's required set; a `fail` still blocks, an absent row does not."
+        description: "Comma-separated divergence scenarios to run (run_divergence_detection.sh). Required by the gate like the CVE scenarios: a `fail` or an absent row blocks, except a platform exclusion check_gate.py lists."
         required: false
         default: "daemon_lineage_egress,poisoned_mcp_tool,poisoned_mcp_tool_as_run"
       security_log_level:
@@ -3017,7 +3017,11 @@ jobs:
         shell: bash
         continue-on-error: true
         env:
-          REQUIRED_SCENARIOS: ${{ needs.setup.outputs.security_scenarios }}
+          # Divergence scenarios are required like the CVE ones: an absent row
+          # fails the gate, so a step that never ran on a platform cannot pass
+          # unnoticed. check_gate.py still accepts the platform exclusions it
+          # lists (daemon_lineage_egress on Windows).
+          REQUIRED_SCENARIOS: ${{ needs.setup.outputs.security_scenarios }},${{ needs.setup.outputs.security_divergence_scenarios }}
           NATIVE_MATRIX: ${{ needs.setup.outputs.native_matrix }}
         run: |
           set +e
