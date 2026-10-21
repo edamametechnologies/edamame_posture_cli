@@ -2043,8 +2043,11 @@ jobs:
       - name: Run divergence detection suite
         id: divergence
         # Same precondition as the CVE suite: a dirty idle baseline means the
-        # host is already producing findings with no stimulus.
-        if: steps.baseline.outcome == 'success' && runner.os != 'Windows'
+        # host is already producing findings with no stimulus. Runs on Windows
+        # too: the runner records daemon_lineage_egress as an
+        # `unsupported_platform` skip there (no System32 install path, no ETW
+        # parent attribution) and runs the other scenarios.
+        if: steps.baseline.outcome == 'success'
         # Two scenarios x (post-wait + 240s trigger + 12x15s verify poll).
         timeout-minutes: 35
         shell: bash

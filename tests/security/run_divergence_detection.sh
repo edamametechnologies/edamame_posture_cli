@@ -185,7 +185,9 @@ trigger_state_dir() {
 import os, sys
 sys.path.insert(0, os.environ["TRIGGERS_DIR_ENV"])
 from _common import prepare_state_dir, state_dir_for
-print(prepare_state_dir(state_dir_for(os.environ["AGENT_TYPE_ENV"])))
+# Forward slashes: the path goes into a JSON argument and bash tests, where
+# Windows backslashes read as escapes; Windows accepts "C:/..." as well.
+print(str(prepare_state_dir(state_dir_for(os.environ["AGENT_TYPE_ENV"]))).replace("\\", "/"))
 PY
 }
 
@@ -382,7 +384,8 @@ det = str(summary.get("deterministic_verdict") or "").strip().upper()
 evidence = [e for e in (summary.get("evidence") or []) if isinstance(e, dict)]
 
 def attributed(e):
-    desc = str(e.get("description") or "")
+    # A Windows finding names the file with backslashes; the markers use "/".
+    desc = str(e.get("description") or "").replace("\\", "/")
     if not desc.startswith(prefix) or marker not in desc:
         return False
     if category and str(e.get("category") or "") != category:
@@ -439,7 +442,7 @@ def is_candidate(sess):
     hay = " ".join(
         str(l7.get(k) or "")
         for k in ("process_name", "process_path", "parent_process_name", "parent_process_path")
-    )
+    ).replace("\\", "/")
     if "demo_" in hay or (marker and marker in hay):
         return True
     return port is not None and tuple_of(sess).get("dst_port") == port
