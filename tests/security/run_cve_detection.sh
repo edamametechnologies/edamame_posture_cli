@@ -64,7 +64,7 @@ READINESS_WAIT=120
 # calls and the artifact.
 EXPORT_MATCHED=3
 AGENT_TYPE="openclaw"
-SCENARIOS_CSV="blacklist_comm,cve_token_exfil,cve_sandbox_escape,memory_poisoning,credential_sprawl,supply_chain_exfil,npm_rat_beacon,file_events,skill_supply_chain,pgserve_postinstall,package_install_lifecycle,temp_modify,nonsensitive_path,agent_config_tamper,agent_rules_backdoor,agent_cred_harvest,agent_denylist_bypass,dns_tunnel,dns_tunnel_reconnect,ntp_tunnel,loopback_relay,process_memory_scrape,agent_memory_scrape,sneakpeek,credential_courier"
+SCENARIOS_CSV="blacklist_comm,cve_token_exfil,cve_sandbox_escape,memory_poisoning,credential_sprawl,supply_chain_exfil,npm_rat_beacon,file_events,skill_supply_chain,pgserve_postinstall,package_install_lifecycle,temp_modify,nonsensitive_path,agent_config_tamper,agent_rules_backdoor,agent_cred_harvest,agent_denylist_bypass,dns_tunnel,dns_tunnel_reconnect,ntp_tunnel,loopback_relay,process_memory_scrape,agent_memory_scrape,sneakpeek,credential_courier,sneakpeek_split"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -173,6 +173,9 @@ expected_check_for() {
     # corroborated), but this scenario asserts the stable check the catalog
     # names.
     sneakpeek)             echo "token_exfiltration" ;;
+    # The published attack's own split: the main process reads three
+    # credential types, its network helper sends (the parent's reads).
+    sneakpeek_split)       echo "credential_harvest" ;;
     # DETECTION-APPROACH-2026-10 P1 (2.1.0): the courier shape. A process
     # holds a decoy SSH key open while its only external sessions trickle
     # filler to a web host on port 443 -- a resolved name on a routine port,
@@ -217,6 +220,7 @@ trigger_script_for() {
   case "$1" in
     skill_supply_chain)     echo "$TRIGGERS_DIR/trigger_blacklist_comm.py" ;;
     agent_memory_scrape)    echo "$TRIGGERS_DIR/trigger_process_memory_scrape.py" ;;
+    sneakpeek_split)        echo "$TRIGGERS_DIR/trigger_sneakpeek.py" ;;
     *)                      echo "$TRIGGERS_DIR/trigger_$1.py" ;;
   esac
 }
@@ -258,6 +262,7 @@ scenario_markers_json() {
     # the destination port below proves the finding is this scenario's and
     # not residue from a neighbouring exfil scenario sharing portquiz.net.
     sneakpeek)             echo '["_sneakpeek"]' ;;
+    sneakpeek_split)       echo '["_sneakpeek_split"]' ;;
     # The courier's own decoy key (suffix unique to this scenario): the
     # destination port is 443, which other sessions share, so the held key
     # is what proves the finding is this scenario's.
@@ -289,6 +294,7 @@ scenario_ports_json() {
     loopback_relay)         echo '[63180]' ;;
     # SneakPeek's egress port, unique across the suite.
     sneakpeek)             echo '[61942]' ;;
+    sneakpeek_split)       echo '[61943]' ;;
     *) echo '[]' ;;
   esac
 }
@@ -345,6 +351,7 @@ scenario_poll_attempts_for() {
     # far too short. The knobs only bound how long the harness waits for the
     # alertable finding; they never relax what the gate asserts.
     sneakpeek)              echo "${SNEAKPEEK_POLL_ATTEMPTS:-30}" ;;
+    sneakpeek_split)        echo "${SNEAKPEEK_SPLIT_POLL_ATTEMPTS:-16}" ;;
     # The finding needs the held key in an L7 sample, a holder alive 30 s
     # and a tick with the model's answer; the default 6x30 s window is
     # tight on shared runners. The knob only bounds the wait.
@@ -361,6 +368,7 @@ scenario_trigger_duration_for() {
     # the verify loop stops polling soon after the trigger ends, so a 300 s
     # duration would almost always end before the anomaly flag attaches.
     sneakpeek)              echo "${SNEAKPEEK_TRIGGER_DURATION:-900}" ;;
+    sneakpeek_split)        echo "${SNEAKPEEK_SPLIT_TRIGGER_DURATION:-600}" ;;
     # Keep the holder alive across the whole poll window.
     credential_courier)     echo "${COURIER_TRIGGER_DURATION:-600}" ;;
     *) echo "$TRIGGER_DURATION" ;;
@@ -760,6 +768,11 @@ trigger_extra_args() {
       # CRITICAL. A faster read cadence keeps the kernel task-access edge
       # inside the live-open-file sample window.
       echo "--sensitive-target --interval 2"
+      ;;
+    sneakpeek_split)
+      # Two processes: a main process reads three credential types and
+      # closes them, its network helper child streams out.
+      echo "--split"
       ;;
     npm_rat_beacon)
       # The npm RAT scenario detects through the anomaly-token path:

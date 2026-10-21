@@ -66,6 +66,21 @@ DEFAULT_RENDERER_NAME = (
     "Claude Helper (Renderer)" if platform.system() == "Darwin" else "claude-renderer"
 )
 
+# --split: the published attack's own shape, read and send in two processes.
+# In a Chromium-based app the main (browser) process serves file:// loads and
+# the network-service helper sends; the stand-in parent reads the decoys and
+# never opens a socket, its child holds no file and streams out. Names: Claude
+# Desktop's main process and its helper on macOS, short stand-ins elsewhere
+# (Linux shows 15 characters of a name).
+SPLIT_TARGET_PORT = 61943
+DEFAULT_MAIN_NAME = "Claude" if platform.system() == "Darwin" else "claude-desktop"
+DEFAULT_HELPER_NAME = "Claude Helper" if platform.system() == "Darwin" else "claude-helper"
+CHILD_PID_FILE = "sneakpeek_child.pid"
+# The sensor remembers a closed credential read for a while
+# (sensitive-paths-db credential_opens.open_ttl_secs); re-reading inside that
+# window keeps the reads attached for the whole scenario.
+SPLIT_REREAD_SECS = 120.0
+
 KEEP_RUNNING = True
 
 
@@ -91,9 +106,20 @@ def parse_args() -> argparse.Namespace:
                    help="Process name to run the stand-in under (the render engine's name)")
     p.add_argument("--agent-type", default=None, help=AGENT_TYPE_ARG_HELP)
     p.add_argument("--state-dir", type=Path, default=None)
+    p.add_argument("--split", action="store_true",
+                   help="Two processes: a main process reads three credential types and "
+                        "closes them, its network helper child streams out (credential_harvest "
+                        "through the parent's reads)")
+    p.add_argument("--main-name", default=DEFAULT_MAIN_NAME,
+                   help="--split: process name of the main (reading) process")
+    p.add_argument("--helper-name", default=DEFAULT_HELPER_NAME,
+                   help="--split: process name of the network helper (sending) process")
     # Internal: the renderer-named child that holds the creds and egresses.
     p.add_argument("--worker", action="store_true", help=argparse.SUPPRESS)
     p.add_argument("--cred-paths", default="", help=argparse.SUPPRESS)
+    # Internal (--split): the main process, and the helper it starts.
+    p.add_argument("--split-parent", action="store_true", help=argparse.SUPPRESS)
+    p.add_argument("--helper-bin", default="", help=argparse.SUPPRESS)
     return p.parse_args()
 
 
@@ -277,11 +303,141 @@ def run_worker(args: argparse.Namespace) -> int:
     return 0
 
 
+def read_decoys(paths: list[Path]) -> int:
+    """Open, read and close each decoy: the main process's file:// loads."""
+    read = 0
+    for p in paths:
+        try:
+            with p.open("rb") as fh:
+                fh.read()
+            read += 1
+        except OSError:
+            pass
+    return read
+
+
+def run_split_parent(args: argparse.Namespace) -> int:
+    """The main process: read the decoys, start the helper, never connect."""
+    import subprocess
+    cred_paths = [Path(p) for p in args.cred_paths.split(",") if p]
+    signal.signal(signal.SIGINT, handle_signal)
+    signal.signal(signal.SIGTERM, handle_signal)
+    print(f"sneakpeek split main active  pid={os.getpid()}  exe={sys.executable}")
+    print(f"  read {read_decoys(cred_paths)} of {len(cred_paths)} decoys and closed them")
+    helper_cmd = [args.helper_bin or sys.executable, __file__, "--worker",
+                  "--target-host", args.target_host, "--target-ip", args.target_ip,
+                  "--target-port", str(args.target_port), "--interval", str(args.interval),
+                  "--duration", str(args.duration), "--payload-bytes", str(args.payload_bytes)]
+    child = subprocess.Popen(helper_cmd, env=renderer_env())
+    child_pid_file = Path(args.state_dir) / CHILD_PID_FILE if args.state_dir else None
+    if child_pid_file is not None:
+        child_pid_file.write_text(f"{child.pid}\n", encoding="utf-8")
+    print(f"  helper started pid={child.pid} (holds no file, streams to port {args.target_port})")
+    sys.stdout.flush()
+    last_read = time.monotonic()
+    try:
+        while KEEP_RUNNING and child.poll() is None:
+            time.sleep(1.0)
+            if time.monotonic() - last_read >= SPLIT_REREAD_SECS:
+                read_decoys(cred_paths)
+                last_read = time.monotonic()
+        return child.returncode or 0
+    finally:
+        if child.poll() is None:
+            child.terminate()
+            try:
+                child.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                child.kill()
+        if child_pid_file is not None:
+            try:
+                child_pid_file.unlink()
+            except FileNotFoundError:
+                pass
+
+
+def run_split(args: argparse.Namespace, state_dir: Path, pfx: str, upfx: str) -> int:
+    """Stage three credential types and run the main process and its helper."""
+    import subprocess
+    if args.target_port == DEFAULT_TARGET_PORT:
+        args.target_port = SPLIT_TARGET_PORT
+    # Three cold credential types (the harvest threshold), secret-bearing
+    # names, classified by directory label (ssh / aws / gnupg).
+    cred_paths = [
+        ensure_demo_sensitive_file(
+            Path(f"~/.ssh/{pfx}_sneakpeek_split_id"),
+            f"-----BEGIN OPENSSH PRIVATE KEY-----\n{upfx}_SNEAKPEEK_SPLIT\n-----END OPENSSH PRIVATE KEY-----\n",
+            state_dir),
+        ensure_demo_sensitive_file(
+            Path(f"~/.aws/{pfx}_sneakpeek_split_credentials"),
+            f"[default]\naws_access_key_id = {upfx}_SNEAKPEEK_SPLIT\naws_secret_access_key = not-a-real-key\n",
+            state_dir),
+        ensure_demo_sensitive_file(
+            Path(f"~/.gnupg/{pfx}_sneakpeek_split.key"),
+            f"-----BEGIN PGP PRIVATE KEY BLOCK-----\n{upfx}_SNEAKPEEK_SPLIT\n-----END PGP PRIVATE KEY BLOCK-----\n",
+            state_dir),
+    ]
+    main_bin = copy_renderer(state_dir, args.main_name)
+    helper_bin = copy_renderer(state_dir, args.helper_name)
+    pid_file = state_dir / PID_FILE
+
+    print("trigger_sneakpeek.py active (--split)")
+    print(f"  main_name='{args.main_name}' copied={main_bin is not None}  "
+          f"helper_name='{args.helper_name}' copied={helper_bin is not None}")
+    for p in cred_paths:
+        print(f"  read_path={p}")
+    print(f"  target={args.target_host}:{args.target_port}")
+    print("  detection=credential_harvest on the helper's traffic, from its parent's reads")
+    print("  stop_with=Ctrl-C or python3 cleanup.py")
+    sys.stdout.flush()
+
+    parent_args = [__file__, "--split-parent", "--cred-paths", ",".join(str(p) for p in cred_paths),
+                   "--helper-bin", str(helper_bin or ""), "--state-dir", str(state_dir),
+                   "--target-host", args.target_host, "--target-ip", args.target_ip,
+                   "--target-port", str(args.target_port), "--interval", str(args.interval),
+                   "--duration", str(args.duration), "--payload-bytes", str(args.payload_bytes)]
+    signal.signal(signal.SIGINT, handle_signal)
+    signal.signal(signal.SIGTERM, handle_signal)
+    if main_bin is None:
+        # No usable copy: this interpreter is the main process (its own name).
+        print("  WARNING: main copy unavailable; running the main process in-process")
+        pid_file.write_text(f"{os.getpid()}\n", encoding="utf-8")
+        args.cred_paths = ",".join(str(p) for p in cred_paths)
+        args.helper_bin = str(helper_bin or "")
+        args.state_dir = state_dir
+        try:
+            return run_split_parent(args)
+        finally:
+            try:
+                pid_file.unlink()
+            except FileNotFoundError:
+                pass
+    parent = subprocess.Popen([str(main_bin)] + parent_args, env=renderer_env())
+    pid_file.write_text(f"{parent.pid}\n", encoding="utf-8")
+    try:
+        while KEEP_RUNNING and parent.poll() is None:
+            time.sleep(0.5)
+        return parent.returncode or 0
+    finally:
+        if parent.poll() is None:
+            parent.terminate()
+            try:
+                parent.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                parent.kill()
+        try:
+            pid_file.unlink()
+        except FileNotFoundError:
+            pass
+
+
 def main() -> int:
     args = parse_args()
 
     if args.worker:
         return run_worker(args)
+    if args.split_parent:
+        return run_split_parent(args)
 
     agent_type = resolve_agent_type(args.agent_type)
     if args.state_dir is None:
@@ -291,6 +447,8 @@ def main() -> int:
 
     pfx = file_prefix_for(agent_type)
     upfx = upper_prefix_for(agent_type)
+    if args.split:
+        return run_split(args, state_dir, pfx, upfx)
     # Cold credential stores an attacker reads, in their real home locations.
     # Classified by directory label (ssh / aws), never by these names.
     ssh_cred = ensure_demo_sensitive_file(

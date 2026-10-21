@@ -64,6 +64,8 @@ PID_FILES = [
     "daemon_lineage_egress.pid",
     "agent_rules_backdoor.pid",
     "sneakpeek.pid",
+    # --split: the network helper the main process started.
+    "sneakpeek_child.pid",
     "credential_courier.pid",
     "poisoned_mcp_tool.pid",
 ]

@@ -741,10 +741,12 @@
         "linux"
       ],
       "expected_checks": [
-        "token_exfiltration"
+        "token_exfiltration",
+        "credential_harvest"
       ],
       "gate_scenarios": [
-        "sneakpeek"
+        "sneakpeek",
+        "sneakpeek_split"
       ]
     },
     "credential_courier": {

@@ -30,7 +30,9 @@ ALERTABLE_SEVERITIES = frozenset({"CRITICAL", "HIGH"})
 # debug trace). A finding the detector itself graded below HIGH still fails
 # them. Every other scenario must alert. Read by `run_cve_detection.sh` and
 # `check_gate.py`.
-ADJUDICATOR_DEMOTABLE_SCENARIOS = frozenset({"file_events"})
+# sneakpeek_split: a harvest reached only through the parent's reads is
+# CRITICAL in the tier the adjudicator may demote, never suppress.
+ADJUDICATOR_DEMOTABLE_SCENARIOS = frozenset({"file_events", "sneakpeek_split"})
 
 
 def requires_alert(scenario: str) -> bool:

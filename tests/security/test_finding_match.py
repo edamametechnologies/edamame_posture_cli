@@ -193,8 +193,10 @@ def _export(raw_severity: str, verdict: str | None, key: str = "k1") -> dict:
 
 
 class TestAdjudicatorDemote(unittest.TestCase):
-    def test_only_file_events_may_be_lowered_by_the_adjudicator(self):
+    def test_only_the_listed_scenarios_may_be_lowered_by_the_adjudicator(self):
         self.assertFalse(requires_alert("file_events"))
+        self.assertFalse(requires_alert("sneakpeek_split"))
+        self.assertTrue(requires_alert("sneakpeek"))
         self.assertTrue(requires_alert("cve_sandbox_escape"))
 
     def test_an_alertable_grade_the_adjudicator_demoted(self):
