@@ -22,7 +22,8 @@ for review. LOW findings are recorded, never gating.
 |---|---|
 | `scenarios.py` | The catalog: id, FP class, platforms, kind (`agent` prompts / `direct` action), fixture, expectation, stimulus marker. |
 | `lab_workspace.py` | Workspace fixtures (a small web-app repo, the same with agent instruction files, the same with secret-shaped test fixtures). Built under the lab root, never in OS temp. |
-| `direct_actions.py` | Agent-free scenarios: cargo / venv / npm builds in the workspace and in temp, git clone/fetch/push, curl to public APIs, rustup-init temp staging, a git credential helper. |
+| `direct_actions.py` | Agent-free scenarios: cargo / venv / npm builds in the workspace and in temp, git clone/fetch/push, curl to public APIs, rustup-init temp staging, a git credential helper, and the operator's-day set (below). |
+| `standins.py` | Stand-in programs for the operator's-day set (a cloud-sync client, a user's report script), standard library only, copied into the case workspace and run as their own processes. |
 | `run_fp_lab.py` | The runner: preflight, warm-up baseline, cases, settle ticks, collection and export, drain, summary. Also `list`, `validate`, `shape`. |
 | `daemon_perf.py` | Samples the candidate daemon's RSS and CPU every 30 s through the run (`perf.csv`, `perf.json`, the summary's "Daemon resources": peaks, slope, restarts, per-case peaks, flags). |
 | `deploy_owned_posture.sh` | Operator-side: fetch the CI build, push it and the harness to a host, record state, swap the released service for the owned daemon (isolated, on empty state), run, collect, restore. Linux here; `deploy_owned_posture_macos.sh` and `_windows.sh` for fmba-3 and shiawase. |
@@ -115,6 +116,7 @@ python3 tests/fp_lab/run_fp_lab.py run --set-adjudication auto \
     --scenarios div-instruction-files-read,direct-git-lab-repo
 python3 tests/fp_lab/run_fp_lab.py shape <run_dir>       # where jq and the core tools exist
 python3 tests/fp_lab/run_fp_lab.py run --leg deterministic   # the no-model user's leg
+python3 tests/fp_lab/run_fp_lab.py run --scenarios tag:operators_day --agents ""   # one tagged group
 python3 tests/fp_lab/run_fp_lab.py summarize <run_dir>   # re-render the summary from the case files
 ```
 
@@ -138,6 +140,50 @@ the LLM leg (`fp_lab_leg: deterministic`): the workflow cancels a run on the
 same branch, so the two legs go one after the other. In a dogfood window it
 needs a window of its own: a second leg in the same window inherits the
 first leg's findings, which the runner baselines, and hides repeats.
+
+## The operator's day set (`tag:operators_day`)
+
+On 2026-10-23 the operator's developer Mac raised seven alertable findings
+on an ordinary day, all benign and none of them a lab shape
+(`edamame_core/FALSEPOSITIVES-APPROACH-2026-10.md`, section 2.1). These five
+agent-free scenarios reproduce those shapes. Each is benign by construction
+and passes (no alertable finding) on a correct detector. A FAIL is the FP
+named in the case's `fp_class`, or a new one. The automatic CI leg runs them
+with the rest of the catalog. Run the set alone with
+`run --scenarios tag:operators_day --agents ""` (add `--leg deterministic`
+for the no-model user's view).
+
+| Scenario | Platforms | What it does | Why it is benign | Cleanup | FP |
+|---|---|---|---|---|---|
+| `direct-headless-browser-own-profile` | Linux, macOS, Windows; SKIP when no Chromium-family browser is found | Runs Playwright's cached `chrome-headless-shell` or Chrome for Testing when present, else an installed Chrome / Chromium / Edge / Brave (`FP_LAB_BROWSER` overrides). It runs headless on `--user-data-dir=<workspace>/browser-test-profile` and opens sites through its loopback DevTools port: github.com, wikipedia.org, python.org in launch 1 (which creates the profile's cookie store), then mozilla.org, pypi.org, rust-lang.org in launch 2 (which reads it back), 15 s each | The profile is the browser's own: it created it, and it holds only what those sites set. `--use-mock-keychain` and `--password-store=basic` (what Playwright passes) keep it off the macOS keychain and the Linux keyring. The user's browser profiles are never opened | Process tree stopped (its process group; `taskkill /T /F` on Windows), profile removed | FP-MAC-12 / FP-MAC-29 |
+| `direct-os-relay-keychain-sidecars` | macOS only | `/usr/bin/curl`, an Apple platform binary standing in for `networkserviceproxy`, inherits open descriptors on two files in a test home's `Library/Keychains`: the lock `.fl<hex>` and the safe-save sidecar `login.keychain-db.sb-<hex>-<hex>`. It requests Apple's connectivity page every 10 s for about 80 s (`--rate 6/m`; a curl older than 7.84 holds one slow transfer instead) | The files are placeholders in the workspace (an empty lock file and a copy of a placeholder database) and curl never reads them. The real keychain and `~/Library/Keychains` are never opened | Descriptors closed, test home removed | FP-MAC-19 |
+| `direct-sync-client-store-rename` | Linux, macOS, Windows | `standins.py`, run as `sync-client/fplab_sync_client.py sync-client --data-dir <dir>`, creates its data directory in a test home under the workspace, at the platform's application-data layout (`Library/Application Support/FPLab Sync/account-0001`, `.config/fplab-sync/account-0001`, `AppData/Local/FPLab Sync/account-0001`). It writes a placeholder `credentials.json` there with a safe-save rename and holds it open while it fetches the Drive API discovery document from www.googleapis.com every 8 s for about 80 s. It refreshes the file three times (writes `credentials.json.sb-<hex>`, then replaces the store with it) | The client created the directory and the file, and its command line names the directory. The store holds a fixed placeholder, and the client reads nothing it did not write | Test home removed | FP-MAC-40 |
+| `direct-installer-sibling-temp-staging` | Linux, macOS, Windows (needs the system `tar`; on Windows `%SystemRoot%\System32\tar.exe`) | Copies the platform's `tar` into `<tmp>/<ID2>/FPLab Installer/` (the extractor a self-extracting installer carries), writes `payload.tar` beside it, and runs the copy to unpack 480 files into `<tmp>/<ID1>/`, a sibling tree the extraction creates: a manifest, 30 locale tables, 40 components with a descriptor and 10 data parts each, and 9 documents | The payload is inert data: no executable bits, no scripts, no binaries, no network | Both trees removed | FP-MAC-31 |
+| `direct-script-document-in-temp` | Linux, macOS, Windows | `standins.py`, run as `scripts/make_report.py report --out <tmp>/report-<hex>.pdf`, requests pypi.org's JSON API every 8 s for about 60 s. Meanwhile it writes a 1-page PDF report into the temp directory, then rewrites it with 2 pages | The PDF is text in Helvetica, with no JavaScript, actions, annotations or embedded files. The request has nothing to do with the document | PDF removed | E3 in `FALSEPOSITIVES.md` (`fp_class` `new`) |
+
+Notes:
+
+- **Stand-ins.** The lab cannot install Google Drive, an OS relay daemon or
+  the operator's own script on a runner, so three cases use stand-ins.
+  `standins.py` runs as its own process from the case workspace, so the
+  process the detector sees is a program whose command line names what it
+  owns. The relay stand-in is a real OS platform binary.
+- **macOS only for the keychain sidecars.** The login keychain's lock and
+  safe-save sidecars, and Apple's platform-binary signature, have no
+  equivalent on Linux or Windows: the case is not built there.
+- **Where the files go.** The sync client's data directory is a test home
+  in the workspace, outside the directories the file monitor watches by
+  default, so its renames are not file events in the lab: that case
+  measures the client holding its own store open during its sync. Writing
+  into the user's real application-data directory instead would break the
+  rule that the lab keeps to its workspace and temp. The two temp scenarios
+  write under `/tmp` on Linux and macOS, where the operator Mac's shapes
+  were, and under `%TEMP%` on Windows, at uniquely named paths.
+- **TLS.** The Python stand-ins always verify certificates. When the
+  interpreter has no CA bundle and no `certifi`, they exit 3 and the case is
+  SKIP. They never turn verification off.
+- **noexec temp.** A temp root mounted `noexec` makes the installer case
+  SKIP (stimulus not delivered).
 
 ## Local loop (the operator Mac)
 
@@ -222,12 +268,16 @@ PASS / SKIP with reasons, resources, artifacts); then `release_all.sh`.
   `--allow-root` (CI only, where the root daemon observes `/root`).
 - Workspaces live under the lab root (`~/fp-lab/ws`), never in OS temp or a
   scratchpad. Only `temp_behaviour` scenarios use temp, through their own
-  `mktemp -d`, and remove it.
+  `mktemp -d` (the operator's-day temp scenarios: uniquely named paths under
+  `/tmp` or `%TEMP%`), and remove it.
 - No scenario reads or writes the user's real credentials or config:
   fixtures carry AWS's documentation example key and a fake PEM body; the
   credential-helper scenario points `GIT_CONFIG_GLOBAL` at a lab gitconfig
   and a lab-local store with a placeholder; git identities come from the
-  environment, never `git config --global`.
+  environment, never `git config --global`. The operator's-day scenarios
+  build their keychain and application-data layouts in test homes under the
+  workspace, and the headless browser runs on its own profile with the OS
+  keychain and keyring mocked.
 - Provider keys are taken out of the runner's environment at start and given
   only to the agent that needs them while it runs; direct scenarios and the
   RPC CLI never see them; nothing prints or writes them.
@@ -259,4 +309,5 @@ Add a `Scenario` to `scenarios.py` (and a function to `direct_actions.ACTIONS`
 or a fixture to `lab_workspace.FIXTURES` if needed), then
 `python3 tests/fp_lab/run_fp_lab.py validate`. Set `fp_class` to the FP it
 reproduces (`FALSEPOSITIVES.md` id) or `new`, `marker` to a file the stimulus
-must produce, and `temp_behaviour=True` only when temp is the point.
+must produce, and `temp_behaviour=True` only when temp is the point. `tags`
+groups scenarios into a set that `--scenarios tag:<name>` selects.

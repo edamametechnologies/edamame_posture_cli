@@ -30,6 +30,8 @@ Fields:
 - ``marker``       workspace-relative file the stimulus must produce. Absent
                    marker and no finding => SKIP "stimulus not delivered".
 - ``planes``       which detection plane the scenario mainly exercises.
+- ``tags``         named groups (``operators_day``); ``run --scenarios tag:<name>``
+                   selects a group.
 
 The prompts are plain requests a developer would make. Do not reword a prompt
 to get past an agent's own refusal: the runner records a refusal as SKIP.
@@ -446,6 +448,88 @@ SCENARIOS: List[Scenario] = [
         planes=("attack_pattern",),
         notes="The store file is lab-local (GIT_CONFIG_GLOBAL points at a lab gitconfig); "
         "the real ~/.git-credentials and ~/.gitconfig are never touched.",
+    ),
+    # ------------------------------------------------------------------
+    # The operator's day (tag operators_day): the shapes a developer Mac
+    # raised on an ordinary day (2026-10-23), agent-free. Programs the lab
+    # cannot install are stand-ins (direct_actions.py, standins.py).
+    # ------------------------------------------------------------------
+    Scenario(
+        id="direct-headless-browser-own-profile",
+        title="Headless Chromium-family browser on its own --user-data-dir profile, browsing real sites over HTTPS",
+        fp_class="FP-MAC-29",
+        kind="direct",
+        platforms=ALL_DESKTOP,
+        fixture="empty",
+        action="headless_browser_own_profile",
+        planes=("attack_pattern",),
+        tags=("operators_day",),
+        notes="Playwright's chrome-headless-shell reading its own test profile's Cookies while "
+        "talking to the sites they belong to (FP-MAC-12 / FP-MAC-29). Uses Playwright's cached "
+        "browser when present, else an installed Chrome / Chromium / Edge / Brave (FP_LAB_BROWSER "
+        "overrides); SKIP when none. Two launches on one workspace profile (create, then read back); "
+        "--use-mock-keychain / --password-store=basic keep it off the OS keychain and keyring.",
+    ),
+    Scenario(
+        id="direct-os-relay-keychain-sidecars",
+        title="OS platform binary holding keychain lock and safe-save sidecars during HTTPS to Apple (relay stand-in)",
+        fp_class="FP-MAC-19",
+        kind="direct",
+        platforms=("macos",),
+        fixture="empty",
+        action="os_relay_keychain_sidecars",
+        requires=("curl",),
+        planes=("attack_pattern",),
+        tags=("operators_day",),
+        notes="networkserviceproxy with two login-keychain sidecars open to Apple. Stand-in: "
+        "/usr/bin/curl inherits descriptors on a TEST home's Library/Keychains/.fl<hex> and "
+        "login.keychain-db.sb-* (placeholders). macOS only: keychain sidecars and Apple platform "
+        "binaries have no Linux or Windows equivalent.",
+    ),
+    Scenario(
+        id="direct-sync-client-store-rename",
+        title="Cloud-sync client renaming its own credential-store-like file in its own data directory while syncing",
+        fp_class="FP-MAC-40",
+        kind="direct",
+        platforms=ALL_DESKTOP,
+        fixture="empty",
+        action="sync_client_store_rename",
+        planes=("attack_pattern",),
+        tags=("operators_day",),
+        notes="Google Drive's safe-save rename of a credential store while its own session is up. "
+        "Stand-in client (standins.py) under a TEST home in the workspace, outside the default "
+        "file-monitor directories: the case measures the client holding its own store during its "
+        "sync.",
+    ),
+    Scenario(
+        id="direct-installer-sibling-temp-staging",
+        title="Installer running from one temp tree unpacks 480 files into a sibling temp tree it creates",
+        fp_class="FP-MAC-31",
+        kind="direct",
+        platforms=ALL_DESKTOP,
+        fixture="empty",
+        action="installer_sibling_temp_staging",
+        requires=("tar",),
+        temp_behaviour=True,
+        planes=("attack_pattern",),
+        tags=("operators_day",),
+        notes="Adobe's installer staging its download in a sibling per-invocation temp tree. The "
+        "extractor is a copy of the platform's tar in <tmp>/<ID2>/FPLab Installer/; the payload is "
+        "inert data; both trees are removed.",
+    ),
+    Scenario(
+        id="direct-script-document-in-temp",
+        title="User's Python script writes a PDF into temp while making an unrelated HTTPS request",
+        fp_class="new",
+        kind="direct",
+        platforms=ALL_DESKTOP,
+        fixture="empty",
+        action="script_document_in_temp",
+        temp_behaviour=True,
+        planes=("attack_pattern",),
+        tags=("operators_day",),
+        notes="A Python script writing a PDF in /tmp with a sibling egress (E3 in FALSEPOSITIVES.md, "
+        "left to the model on 09-27). Text-only PDF, written then rewritten, removed afterwards.",
     ),
 ]
 

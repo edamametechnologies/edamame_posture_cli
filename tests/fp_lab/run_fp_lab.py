@@ -748,7 +748,8 @@ def run_cmd_run(args: argparse.Namespace) -> int:
             agents = [s.agents[0]]
         for agent in agents:
             case_id = f"{s.id}@{agent}" if agent else s.id
-            if wanted and s.id not in wanted and case_id not in wanted:
+            if wanted and s.id not in wanted and case_id not in wanted \
+                    and not wanted & {f"tag:{t}" for t in s.tags}:
                 continue
             item = {"case_id": case_id, "scenario": s.id, "agent": agent, "skip": None}
             if case_id in skipped or s.id in skipped:
@@ -1086,7 +1087,8 @@ def main() -> int:
     r = sub.add_parser("run")
     r.add_argument("--lab-root", default=os.environ.get("FP_LAB_ROOT", "~/fp-lab"))
     r.add_argument("--out", default="", help="run directory (default <lab-root>/runs/<host>-<timestamp>)")
-    r.add_argument("--scenarios", default="", help="CSV of scenario ids or case ids (id@agent)")
+    r.add_argument("--scenarios", default="",
+                   help="CSV of scenario ids, case ids (id@agent) or tags (tag:operators_day)")
     r.add_argument("--skip", default="", help="CSV of scenario ids or case ids to skip")
     r.add_argument("--agents", default="claude_code,codex", help="agents for agent scenarios")
     r.add_argument("--warmup-secs", type=int, default=120)
@@ -1121,7 +1123,7 @@ def main() -> int:
     if args.cmd == "list":
         for s in SCENARIOS:
             log(f"{s.id:<48} {s.kind:<6} {s.fp_class:<10} {','.join(s.platforms):<20} "
-                f"{','.join(s.agents) or s.action}")
+                f"{','.join(s.agents) or s.action}" + (f"  [{','.join(s.tags)}]" if s.tags else ""))
         return 0
     if args.cmd == "validate":
         try:
