@@ -266,9 +266,12 @@ jobs:
           # %LOCALAPPDATA%\openclaw), which turns the openclaw real-drive leg
           # into a hard failure that is an upstream regression, not an EDAMAME
           # one. 2026.8.1 drove fine on windows-latest (2026-09-01 run), so pin
-          # it there; macOS/Linux keep tracking latest so the gate still
-          # exercises the current release where it works.
-          OPENCLAW_SPEC="openclaw@latest"
+          # it there. macOS/Linux are pinned to 2026.10.5 since 2026-10-23:
+          # the next release refuses Node < 24.22.1 at preinstall, and the
+          # hosted runners' Node 24 is 24.21.0, so @latest installed no CLI
+          # (2.1.1 release Phase 2, run 39907454819). Return to @latest once
+          # the runners' Node 24 is >= 24.22.1.
+          OPENCLAW_SPEC="openclaw@2026.10.5"
           if [ "$RUNNER_OS" = "Windows" ]; then
             OPENCLAW_SPEC="openclaw@2026.8.1"
           fi
