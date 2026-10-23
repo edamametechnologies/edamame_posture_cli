@@ -128,6 +128,40 @@ the `posture-binary-<label>` build of the run you name, runs the lab, and
 uploads the run directory as `fp-lab-<label>`. The default `fleet` mode (push,
 PR, release gate) is unchanged.
 
+### The deterministic leg in CI, automatically
+
+`.github/workflows/fp_lab_ci.yml` runs the deterministic leg of the whole
+catalog without anyone dispatching it (plan decision D5), through
+`agent_monitoring_e2e.yml`'s `workflow_call` entry point, on the same three
+legs (ubuntu-x64, macos-arm64, windows-x64):
+
+- **On every core-pinning push to main.** When `tests.yml` completes for a
+  push to main (it builds posture from source on every push that touches
+  `src/`, `Cargo.toml`, `Cargo.lock` or `tests/`), the plan job compares the
+  locked revisions of `edamame_core`, `edamame_foundation` and `flodbadd` in
+  `Cargo.lock` at that run's head with those at the head of the previous
+  completed push run on main. A core bump only changes those `source = ...#<sha>`
+  lines (the cascade's "Pre-publish" commit); a version bump or a harness edit
+  leaves them alone and runs nothing. Comparing with the previous run, not the
+  parent commit, keeps a pin change that landed in a run `tests.yml` cancelled
+  or in a `[skip ci]` commit.
+- **Nightly** (01:41 UTC), against the newest `tests.yml` run on main that
+  still has its three `posture-binary-*` artifacts (kept 7 days): the
+  published params and the runner images change without a push.
+- **On dispatch** (`gh workflow run fp_lab_ci.yml`, optionally
+  `-f posture_build_run_id=<tests.yml run id>` and `-f fp_lab_scenarios=...`).
+
+The harness is checked out at the build's commit. A FAIL (any alertable
+finding or divergence incident) or a preflight problem fails that leg's job;
+a core-pinning push whose build left no posture binaries fails the plan job
+instead of skipping the lab. The run directories are the artifacts
+`fp-lab-deterministic-<label>`; the plan job's summary names the build, the
+commit compared with, and the pin change. The runs are recorded under
+`fp_lab_ci.yml`, so the release's Phase 0 check of `agent_monitoring_e2e.yml`
+still reads the fleet gate. The LLM leg stays dispatch-only (it spends
+Portal quota); the agent scenarios still drive real Claude Code and Codex
+with the CI provider keys.
+
 ### The deterministic leg
 
 `run --leg deterministic` is the same scenarios with both engines pinned to
@@ -137,7 +171,9 @@ findings are the deterministic layer's rate on benign work and are never
 shaped as corpus candidates (`shape` refuses the run directory): a finding
 is evidence only once the Portal adjudicated it. Run it in the CI leg after
 the LLM leg (`fp_lab_leg: deterministic`): the workflow cancels a run on the
-same branch, so the two legs go one after the other. In a dogfood window it
+same branch, so the two legs go one after the other (the automatic runs of
+`fp_lab_ci.yml`, above, have their own concurrency group and never cancel a
+dispatched leg). In a dogfood window it
 needs a window of its own: a second leg in the same window inherits the
 first leg's findings, which the runner baselines, and hides repeats.
 

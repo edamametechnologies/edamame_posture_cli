@@ -1,0 +1,282 @@
+name: FP lab (deterministic leg)
+
+# The FP lab's deterministic leg (tests/fp_lab, both engines pinned to
+# deterministic, no model: what a user without the Portal sees), run
+# automatically (FALSEPOSITIVES-PLAN-2026-10 decision D5):
+#
+#   - after every push to main that changes which core posture builds
+#     against: when tests.yml (which builds posture from source on every
+#     push touching src/, Cargo.toml, Cargo.lock or tests/) completes for a
+#     push to main, the plan job compares the locked git revisions of
+#     edamame_core, edamame_foundation and flodbadd in Cargo.lock at that
+#     run's head with those at the head of the previous completed push run
+#     of tests.yml on main. A cascade's "Pre-publish" commit is exactly such
+#     a change. Comparing with the previous run rather than the parent commit
+#     keeps a pin change that landed in a run tests.yml cancelled (its
+#     concurrency cancels a run when the next push arrives) or in a
+#     [skip ci] commit;
+#   - nightly, against the newest tests.yml run on main that still has its
+#     three posture-binary artifacts (7-day retention): the published params
+#     and the runners change without a push;
+#   - on dispatch, to prove the trigger or re-run a build.
+#
+# The lab itself is agent_monitoring_e2e.yml in fp_lab mode, called through
+# its workflow_call entry point on the platforms its CI legs use (ubuntu-x64,
+# macos-arm64, windows-x64), with the harness checked out at the build's
+# commit. Its runs belong to this workflow, so the release's Phase 0 check
+# of agent_monitoring_e2e.yml's latest run on main keeps reading the fleet
+# gate. The LLM leg stays dispatch-only on agent_monitoring_e2e.yml (it
+# spends Portal quota).
+#
+# Red is visible: any alertable finding or divergence incident makes the lab
+# step exit 1 and the leg's job fail (a preflight problem exits 2), and a
+# core-pin push whose build left no posture binaries fails the plan job
+# rather than skipping the lab. Each leg uploads its run directory as
+# fp-lab-deterministic-<label>.
+
+on:
+  workflow_run:
+    workflows: ["Cross-platform tests"]
+    types: [completed]
+    branches: [main]
+  schedule:
+    - cron: '41 1 * * *'
+  workflow_dispatch:
+    inputs:
+      posture_build_run_id:
+        description: 'tests.yml run id to test (empty = the newest run on main that has all three posture-binary artifacts)'
+        required: false
+        default: ''
+      fp_lab_scenarios:
+        description: 'CSV of scenario ids, case ids or tag:<name> (empty = the whole catalog)'
+        required: false
+        default: ''
+
+permissions: read-all
+
+jobs:
+  plan:
+    name: Plan (core pin, posture build)
+    # Only pushes to main of this repository; a tests.yml run that was
+    # cancelled is superseded by the next push's run, which compares with
+    # the last completed one.
+    if: >-
+      github.event_name != 'workflow_run' ||
+      (github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == 'main' &&
+       github.event.workflow_run.head_repository.full_name == github.repository &&
+       (github.event.workflow_run.conclusion == 'success' || github.event.workflow_run.conclusion == 'failure'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    outputs:
+      run: ${{ steps.plan.outputs.run }}
+      posture_build_run_id: ${{ steps.plan.outputs.posture_build_run_id }}
+      head_sha: ${{ steps.plan.outputs.head_sha }}
+    steps:
+      # First step of every job (edamame_app workspace.mdc, self-hosted-runners.mdc):
+      # the detector watches the job and the Hub admits the hosted runner to
+      # the org IP allow list before the API calls below.
+      - name: Setup EDAMAME Posture
+        uses: edamametechnologies/edamame_posture_action@v1
+        with:
+          edamame_user: ${{ vars.EDAMAME_POSTURE_USER }}
+          edamame_domain: ${{ vars.EDAMAME_POSTURE_DOMAIN }}
+          edamame_pin: ${{ secrets.EDAMAME_POSTURE_PIN }}
+          edamame_id: ${{ github.run_id }}-fp-lab-plan
+          network_scan: true
+          auto_whitelist: true
+          auto_whitelist_artifact_name: edamame-auto-whitelist-fp-lab-plan
+          auto_remediate: true
+          token: ${{ secrets.DEV_GITHUB_TOKEN }}
+          wait_for_api: true
+          wait_repository: edamametechnologies/edamame_core
+          wait_for_https: true
+          packet_capture: true
+          vulnerability_detection: true
+          vulnerability_detection_interval: "60"
+          agentic_mode: analyze
+          agentic_provider: edamame
+          agentic_interval: 600
+        env:
+          EDAMAME_LLM_API_KEY: ${{ secrets.EDAMAME_LLM_API_KEY }}
+
+      # Full history: the comparison reads Cargo.lock at two main heads.
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Decide (core pin change, posture build)
+        id: plan
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          EVENT: ${{ github.event_name }}
+          WR_ID: ${{ github.event.workflow_run.id }}
+          WR_RUN_NUMBER: ${{ github.event.workflow_run.run_number }}
+          WR_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          IN_RUN_ID: ${{ inputs.posture_build_run_id }}
+        run: |
+          set -euo pipefail
+          LABELS="ubuntu-x64 macos-arm64 windows-x64"
+          # The crates whose locked revision decides which core posture
+          # builds: the core and the two the detector and capture come from.
+          CORE_CRATES="edamame_core edamame_foundation flodbadd"
+
+          pins_at() {
+            { git show "$1:Cargo.lock" 2>/dev/null || true; } | awk -v want=" $CORE_CRATES " '
+              /^\[\[package\]\]/ { name = ""; next }
+              /^name = / { name = $3; gsub(/"/, "", name); next }
+              /^source = / && name != "" && index(want, " " name " ") { src = $3; gsub(/"/, "", src); print name " " src }
+            ' | sort -u
+          }
+          ensure_commit() {
+            git cat-file -e "$1^{commit}" 2>/dev/null \
+              || git fetch --no-tags --quiet origin "$1" 2>/dev/null || true
+            git cat-file -e "$1^{commit}" 2>/dev/null
+          }
+          # A failed lookup stops the job (set -e on the assignment): it is
+          # never read as "no build".
+          artifact_names() {
+            gh api "repos/$REPO/actions/runs/$1/artifacts?per_page=100" \
+              --jq '.artifacts[] | select(.expired == false) | .name'
+          }
+          has_build() {
+            local label
+            for label in $LABELS; do
+              grep -qx "posture-binary-$label" <<<"$1" || return 1
+            done
+          }
+
+          BASE=""; BEFORE=""; AFTER=""
+          if [ "$EVENT" = "workflow_run" ]; then
+            BUILD_RUN="$WR_ID"
+            HEAD="$WR_HEAD_SHA"
+            RUNS=$(gh api "repos/$REPO/actions/workflows/tests.yml/runs?per_page=100")
+            BASE=$(jq -r --argjson n "$WR_RUN_NUMBER" '
+              [.workflow_runs[]
+               | select(.head_branch == "main" and .event == "push" and .status == "completed"
+                        and (.conclusion == "success" or .conclusion == "failure") and .run_number < $n)]
+              | max_by(.run_number) | .head_sha // empty' <<<"$RUNS")
+            if [ -z "$BASE" ]; then
+              RUN=true; REASON="no earlier completed push run of tests.yml on main to compare with"
+            elif ! ensure_commit "$HEAD" || ! ensure_commit "$BASE"; then
+              RUN=true; REASON="$BASE or $HEAD cannot be fetched, so the pins cannot be compared"
+            else
+              BEFORE=$(pins_at "$BASE")
+              AFTER=$(pins_at "$HEAD")
+              if [ "$BEFORE" = "$AFTER" ]; then
+                RUN=false; REASON="core pins unchanged since $BASE"
+              else
+                RUN=true; REASON="core pins changed since $BASE"
+              fi
+            fi
+            if [ "$RUN" = true ]; then
+              NAMES=$(artifact_names "$BUILD_RUN")
+              if ! has_build "$NAMES"; then
+                echo "::error::tests.yml run $BUILD_RUN ($REASON) has no posture-binary artifact for each of: $LABELS. The build failed or the artifacts expired, so the FP lab could not run for this core pin."
+                exit 1
+              fi
+            fi
+          else
+            if [ -n "$IN_RUN_ID" ]; then
+              [[ "$IN_RUN_ID" =~ ^[0-9]+$ ]] || { echo "::error::posture_build_run_id must be a run id"; exit 1; }
+              BUILD_RUN="$IN_RUN_ID"
+              NAMES=$(artifact_names "$BUILD_RUN")
+              if ! has_build "$NAMES"; then
+                echo "::error::tests.yml run $BUILD_RUN has no posture-binary artifact for each of: $LABELS"
+                exit 1
+              fi
+              REASON="dispatched with tests.yml run $BUILD_RUN"
+            else
+              RUNS=$(gh api "repos/$REPO/actions/workflows/tests.yml/runs?per_page=50")
+              BUILD_RUN=""
+              for id in $(jq -r '[.workflow_runs[] | select(.head_branch == "main")] | sort_by(-.run_number) | .[].id' <<<"$RUNS"); do
+                NAMES=$(artifact_names "$id")
+                if has_build "$NAMES"; then BUILD_RUN="$id"; break; fi
+              done
+              if [ -z "$BUILD_RUN" ]; then
+                echo "::error::No tests.yml run on main among the last 50 still has a posture-binary artifact for each of: $LABELS (artifacts are kept 7 days). Push to main or dispatch tests.yml on main, then re-run."
+                exit 1
+              fi
+              REASON="$EVENT: the newest main build with all three posture binaries"
+            fi
+            HEAD=$(gh api "repos/$REPO/actions/runs/$BUILD_RUN" --jq .head_sha)
+            RUN=true
+            if ensure_commit "$HEAD"; then AFTER=$(pins_at "$HEAD"); fi
+          fi
+
+          {
+            echo "run=$RUN"
+            echo "posture_build_run_id=$BUILD_RUN"
+            echo "head_sha=$HEAD"
+          } >> "$GITHUB_OUTPUT"
+          {
+            echo "### FP lab plan"
+            echo ""
+            echo "- Event: \`$EVENT\`"
+            echo "- Build: tests.yml run [$BUILD_RUN](https://github.com/$REPO/actions/runs/$BUILD_RUN) at \`$HEAD\`"
+            [ -z "$BASE" ] || echo "- Compared with the head of the previous completed push run: \`$BASE\`"
+            echo "- Decision: **run=$RUN** ($REASON)"
+            echo ""
+            echo "Core pins at the build's commit:"
+            echo ""
+            echo '```'
+            echo "${AFTER:-(not read)}"
+            echo '```'
+            if [ -n "$BASE" ] && [ "$BEFORE" != "$AFTER" ]; then
+              echo ""
+              echo "Change since \`$BASE\`:"
+              echo ""
+              echo '```diff'
+              diff <(echo "$BEFORE") <(echo "$AFTER") || true
+              echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "run=$RUN build=$BUILD_RUN head=$HEAD: $REASON"
+
+      - name: Check job status before posture dump
+        id: job_status_check
+        if: failure()
+        run: echo "job_was_failing=true" >> "$GITHUB_OUTPUT"
+
+      - name: Dump EDAMAME Posture sessions
+        id: dump_sessions
+        if: always()
+        uses: edamametechnologies/edamame_posture_action@v1
+        with:
+          dump_sessions_log: true
+          promote_exceptions: ${{ vars.EDAMAME_AUTO_WHITELIST_PROMOTE_EXCEPTIONS }}
+          dump_vulnerability_findings: true
+          exit_on_vulnerability_findings: true
+
+      - name: Slack alert on failure
+        if: failure()
+        uses: slackapi/slack-github-action@v1.26.0
+        with:
+          channel-id: 'C072J0U9TH7'
+          slack-message: "${{ steps.job_status_check.outcome == 'success' && '[JOB FAILURE]' || '' }}${{ steps.dump_sessions.outcome == 'failure' && '[POSTURE POST JOB FAILURE]' || '' }} FP lab plan (${{ github.event_name }}) in ${{ github.repository }} failed: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        continue-on-error: true
+
+  lab:
+    name: Deterministic leg
+    needs: plan
+    if: needs.plan.outputs.run == 'true'
+    # A newer core pin supersedes the lab of an older one; nightly and
+    # dispatched runs keep their own group.
+    concurrency:
+      group: fp-lab-ci-${{ github.event_name }}
+      cancel-in-progress: true
+    uses: ./.github/workflows/agent_monitoring_e2e.yml
+    with:
+      caller: fp-lab-ci
+      mode: fp_lab
+      fp_lab_leg: deterministic
+      posture_build_run_id: ${{ needs.plan.outputs.posture_build_run_id }}
+      fp_lab_ref: ${{ needs.plan.outputs.head_sha }}
+      fp_lab_scenarios: ${{ inputs.fp_lab_scenarios || '' }}
+    secrets: inherit

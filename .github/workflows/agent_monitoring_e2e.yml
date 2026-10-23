@@ -85,6 +85,15 @@ name: Agent fleet monitoring E2E
 # detector steps publish evidence
 # and never gate -- see the comment at that step for why. All cross-agent
 # orchestration lives in tests/e2e/run_fleet_monitoring.py.
+#
+# workflow_call is the FP lab's automatic entry point: fp_lab_ci.yml calls it
+# with mode fp_lab and the deterministic leg after every core-pinning push to
+# main and nightly. Those runs are recorded under fp_lab_ci.yml, never under
+# this workflow, so the release's Phase 0 check of this workflow's latest run
+# on main keeps reading the fleet gate. Push, pull_request and
+# workflow_dispatch behave as before (the fp_lab steps read `inputs.*`, which
+# is what github.event.inputs carried for a dispatch and is empty on push and
+# PR).
 
 on:
   push:
@@ -133,16 +142,49 @@ on:
         required: false
         default: llm
         options: [llm, deterministic]
+  workflow_call:
+    inputs:
+      caller:
+        description: 'Name of the calling entry point (fp-lab-ci): keeps its runs out of the fleet runs concurrency group'
+        type: string
+        required: true
+      mode:
+        description: 'fp_lab (the only mode a caller uses today) or fleet'
+        type: string
+        required: true
+      posture_build_run_id:
+        description: 'fp_lab: tests.yml run id whose posture-binary-<label> artifacts the lab runs against'
+        type: string
+        required: false
+        default: ''
+      fp_lab_scenarios:
+        description: 'fp_lab: CSV of scenario ids, case ids or tag:<name> (empty = whole catalog)'
+        type: string
+        required: false
+        default: ''
+      fp_lab_leg:
+        description: 'fp_lab: llm or deterministic'
+        type: string
+        required: false
+        default: deterministic
+      fp_lab_ref:
+        description: 'fp_lab: commit whose harness is checked out (the head of the build run); empty = the triggering ref'
+        type: string
+        required: false
+        default: ''
 
+# A caller's runs get their own group (caller + event), so a nightly or
+# core-pin lab run never cancels, nor is cancelled by, a fleet run or each
+# other. Push, PR and dispatch have no `caller`: their group is unchanged.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}${{ inputs.caller && format('-{0}-{1}', inputs.caller, github.event_name) || '' }}
   cancel-in-progress: true
 
 permissions: read-all
 
 jobs:
   fleet:
-    name: Fleet monitoring (${{ matrix.os }})
+    name: ${{ inputs.mode == 'fp_lab' && 'FP lab' || 'Fleet monitoring' }} (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -159,8 +201,12 @@ jobs:
     steps:
       # ── Checkout this repo only (NO plugin repos: Level-2 plugins are
       #    retired and this gate is plugin-free) ─────────────────────────
+      # fp_lab_ref (workflow_call only) pins the harness to the commit the
+      # posture build was made from; empty keeps the triggering ref.
       - name: Checkout edamame_posture
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.fp_lab_ref }}
 
       # ── EDAMAME Posture daemon (connected + packet capture + LLM) ──────
       # Connected so the runner IP is lifted and the edamame_cli install
@@ -368,20 +414,20 @@ jobs:
       # and starts it disconnected with the LLM, like the security gate does.
       # Agent CLIs, keys, edamame_cli and the registry are the steps above.
       - name: "FP lab: download the posture build"
-        if: github.event.inputs.mode == 'fp_lab'
+        if: inputs.mode == 'fp_lab'
         uses: actions/download-artifact@v4
         with:
           name: posture-binary-${{ matrix.posture_label }}
           path: posture-artifact
-          run-id: ${{ github.event.inputs.posture_build_run_id }}
+          run-id: ${{ inputs.posture_build_run_id }}
           github-token: ${{ github.token }}
 
       - name: "FP lab: restart the daemon on the posture build"
-        if: github.event.inputs.mode == 'fp_lab'
+        if: inputs.mode == 'fp_lab'
         shell: bash
         env:
           EDAMAME_LLM_API_KEY: ${{ secrets.EDAMAME_LLM_API_KEY }}
-          POSTURE_BUILD_RUN_ID: ${{ github.event.inputs.posture_build_run_id }}
+          POSTURE_BUILD_RUN_ID: ${{ inputs.posture_build_run_id }}
         run: |
           set -euo pipefail
           test -n "$POSTURE_BUILD_RUN_ID" || { echo "::error::posture_build_run_id is required in fp_lab mode"; exit 1; }
@@ -414,7 +460,7 @@ jobs:
           echo "EDAMAME_POSTURE=$BIN" >> "$GITHUB_ENV"
 
       - name: "FP lab: run"
-        if: github.event.inputs.mode == 'fp_lab'
+        if: inputs.mode == 'fp_lab'
         timeout-minutes: 150
         shell: bash
         env:
@@ -422,8 +468,8 @@ jobs:
           EDAMAME_SUPPORTED_AGENTS_INDEX: ${{ env.EDAMAME_SUPPORTED_AGENTS_INDEX }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          FP_LAB_SCENARIOS: ${{ github.event.inputs.fp_lab_scenarios }}
-          FP_LAB_LEG: ${{ github.event.inputs.fp_lab_leg || 'llm' }}
+          FP_LAB_SCENARIOS: ${{ inputs.fp_lab_scenarios }}
+          FP_LAB_LEG: ${{ inputs.fp_lab_leg || 'llm' }}
         run: |
           PY=python3
           command -v python3 >/dev/null 2>&1 || PY=python
@@ -453,17 +499,17 @@ jobs:
           fi
 
       - name: "FP lab: upload the run"
-        if: always() && github.event.inputs.mode == 'fp_lab'
+        if: always() && inputs.mode == 'fp_lab'
         uses: actions/upload-artifact@v4
         with:
-          name: fp-lab-${{ github.event.inputs.fp_lab_leg == 'deterministic' && 'deterministic-' || '' }}${{ matrix.posture_label }}
+          name: fp-lab-${{ inputs.fp_lab_leg == 'deterministic' && 'deterministic-' || '' }}${{ matrix.posture_label }}
           path: fp-lab-run
           if-no-files-found: warn
           retention-days: 14
 
       # ── Drive the whole fleet ──────────────────────────────────────────
       - name: Run fleet monitoring driver
-        if: github.event.inputs.mode != 'fp_lab'
+        if: inputs.mode != 'fp_lab'
         timeout-minutes: 55
         shell: bash
         env:
@@ -564,7 +610,7 @@ jobs:
         with:
           channel-id: "C072J0U9TH7"
           slack-message: |
-            *edamame_posture fleet monitoring E2E failed*
+            *edamame_posture ${{ inputs.mode == 'fp_lab' && format('FP lab ({0} leg)', inputs.fp_lab_leg || 'llm') || 'fleet monitoring E2E' }} failed*
             Repository: ${{ github.repository }}
             Branch: ${{ github.ref }}
             OS: ${{ matrix.os }}

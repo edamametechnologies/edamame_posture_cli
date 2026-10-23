@@ -232,7 +232,10 @@ same commit. The real assertion is the driver's own PASS/FAIL.
 
 `workflow_dispatch` inputs restrict the run to a CSV of `agents` or force
 `skip_divergence`. Push/PR triggers are path-filtered to the driver, the registry
-helper, `tests/security/triggers/**`, and the workflow file.
+helper, `tests/security/triggers/**`, and the workflow file. The `workflow_call`
+entry point is the FP lab's: `fp_lab_ci.yml` calls it in `fp_lab` mode (the
+deterministic leg, after every core-pinning push to main and nightly; see
+`tests/fp_lab/README.md`), and those runs are recorded under `fp_lab_ci.yml`.
 
 ## Verification RPCs
 
