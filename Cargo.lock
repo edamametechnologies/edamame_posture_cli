@@ -146,7 +146,7 @@ version = "1.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "40c48f72fd53cd289104fc64099abca73db4166ad86ea0b4341abe65af83dadc"
 dependencies = [
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -157,7 +157,7 @@ checksum = "291e6a250ff86cd4a820112fb8898808a366d8f9f58ce16d1f538353ad55747d"
 dependencies = [
  "anstyle",
  "once_cell_polyfill",
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -1582,7 +1582,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c54e03a951783e8b327515db3f2a2fd0e3bed362a96b066f341ce66ed49b4ead"
 dependencies = [
  "data-encoding",
- "syn 1.0.109",
+ "syn 3.0.9",
 ]
 
 [[package]]
@@ -1713,7 +1713,7 @@ dependencies = [
  "libc",
  "option-ext",
  "redox_users",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -1862,8 +1862,8 @@ dependencies = [
 
 [[package]]
 name = "edamame_core"
-version = "2.1.1"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#69d3a17b5e21b164e82c12ffaeaa8321a269a499"
+version = "2.2.0"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#364d7e7dc3bc58edfebb8dadd99534bf4838e7e7"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -1948,8 +1948,8 @@ dependencies = [
 
 [[package]]
 name = "edamame_foundation"
-version = "2.1.1"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#1c4c72978d9ed8fc7c27c5f8b2fd6ce9a5d4162e"
+version = "2.2.0"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#9fc5485ca65fda95f1eeb9d0c967247b3e1d95a6"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -2203,7 +2203,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -2369,8 +2369,8 @@ dependencies = [
 
 [[package]]
 name = "flodbadd"
-version = "2.1.1"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#bcbe6ec64a2e4177a74c2e96d77a4a4833a04ee8"
+version = "2.2.0"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#5e87c1e355884f1cd7265c1a3ae53e92a8b4a5cb"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -2839,7 +2839,7 @@ dependencies = [
  "gobject-sys 0.22.9",
  "libc",
  "system-deps 9.0.0",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -3453,7 +3453,7 @@ dependencies = [
  "js-sys",
  "log",
  "wasm-bindgen",
- "windows-core 0.62.2",
+ "windows-core 0.58.0",
 ]
 
 [[package]]
@@ -3981,7 +3981,7 @@ dependencies = [
 [[package]]
 name = "l7_ebpf_program"
 version = "0.1.0"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#bcbe6ec64a2e4177a74c2e96d77a4a4833a04ee8"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#5e87c1e355884f1cd7265c1a3ae53e92a8b4a5cb"
 
 [[package]]
 name = "lazy_static"
@@ -4918,7 +4918,7 @@ version = "0.50.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7957b9740744892f114936ab4a57b3f487491bbeafaf8083688b16841a4240e5"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -5984,7 +5984,7 @@ dependencies = [
  "quinn-udp",
  "rustc-hash",
  "rustls",
- "socket2 0.5.10",
+ "socket2 0.6.5",
  "thiserror 2.0.21",
  "tokio",
  "tracing",
@@ -6024,9 +6024,9 @@ dependencies = [
  "cfg_aliases",
  "libc",
  "once_cell",
- "socket2 0.5.10",
+ "socket2 0.6.5",
  "tracing",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -6482,7 +6482,7 @@ dependencies = [
  "errno 0.3.14",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -6541,7 +6541,7 @@ dependencies = [
  "security-framework",
  "security-framework-sys",
  "webpki-root-certs",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -6965,7 +6965,7 @@ version = "1.4.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c4db69cba1110affc0e9f7bcd48bbf87b3f4fc7c61fc9155afd4c469eb3d6c1b"
 dependencies = [
- "errno 0.2.8",
+ "errno 0.3.14",
  "libc",
 ]
 
@@ -7088,7 +7088,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c3d1e2c7f27f8d4cb10542a02c49005dbd6e93095799d6f3be745fae9f8fedd4"
 dependencies = [
  "libc",
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -7384,7 +7384,7 @@ dependencies = [
  "getrandom 0.4.3",
  "once_cell",
  "rustix",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -7448,7 +7448,7 @@ dependencies = [
 [[package]]
 name = "threatmodels_rs"
 version = "0.1.1"
-source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#d1e48742b7f165881931a4816fc35d835a06cfb8"
+source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#abdc89f5c86972bd391adb223c50b8c3379e6bbe"
 dependencies = [
  "anyhow",
  "chrono",
@@ -7890,7 +7890,7 @@ checksum = "b6f5e870be6c3b371b77fe0ee0bafb859fa4964b4404c27de1d380043c4dda20"
 [[package]]
 name = "undeadlock"
 version = "1.2.0"
-source = "git+https://github.com/edamametechnologies/undeadlock?branch=main#ec740075f6ebdfc4ee6a4436c7110cdad0f097de"
+source = "git+https://github.com/edamametechnologies/undeadlock?branch=main#7a46fd51f030878799b10b8dcfb3c9ba652c8487"
 dependencies = [
  "dashmap 6.2.1",
  "tokio",
@@ -8327,7 +8327,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
