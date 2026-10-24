@@ -25,6 +25,8 @@ import io
 import json
 import os
 import platform
+import plistlib
+import re
 import secrets
 import shutil
 import signal
@@ -315,21 +317,6 @@ def _temp_root() -> Path:
     return Path(tempfile.gettempdir())
 
 
-def _run_holding_fds(cmd: List[str], cwd: Path, fds: Sequence[int], timeout: int) -> Tuple[int, str]:
-    """run_cmd with descriptors passed to the child (run_cmd cannot)."""
-    log(f"  $ {' '.join(cmd)}  (child inherits {len(fds)} open descriptor(s))")
-    try:
-        proc = subprocess.run(cmd, cwd=str(cwd), pass_fds=tuple(fds), capture_output=True, text=True,
-                              encoding="utf-8", errors="replace", timeout=timeout)
-    except subprocess.TimeoutExpired:
-        log(f"  (timeout after {timeout}s)")
-        return 124, ""
-    out = (proc.stdout or "") + (proc.stderr or "")
-    if out.strip():
-        log(out.rstrip()[-2000:])
-    return proc.returncode, out
-
-
 # 1. A headless Chromium-family browser on its own --user-data-dir profile.
 
 BROWSER_SITES = (
@@ -537,15 +524,78 @@ def headless_browser_own_profile(ws: Path) -> ActionResult:
 APPLE_PROBE_URL = "https://www.apple.com/library/test/success.html"
 
 
+def _wait_status_exit_code(status: int) -> int:
+    """launchctl reports a job's last exit as a wait(2) status."""
+    if status & 0x7F:
+        return 128 + (status & 0x7F)
+    return status >> 8
+
+
+def _run_under_launchd(argv: List[str], cwd: Path, timeout: int) -> Tuple[int, str]:
+    """Run argv as a one-shot job of the user's launchd domain, so its parent
+    is launchd, as an OS daemon's is, and wait for it to exit. Returns its
+    exit code (124 on timeout, 125 when the job could not be loaded) and its
+    output."""
+    label = f"tech.edamame.fplab.{secrets.token_hex(4)}"
+    out_path = cwd / f"{label}.log"
+    plist = cwd / f"{label}.plist"
+    plist.write_bytes(plistlib.dumps({
+        "Label": label,
+        "ProgramArguments": argv,
+        "RunAtLoad": True,
+        "KeepAlive": False,
+        "WorkingDirectory": str(cwd),
+        "StandardOutPath": str(out_path),
+        "StandardErrorPath": str(out_path),
+    }))
+    log(f"  $ launchctl load {plist.name}  ({' '.join(argv)})")
+    loaded = subprocess.run(["launchctl", "load", str(plist)], capture_output=True, text=True)
+    if loaded.returncode != 0:
+        log((loaded.stdout or "") + (loaded.stderr or ""))
+        plist.unlink(missing_ok=True)
+        return 125, loaded.stderr or ""
+    rc = 124
+    try:
+        deadline = time.monotonic() + timeout
+        idle_polls = 0
+        while time.monotonic() < deadline:
+            time.sleep(2)
+            q = subprocess.run(["launchctl", "list", label], capture_output=True, text=True)
+            if q.returncode != 0:
+                break
+            if '"PID" =' in q.stdout:
+                idle_polls = 0
+                continue
+            idle_polls += 1
+            m = re.search(r'"LastExitStatus" = (-?\d+);', q.stdout)
+            # Three polls without a PID: the job ran and exited (RunAtLoad
+            # starts it at load), not "not started yet".
+            if m and idle_polls >= 3:
+                rc = _wait_status_exit_code(int(m.group(1)))
+                break
+        if rc == 124:
+            log(f"  (timeout after {timeout}s)")
+    finally:
+        subprocess.run(["launchctl", "unload", str(plist)], capture_output=True)
+        plist.unlink(missing_ok=True)
+    out = out_path.read_text(encoding="utf-8", errors="replace") if out_path.is_file() else ""
+    out_path.unlink(missing_ok=True)
+    if out.strip():
+        log(out.rstrip()[-2000:])
+    return rc, out
+
+
 def os_relay_keychain_sidecars(ws: Path) -> ActionResult:
     """Stand-in for an OS relay daemon (networkserviceproxy) holding the
     login keychain's lock and safe-save sidecars while it talks to Apple.
-    /usr/bin/curl, an Apple platform binary, inherits open descriptors on
-    two sidecar files of a TEST home's Library/Keychains (placeholders:
-    an empty lock file and a copy of a placeholder database) and requests
-    Apple's connectivity page every 10 s for about 80 s. The real keychain
-    and the user's Keychains directory are never opened; curl never reads
-    the descriptors it holds."""
+    /usr/bin/curl, an Apple platform binary, runs as a launchd job (launchd
+    is its parent, as it is the daemon's) and holds open descriptors on two
+    sidecar files of a TEST home's Library/Keychains (placeholders: an empty
+    lock file and a copy of a placeholder database) while it requests
+    Apple's connectivity page every 10 s for about 80 s. The job's shell
+    opens the descriptors and execs curl. The real keychain and the user's
+    Keychains directory are never opened; curl never reads the descriptors
+    it holds."""
     if platform.system() != "Darwin":
         return False, "macOS only"
     curl = Path("/usr/bin/curl")
@@ -560,21 +610,22 @@ def os_relay_keychain_sidecars(ws: Path) -> ActionResult:
     lock.write_bytes(b"")
     sidecar = keychains / f"login.keychain-db.sb-{secrets.token_hex(4)}-{secrets.token_hex(3)}"
     shutil.copyfile(database, sidecar)
-    fds = [os.open(str(lock), os.O_RDONLY), os.open(str(sidecar), os.O_RDONLY)]
+    hold = 'exec 3<"$1" 4<"$2"; shift 2; exec "$@"'
     try:
         cmd = [str(curl), "-sS", "-A", UA, "--rate", "6/m"]
         for _ in range(9):
             cmd += [APPLE_PROBE_URL, "-o", os.devnull]
-        rc, out = _run_holding_fds(cmd, ws, fds, 240)
+        rc, out = _run_under_launchd(["/bin/sh", "-c", hold, "sh", str(lock), str(sidecar)] + cmd, ws, 240)
         if rc == 2 and "rate" in out:
             # curl older than 7.84 has no --rate: one slow transfer instead.
-            rc, _ = _run_holding_fds([str(curl), "-sS", "-A", UA, "--limit-rate", "2k", "--max-time", "90",
-                                      "-o", os.devnull, "https://www.apple.com/"], ws, fds, 180)
+            slow = [str(curl), "-sS", "-A", UA, "--limit-rate", "2k", "--max-time", "90",
+                    "-o", os.devnull, "https://www.apple.com/"]
+            rc, _ = _run_under_launchd(["/bin/sh", "-c", hold, "sh", str(lock), str(sidecar)] + slow, ws, 180)
             rc = 0 if rc == 28 else rc  # 28: the 90 s budget ran out, the transfer was held
-        return rc == 0, f"/usr/bin/curl held {lock.name} and {sidecar.name} during HTTPS to Apple (rc={rc})"
+        if rc == 125:
+            return False, "launchctl could not load the stand-in's job"
+        return rc == 0, f"/usr/bin/curl (launchd job) held {lock.name} and {sidecar.name} during HTTPS to Apple (rc={rc})"
     finally:
-        for fd in fds:
-            os.close(fd)
         _rm(home)
 
 
@@ -680,7 +731,10 @@ def installer_sibling_temp_staging(ws: Path) -> ActionResult:
         bindir = run_tree / "FPLab Installer"
         bindir.mkdir(parents=True)
         extractor = bindir / tar_src.name
-        shutil.copy2(tar_src, extractor)
+        # copyfile, not copy2: copy2 also copies the file flags, and a
+        # system binary's restricted flag cannot be set on the copy.
+        shutil.copyfile(tar_src, extractor)
+        extractor.chmod(0o755)
         payload = run_tree / "payload.tar"
         expected = write_installer_payload(payload, staging_name)
         try:

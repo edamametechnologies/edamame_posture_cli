@@ -506,7 +506,7 @@ SCENARIOS: List[Scenario] = [
         title="Installer running from one temp tree unpacks 480 files into a sibling temp tree it creates",
         fp_class="FP-MAC-31",
         kind="direct",
-        platforms=ALL_DESKTOP,
+        platforms=("linux", "windows"),
         fixture="empty",
         action="installer_sibling_temp_staging",
         requires=("tar",),
@@ -515,7 +515,9 @@ SCENARIOS: List[Scenario] = [
         tags=("operators_day",),
         notes="Adobe's installer staging its download in a sibling per-invocation temp tree. The "
         "extractor is a copy of the platform's tar in <tmp>/<ID2>/FPLab Installer/; the payload is "
-        "inert data; both trees are removed.",
+        "inert data; both trees are removed. Not on macOS: a copy of an Apple platform binary "
+        "is killed at exec (status 137), and the shape there needs a third-party signed installer "
+        "the lab does not ship.",
     ),
     Scenario(
         id="direct-script-document-in-temp",
