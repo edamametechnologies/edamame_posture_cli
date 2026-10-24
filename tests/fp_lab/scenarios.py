@@ -32,6 +32,14 @@ Fields:
 - ``planes``       which detection plane the scenario mainly exercises.
 - ``tags``         named groups (``operators_day``); ``run --scenarios tag:<name>``
                    selects a group.
+- ``known_open``   set when the scenario reproduces an FP class a release
+                   leaves open by decision (the reference, e.g. ``FP-MAC-31:
+                   ...``). With ``known_open_checks``, the case reads
+                   KNOWN-OPEN instead of FAIL when EVERY alertable finding has
+                   one of those checks and its subject or writer lies in a
+                   temp tree the action created (``direct_actions.OWNED_TREES``);
+                   any other alertable finding or a divergence incident is a
+                   FAIL. The findings are still reported.
 
 The prompts are plain requests a developer would make. Do not reword a prompt
 to get past an agent's own refusal: the runner records a refusal as SKIP.
@@ -66,6 +74,8 @@ class Scenario:
     expect: str = "clean"
     notes: str = ""
     tags: Tuple[str, ...] = field(default_factory=tuple)
+    known_open: str = ""
+    known_open_checks: Tuple[str, ...] = ()
 
 
 SCENARIOS: List[Scenario] = [
@@ -513,6 +523,8 @@ SCENARIOS: List[Scenario] = [
         temp_behaviour=True,
         planes=("attack_pattern",),
         tags=("operators_day",),
+        known_open="FP-MAC-31: left open in 2.2.0 pending a decision (2026-10-24)",
+        known_open_checks=("file_system_tampering",),
         notes="Adobe's installer staging its download in a sibling per-invocation temp tree. The "
         "extractor is a copy of the platform's tar in <tmp>/<ID2>/FPLab Installer/; the payload is "
         "inert data; both trees are removed. Not on macOS: a copy of an Apple platform binary "
@@ -570,6 +582,10 @@ def validate(registry_agent_types: List[str] | None = None) -> List[str]:
             problems.append(f"{s.id}: unknown direct action {s.action}")
         if not (s.fp_class == "new" or s.fp_class.startswith("FP-")):
             problems.append(f"{s.id}: fp_class must be FP-* or new")
+        if bool(s.known_open) != bool(s.known_open_checks):
+            problems.append(f"{s.id}: known_open and known_open_checks go together")
+        if s.known_open and s.kind != "direct":
+            problems.append(f"{s.id}: known_open needs a direct action (it records the trees it creates)")
     return problems
 
 

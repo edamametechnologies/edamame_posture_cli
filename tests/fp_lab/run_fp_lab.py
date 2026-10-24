@@ -80,7 +80,7 @@ from agent_harness import (  # noqa: E402
 )
 from scenarios import SCENARIOS, Scenario, validate  # noqa: E402
 from lab_workspace import make_workspace  # noqa: E402
-from direct_actions import run_action  # noqa: E402
+from direct_actions import OWNED_TREES, run_action  # noqa: E402
 
 PROVIDER_KEY_VARS = ("ANTHROPIC_API_KEY", "OPENAI_API_KEY", "CODEX_API_KEY", "EDAMAME_LLM_API_KEY")
 _KEYS: Dict[str, str] = {}
@@ -879,6 +879,7 @@ def run_cmd_run(args: argparse.Namespace) -> int:
                 with provider_env(None):
                     delivered, detail = run_action(s.action, ws)
                 case["drive"] = {"delivered": delivered, "detail": detail}
+                case["owned_trees"] = list(OWNED_TREES)
             observer = list(dict.fromkeys(([item["agent"]] if item["agent"] else []) + observer_agents))
             settle(state, observer, args.settle_secs, args.tick_every,
                    make_collector(case, s, case_dir, [item["agent"]] if item["agent"] else []))
@@ -893,7 +894,9 @@ def run_cmd_run(args: argparse.Namespace) -> int:
             case["traceback"] = traceback.format_exc()[-3000:]
             log(f"  ERROR: {exc}")
         alertable = [e for e in case["attack_pattern"] if e.get("alertable")]
-        if alertable or case["divergence"]:
+        if alertable and not case["divergence"] and known_open_covers(s, alertable, case.get("owned_trees") or []):
+            case.update(status="KNOWN-OPEN", reason=f"known open: {s.known_open}")
+        elif alertable or case["divergence"]:
             case["status"] = "FAIL"
         elif case.get("error"):
             case["status"] = "ERROR"
@@ -934,6 +937,24 @@ def run_cmd_run(args: argparse.Namespace) -> int:
     sampler.stop()
     write_json(run_dir / "perf.json", daemon_perf.summarize(sampler.samples, results))
     return write_summary(run_dir, pf, results, args)
+
+
+def known_open_covers(s: Scenario, alertable: List[dict], owned_trees: List[str]) -> bool:
+    """True when the scenario declares a known-open class and every alertable
+    finding is of that class: one of its checks, with its subject or writer
+    inside a temp tree the action created."""
+    if not (s.known_open and s.known_open_checks and owned_trees):
+        return False
+    trees = {t.lower() for t in owned_trees}
+
+    def in_owned_tree(entry: dict) -> bool:
+        for key in ("subject_path", "process"):
+            parts = re.split(r"[\\/]+", str(entry.get(key) or "").lower())
+            if trees.intersection(parts):
+                return True
+        return False
+
+    return all(e.get("check") in s.known_open_checks and in_owned_tree(e) for e in alertable)
 
 
 # ── summary ─────────────────────────────────────────────────────────────

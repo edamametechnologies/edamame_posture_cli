@@ -45,6 +45,11 @@ from agent_harness import cli_path, last_cmd_output_tail, log, run_cmd
 
 ActionResult = Tuple[bool, str]
 
+# Names of the per-invocation temp trees the running action created
+# (cleared by run_action). A known-open scenario matches its findings
+# against them (scenarios.py, known_open).
+OWNED_TREES: List[str] = []
+
 UA = "fp-lab/1.0 (+https://github.com/edamametechnologies/edamame_posture)"
 
 
@@ -727,6 +732,7 @@ def installer_sibling_temp_staging(ws: Path) -> ActionResult:
     run_tree = root / str(uuid.uuid4()).upper()
     staging_name = str(uuid.uuid4()).upper()
     staging = root / staging_name
+    OWNED_TREES.extend([run_tree.name, staging_name])
     try:
         bindir = run_tree / "FPLab Installer"
         bindir.mkdir(parents=True)
@@ -791,4 +797,5 @@ ACTIONS: Dict[str, Callable[[Path], ActionResult]] = {
 
 def run_action(name: str, ws: Path) -> ActionResult:
     log(f"  direct action: {name} in {ws}")
+    OWNED_TREES.clear()
     return ACTIONS[name](ws)

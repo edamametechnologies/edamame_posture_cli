@@ -76,8 +76,13 @@ E2E, which imports it too); the RPC wrapper is
 5. **Summary**: `summary.json` and `summary.md`. Status per case: `FAIL`
    (alertable finding or incident), `PASS` (stimulus delivered, nothing
    alertable), `SKIP` (platform, missing tool / key / env, agent refusal, or
-   the stimulus marker never appeared), `ERROR` (runner exception). Exit 1
-   on any FAIL (naming each candidate file), 2 on preflight failure, else 0.
+   the stimulus marker never appeared), `ERROR` (runner exception),
+   `KNOWN-OPEN` (a scenario whose FP class a release leaves open by
+   decision, `known_open` in `scenarios.py`: every alertable finding has one
+   of the declared checks and lies in a temp tree the action created; the
+   findings are still reported, and any other alertable finding or incident
+   makes the case `FAIL`). Exit 1 on any FAIL (naming each candidate file),
+   2 on preflight failure, else 0.
 
 Findings are attributed to the case in whose window they appeared; a late
 finding of case N can land in case N+1's window. The export (process, paths,
