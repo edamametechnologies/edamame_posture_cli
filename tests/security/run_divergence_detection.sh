@@ -312,6 +312,13 @@ stamp = lambda t: t.isoformat().replace("+00:00", "Z")
 model["window_start"] = stamp(now)
 model["window_end"] = stamp(now + datetime.timedelta(minutes=20))
 model["ingested_at"] = stamp(now)
+# A prediction with a transcript span is a session the observer read just
+# now: born two minutes ago, last written at the upsert.
+for prediction in model.get("predictions", []):
+    raw = prediction.get("raw_input")
+    if isinstance(raw, dict):
+        raw["started_at"] = stamp(now - datetime.timedelta(minutes=2))
+        raw["modified_at"] = stamp(now)
 
 with open(dest, "w", encoding="utf-8") as fh:
     json.dump(model, fh)
