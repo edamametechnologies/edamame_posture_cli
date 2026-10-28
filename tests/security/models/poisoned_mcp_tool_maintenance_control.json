@@ -13,7 +13,18 @@
     "run_divergence_detection.sh rewrites window_start / ingested_at to now,",
     "window_end to now + 20m, every 'demo_openclaw' token to the prefix of the",
     "--agent-type in use, every '__STATE_DIR__' token to the trigger's state",
-    "directory, and each prediction's transcript span from its '_span' offsets."
+    "directory, and each prediction's transcript span from its '_span' offsets.",
+    "",
+    "Timing, as in the demo: the read-only session ended minutes before the",
+    "maintenance session, and the maintenance transcript is written after its",
+    "own write (the harness logs each tool result after the tool ran), so",
+    "-maint-001's span runs past the upsert by more than the trigger's go",
+    "timeout (90 s): its write is contained by the maintenance session whenever",
+    "the runner sends the go, and neither containment nor the slack can name",
+    "the read-only or update session. With -read-001 and -maint-001 both born",
+    "a minute before the upsert and last written at it, a restore landing more",
+    "than the file monitor lag after the upsert fell outside every span and the",
+    "slack named the read-only session (the first CI runs, on Linux)."
   ],
   "version": "3.0",
   "window_start": "1970-01-01T00:00:00Z",
@@ -140,8 +151,8 @@
     },
     {
       "_span": {
-        "started_offset_secs": -60,
-        "modified_offset_secs": 0
+        "started_offset_secs": -300,
+        "modified_offset_secs": -240
       },
       "agent_type": "openclaw",
       "agent_instance_id": "poisoned-mcp-tool-maintenance-control",
@@ -224,7 +235,7 @@
     {
       "_span": {
         "started_offset_secs": -60,
-        "modified_offset_secs": 0
+        "modified_offset_secs": 120
       },
       "agent_type": "openclaw",
       "agent_instance_id": "poisoned-mcp-tool-maintenance-control",
