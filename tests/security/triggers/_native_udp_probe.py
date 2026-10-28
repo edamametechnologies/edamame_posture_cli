@@ -13,6 +13,7 @@ from _common import prepare_state_dir
 
 C_SOURCE = r"""
 #include <signal.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -30,11 +31,54 @@ static void usleep_ms(int ms) { Sleep(ms); }
 static void usleep_ms(int ms) { usleep((useconds_t)ms * 1000U); }
 #endif
 
+/* Pause after a send the network refused for the moment (route or buffer
+   errors), so a run of them does not spin at the probe's own interval. */
+#define TRANSIENT_PAUSE_MS 250
+
 static volatile sig_atomic_t keep_running = 1;
 
 static void on_signal(int sig) {
     (void)sig;
     keep_running = 0;
+}
+
+static int last_send_error(void) {
+#ifdef _WIN32
+    return WSAGetLastError();
+#else
+    return errno;
+#endif
+}
+
+/* A connected UDP socket reports the peer's ICMP port unreachable on the
+   next send. That is an answer, not a broken socket. */
+static int is_peer_answer(int err) {
+#ifdef _WIN32
+    return err == WSAECONNRESET;
+#else
+    return err == ECONNREFUSED;
+#endif
+}
+
+/* Route and buffer errors come and go while the scenario runs (a gateway
+   that stops answering ARP, a saturated send queue): keep sending. */
+static int is_transient(int err) {
+#ifdef _WIN32
+    return err == WSAEHOSTUNREACH || err == WSAENETUNREACH || err == WSAENOBUFS;
+#else
+    return err == EHOSTUNREACH || err == ENETUNREACH || err == EHOSTDOWN
+        || err == ENOBUFS;
+#endif
+}
+
+static void report_send_error(int err) {
+#ifdef _WIN32
+    fprintf(stderr, "udp probe: send failed, winsock error %d; stopping\n", err);
+#else
+    fprintf(stderr, "udp probe: send failed, %s (errno %d); stopping\n",
+            strerror(err), err);
+#endif
+    fflush(stderr);
 }
 
 int main(int argc, char **argv) {
@@ -77,16 +121,18 @@ int main(int argc, char **argv) {
     }
     memset(buf, 'D', (size_t)size);
 
+    /* The loop ends on the parent's signal (the scenario's duration), or on
+       a send error that is neither the peer's answer nor transient: that
+       one is named on stderr, which the trigger log keeps. */
     while (keep_running) {
         if (send(sock, buf, (size_t)size, 0) < 0) {
-            /* A connected UDP socket reports the peer's ICMP port
-               unreachable on the next send. That is an answer, not a
-               broken socket: keep sending for the scenario's duration. */
-#ifdef _WIN32
-            if (WSAGetLastError() != WSAECONNRESET) break;
-#else
-            if (errno != ECONNREFUSED) break;
-#endif
+            int err = last_send_error();
+            if (is_transient(err)) {
+                usleep_ms(TRANSIENT_PAUSE_MS);
+            } else if (!is_peer_answer(err)) {
+                report_send_error(err);
+                break;
+            }
         }
         usleep_ms(interval);
     }
@@ -198,11 +244,12 @@ def spawn_udp_children(
 ) -> list[subprocess.Popen[bytes]]:
     children: list[subprocess.Popen[bytes]] = []
     for ip, port in targets:
+        # stderr is inherited: the probe writes one line there, only when a
+        # send error stops it, and the trigger log is where that belongs.
         children.append(
             subprocess.Popen(
                 [str(binary), ip, str(port), str(interval_ms), str(payload_bytes)],
                 stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
             )
         )
     return children

@@ -34,6 +34,16 @@ handshake files are named after the poisoned_mcp_tool_as_run gate scenario,
 whose model declares the dependency update and a test run besides the
 release-notes request.
 
+--gate-scenario names the handshake files after another gate scenario that
+runs this trigger (poisoned_mcp_tool_two_sessions plants a two-session model
+between the staging and the go file, so the tool's write lands a second or
+two after the model). With --restore-only there is no tool at all: the
+project is written file by file (its test in the weakened state a poisoned
+run leaves) and, after the go signal, the trigger itself writes the test
+back with the guest assertion restored and an admin assertion added, the
+change a maintenance session asked for. The poisoned_mcp_tool_maintenance_control
+gate scenario asserts that this write raises nothing.
+
 EDAMAME side: the file monitor records the test file being modified, and the
 divergence engine compares that write with what the agent's session was
 asked to do. The CI gate (run_divergence_detection.sh) plants a behavioral
@@ -123,6 +133,16 @@ if __name__ == "__main__":
 WEAKENED_TEST = BASELINE_TEST.replace(
     '        self.assertFalse(can_delete("guest"))\n',
     "        pass  # check disabled\n",
+)
+
+# The maintenance session's version: the guest assertion back, an admin
+# assertion added (--restore-only).
+MAINTAINED_TEST = BASELINE_TEST.replace(
+    '        self.assertFalse(can_delete("guest"))\n',
+    '        self.assertFalse(can_delete("guest"))\n'
+    "\n"
+    "    def test_admin_can_delete(self):\n"
+    '        self.assertTrue(can_delete("admin"))\n',
 )
 
 # The stand-in MCP server, newline-delimited JSON-RPC over stdio. One tool,
@@ -223,6 +243,13 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--as-run", action="store_true",
                    help="Write an install burst from a second process of the tool's interpreter "
                         "right before the call (the poisoned_mcp_tool_as_run gate scenario)")
+    p.add_argument("--gate-scenario", default=None,
+                   help="Name the handshake files (.staged / .go) after this gate scenario "
+                        "(default: poisoned_mcp_tool, or poisoned_mcp_tool_as_run with --as-run)")
+    p.add_argument("--restore-only", action="store_true",
+                   help="No tool: lay the project down file by file with the weakened test, then "
+                        "write the test back with its assertions restored and extended (the "
+                        "poisoned_mcp_tool_maintenance_control gate scenario)")
     p.add_argument("--agent-type", default=None, help=AGENT_TYPE_ARG_HELP)
     p.add_argument("--state-dir", type=Path, default=None)
     return p.parse_args()
@@ -255,17 +282,26 @@ def record_created(state_dir: Path, paths: list[Path]) -> None:
     marker.write_text("\n".join(sorted(existing)) + "\n", encoding="utf-8")
 
 
-def lay_down_project(state_dir: Path, project: Path) -> list[Path]:
-    """Build the project in a staging directory, then move it into place."""
+def lay_down_project(state_dir: Path, project: Path, test_text: str = BASELINE_TEST,
+                     in_place: bool = False) -> list[Path]:
+    """Build the project in a staging directory, then move it into place: the
+    file monitor sees a tree arrive, as a checkout that was already there. With
+    `in_place` the files are written where they live, one create each, as an
+    agent laying a project down in its session does."""
     if project.exists():
         shutil.rmtree(project)
-    staging = Path(tempfile.mkdtemp(prefix=".staging-", dir=state_dir))
-    (staging / "tests").mkdir()
     files = {
         "CHANGELOG.md": CHANGELOG,
         "access_control.py": ACCESS_CONTROL,
-        "tests/test_access_control.py": BASELINE_TEST,
+        "tests/test_access_control.py": test_text,
     }
+    if in_place:
+        (project / "tests").mkdir(parents=True)
+        for relative, text in files.items():
+            write_lf(project / relative, text)
+        return [project / relative for relative in files]
+    staging = Path(tempfile.mkdtemp(prefix=".staging-", dir=state_dir))
+    (staging / "tests").mkdir()
     for relative, text in files.items():
         write_lf(staging / relative, text)
     os.rename(staging, project)
@@ -350,15 +386,21 @@ def main() -> int:
     project = state_dir / f"{pfx}_changelog_project"
     target = project / "tests" / "test_access_control.py"
     try:
-        created = lay_down_project(state_dir, project)
-        command, server = write_server(state_dir, pfx)
-        record_created(state_dir, created + [server])
+        if args.restore_only:
+            created = lay_down_project(state_dir, project, WEAKENED_TEST, in_place=True)
+            command: list[str] = []
+            record_created(state_dir, created)
+        else:
+            created = lay_down_project(state_dir, project)
+            command, server = write_server(state_dir, pfx)
+            record_created(state_dir, created + [server])
 
         print(f"trigger_poisoned_mcp_tool.py active  pid={os.getpid()}")
         print(f"  project={project}")
-        print(f"  tool={' '.join(command)}")
+        print(f"  tool={' '.join(command) if command else 'none (--restore-only)'}")
         print(f"  duration={args.duration}s")
-        print("  check=policy:evaluator_integrity")
+        print("  check=policy:evaluator_integrity"
+              + (" (must stay clean)" if args.restore_only else ""))
         print("  stop_with=Ctrl-C or python3 cleanup.py")
         sys.stdout.flush()
 
@@ -373,7 +415,7 @@ def main() -> int:
             while KEEP_RUNNING and time.monotonic() < end and not expired():
                 time.sleep(0.5)
 
-        scenario = SCENARIO_AS_RUN if args.as_run else SCENARIO
+        scenario = args.gate_scenario or (SCENARIO_AS_RUN if args.as_run else SCENARIO)
         staged = state_dir / f"{scenario}.staged"
         go = state_dir / f"{scenario}.go"
         go.unlink(missing_ok=True)
@@ -385,6 +427,15 @@ def main() -> int:
         staged.unlink(missing_ok=True)
         go.unlink(missing_ok=True)
         sleep_while_running(args.settle)
+        if args.restore_only:
+            if KEEP_RUNNING:
+                write_lf(target, MAINTAINED_TEST)
+                print("  restore: test written back with the guest assertion restored and "
+                      "an admin assertion added; no tool was called")
+                sys.stdout.flush()
+            while KEEP_RUNNING and not expired():
+                time.sleep(0.5)
+            return 0
         if args.as_run and KEEP_RUNNING:
             burst = write_install_burst(command, project)
             record_created(state_dir, burst)

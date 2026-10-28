@@ -42,6 +42,10 @@
 #                      `alertable_exports`, up to --export-matched alertable
 #                      ones, newest first, whose `finding_input_slice` is the
 #                      detector's input the attack corpus replays
+#   findings/<scenario>.miss.json  on a fail: the daemon's file events, the
+#                      detector status, the latest report and its tick trace
+#                      (bounded, command lines redacted), so a miss reads as
+#                      "no events" or "withheld by adjudication"
 
 set -Euo pipefail
 
@@ -1233,6 +1237,72 @@ print(f"[{scenario}] alertable export: {ok}/{len(entries)} succeeded "
 PY
 }
 
+# A missed scenario leaves findings/<scenario>.json with the sessions it
+# matched, but nothing about the two inputs a miss hinges on: whether the
+# daemon saw the file events at all, and what the last tick did with what it
+# saw (an adjudicator that does not answer withholds the whole report). Save
+# both to findings/<scenario>.miss.json (`_finding_export.miss_document`): the
+# FIM snapshot, the detector status, the latest report and that report's
+# debug trace without the tick's prompt and input slices. Bounded, command
+# lines redacted. Must run before the post-scenario clear_vuln_history, which
+# drops the report and its trace. Diagnostic only: a failure is logged and
+# never changes the result.
+export_miss_diagnostics() {
+  local scenario="$1"
+  local check="$2"
+  local attempts="$3"
+  local note="$4"
+  log "  saving the miss diagnostics (file events, latest report, tick trace) to findings/$scenario.miss.json"
+  MISS_DUMP="$OUTPUT_DIR_ABS/findings/$scenario.miss.json" \
+  SCENARIO="$scenario" \
+  CHECK="$check" \
+  ATTEMPTS="$attempts" \
+  NOTE="$note" \
+  TRIGGERS_DIR_ENV="$TRIGGERS_DIR" \
+  "$PYTHON" - <<'PY' >>"$TICK_LOG" 2>&1 || log "  WARNING: miss diagnostics failed for $scenario (see detector_ticks.log)"
+import json, os, sys
+sys.path.insert(0, os.environ["TRIGGERS_DIR_ENV"])
+from _edamame_cli import cli_rpc
+from _finding_export import miss_document, write_json
+
+scenario = os.environ["SCENARIO"]
+errors = {}
+
+def call(method, args=None):
+    try:
+        return cli_rpc(method, args, timeout=60)
+    except Exception as exc:
+        errors[method] = f"rpc failed: {exc}"
+        return None
+
+status = call("get_attack_pattern_detector_status")
+file_events = call("get_file_events")
+report = call("get_attack_pattern_findings")
+report_id = report.get("report_id") if isinstance(report, dict) else None
+if not report_id:
+    # No current report: the newest history entry is the last tick that kept one.
+    history = call("get_attack_pattern_history", '{"limit": 1}')
+    if isinstance(history, list) and history and isinstance(history[0], dict):
+        report_id = history[0].get("report_id")
+trace = None
+if report_id:
+    trace = call("get_attack_pattern_debug_trace", json.dumps({"report_id": str(report_id)}))
+else:
+    errors["get_attack_pattern_debug_trace"] = "no report id to look up"
+
+doc = miss_document(scenario, os.environ.get("CHECK") or None, int(os.environ.get("ATTEMPTS") or 0),
+                    os.environ.get("NOTE", ""), status, file_events, report,
+                    str(report_id) if report_id else None, trace, errors)
+write_json(os.environ["MISS_DUMP"], doc)
+fim = doc["file_events"]
+raw = (doc["trace"] or {}).get("raw_findings") if isinstance(doc["trace"], dict) else None
+print(f"[{scenario}] miss diagnostics: file events {fim.get('events_total', 'unanswered')} "
+      f"(sensitive {fim.get('sensitive_events_total', 'unanswered')}), report {report_id or 'none'}, "
+      f"trace {'absent' if raw is None else f'{len(raw)} raw finding(s)'}"
+      + (f", errors: {sorted(doc['errors'])}" if doc["errors"] else ""))
+PY
+}
+
 # findings/<scenario>.meta.json: what this runner asserts for the scenario
 # (expected check, attribution markers and ports, expected tier, whether it
 # must alert), written from the tables above so offline consumers (the
@@ -1581,6 +1651,14 @@ run_one_scenario() {
     else
       extra_note="adjudicator_demoted"
     fi
+  fi
+
+  # A miss: what the daemon held at the end of the last attempt (its file
+  # events, the latest report and that tick's trace), so the artifact tells
+  # "no events reached the detector" from "graded, then withheld by the
+  # adjudicator". Before the post-scenario clear_vuln_history.
+  if [[ "$final_status" == "fail" ]]; then
+    export_miss_diagnostics "$scenario" "$check" "$scen_attempt" "$extra_note"
   fi
 
   # The detector inputs of the alertable findings (pass, or a tier miss),

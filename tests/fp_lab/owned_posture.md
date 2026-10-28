@@ -189,10 +189,13 @@ helper.
   helper (state, start mode, recovery action, resources), stops the app,
   turns the helper's recovery action off, disables and stops it (posture is
   standalone: Npcap and ETW in process), and checks 40151/40152 are free.
-  `stop` restores the start mode and recovery action, starts the helper and
-  relaunches the app in the user's session. Posture and the runner run as
-  scheduled tasks in that session (OpenSSH kills its own session's
-  processes when the connection ends).
+  `stop` ends the daemon's whole process tree (the `powershell.exe` children
+  of its checks inherit its handle on `posture.log`, and a surviving one
+  blocks the next `start`), checks the log is free, restores the start mode
+  and recovery action, starts the helper and relaunches the app in the
+  user's session. Posture and the runner run as scheduled tasks in that
+  session (OpenSSH kills its own session's processes when the connection
+  ends).
 - **State isolation is NOT automatic here.** On Windows core keeps both its
   persisted JSON and its DPAPI secret store under
   `%APPDATA%\com.edamametech\EDAMAME Security` (`storage_userspace`,

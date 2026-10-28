@@ -284,6 +284,14 @@ for ($i = 0; $i -lt 30 -and ((Get-Process edamame,edamame_helper -ErrorAction Si
 if (Get-Process edamame,edamame_helper -ErrorAction SilentlyContinue) { "app or helper still running"; exit 1 }
 if ((Port-Owner 40151) -or (Port-Owner 40152)) { "ports still held: $(Port-Owner 40151) $(Port-Owner 40152)"; exit 1 }
 "app and helper stopped, ports free"
+# The launcher redirects into posture.log; a handle a previous daemon's child
+# still holds makes that redirect fail and the task exit at once, which only
+# showed as Wait-Rpc's timeout. Say so instead.
+$log = "$Lab\state\posture.log"
+if (Test-Path $log) {
+  try { $fs = [IO.File]::Open($log, 'Open', 'ReadWrite', 'None'); $fs.Close() }
+  catch { "posture.log is still held by another process (a child of the previous daemon?): run stop, then start again"; exit 1 }
+}
 New-Item -ItemType Directory -Force -Path "$Lab\state\AppData\Roaming","$Lab\state\AppData\Local" | Out-Null
 $launcher = @"
 @echo off
@@ -384,12 +392,30 @@ PS
   stop)
     ps_run "$PRE" <<'PS'
 "stopping the owned posture"
+# The daemon's children (the powershell.exe its checks run) inherit its
+# handle on posture.log and outlive a kill of the daemon alone: the next
+# start could not open the log for 10-15 minutes. Collect the tree while
+# the parent links still exist, end all of it, then check the log is free.
+$procs = Get-CimInstance Win32_Process
+$tree = @(Get-Process edamame_posture -ErrorAction SilentlyContinue | Where-Object { $_.Path -like "$Lab\*" } | ForEach-Object { $_.Id })
+for ($i = 0; $i -lt $tree.Count; $i++) {
+  $parent = $tree[$i]
+  $tree += @($procs | Where-Object { $_.ParentProcessId -eq $parent -and $tree -notcontains $_.ProcessId } | ForEach-Object { $_.ProcessId })
+}
 schtasks /End /TN EdamameFpLabRun 2>$null | Out-Null
 schtasks /End /TN EdamameFpLabPosture 2>$null | Out-Null
-Get-Process edamame_posture -ErrorAction SilentlyContinue | Where-Object { $_.Path -like "$Lab\*" } | Stop-Process -Force
+foreach ($p in $tree) { Stop-Process -Id $p -Force -ErrorAction SilentlyContinue }
+"ended the daemon's process tree ($($tree.Count) process(es))"
 schtasks /Delete /TN EdamameFpLabRun /F 2>$null | Out-Null
 schtasks /Delete /TN EdamameFpLabPosture /F 2>$null | Out-Null
 for ($i = 0; $i -lt 30 -and (Port-Owner 40152); $i++) { Start-Sleep 1 }
+$log = "$Lab\state\posture.log"
+$held = $false
+for ($i = 0; $i -lt 30 -and (Test-Path $log); $i++) {
+  try { $fs = [IO.File]::Open($log, 'Open', 'ReadWrite', 'None'); $fs.Close(); $held = $false; break }
+  catch { $held = $true; Start-Sleep 1 }
+}
+"posture.log: $(if ($held) { 'STILL HELD by a process outside the daemon tree (the next start cannot open it)' } else { 'free' })"
 "removing the owned posture"
 Remove-Item -Force "$Lab\bin\edamame_posture.exe","$Lab\bin\start-posture.cmd","$Lab\bin\run-lab.cmd" -ErrorAction SilentlyContinue
 $pre = Get-Content "$Lab\state\pre-state.json" -Raw | ConvertFrom-Json

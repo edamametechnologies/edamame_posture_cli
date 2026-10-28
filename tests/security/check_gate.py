@@ -33,6 +33,10 @@ Gate policy:
     detector graded HIGH/CRITICAL and the adjudicator DEMOTEd
     (``finding_adjudicator_demoted``, proved from the finding's debug trace
     by the harness), OR
+  * an expected-clean scenario (``CLEAN_EXPECTED_SCENARIOS`` in
+    ``triggers/_finding_match.py``: benign work the planted model
+    authorizes, which must raise nothing) reports ``status=pass`` with an
+    alertable finding, OR
   * a platform named in ``--expected-platforms`` produced no results
     directory at all, OR
   * a platform ran a clean baseline but produced no readable
@@ -125,7 +129,7 @@ from typing import Dict, List, Optional, Tuple
 # module the harness uses, never from the artifact, so a results.json cannot
 # relax another scenario.
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "triggers"))
-from _finding_match import requires_alert  # noqa: E402
+from _finding_match import expects_clean, requires_alert  # noqa: E402
 
 VALID_STATUSES = ("pass", "skip", "fail")
 
@@ -374,6 +378,7 @@ def main() -> int:
     total_scenarios = 0
     passed_scenarios = 0
     adjudicator_demoted_passes = 0
+    clean_passes = 0
     skipped_scenarios = 0
     baseline_total = 0
     baseline_present = 0
@@ -485,7 +490,27 @@ def main() -> int:
             if name:
                 seen[name] = scen
 
-            if status == "pass" and not requires_alert(name):
+            if status == "pass" and expects_clean(name):
+                # An expected-clean scenario passes only quiet: its runner
+                # recorded `pass` after polling the whole window without a
+                # finding of its check, and an alertable finding on it is the
+                # regression the scenario exists to catch. The list is the
+                # harness's own, never a field of the artifact.
+                if (alertable or 0) > 0:
+                    scenario_fails[name].append(
+                        (
+                            platform,
+                            check,
+                            findings,
+                            alertable or 0,
+                            severities or "-",
+                            "pass_with_finding_on_expected_clean_scenario",
+                        )
+                    )
+                else:
+                    passed_scenarios += 1
+                    clean_passes += 1
+            elif status == "pass" and not requires_alert(name):
                 # An adjudicator-demotable scenario passes when its finding
                 # alerts, or when the detector graded it alertable and only
                 # the adjudicator's DEMOTE lowered it. A grade the detector
@@ -665,8 +690,9 @@ def main() -> int:
             f"PASS - kernel ancestry resolved on {lineage_passed} platform(s);"
             f" {total_scenarios} scenario result(s) across"
             f" {platforms_with_results} platform(s):"
-            f" {passed_scenarios - adjudicator_demoted_passes} passed with an alertable finding,"
+            f" {passed_scenarios - adjudicator_demoted_passes - clean_passes} passed with an alertable finding,"
             f" {adjudicator_demoted_passes} with an alertable grade the adjudicator lowered,"
+            f" {clean_passes} expected-clean scenario(s) stayed clean,"
             f" {skipped_scenarios} skipped (none required),"
             f" and {baseline_clean}/{baseline_total} platform(s) had a"
             " clean idle baseline."

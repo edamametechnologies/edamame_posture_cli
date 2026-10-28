@@ -40,6 +40,21 @@ def requires_alert(scenario: str) -> bool:
     return scenario.strip() not in ADJUDICATOR_DEMOTABLE_SCENARIOS
 
 
+# Scenarios that must stay quiet: their stimulus is work the planted model
+# authorizes, and they pass only with ZERO findings of their check -- the
+# idle baseline's rule applied to one scenario, so a model or policy change
+# that starts grading authorized work fails the gate instead of passing as
+# "detected". Read by `run_divergence_detection.sh` (which polls the whole
+# window and fails on the first offending row) and by `check_gate.py` (which
+# accepts their `pass` with `finding_alertable == 0` and nothing else).
+CLEAN_EXPECTED_SCENARIOS = frozenset({"poisoned_mcp_tool_maintenance_control"})
+
+
+def expects_clean(scenario: str) -> bool:
+    """Whether the scenario passes only when nothing of its check was raised."""
+    return scenario.strip() in CLEAN_EXPECTED_SCENARIOS
+
+
 def demoted_by_adjudicator(finding_key: str, export_response: Any) -> bool:
     """Whether `export_attack_pattern_finding_details` shows the detector
     graded `finding_key` HIGH/CRITICAL and the adjudicator DEMOTEd it.

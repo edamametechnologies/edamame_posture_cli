@@ -52,7 +52,10 @@ jobs:
 
   build:
     needs: platforms
-    timeout-minutes: 120
+    # 180, not 120: the hosted macOS runner compiled about twice as slow as
+    # usual on 2026-10-27 (release step 88 min against 41 normally) and the
+    # universal build hit the 120-minute limit during signing.
+    timeout-minutes: 180
     strategy:
       fail-fast: false
       matrix:

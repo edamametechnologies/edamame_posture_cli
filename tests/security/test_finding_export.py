@@ -26,6 +26,7 @@ import sys
 import tempfile
 import textwrap
 import unittest
+import unittest.mock
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -33,6 +34,7 @@ TRIGGERS = HERE / "triggers"
 REPO = HERE.parent.parent
 sys.path.insert(0, str(TRIGGERS))
 
+import _finding_export  # noqa: E402
 from _finding_export import (  # noqa: E402
     ALERTABLE_EXPORTS_KEY,
     DEMOTED_EXPORTS_KEY,
@@ -41,8 +43,11 @@ from _finding_export import (  # noqa: E402
     export_request_args,
     export_succeeded,
     matched_findings,
+    miss_document,
+    redact_command_lines,
     scenario_meta,
     slim_export,
+    slim_miss_trace,
     update_export_document,
     utc_seconds,
 )
@@ -291,6 +296,78 @@ class TestScenarioMeta(unittest.TestCase):
         self.assertIsNone(scenario_meta("s", "c", [], [], "", False, 0)["expected_severity"])
 
 
+def file_event(path: str, at: str, **kw) -> dict:
+    event = {"path": path, "event_type": "modify", "timestamp": at, "process_name": "p",
+             "process_path": "/usr/bin/p", "is_sensitive": False, "labels": [], "uid": "e"}
+    event.update(kw)
+    return event
+
+
+class TestMissDocument(unittest.TestCase):
+    def test_command_lines_are_redacted_at_any_depth_and_the_input_is_kept(self):
+        value = {"cmd": ["a", "b"], "parent_cmd": [], "argv": None, "command_line": "x y",
+                 "nested": [{"grandparent_cmd": ["c"], "path": "/p", "args": "secret"}], "n": 1}
+        out = redact_command_lines(value)
+        self.assertEqual(out["cmd"], "[redacted: 2 items]")
+        self.assertEqual(out["parent_cmd"], "[redacted: 0 items]")
+        self.assertIsNone(out["argv"], "an absent value has nothing to redact")
+        self.assertEqual(out["command_line"], "[redacted: 3 chars]")
+        self.assertEqual(out["nested"][0], {"grandparent_cmd": "[redacted: 1 items]", "path": "/p",
+                                            "args": "[redacted: 6 chars]"})
+        self.assertEqual(out["n"], 1)
+        self.assertEqual(value["cmd"], ["a", "b"], "the input is not modified")
+
+    def test_slim_miss_trace_drops_prompt_slices_and_caps_findings(self):
+        trace = {"input_slices": [{"finding_key": "k"}, {}], "raw_findings": [finding(f"k{i}") for i in range(4)],
+                 "final_findings": [], "llm_prompt": "p" * 10, "llm_raw_answer": "a",
+                 "llm_error": "timed out", "alert_decision": {"alert": False}}
+        out = slim_miss_trace(trace, max_findings=3)
+        self.assertEqual(out["llm_prompt"], "[10 chars removed by the CVE harness]")
+        self.assertEqual(out["llm_raw_answer"], "[1 chars removed by the CVE harness]")
+        self.assertEqual(out["input_slices"], [])
+        self.assertEqual(len(out["raw_findings"]), 3)
+        self.assertEqual(out["slimmed"], {"llm_prompt_chars": 10, "llm_raw_answer_chars": 1,
+                                          "input_slices_dropped": 2, "raw_findings_dropped": 1})
+        self.assertEqual(out["llm_error"], "timed out")
+        self.assertEqual(trace["llm_prompt"], "p" * 10, "the input is not modified")
+        self.assertIsNone(slim_miss_trace(None))
+
+    def test_miss_document_bounds_the_events_newest_first_and_redacts(self):
+        events = [file_event(f"/f{i}", f"2026-10-24T10:00:{i:02d}Z", cmd=["x"]) for i in range(5)]
+        events.append(file_event("/undated", "not a time"))
+        snapshot = {"events": events, "sensitive_events": [events[2]], "is_monitoring": True,
+                    "watch_paths": ["/home/u"], "event_count": 6, "last_event_time": None,
+                    "has_suspicious_events": False}
+        report = {"report_id": "r9", "findings": [finding("k1"), finding("k2")], "trace": {"big": True}}
+        trace = {"input_slices": [], "raw_findings": [finding("k1", cmd=["a"])], "final_findings": [],
+                 "llm_prompt": "prompt", "llm_decision": {"finding_verdicts": []}}
+        with unittest.mock.patch.object(_finding_export, "MISS_FILE_EVENTS", 3):
+            doc = miss_document("file_events", "file_system_tampering", 2, "retry_2", {"running": True},
+                                snapshot, report, "r9", trace, {"get_x": None, "get_y": "rpc failed"})
+        fim = doc["file_events"]
+        self.assertEqual(fim["events_total"], 6)
+        self.assertEqual([e["path"] for e in fim["events"]], ["/f4", "/f3", "/f2"], "newest first, capped")
+        self.assertEqual(fim["events"][0]["cmd"], "[redacted: 1 items]")
+        self.assertEqual(fim["sensitive_events_total"], 1)
+        self.assertEqual(fim["is_monitoring"], True)
+        self.assertEqual(doc["slimmed"], {"events_dropped": 3})
+        self.assertNotIn("trace", doc["latest_report"], "the report's own trace is read through the RPC")
+        self.assertEqual(doc["latest_report"]["findings_total"], 2)
+        self.assertEqual(doc["report_id"], "r9")
+        self.assertEqual(doc["trace"]["raw_findings"][0]["cmd"], "[redacted: 1 items]")
+        self.assertEqual(doc["trace"]["llm_prompt"], "[6 chars removed by the CVE harness]")
+        self.assertEqual(doc["errors"], {"get_y": "rpc failed"})
+        self.assertEqual(doc["attempts"], 2)
+        self.assertEqual(doc["note"], "retry_2")
+
+    def test_miss_document_without_answers(self):
+        doc = miss_document("s", "c", 1, "", None, None, None, None, None, {"get_file_events": "rpc failed: x"})
+        self.assertEqual(doc["file_events"], {"snapshot": None})
+        self.assertIsNone(doc["latest_report"])
+        self.assertIsNone(doc["trace"])
+        self.assertEqual(doc["errors"], {"get_file_events": "rpc failed: x"})
+
+
 FAKE_CLI = r'''
 import json, os, sys
 
@@ -452,6 +529,45 @@ class TestRunnerAlertableExport(unittest.TestCase):
         self.assertEqual(self.calls().count("export_attack_pattern_finding_details"), 1)
         results = json.loads((self.out / "results.json").read_text(encoding="utf-8"))
         self.assertEqual(results["scenarios"][0]["status"], "pass", "a failed export never changes a result")
+
+    def test_a_miss_saves_the_file_events_and_the_tick_trace_before_the_history_clear(self):
+        answers = self.answers()
+        unrelated = finding("vuln:unrelated", destination_port=443)
+        answers["string"]["get_attack_pattern_findings"] = {"report_id": "r9", "findings": [unrelated]}
+        answers["string"]["get_attack_pattern_history"] = []
+        answers["string"]["get_attack_pattern_debug_trace"] = {
+            "input_slices": [{"finding_key": "vuln:unrelated"}], "raw_findings": [unrelated],
+            "final_findings": [unrelated], "llm_prompt": "p" * 50, "llm_error": "timed out",
+            "alert_decision": {"alert": False}}
+        answers["typed"]["get_file_events"] = {
+            "events": [file_event("/home/u/.ssh/x", "2026-10-24T10:00:00Z", cmd=["sh", "-c", "secret"])],
+            "sensitive_events": [], "is_monitoring": True, "watch_paths": ["/home/u"], "event_count": 1,
+            "last_event_time": "2026-10-24T10:00:00Z", "has_suspicious_events": False}
+        proc = self.run_runner(answers=answers)
+        self.assertEqual(proc.returncode, 0, proc.stderr[-3000:])
+        results = json.loads((self.out / "results.json").read_text(encoding="utf-8"))
+        self.assertEqual(results["scenarios"][0]["status"], "fail")
+
+        doc = json.loads((self.out / "findings" / "cve_token_exfil.miss.json").read_text(encoding="utf-8"))
+        self.assertEqual(doc["check"], "token_exfiltration")
+        self.assertEqual(doc["attempts"], 2)
+        self.assertEqual(doc["file_events"]["events_total"], 1)
+        self.assertEqual(doc["file_events"]["events"][0]["cmd"], "[redacted: 3 items]")
+        self.assertEqual(doc["report_id"], "r9")
+        self.assertEqual(doc["trace"]["llm_error"], "timed out")
+        self.assertEqual(doc["trace"]["llm_prompt"], "[50 chars removed by the CVE harness]")
+        self.assertEqual(doc["trace"]["input_slices"], [])
+        self.assertEqual(doc["errors"], {})
+        self.assertNotIn("secret", json.dumps(doc))
+
+        calls = self.calls()
+        clears = [i for i, m in enumerate(calls) if m == "clear_attack_pattern_history"]
+        traces = [i for i, m in enumerate(calls) if m == "get_attack_pattern_debug_trace"]
+        self.assertEqual(len(traces), 1)
+        self.assertTrue(clears and traces[0] < clears[-1],
+                        f"the miss diagnostics must precede the post-scenario clear: {calls}")
+        self.assertFalse((self.out / "findings" / "cve_token_exfil.export.json").exists(),
+                         "nothing alertable or demoted: no export document")
 
 
 if __name__ == "__main__":

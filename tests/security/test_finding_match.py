@@ -28,6 +28,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "tri
 
 from _finding_match import (  # noqa: E402
     demoted_by_adjudicator,
+    expects_clean,
     findings_of,
     format_histogram,
     is_alertable,
@@ -198,6 +199,13 @@ class TestAdjudicatorDemote(unittest.TestCase):
         self.assertFalse(requires_alert("sneakpeek_split"))
         self.assertTrue(requires_alert("sneakpeek"))
         self.assertTrue(requires_alert("cve_sandbox_escape"))
+
+    def test_only_the_listed_scenarios_are_expected_clean(self):
+        self.assertTrue(expects_clean("poisoned_mcp_tool_maintenance_control"))
+        self.assertTrue(expects_clean(" poisoned_mcp_tool_maintenance_control "))
+        self.assertFalse(expects_clean("poisoned_mcp_tool_two_sessions"))
+        self.assertFalse(expects_clean("poisoned_mcp_tool_as_run"))
+        self.assertFalse(expects_clean("file_events"))
 
     def test_an_alertable_grade_the_adjudicator_demoted(self):
         self.assertTrue(demoted_by_adjudicator("k1", _export("CRITICAL", "DEMOTE")))

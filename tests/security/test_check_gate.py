@@ -382,6 +382,50 @@ class TestGateFailsClosed(GateTestCase):
             self.assertEqual(rc, 1, out)
             self.assertIn("pass_without_alert_or_adjudicator_demote", out)
 
+    def test_expected_clean_scenario_passes_quiet_and_fails_with_a_finding(self):
+        """An expected-clean scenario (the harness's list) passes with zero
+        alertable findings and nothing else; its runner records
+        `clean_as_expected`."""
+        quiet = scenario("poisoned_mcp_tool_maintenance_control", check="policy:evaluator_integrity",
+                         findings=0, alertable=0, severities="none", extra="clean_as_expected")
+        rc, out = self.run_gate(
+            {"macos-arm64": {"baseline.json": CLEAN_BASELINE, "results.json": results(quiet)}},
+            required="poisoned_mcp_tool_maintenance_control",
+        )
+        self.assertEqual(rc, 0, out)
+        self.assertIn("1 expected-clean scenario(s) stayed clean", out)
+
+        noisy = scenario("poisoned_mcp_tool_maintenance_control", check="policy:evaluator_integrity",
+                         findings=1, alertable=1, severities="HIGH:1")
+        rc, out = self.run_gate(
+            {"macos-arm64": {"baseline.json": CLEAN_BASELINE, "results.json": results(noisy)}},
+            required="poisoned_mcp_tool_maintenance_control",
+        )
+        self.assertEqual(rc, 1, out)
+        self.assertIn("pass_with_finding_on_expected_clean_scenario", out)
+
+        failed = scenario("poisoned_mcp_tool_maintenance_control", status="fail",
+                          check="policy:evaluator_integrity", findings=2, alertable=0,
+                          severities="none", extra="finding_on_expected_clean_scenario")
+        rc, out = self.run_gate(
+            {"macos-arm64": {"baseline.json": CLEAN_BASELINE, "results.json": results(failed)}},
+            required="poisoned_mcp_tool_maintenance_control",
+        )
+        self.assertEqual(rc, 1, out)
+        self.assertIn("finding_on_expected_clean_scenario", out)
+
+    def test_artifact_cannot_declare_itself_expected_clean(self):
+        """A quiet pass on a must-fire scenario still blocks: the clean list is
+        the harness's, never a field of results.json."""
+        quiet = scenario("poisoned_mcp_tool_two_sessions", check="policy:evaluator_integrity",
+                         findings=0, alertable=0, severities="none", extra="clean_as_expected")
+        rc, out = self.run_gate(
+            {"macos-arm64": {"baseline.json": CLEAN_BASELINE, "results.json": results(quiet)}},
+            required="poisoned_mcp_tool_two_sessions",
+        )
+        self.assertEqual(rc, 1, out)
+        self.assertIn("pass_without_alertable_finding", out)
+
     def test_artifact_cannot_make_another_scenario_demotable(self):
         """The gate reads its own list, not fields of results.json."""
         demoted = scenario(

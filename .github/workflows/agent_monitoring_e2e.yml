@@ -175,9 +175,11 @@ on:
 
 # A caller's runs get their own group (caller + event), so a nightly or
 # core-pin lab run never cancels, nor is cancelled by, a fleet run or each
-# other. Push, PR and dispatch have no `caller`: their group is unchanged.
+# other. A dispatch's group carries its mode: an fp_lab dispatch on main used
+# to share the push runs' group, and cancel-in-progress ended a running fleet
+# gate (2026-10-27). Push and PR have neither: their group is unchanged.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}${{ inputs.caller && format('-{0}-{1}', inputs.caller, github.event_name) || '' }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}${{ (inputs.caller && format('-{0}-{1}', inputs.caller, github.event_name)) || (github.event_name == 'workflow_dispatch' && format('-dispatch-{0}', inputs.mode)) || '' }}
   cancel-in-progress: true
 
 permissions: read-all

@@ -973,6 +973,16 @@ def write_summary(run_dir: Path, pf: dict, results: List[dict], args: argparse.N
             perf_reference = json.loads(Path(reference_path).expanduser().read_text(encoding="utf-8"))
         except (OSError, ValueError):
             perf_reference = None
+    if perf_reference is None:
+        # A re-summary (`summarize` after `shape`, or on the operator machine
+        # after `collect`) has no --perf-reference and the host's file is not
+        # here: keep the reference the run's own summary recorded.
+        previous = run_dir / "summary.json"
+        if previous.is_file():
+            try:
+                perf_reference = json.loads(previous.read_text(encoding="utf-8")).get("perf_reference")
+            except (OSError, ValueError, AttributeError):
+                perf_reference = None
     summary = {
         "run_dir": str(run_dir), "host": pf.get("host"), "platform": pf.get("platform"),
         "core_version": pf.get("core_version"), "generated_at": now_iso(),
@@ -1071,8 +1081,12 @@ def run_cmd_shape(args: argparse.Namespace) -> int:
             if not e.get("alertable") or not e.get("export_path"):
                 continue
             export = Path(e["export_path"])
-            if not export.is_file():  # artifacts copied to another machine
-                export = case_file.parent / "attack_pattern" / Path(e["export_path"]).name
+            if not export.is_file():
+                # Artifacts copied to another machine: the recorded path is the
+                # host's. Split on both separators: a Windows path read on the
+                # Mac keeps its backslashes, and `Path(...).name` is then the
+                # whole string (the shaper failed on every Windows export).
+                export = case_file.parent / "attack_pattern" / re.split(r"[\\/]+", e["export_path"])[-1]
             res = shape_attack_candidate(export, attack_fp_id(case.get("fp_class", "new"), case.get("scenario", "")),
                                          case["case_id"], run_dir, tool)
             e.update(res)
@@ -1087,7 +1101,8 @@ def run_cmd_shape(args: argparse.Namespace) -> int:
 
 def run_cmd_summarize(args: argparse.Namespace) -> int:
     """Re-render summary.json / summary.md from the case files (after `shape`,
-    or after copying a run to another machine)."""
+    or after copying a run to another machine). The daemon resources
+    (`perf.json`) and the recorded reference are carried through."""
     run_dir = Path(args.run_dir).resolve()
     pf = json.loads((run_dir / "preflight.json").read_text(encoding="utf-8"))
     plan = json.loads((run_dir / "plan.json").read_text(encoding="utf-8"))
@@ -1139,6 +1154,8 @@ def main() -> int:
     sh.add_argument("--corpus-tool", default="")
     sm = sub.add_parser("summarize")
     sm.add_argument("run_dir")
+    sm.add_argument("--perf-reference", default="",
+                    help="JSON file replacing the reference the run recorded (default: keep the run's)")
     args = p.parse_args()
 
     if args.cmd == "list":

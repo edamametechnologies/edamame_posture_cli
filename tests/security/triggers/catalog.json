@@ -808,7 +808,9 @@
       ],
       "gate_scenarios": [
         "poisoned_mcp_tool",
-        "poisoned_mcp_tool_as_run"
+        "poisoned_mcp_tool_as_run",
+        "poisoned_mcp_tool_two_sessions",
+        "poisoned_mcp_tool_maintenance_control"
       ]
     }
   },

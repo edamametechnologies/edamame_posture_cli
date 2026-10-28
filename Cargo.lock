@@ -1862,8 +1862,8 @@ dependencies = [
 
 [[package]]
 name = "edamame_core"
-version = "2.2.1"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#1f2ff475f0fc17664ce86c17767e2057e9f2f0db"
+version = "2.2.2"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#5ed0f493783e42ffda49c80eca89074f3500fa84"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -1909,7 +1909,6 @@ dependencies = [
  "once_cell",
  "parking_lot",
  "pastey",
- "powershell_script",
  "prost",
  "rand 0.9.5",
  "regex",
@@ -1948,8 +1947,8 @@ dependencies = [
 
 [[package]]
 name = "edamame_foundation"
-version = "2.2.1"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#f2b85873b8d757088ec471fa69777137f2ef12b0"
+version = "2.2.2"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#78df5812edf55f3c7801a83814e36d3b13e54991"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -2018,7 +2017,7 @@ dependencies = [
 
 [[package]]
 name = "edamame_posture"
-version = "2.2.1"
+version = "2.2.2"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -2369,8 +2368,8 @@ dependencies = [
 
 [[package]]
 name = "flodbadd"
-version = "2.2.1"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#5ec542d6213c0e785fba27d1e582cb8f99e9c1ad"
+version = "2.2.2"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#ffe65198de31a37cc6e1d62c5ef0541f6e0531a4"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -3453,7 +3452,7 @@ dependencies = [
  "js-sys",
  "log",
  "wasm-bindgen",
- "windows-core 0.58.0",
+ "windows-core 0.62.2",
 ]
 
 [[package]]
@@ -3981,7 +3980,7 @@ dependencies = [
 [[package]]
 name = "l7_ebpf_program"
 version = "0.1.0"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#5ec542d6213c0e785fba27d1e582cb8f99e9c1ad"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#ffe65198de31a37cc6e1d62c5ef0541f6e0531a4"
 
 [[package]]
 name = "lazy_static"
@@ -5919,9 +5918,9 @@ dependencies = [
 
 [[package]]
 name = "pulldown-cmark"
-version = "0.13.4"
+version = "0.13.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e9f068eba8e7071c5f9511831b44f32c740d5adf574e990f946ddb53db2f314e"
+checksum = "278e9268c93b9e498a2da46c34d90ba93a3255eb99009646398f34bc73ab36eb"
 dependencies = [
  "bitflags 2.13.2",
  "memchr",
@@ -7448,7 +7447,7 @@ dependencies = [
 [[package]]
 name = "threatmodels_rs"
 version = "0.1.1"
-source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#53042d52d83a8a10ad869f34c93abcaa54648ab1"
+source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#74d85e585d0c18ff787df7f42ed1302acdab63cc"
 dependencies = [
  "anyhow",
  "chrono",

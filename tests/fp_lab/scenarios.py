@@ -523,7 +523,9 @@ SCENARIOS: List[Scenario] = [
         temp_behaviour=True,
         planes=("attack_pattern",),
         tags=("operators_day",),
-        known_open="FP-MAC-31: left open in 2.2.0 pending a decision (2026-10-24)",
+        known_open="FP-MAC-31: HIGH is the intended grade (decided 2026-10-24/25): an unsigned installer "
+        "staging from a temporary tree stays HIGH; the 2.2.1 signature exception lowers only a named "
+        "publisher's valid signature",
         known_open_checks=("file_system_tampering",),
         notes="Adobe's installer staging its download in a sibling per-invocation temp tree. The "
         "extractor is a copy of the platform's tar in <tmp>/<ID2>/FPLab Installer/; the payload is "

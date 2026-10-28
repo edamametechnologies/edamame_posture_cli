@@ -30,6 +30,16 @@ finding's input slice. What a replay needs stays: `finding`,
 asserted for the scenario (expected check, markers, ports, expected tier), so
 offline consumers read the runner's own table instead of a copy of it.
 
+`findings/<scenario>.miss.json` (`miss_document`) is saved when a scenario
+ends `fail`: the daemon's file events (`get_file_events`, newest first,
+bounded), the detector status, the latest report and that report's debug
+trace without the tick's prompt, raw answer and input slices
+(`slim_miss_trace`). A miss then reads as "no events reached the detector"
+(empty events, no raw findings) or "graded, then withheld" (raw findings
+with an `llm_error` or a non-KEEP decision) instead of a bare counter.
+Command lines (`cmd`, `argv`, ... `redact_command_lines`) are replaced by
+their length: a CI runner's argv can carry its tokens.
+
 Imported from the harness heredocs via `TRIGGERS_DIR_ENV` on `sys.path`, and
 directly by `tests/security/test_finding_export.py`.
 """
@@ -49,6 +59,19 @@ MAX_TRACE_TEXT_CHARS = 4000
 
 ALERTABLE_EXPORTS_KEY = "alertable_exports"
 DEMOTED_EXPORTS_KEY = "exports"
+
+# Bounds of the miss document: file events kept (newest first), sensitive
+# events kept, findings kept per list (the latest report's, the trace's raw
+# and final ones). A few hundred events and a hundred findings with their
+# evidence packets stay around a megabyte.
+MISS_FILE_EVENTS = 200
+MISS_SENSITIVE_EVENTS = 100
+MISS_FINDINGS = 50
+
+# Keys whose values are command lines: exact names, and suffixes
+# (`parent_cmd`, `grandparent_cmd`, ...).
+COMMAND_LINE_KEYS = ("cmd", "argv", "args", "cmdline", "command_line")
+COMMAND_LINE_KEY_SUFFIXES = ("_cmd", "_argv", "_cmdline", "_command_line")
 
 _RFC3339 = re.compile(
     r"^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2}:\d{2})(?:\.(\d+))?(Z|[+-]\d{2}:?\d{2})?$"
@@ -220,3 +243,135 @@ def scenario_meta(
         "requires_alert": bool(requires_alert),
         "alertable_export_limit": int(alertable_export_limit),
     }
+
+
+def is_command_line_key(key: Any) -> bool:
+    name = str(key).lower()
+    return name in COMMAND_LINE_KEYS or name.endswith(COMMAND_LINE_KEY_SUFFIXES)
+
+
+def redact_command_lines(value: Any) -> Any:
+    """A copy of `value` with every command-line field (`is_command_line_key`)
+    replaced by its length, at any depth. The input is not modified."""
+    if isinstance(value, dict):
+        out: Dict[Any, Any] = {}
+        for key, item in value.items():
+            if is_command_line_key(key) and item is not None:
+                if isinstance(item, (list, tuple)):
+                    out[key] = f"[redacted: {len(item)} items]"
+                else:
+                    out[key] = f"[redacted: {len(str(item))} chars]"
+            else:
+                out[key] = redact_command_lines(item)
+        return out
+    if isinstance(value, list):
+        return [redact_command_lines(item) for item in value]
+    return value
+
+
+def _cap(items: Any, limit: int, removed: Dict[str, int], label: str) -> Any:
+    if isinstance(items, list) and len(items) > limit:
+        removed[f"{label}_dropped"] = len(items) - limit
+        return items[:limit]
+    return items
+
+
+def slim_miss_trace(trace: Any, max_findings: int = MISS_FINDINGS) -> Any:
+    """A copy of one tick's debug trace bounded for the miss document: the
+    prompt and the raw answer are replaced by their length whatever their size
+    (the prompt carries the whole tick's telemetry), the input slices are
+    dropped (their count stays), the finding lists are capped. What a miss
+    diagnosis reads stays: `raw_findings`, `final_findings`, `llm_decision`,
+    `llm_error`, `suppressed_checks`, `alert_decision`, `evaluated_at`. A
+    value that is not a trace comes back unchanged."""
+    if not isinstance(trace, dict):
+        return trace
+    out = json.loads(json.dumps(trace, default=str))
+    removed: Dict[str, int] = {}
+    for field in ("llm_prompt", "llm_raw_answer"):
+        text = out.get(field)
+        if isinstance(text, str):
+            out[field] = f"[{len(text)} chars removed by the CVE harness]"
+            removed[f"{field}_chars"] = len(text)
+    slices = out.get("input_slices")
+    if isinstance(slices, list):
+        removed["input_slices_dropped"] = len(slices)
+        out["input_slices"] = []
+    for field in ("raw_findings", "final_findings"):
+        out[field] = _cap(out.get(field), max_findings, removed, field)
+    if removed:
+        out["slimmed"] = removed
+    return out
+
+
+def _newest_first(events: Any) -> List[Any]:
+    """File events by `timestamp`, newest first; undated ones last, in their
+    input order."""
+    if not isinstance(events, list):
+        return []
+    dated = []
+    undated = []
+    for idx, event in enumerate(events):
+        at = utc_seconds(event.get("timestamp")) if isinstance(event, dict) else None
+        if at is None:
+            undated.append((idx, event))
+        else:
+            dated.append((-at, idx, event))
+    dated.sort(key=lambda row: (row[0], row[1]))
+    return [event for _, _, event in dated] + [event for _, event in undated]
+
+
+def miss_document(
+    scenario: str,
+    check: Optional[str],
+    attempts: int,
+    note: str,
+    detector_status: Any,
+    file_events: Any,
+    latest_report: Any,
+    report_id: Optional[str],
+    trace: Any,
+    errors: Dict[str, Optional[str]],
+) -> Dict[str, Any]:
+    """`findings/<scenario>.miss.json`: what the daemon held when a scenario
+    ended without its alertable finding. `file_events` is the `get_file_events`
+    snapshot (a `FimSnapshotAPI` object), `latest_report` the current report,
+    `trace` that report's debug trace; each may be None (not answered) with
+    the reason in `errors`. Bounded (`MISS_*`) and command lines redacted."""
+    removed: Dict[str, int] = {}
+    fim: Dict[str, Any]
+    if isinstance(file_events, dict):
+        events = _newest_first(file_events.get("events"))
+        sensitive = _newest_first(file_events.get("sensitive_events"))
+        fim = {
+            key: file_events.get(key)
+            for key in ("is_monitoring", "watch_paths", "event_count", "last_event_time", "has_suspicious_events")
+        }
+        fim["events_total"] = len(events)
+        fim["events"] = _cap(events, MISS_FILE_EVENTS, removed, "events")
+        fim["sensitive_events_total"] = len(sensitive)
+        fim["sensitive_events"] = _cap(sensitive, MISS_SENSITIVE_EVENTS, removed, "sensitive_events")
+    else:
+        fim = {"snapshot": file_events}
+    report: Any = latest_report
+    if isinstance(latest_report, dict):
+        report = {key: value for key, value in latest_report.items() if key != "trace"}
+        findings = latest_report.get("findings")
+        report["findings_total"] = len(findings) if isinstance(findings, list) else None
+        report["findings"] = _cap(findings, MISS_FINDINGS, removed, "report_findings")
+    doc: Dict[str, Any] = {
+        "scenario": scenario,
+        "check": check,
+        "captured_utc": _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "attempts": int(attempts),
+        "note": note,
+        "detector_status": detector_status,
+        "file_events": fim,
+        "latest_report": report,
+        "report_id": report_id,
+        "trace": slim_miss_trace(trace),
+        "errors": {key: value for key, value in errors.items() if value},
+    }
+    if removed:
+        doc["slimmed"] = removed
+    return redact_command_lines(doc)
