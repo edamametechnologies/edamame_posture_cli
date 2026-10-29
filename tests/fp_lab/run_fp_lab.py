@@ -299,11 +299,41 @@ class LabState:
                 "reports": new_reports, "verdicts": new_verdicts, "fp_candidates": new_fp_cands}
 
 
+# Durations of the forced ticks since the last take_tick_timings(), per loop:
+# a CPU change between two windows then reads as a loop, not a guess.
+_TICK_TIMINGS: List[dict] = []
+
+
 def tick_everything(observer_agents: Iterable[str]) -> None:
+    started = time.monotonic()
     for agent in observer_agents:
         observer_tick(agent, timeout=TICK_TIMEOUT)
-    rpc_quiet("debug_run_attack_pattern_detector_tick", timeout=TICK_TIMEOUT)
+    observer_ms = (time.monotonic() - started) * 1000
+    started = time.monotonic()
+    tick = rpc_quiet("debug_run_attack_pattern_detector_tick", timeout=TICK_TIMEOUT)
+    attack_pattern_ms = (time.monotonic() - started) * 1000
+    started = time.monotonic()
     rpc_quiet("debug_run_divergence_tick", timeout=TICK_TIMEOUT)
+    divergence_ms = (time.monotonic() - started) * 1000
+    _TICK_TIMINGS.append({
+        "observer_ms": round(observer_ms),
+        "attack_pattern_ms": round(attack_pattern_ms),
+        # The detector's own measure of its tick (the RPC's reply).
+        "attack_pattern_reported_ms": tick.get("tick_duration_ms") if isinstance(tick, dict) else None,
+        "divergence_ms": round(divergence_ms),
+    })
+
+
+def take_tick_timings() -> dict:
+    """Mean and max per loop of the ticks since the last call, then reset."""
+    rows = list(_TICK_TIMINGS)
+    _TICK_TIMINGS.clear()
+    summary: dict = {"ticks": len(rows)}
+    for key in ("observer_ms", "attack_pattern_ms", "attack_pattern_reported_ms", "divergence_ms"):
+        values = [r[key] for r in rows if isinstance(r.get(key), (int, float)) and not isinstance(r.get(key), bool)]
+        if values:
+            summary[key] = {"mean": round(sum(values) / len(values)), "max": max(values)}
+    return summary
 
 
 # ── evidence capture ────────────────────────────────────────────────────
@@ -868,6 +898,7 @@ def run_cmd_run(args: argparse.Namespace) -> int:
             write_json(case_dir / "case.json", case)
             continue
         section(f"Case {item['case_id']}: {s.title}")
+        take_tick_timings()
         try:
             ws = make_workspace(s.fixture, item["agent"] or "direct", ws_root)
             case["workspace"] = str(ws)
@@ -909,6 +940,7 @@ def run_cmd_run(args: argparse.Namespace) -> int:
         else:
             case["status"] = "PASS"
         case["finished_at"] = now_iso()
+        case["tick_timings"] = take_tick_timings()
         results.append(case)
         write_json(case_dir / "case.json", case)
         log(f"  => {case['status']} {case.get('reason', '')}")
@@ -920,8 +952,10 @@ def run_cmd_run(args: argparse.Namespace) -> int:
                   "fp_class": "new", "kind": "drain", "agent": "", "attack_pattern": [], "divergence": [],
                   "near_misses": [], "non_clean_verdicts": [], "llm_suppressed": [], "started_at": now_iso()}
     drain_dir = run_dir / "cases" / "post-run-drain"
+    take_tick_timings()
     settle(state, observer_agents, args.drain_secs, args.tick_every,
            make_collector(drain_case, drain_scn, drain_dir, observer_agents))
+    drain_case["tick_timings"] = take_tick_timings()
     drain_case["status"] = "FAIL" if ([e for e in drain_case["attack_pattern"] if e.get("alertable")]
                                       or drain_case["divergence"]) else "PASS"
     drain_case["finished_at"] = now_iso()
