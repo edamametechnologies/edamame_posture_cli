@@ -92,6 +92,30 @@ def _remember_output(*chunks: object) -> None:
         _LAST_CMD_OUTPUT.extend(text.splitlines())
 
 
+def _kill_tree(proc: subprocess.Popen) -> None:
+    """Kill a timed-out command and, on Windows, every process it started.
+
+    On Windows `subprocess.run(timeout=...)` kills only the direct child and
+    then waits, without a timeout, for EOF on the captured pipes, which every
+    grandchild inherited: an installer that left git, uv or pip running held
+    the driver until the workflow step's own timeout, so the command's timeout
+    never fired and its output was lost (fleet run 40692800092, Hermes
+    install.ps1). `taskkill /T` ends the whole tree."""
+    if os.name == "nt":
+        try:
+            subprocess.run(
+                ["taskkill", "/F", "/T", "/PID", str(proc.pid)],
+                capture_output=True,
+                timeout=60,
+            )
+        except (OSError, subprocess.SubprocessError):
+            pass
+    try:
+        proc.kill()
+    except OSError:
+        pass
+
+
 def run_cmd(
     cmd: list[str],
     cwd: Path | None,
@@ -104,35 +128,44 @@ def run_cmd(
     full_env = dict(os.environ)
     if env:
         full_env.update(env)
+    proc = subprocess.Popen(
+        cmd,
+        cwd=str(cwd) if cwd else None,
+        env=full_env,
+        text=True,
+        # Force UTF-8 decode: on the Windows runner text=True otherwise uses the
+        # cp1252 locale codec, which raises UnicodeDecodeError on UTF-8 installer
+        # output (Hermes prints box-drawing / emoji). errors="replace" keeps the
+        # run alive even on undecodable bytes.
+        encoding="utf-8",
+        errors="replace",
+        stdin=subprocess.PIPE if stdin_text is not None else None,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
     try:
-        proc = subprocess.run(
-            cmd,
-            cwd=str(cwd) if cwd else None,
-            env=full_env,
-            timeout=timeout,
-            text=True,
-            # Force UTF-8 decode: on the Windows runner text=True otherwise uses the
-            # cp1252 locale codec, which raises UnicodeDecodeError on UTF-8 installer
-            # output (Hermes prints box-drawing / emoji). errors="replace" keeps the
-            # run alive even on undecodable bytes.
-            encoding="utf-8",
-            errors="replace",
-            input=stdin_text,
-            capture_output=True,
-        )
-    except subprocess.TimeoutExpired as exc:
-        _remember_output(exc.stdout, exc.stderr, f"(timeout after {timeout}s)")
-        if exc.stdout:
-            sys.stdout.write(exc.stdout if isinstance(exc.stdout, str) else exc.stdout.decode("utf-8", "replace"))
-        if exc.stderr:
-            sys.stderr.write(exc.stderr if isinstance(exc.stderr, str) else exc.stderr.decode("utf-8", "replace"))
+        stdout, stderr = proc.communicate(input=stdin_text, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        _kill_tree(proc)
+        # Collect what the command printed, but never wait unbounded for a
+        # process outside the killed tree that still holds the pipes (on
+        # Linux and macOS only the direct child is killed, as before).
+        try:
+            stdout, stderr = proc.communicate(timeout=5)
+        except subprocess.TimeoutExpired as exc:
+            stdout, stderr = exc.stdout, exc.stderr
+        _remember_output(stdout, stderr, f"(timeout after {timeout}s)")
+        if stdout:
+            sys.stdout.write(stdout if isinstance(stdout, str) else stdout.decode("utf-8", "replace"))
+        if stderr:
+            sys.stderr.write(stderr if isinstance(stderr, str) else stderr.decode("utf-8", "replace"))
         log(f"  (timeout after {timeout}s)")
         return 124
-    _remember_output(proc.stdout, proc.stderr)
-    if proc.stdout:
-        sys.stdout.write(proc.stdout)
-    if proc.stderr:
-        sys.stderr.write(proc.stderr)
+    _remember_output(stdout, stderr)
+    if stdout:
+        sys.stdout.write(stdout)
+    if stderr:
+        sys.stderr.write(stderr)
     sys.stdout.flush()
     sys.stderr.flush()
     return proc.returncode
@@ -206,7 +239,14 @@ def observer_row(agent_type: str) -> dict | None:
     return None
 
 
-def observer_tick(agent_type: str, timeout: float = 30.0) -> None:
+# With the divergence engine on, a tick whose transcript window changed waits
+# for the behavioral-model LLM round-trip: 20-40 s on every OS in the fleet
+# E2E, so cli_rpc's 30 s default cut about half the ticks short and logged a
+# WARN that read as a daemon fault while the daemon finished the tick.
+OBSERVER_TICK_TIMEOUT_SECS = 90.0
+
+
+def observer_tick(agent_type: str, timeout: float = OBSERVER_TICK_TIMEOUT_SECS) -> None:
     """Run one observer tick. Returns nothing on purpose.
 
     `run_transcript_observer_tick_for` is a fallible MUTATOR: it answers with
