@@ -453,16 +453,26 @@ jobs:
           # Only a definite 404 means "this version is not on the feed". Any
           # other failure (a 429 rate limit, a 5xx, no network) fails the step:
           # read as "not published", it sent the run on to push a version that
-          # was already there.
+          # was already there. A transient one (no answer, 429, 5xx) is asked
+          # again first, so one bad answer from the feed does not fail the run.
           function Test-ChocoVersionExists($ver) {
-            try {
-              $null = Invoke-WebRequest -Uri "https://community.chocolatey.org/api/v2/package/edamame-posture/$ver" -Method Head -UseBasicParsing -ErrorAction Stop
-              return $true
-            } catch {
-              $status = $null
-              if ($_.Exception.Response) { $status = [int]$_.Exception.Response.StatusCode }
-              if ($status -eq 404) { return $false }
-              throw "Chocolatey lookup of edamame-posture $ver failed (HTTP status: $status): $($_.Exception.Message)"
+            $attempts = 5
+            for ($attempt = 1; $attempt -le $attempts; $attempt++) {
+              try {
+                $null = Invoke-WebRequest -Uri "https://community.chocolatey.org/api/v2/package/edamame-posture/$ver" -Method Head -UseBasicParsing -ErrorAction Stop
+                return $true
+              } catch {
+                $status = $null
+                if ($_.Exception.Response) { $status = [int]$_.Exception.Response.StatusCode }
+                if ($status -eq 404) { return $false }
+                $transient = ($null -eq $status) -or ($status -eq 429) -or ($status -ge 500)
+                if (-not $transient -or $attempt -eq $attempts) {
+                  throw "Chocolatey lookup of edamame-posture $ver failed (HTTP status: $status): $($_.Exception.Message)"
+                }
+                $wait = 15 * $attempt
+                Write-Host "Chocolatey lookup of edamame-posture $ver answered HTTP status $status; asking again in $wait s ($attempt/$attempts)"
+                Start-Sleep -Seconds $wait
+              }
             }
           }
 
