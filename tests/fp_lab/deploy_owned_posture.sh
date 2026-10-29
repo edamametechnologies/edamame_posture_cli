@@ -77,7 +77,7 @@ shift 2
 case "$HOST" in
   test-mint)
     SSH_KEY="${TEST_MINT_KEY:-$HOME/OneDrive - Edamame Technologies/Keys/secrets/test-mint_key.pem}"
-    SSH_TARGET="azureuser@20.19.88.225"
+    SSH_TARGET="azureuser@15.224.157.168"
     LABEL="ubuntu-x64"
     SERVICE="edamame_posture.service"
     UNIT="edamame-fplab"
