@@ -100,6 +100,12 @@ function Show-State {
     "-- $m"; (& $Cli rpc $m 2>&1 | Out-String) -replace '\\','' | Select-String -AllMatches -Pattern 'Core version is [^,]*|"(enabled|is_connected|running|adjudication_mode|active_findings|active_alertable_findings|last_verdict|contributor_count)":[^,}]*|Result: (true|false)' | ForEach-Object { $_.Matches.Value }
   }
 }
+# The running processes of these images: a crash can leave a same-named
+# process with no threads and no image path behind, which a lookup by name
+# alone took for the app (a 0 MB reference sample, shiawase 2026-10-28).
+function Live([string[]]$names) {
+  Get-Process $names -ErrorAction SilentlyContinue | Where-Object { $_.Path -and $_.Threads.Count -gt 0 }
+}
 function Port-Owner([int]$port) {
   Get-NetTCPConnection -State Listen -LocalPort $port -ErrorAction SilentlyContinue | ForEach-Object { "$port pid=$($_.OwningProcess) $((Get-Process -Id $_.OwningProcess -ErrorAction SilentlyContinue).Name)" }
 }
@@ -244,7 +250,7 @@ PS
 if (-not (Test-Path "$Lab\bin\edamame_posture.exe")) { "push first"; exit 1 }
 if (-not (Test-Path "$Lab\secrets\portal.env")) { "keys first"; exit 1 }
 $svc = Get-CimInstance Win32_Service -Filter "Name='edamame_helper'"
-$app = Get-Process edamame -ErrorAction SilentlyContinue
+$app = Live edamame
 $state = [ordered]@{ app = [bool]$app; helper_state = $svc.State; helper_start = $svc.StartMode;
   helper_failure = ((sc.exe qfailure edamame_helper) -join "`n") }
 if (-not (Test-Path "$Lab\state\pre-state.json")) {
@@ -258,7 +264,7 @@ if (-not (Test-Path "$Lab\state\pre-state.json")) {
   # the capture), so context, not a like-for-like reference.
   $ref = [ordered]@{}
   foreach ($n in 'edamame', 'edamame_helper') {
-    $p = Get-Process $n -ErrorAction SilentlyContinue | Select-Object -First 1
+    $p = Live $n | Sort-Object StartTime | Select-Object -First 1
     if ($p) {
       $row = [ordered]@{ rss_mb = [math]::Round($p.WorkingSet64 / 1MB) }
       try { $row.cpu_seconds = [math]::Round($p.TotalProcessorTime.TotalSeconds) } catch {}
@@ -280,8 +286,8 @@ Stop-Process -Name edamame -Force -ErrorAction SilentlyContinue
 sc.exe failure edamame_helper reset= 0 actions= '""' | Out-Null
 Set-Service edamame_helper -StartupType Disabled
 Stop-Process -Name edamame_helper -Force -ErrorAction SilentlyContinue
-for ($i = 0; $i -lt 30 -and ((Get-Process edamame,edamame_helper -ErrorAction SilentlyContinue) -or (Port-Owner 40151) -or (Port-Owner 40152)); $i++) { Start-Sleep 1 }
-if (Get-Process edamame,edamame_helper -ErrorAction SilentlyContinue) { "app or helper still running"; exit 1 }
+for ($i = 0; $i -lt 30 -and ((Live edamame,edamame_helper) -or (Port-Owner 40151) -or (Port-Owner 40152)); $i++) { Start-Sleep 1 }
+if (Live edamame,edamame_helper) { "app or helper still running"; exit 1 }
 if ((Port-Owner 40151) -or (Port-Owner 40152)) { "ports still held: $(Port-Owner 40151) $(Port-Owner 40152)"; exit 1 }
 "app and helper stopped, ports free"
 # The launcher redirects into posture.log; a handle a previous daemon's child
@@ -312,7 +318,7 @@ PS
   status)
     ps_run "$PRE" <<'PS'
 Get-Content "$Lab\state\pre-state.json" -ErrorAction SilentlyContinue
-"app: $([bool](Get-Process edamame -ErrorAction SilentlyContinue))  helper: $((Get-Service edamame_helper).Status)/$((Get-Service edamame_helper).StartType)"
+"app: $([bool](Live edamame))  helper: $((Get-Service edamame_helper).Status)/$((Get-Service edamame_helper).StartType)"
 Port-Owner 40151; Port-Owner 40152
 Show-State
 PS
@@ -325,7 +331,7 @@ PS
     # a failed start the runner's preflight was the only guard (2026-10-09).
     # Get-ScheduledTask's State is an enum; schtasks' Status is localized.
     WINDOW=$(ps_run "$PRE" <<'PS' | tr -d '\r' | tail -n 1
-"task=$((Get-ScheduledTask -TaskName EdamameFpLabPosture -ErrorAction SilentlyContinue).State) app=$([bool](Get-Process edamame -ErrorAction SilentlyContinue))"
+"task=$((Get-ScheduledTask -TaskName EdamameFpLabPosture -ErrorAction SilentlyContinue).State) app=$([bool](Live edamame))"
 PS
 )
     [[ "$WINDOW" == "task=Running app=False" ]] || die "no lab window ($WINDOW): run start first"
@@ -434,7 +440,7 @@ if ($pre.app) {
   schtasks /Delete /TN EdamameFpLabApp /F 2>$null | Out-Null
   Remove-Item -Force "$Lab\bin\start-app.cmd" -ErrorAction SilentlyContinue
 }
-"app: $([bool](Get-Process edamame -ErrorAction SilentlyContinue))"; Port-Owner 40151; Port-Owner 40152
+"app: $([bool](Live edamame))"; Port-Owner 40151; Port-Owner 40152
 "deleting the lab keys"
 Remove-Item -Force "$Lab\secrets\*.env" -ErrorAction SilentlyContinue
 Rename-Item "$Lab\state\pre-state.json" "pre-state-$(Get-Date -Format yyyyMMddHHmmss).json"
