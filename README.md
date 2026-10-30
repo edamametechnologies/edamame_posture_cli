@@ -249,7 +249,7 @@ In `analyze` mode, the AI assistant will:
 | `--network-scan` | Enable LAN device discovery (find devices on your network) |
 | `--packet-capture` | Enable network traffic capture (monitor all connections) |
 | `--agentic-mode auto/analyze/off` | Set AI behavior (see above); `off` turns agentic protection off, `disabled` (default) leaves it as last set |
-| `--agentic-provider edamame` | Use EDAMAME Portal LLM for AI analysis |
+| `--agentic-provider edamame` | Use EDAMAME Portal LLM for AI analysis (or `claude`, `openai`, `ollama`, `bedrock` to bring your own model) |
 | `--agentic-interval 300` | Check for new security todos every 5 minutes |
 | `--export-to-portal` | Export agentic action history to EDAMAME Portal |
 
@@ -874,6 +874,11 @@ export EDAMAME_LLM_API_KEY="sk-ant-..."
 
 # For --agentic-provider ollama
 export EDAMAME_LLM_BASE_URL="http://localhost:11434"
+
+# For --agentic-provider bedrock (Amazon Bedrock API key, its region, a model it can call)
+export EDAMAME_LLM_API_KEY="ABSK..."
+export EDAMAME_LLM_REGION="eu-west-1"
+export EDAMAME_LLM_MODEL="eu.anthropic.claude-sonnet-5-5"
 
 # Slack integration (optional)
 export EDAMAME_AGENTIC_SLACK_BOT_TOKEN="xoxb-..."
@@ -1577,7 +1582,7 @@ If you prefer not to add a repository, you can install the Debian package manual
    agentic_mode: "auto"  # "analyze", "off" (turn the Assistant and both
                          # detection engines off at every start) or
                          # "disabled" (leave them as last set; the default)
-   agentic_provider: "edamame"  # edamame, claude, openai or ollama
+   agentic_provider: "edamame"  # edamame, claude, openai, ollama or bedrock
 
    # Option 1: EDAMAME Portal LLM (recommended - create key at portal.edamame.tech)
    llm_api_key: "edm_live_..."
@@ -1586,10 +1591,12 @@ If you prefer not to add a repository, you can install the Debian package manual
    claude_api_key: "sk-ant-..."     # Anthropic Claude
    openai_api_key: "sk-proj-..."   # OpenAI GPT
    ollama_base_url: "http://localhost:11434"  # Ollama (local)
+   bedrock_api_key: "ABSK..."      # Amazon Bedrock API key (needs llm_region and llm_model)
 
    # Optional overrides for claude / openai / ollama (2.0.2)
-   llm_model: ""      # model name; empty = the provider default
+   llm_model: ""      # model name; empty = the provider default (required for bedrock)
    llm_base_url: ""   # alternative claude/openai endpoint (gateway, proxy)
+   llm_region: ""     # bedrock: the AWS region the API key was created in
 
    # Fail the service on active attack pattern findings (optional)
    fail_on_findings: "false"
@@ -1609,7 +1616,8 @@ If you prefer not to add a repository, you can install the Debian package manual
    Keys missing from the file read as their defaults: the package creates the
    file from its template (`/usr/share/edamame_posture/edamame_posture.conf`)
    only when it is missing, and an upgrade never touches an existing one, so
-   keys added by a later release (`llm_model`, `llm_base_url`) are simply
+   keys added by a later release (`llm_model`, `llm_base_url`, `bedrock_api_key`,
+   `llm_region`) are simply
    absent until you add them. Since 2.0.3 the file is not a dpkg conffile, so
    an upgrade never stops at dpkg's configuration-file question (up to 2.0.2
    it was, and `apt-get -y` or unattended-upgrades stopped there whenever the
@@ -1732,7 +1740,7 @@ Once installed, EDAMAME Posture is invoked via the `edamame_posture` command. Mo
 - **check-policy** `<min_score>` `"<threat_ids>"` `"[tag_prefixes]"`: Check whether the system meets a specified security policy. You provide a minimum score threshold, a comma-separated list of critical threat IDs to ensure are not present (or have specific states), and optional tag prefixes for compliance frameworks. This command exits with code 0 if the policy is met, or non-zero if not met (making it perfect for CI gating).
 - **check-policy-for-domain** `<domain>` `<policy_name>`: Similar to check-policy, but retrieves the policy requirements from EDAMAME Hub for the given domain and policy name. This allows centralized policies to be enforced on the local machine. Requires that the machine is enrolled (or at least has a policy cached) for that domain.
 - **start** `--user <USER>` `--domain <DOMAIN>` `--pin <PIN>` | `--pin-file <PATH>` | `EDAMAME_PIN` `[--device-id <ID>]` `[--network-scan]` `[--packet-capture]` `[--whitelist <NAME>]` `[--fail-on-whitelist]` `[--fail-on-blacklist]` `[--fail-on-findings]` `[--include-local-traffic]` `[--cancel-on-violation]` `[--llm-api-key <KEY>]` `[--agentic-mode <MODE>]` `[--agentic-provider <PROVIDER>]` `[--agentic-interval <SECONDS>]`: Start continuous monitoring and conditional access control. Typically run as a background service or daemon. You must supply your Hub user/email, domain, and one-time PIN (from Hub) to register the device session. Optional flags enable LAN scanning, packet capture, whitelist enforcement, live vulnerability-finding enforcement, local traffic inclusion, AI Assistant automation (with EDAMAME Portal LLM via `--llm-api-key` or BYOLLM), and pipeline cancellation on violations. This will keep running until stopped and enforce policy/network rules in real-time (e.g., locking down access if posture degrades or active vulnerability findings appear).
-- **background-start-disconnected** `[--network-scan]` `[--packet-capture]` `[--whitelist <NAME>]` `[--fail-on-whitelist]` `[--fail-on-blacklist]` `[--fail-on-findings]` `[--include-local-traffic]` `[--cancel-on-violation]` `[--llm-api-key KEY]` `[--agentic-mode MODE]` `[--agentic-provider PROVIDER]` `[--agentic-interval SECONDS]`: Start the background monitoring in a local-only mode (no connection to EDAMAME Hub). Combine `--network-scan` for LAN discovery with `--packet-capture` when you need traffic capture + whitelist enforcement. Optional flags enable whitelist/blacklist/vulnerability-finding enforcement with failure conditions, local traffic inclusion, pipeline cancellation on violations, AI Assistant mode (`auto`/`analyze`/`off`/`disabled`), provider selection (`edamame`, `claude`, `openai`, `ollama`, `none`), and processing interval. For AI, use `--llm-api-key` or set `EDAMAME_LLM_API_KEY` environment variable. This is useful for CI runners or standalone usage where you want monitoring without cloud integration. This process runs until killed; typically you'd run it in a screen/tmux or as a service.
+- **background-start-disconnected** `[--network-scan]` `[--packet-capture]` `[--whitelist <NAME>]` `[--fail-on-whitelist]` `[--fail-on-blacklist]` `[--fail-on-findings]` `[--include-local-traffic]` `[--cancel-on-violation]` `[--llm-api-key KEY]` `[--agentic-mode MODE]` `[--agentic-provider PROVIDER]` `[--agentic-interval SECONDS]`: Start the background monitoring in a local-only mode (no connection to EDAMAME Hub). Combine `--network-scan` for LAN discovery with `--packet-capture` when you need traffic capture + whitelist enforcement. Optional flags enable whitelist/blacklist/vulnerability-finding enforcement with failure conditions, local traffic inclusion, pipeline cancellation on violations, AI Assistant mode (`auto`/`analyze`/`off`/`disabled`), provider selection (`edamame`, `claude`, `openai`, `ollama`, `bedrock`, `none`), and processing interval. For AI, use `--llm-api-key` or set `EDAMAME_LLM_API_KEY` environment variable. This is useful for CI runners or standalone usage where you want monitoring without cloud integration. This process runs until killed; typically you'd run it in a screen/tmux or as a service.
 - **get-sessions** `--fail-on-whitelist` `--fail-on-blacklist` `--fail-on-anomalous` `--zeek-format` `--include-local-traffic`: Report network sessions from the background process. Use the `--fail-on-*` flags to cause a non-zero exit code when violations are detected, optionally format output as Zeek, and include local traffic if desired. Returns exit code 0 when no fatal violations are detected. `--fail-on-whitelist` checks the whitelist active in the daemon: with none active there is nothing to check, and an active whitelist whose capture is not running exits 2 (its conformance cannot be certified).
 - **flodbadd**: Perform a quick scan of the local network (LAN) to identify other devices on your subnet. This can reveal potential rogue devices or just provide situational awareness. It lists IP addresses and basic host info for devices it can detect.
 - **request-signature**: Generate a security posture signature for the current device state. The output is a cryptographic signature (token) that represents the current posture (including all threat checks and scores). This signature can be stored or embedded (for example, in a Git commit message) as proof of posture at a point in time.
@@ -1858,7 +1866,7 @@ edamame_posture start \
 
 **Agentic Parameters:**
 - `AGENTIC_MODE`: `auto`, `analyze`, or `disabled` (default: `disabled`)
-- `AGENTIC_PROVIDER`: `claude`, `openai`, `ollama`, or `none`
+- `AGENTIC_PROVIDER`: `edamame`, `claude`, `openai`, `ollama`, `bedrock`, or `none`
 - `AGENTIC_INTERVAL`: Interval in seconds between processing runs (default: `3600`)
 
 **Note:** CLI/daemon context supports `auto` (execute) and `analyze` (analyze & recommend without execution) in addition to `disabled`. The `semi` and `manual` modes still require interactive confirmation and remain exclusive to the GUI app (edamame_security).
@@ -1993,6 +2001,21 @@ export EDAMAME_LLM_API_KEY=sk-proj-...
 # Cost: ~$0.008 per run = ~$1.85/day with 5min interval
 ```
 
+#### Amazon Bedrock
+```bash
+# A Bedrock API key (AWS console > Amazon Bedrock > API keys) works in the
+# region it was created in; AWS_BEARER_TOKEN_BEDROCK is read when
+# EDAMAME_LLM_API_KEY is not set, and AWS_REGION when EDAMAME_LLM_REGION is not.
+export EDAMAME_LLM_API_KEY=ABSK...
+export EDAMAME_LLM_REGION=eu-west-1
+# The model: an inference profile or model id the key can call. Without it the
+# daemon refuses to start the assistant and logs the models the key can call.
+export EDAMAME_LLM_MODEL=eu.anthropic.claude-sonnet-5-5
+# Optional: one of the model's reasoning levels (default: the model's own)
+export EDAMAME_LLM_REASONING_EFFORT=low
+# Cost: billed by AWS to your account
+```
+
 #### Ollama (Local) - Privacy First
 ```bash
 brew install ollama && ollama pull llama4
@@ -2012,12 +2035,15 @@ brew install ollama && ollama pull llama4
 The AI Assistant configuration is passed to the background daemon through environment variables:
 
 **Environment Variables:**
-- `EDAMAME_LLM_API_KEY` - Your LLM API key (required for Claude/OpenAI, not needed for Ollama)
-- `EDAMAME_LLM_MODEL` - Override default model (optional)
+- `EDAMAME_LLM_API_KEY` - Your LLM API key (required for Claude/OpenAI/Bedrock, not needed for Ollama)
+- `EDAMAME_LLM_MODEL` - Override default model (optional; required for Bedrock)
   - Default for Claude: `claude-4-5-haiku`
   - Default for OpenAI: `gpt-5-mini-2025-08-07`
   - Default for Ollama: `llama4`
+  - Bedrock: no default, the models depend on your account and region
 - `EDAMAME_LLM_BASE_URL` - Ollama base URL (optional, default: `http://localhost:11434`)
+- `EDAMAME_LLM_REGION` - AWS region of the Bedrock API key (required for Bedrock; `AWS_REGION` / `AWS_DEFAULT_REGION` are read when unset)
+- `EDAMAME_LLM_REASONING_EFFORT` - Reasoning level of the Bedrock model (optional, default: the model's own)
 - `EDAMAME_AGENTIC_SLACK_BOT_TOKEN` - Slack bot token used for direct notifications (required for Slack integration)
 - `EDAMAME_AGENTIC_SLACK_ACTIONS_CHANNEL` - Slack channel ID for routine summaries (optional)
 - `EDAMAME_AGENTIC_SLACK_ESCALATIONS_CHANNEL` - Slack channel ID for escalations/alerts (optional)

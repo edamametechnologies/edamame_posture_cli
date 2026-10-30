@@ -254,6 +254,18 @@ fn run() {
     }
 }
 
+/// Whether the key `--llm-api-key` / `EDAMAME_LLM_API_KEY` carries is an
+/// EDAMAME Portal key. With a bring-your-own provider it is that provider's
+/// key (`background_configure_agentic` saves it), and saving it as the
+/// Portal credential first would hand, for instance, an AWS Bedrock key to
+/// the Portal.
+fn llm_key_is_for_portal(agentic_provider: Option<&str>) -> bool {
+    !matches!(
+        agentic_provider,
+        Some("claude" | "openai" | "ollama" | "bedrock")
+    )
+}
+
 pub fn run_background(
     user: String,
     domain: String,
@@ -289,7 +301,7 @@ pub fn run_background(
 
     // Set EDAMAME Portal LLM API key if provided (for AI assistant)
     if let Some(ref key) = llm_api_key {
-        if !key.is_empty() {
+        if !key.is_empty() && llm_key_is_for_portal(agentic_provider.as_deref()) {
             edamame_core::api::api_agentic::agentic_set_edamame_api_key(key.clone());
         }
     }
@@ -899,7 +911,7 @@ fn run_base() {
 
             // Set EDAMAME Portal LLM API key if provided (for AI assistant)
             if let Some(ref key) = llm_api_key {
-                if !key.is_empty() {
+                if !key.is_empty() && llm_key_is_for_portal(agentic_provider.as_deref()) {
                     edamame_core::api::api_agentic::agentic_set_edamame_api_key(key.clone());
                 }
             }
@@ -958,7 +970,7 @@ fn run_base() {
 
             // Set EDAMAME Portal LLM API key if provided (for AI assistant)
             if let Some(ref key) = llm_api_key {
-                if !key.is_empty() {
+                if !key.is_empty() && llm_key_is_for_portal(agentic_provider.as_deref()) {
                     edamame_core::api::api_agentic::agentic_set_edamame_api_key(key.clone());
                 }
             }

@@ -1180,6 +1180,11 @@ pub fn build_cli() -> Command {
 /// detection and divergence detection) through the daemon's RPC.
 pub const AGENTIC_MODES: [&str; 4] = ["auto", "analyze", "off", "disabled"];
 
+/// `--agentic-provider` values: the EDAMAME Portal, a bring-your-own model
+/// (Amazon Bedrock with a Bedrock API key), or none.
+pub const AGENTIC_PROVIDERS: [&str; 6] =
+    ["edamame", "claude", "openai", "ollama", "bedrock", "none"];
+
 /// Where the PIN of a start command came from.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PinSource {
@@ -1414,8 +1419,8 @@ fn start_common_args() -> Vec<Arg> {
         Arg::new("agentic_provider")
             .long("agentic-provider")
             .value_name("PROVIDER")
-            .help("LLM provider: edamame (Portal), claude, openai, ollama, none")
-            .value_parser(["edamame", "claude", "openai", "ollama", "none"]),
+            .help("LLM provider: edamame (Portal), claude, openai, ollama, bedrock (Amazon Bedrock: EDAMAME_LLM_API_KEY, EDAMAME_LLM_REGION, EDAMAME_LLM_MODEL), none")
+            .value_parser(AGENTIC_PROVIDERS),
         Arg::new("agentic_interval")
             .long("agentic-interval")
             .value_name("SECONDS")
@@ -1492,8 +1497,8 @@ fn disconnected_start_args() -> Vec<Arg> {
         Arg::new("agentic_provider")
             .long("agentic-provider")
             .value_name("PROVIDER")
-            .help("LLM provider: edamame (Portal), claude, openai, ollama, none")
-            .value_parser(["edamame", "claude", "openai", "ollama", "none"]),
+            .help("LLM provider: edamame (Portal), claude, openai, ollama, bedrock (Amazon Bedrock: EDAMAME_LLM_API_KEY, EDAMAME_LLM_REGION, EDAMAME_LLM_MODEL), none")
+            .value_parser(AGENTIC_PROVIDERS),
         Arg::new("agentic_interval")
             .long("agentic-interval")
             .value_name("SECONDS")
@@ -1600,6 +1605,51 @@ mod tests {
             Some("ollama")
         );
         assert_eq!(sub_matches.get_one::<u64>("agentic_interval"), Some(&600));
+    }
+
+    #[test]
+    fn every_start_command_takes_bedrock_as_provider() {
+        for (subcommand, extra) in [
+            (
+                "background-start",
+                &[
+                    "--user",
+                    "runner",
+                    "--domain",
+                    "example.com",
+                    "--pin",
+                    "123456",
+                ][..],
+            ),
+            (
+                "foreground-start",
+                &[
+                    "--user",
+                    "runner",
+                    "--domain",
+                    "example.com",
+                    "--pin",
+                    "123456",
+                ][..],
+            ),
+            ("background-start-disconnected", &[][..]),
+        ] {
+            let mut args = vec!["edamame_posture", subcommand];
+            args.extend_from_slice(extra);
+            args.extend_from_slice(&["--agentic-mode", "analyze", "--agentic-provider", "bedrock"]);
+            let matches = build_cli()
+                .try_get_matches_from(args)
+                .unwrap_or_else(|e| panic!("{} should take bedrock: {}", subcommand, e));
+            let (_, sub_matches) = matches.subcommand().unwrap();
+            assert_eq!(
+                sub_matches
+                    .get_one::<String>("agentic_provider")
+                    .map(String::as_str),
+                Some("bedrock"),
+                "{}",
+                subcommand
+            );
+        }
     }
 
     #[test]

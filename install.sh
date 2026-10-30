@@ -27,20 +27,23 @@
 #   --agentic-mode MODE            AI mode: auto, analyze, off, or disabled (default: disabled)
 #                                  off turns the Assistant and both detection
 #                                  engines off; disabled leaves them as last set
-#   --agentic-provider PROVIDER    LLM provider: edamame (recommended), claude, openai, ollama
+#   --agentic-provider PROVIDER    LLM provider: edamame (recommended), claude, openai, ollama,
+#                                  bedrock (Amazon Bedrock API key; needs --llm-region and --llm-model)
 #   --agentic-interval SECONDS     AI processing interval in seconds (default: 3600)
 #   --llm-api-key KEY              LLM API key (overrides EDAMAME_LLM_API_KEY)
 #   --llm-base-url URL             Ollama base URL, or an alternative endpoint for
 #                                  claude/openai (overrides EDAMAME_LLM_BASE_URL)
-#   --llm-model MODEL              Model for claude/openai/ollama (overrides EDAMAME_LLM_MODEL)
+#   --llm-model MODEL              Model for claude/openai/ollama/bedrock (overrides EDAMAME_LLM_MODEL)
+#   --llm-region REGION            AWS region of a Bedrock API key (overrides EDAMAME_LLM_REGION)
 #   --slack-bot-token TOKEN        Slack bot token
 #   --slack-actions-channel ID     Slack actions channel ID
 #   --slack-escalations-channel ID Slack escalations channel ID
 #
 # AI Environment Variables:
-#   EDAMAME_LLM_API_KEY            LLM API key for all providers (edamame, claude, openai)
+#   EDAMAME_LLM_API_KEY            LLM API key for all providers (edamame, claude, openai, bedrock)
 #   EDAMAME_LLM_BASE_URL           Ollama base URL (for agentic-provider=ollama)
-#   EDAMAME_LLM_MODEL              Model override for claude/openai/ollama
+#   EDAMAME_LLM_MODEL              Model override for claude/openai/ollama; required for bedrock
+#   EDAMAME_LLM_REGION             AWS region of the Bedrock API key (for agentic-provider=bedrock)
 #
 # Connection Environment Variables:
 #   EDAMAME_PIN                    Hub PIN; preferred over --pin, which any
@@ -881,6 +884,9 @@ resolve_service_conf() {
     # Keys added in 2.0.2: absent from older confs, so they read as empty.
     _rsc_prev_llm_model=$(_rsc_prev llm_model "")
     _rsc_prev_llm_base_url=$(_rsc_prev llm_base_url "")
+    # Keys added in 2.2.4 (Amazon Bedrock), empty in older confs too.
+    _rsc_prev_bedrock=$(_rsc_prev bedrock_api_key "")
+    _rsc_prev_llm_region=$(_rsc_prev llm_region "")
 
     SVC_AGENTIC_MODE="$_rsc_prev_mode"
     SVC_AGENTIC_PROVIDER="$_rsc_prev_provider"
@@ -895,8 +901,11 @@ resolve_service_conf() {
     SVC_CLAUDE_API_KEY="$_rsc_prev_claude"
     SVC_OPENAI_API_KEY="$_rsc_prev_openai"
     SVC_OLLAMA_BASE_URL="$_rsc_prev_ollama"
+    SVC_BEDROCK_API_KEY="$_rsc_prev_bedrock"
     SVC_LLM_MODEL="$_rsc_prev_llm_model"
     [ -n "${CONFIG_LLM_MODEL:-}" ] && SVC_LLM_MODEL="$CONFIG_LLM_MODEL"
+    SVC_LLM_REGION="$_rsc_prev_llm_region"
+    [ -n "${CONFIG_LLM_REGION:-}" ] && SVC_LLM_REGION="$CONFIG_LLM_REGION"
     SVC_LLM_BASE_URL="$_rsc_prev_llm_base_url"
     case "$SVC_AGENTIC_PROVIDER" in
         claude)
@@ -910,6 +919,10 @@ resolve_service_conf() {
             ;;
         ollama)
             [ -n "${CONFIG_LLM_BASE_URL:-}" ] && SVC_OLLAMA_BASE_URL="$CONFIG_LLM_BASE_URL"
+            ;;
+        bedrock)
+            # The endpoint is the key's region (llm_region), not a base URL.
+            [ -n "${CONFIG_LLM_API_KEY:-}" ] && SVC_BEDROCK_API_KEY="$CONFIG_LLM_API_KEY"
             ;;
         *)
             # "edamame" and an unset provider both mean the EDAMAME Portal LLM.
@@ -940,7 +953,9 @@ resolve_service_conf() {
        [ "$SVC_OPENAI_API_KEY" != "$_rsc_prev_openai" ] || \
        [ "$SVC_OLLAMA_BASE_URL" != "$_rsc_prev_ollama" ] || \
        [ "$SVC_LLM_MODEL" != "$_rsc_prev_llm_model" ] || \
-       [ "$SVC_LLM_BASE_URL" != "$_rsc_prev_llm_base_url" ]; then
+       [ "$SVC_LLM_BASE_URL" != "$_rsc_prev_llm_base_url" ] || \
+       [ "$SVC_BEDROCK_API_KEY" != "$_rsc_prev_bedrock" ] || \
+       [ "$SVC_LLM_REGION" != "$_rsc_prev_llm_region" ]; then
         SVC_AGENTIC_CHANGED="true"
     fi
     return 0
@@ -949,7 +964,8 @@ resolve_service_conf() {
 # True when the resolved settings carry any LLM credential slot.
 service_conf_has_credential() {
     [ -n "$SVC_LLM_API_KEY" ] || [ -n "$SVC_CLAUDE_API_KEY" ] || \
-        [ -n "$SVC_OPENAI_API_KEY" ] || [ -n "$SVC_OLLAMA_BASE_URL" ]
+        [ -n "$SVC_OPENAI_API_KEY" ] || [ -n "$SVC_OLLAMA_BASE_URL" ] || \
+        { [ -n "$SVC_BEDROCK_API_KEY" ] && [ -n "$SVC_LLM_REGION" ] && [ -n "$SVC_LLM_MODEL" ]; }
 }
 
 # True when the resolved settings enable the AI assistant but carry no
@@ -968,7 +984,7 @@ service_conf_requested() {
         [ "${CONFIG_AGENTIC_PROVIDER_SET:-false}" = "true" ] || \
         [ "${CONFIG_AGENTIC_INTERVAL_SET:-false}" = "true" ] || \
         [ -n "${CONFIG_LLM_API_KEY:-}" ] || [ -n "${CONFIG_LLM_BASE_URL:-}" ] || \
-        [ -n "${CONFIG_LLM_MODEL:-}" ] || \
+        [ -n "${CONFIG_LLM_MODEL:-}" ] || [ -n "${CONFIG_LLM_REGION:-}" ] || \
         [ -n "${CONFIG_SLACK_BOT_TOKEN:-}" ] || [ -n "${CONFIG_SLACK_ACTIONS_CHANNEL:-}" ] || \
         [ -n "${CONFIG_SLACK_ESCALATIONS_CHANNEL:-}" ]
 }
@@ -1029,6 +1045,8 @@ agentic_mode: "$(yaml_escape "$SVC_AGENTIC_MODE")"
 #   - claude:  Anthropic Claude                 -> claude_api_key
 #   - openai:  OpenAI                           -> openai_api_key
 #   - ollama:  Local Ollama                     -> ollama_base_url
+#   - bedrock: Amazon Bedrock API key           -> bedrock_api_key
+#              (with llm_region, the key's AWS region, and llm_model)
 #
 agentic_provider: "$(yaml_escape "$SVC_AGENTIC_PROVIDER")"
 
@@ -1038,11 +1056,15 @@ llm_api_key: "$(yaml_escape "$SVC_LLM_API_KEY")"
 claude_api_key: "$(yaml_escape "$SVC_CLAUDE_API_KEY")"
 openai_api_key: "$(yaml_escape "$SVC_OPENAI_API_KEY")"
 ollama_base_url: "$(yaml_escape "$SVC_OLLAMA_BASE_URL")"
+bedrock_api_key: "$(yaml_escape "$SVC_BEDROCK_API_KEY")"
 
 # Optional overrides for claude / openai / ollama (empty = provider default):
-# the model, and an alternative endpoint for claude / openai.
+# the model, and an alternative endpoint for claude / openai. Bedrock needs
+# llm_model (an inference profile or model id the key can call) and
+# llm_region (the AWS region the key was created in).
 llm_model: "$(yaml_escape "$SVC_LLM_MODEL")"
 llm_base_url: "$(yaml_escape "$SVC_LLM_BASE_URL")"
+llm_region: "$(yaml_escape "$SVC_LLM_REGION")"
 
 # ============================================================================
 # Unified Notifications (optional, preferred)
@@ -2543,6 +2565,7 @@ CONFIG_AGENTIC_INTERVAL="3600"
 CONFIG_LLM_API_KEY="${EDAMAME_LLM_API_KEY:-}"
 CONFIG_LLM_BASE_URL="${EDAMAME_LLM_BASE_URL:-}"
 CONFIG_LLM_MODEL="${EDAMAME_LLM_MODEL:-}"
+CONFIG_LLM_REGION="${EDAMAME_LLM_REGION:-}"
 CONFIG_SLACK_BOT_TOKEN=""
 CONFIG_SLACK_ACTIONS_CHANNEL=""
 CONFIG_SLACK_ESCALATIONS_CHANNEL=""
@@ -2645,6 +2668,10 @@ while [ $# -gt 0 ]; do
             ;;
         --llm-model)
             CONFIG_LLM_MODEL="$2"
+            shift 2
+            ;;
+        --llm-region)
+            CONFIG_LLM_REGION="$2"
             shift 2
             ;;
         # Legacy options for backwards compatibility (prefer --agentic-provider + env vars).
@@ -3515,7 +3542,8 @@ configure_service() {
     SERVICE_AGENTIC_CHANGED="$SVC_AGENTIC_CHANGED"
     if service_conf_agentic_without_credential; then
         warn "Agentic mode '$SVC_AGENTIC_MODE' was requested but no LLM credential was supplied."
-        warn "Export EDAMAME_LLM_API_KEY or pass --llm-api-key so the service can adjudicate;"
+        warn "Export EDAMAME_LLM_API_KEY or pass --llm-api-key so the service can adjudicate"
+        warn "(with --agentic-provider bedrock, --llm-region and --llm-model too);"
         warn "without one the daemon starts with the AI assistant disabled."
     fi
 
@@ -3912,8 +3940,8 @@ if [ "$SHOULD_START_DAEMON" = "true" ]; then
     fi
     
     # AI configuration is handled via environment variables
-    # The daemon reads: EDAMAME_LLM_API_KEY (for all LLM providers: edamame, claude, openai), 
-    #                   EDAMAME_LLM_BASE_URL (for ollama)
+    # The daemon reads: EDAMAME_LLM_API_KEY (for all LLM providers: edamame, claude, openai, bedrock),
+    #                   EDAMAME_LLM_BASE_URL (for ollama), EDAMAME_LLM_REGION (for bedrock)
     # A key given with --llm-api-key lived only in CONFIG_LLM_API_KEY, so the
     # background daemon started without it. Export it (never on the command
     # line, where ps would show it); $SUDO is `sudo -E` and keeps it.
@@ -3936,6 +3964,9 @@ if [ "$SHOULD_START_DAEMON" = "true" ]; then
         fi
         if [ -n "$CONFIG_LLM_MODEL" ]; then
             export EDAMAME_LLM_MODEL="$CONFIG_LLM_MODEL"
+        fi
+        if [ -n "$CONFIG_LLM_REGION" ]; then
+            export EDAMAME_LLM_REGION="$CONFIG_LLM_REGION"
         fi
         if [ -z "$CONFIG_LLM_API_KEY" ] && [ -z "$CONFIG_LLM_BASE_URL" ]; then
             warn "Agentic mode '$CONFIG_AGENTIC_MODE' requested without EDAMAME_LLM_API_KEY / EDAMAME_LLM_BASE_URL;"

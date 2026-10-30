@@ -403,6 +403,11 @@ impl ServiceConfig {
         let llm_model = get("llm_model");
         let llm_base_url = get("llm_base_url");
         let ollama_base_url = first_non_empty(&[&get("ollama_base_url"), &llm_base_url]);
+        // Amazon Bedrock: a Bedrock API key works in the region it was
+        // created in, and which models exist depends on the account, so the
+        // region and the model are part of its slot.
+        let bedrock_api_key = get("bedrock_api_key");
+        let llm_region = get("llm_region");
         let configured = get("agentic_provider").to_lowercase();
         let pick = |p: &str| -> Option<(String, String, &'static str)> {
             match p {
@@ -424,11 +429,22 @@ impl ServiceConfig {
                     ollama_base_url.clone(),
                     "EDAMAME_LLM_BASE_URL",
                 )),
+                "bedrock"
+                    if !bedrock_api_key.is_empty()
+                        && !llm_region.is_empty()
+                        && !llm_model.is_empty() =>
+                {
+                    Some((
+                        "bedrock".into(),
+                        bedrock_api_key.clone(),
+                        "EDAMAME_LLM_API_KEY",
+                    ))
+                }
                 _ => None,
             }
         };
         let chosen = if configured.is_empty() {
-            ["edamame", "claude", "openai", "ollama"]
+            ["edamame", "claude", "openai", "ollama", "bedrock"]
                 .iter()
                 .find_map(|p| pick(p))
         } else {
@@ -440,7 +456,11 @@ impl ServiceConfig {
                     cfg.llm_api_key = Some(value.clone());
                 }
                 cfg.env.push((var.to_string(), value));
-                if provider != "ollama" && !llm_base_url.is_empty() {
+                if provider == "bedrock" {
+                    // Its endpoint is the region's.
+                    cfg.env
+                        .push(("EDAMAME_LLM_REGION".to_string(), llm_region.clone()));
+                } else if provider != "ollama" && !llm_base_url.is_empty() {
                     cfg.env
                         .push(("EDAMAME_LLM_BASE_URL".to_string(), llm_base_url.clone()));
                 }
@@ -454,6 +474,8 @@ impl ServiceConfig {
                 if mode != "disabled" {
                     cfg.warnings.push(if configured.is_empty() {
                         format!("agentic_mode is '{}' but no LLM credential is set; the AI assistant stays disabled", mode)
+                    } else if configured == "bedrock" {
+                        "agentic_provider is 'bedrock' but bedrock_api_key, llm_region or llm_model is empty; the AI assistant stays disabled".to_string()
                     } else {
                         format!("agentic_provider is '{}' but its credential slot is empty; the AI assistant stays disabled", configured)
                     });
@@ -1552,6 +1574,51 @@ escaped: "a \"b\" c\\d"
             .contains(&("EDAMAME_LLM_MODEL".to_string(), "llama3".to_string())));
 
         assert!(ServiceConfig::from_conf("agentic_mode: \"sometimes\"\n", None).is_err());
+    }
+
+    #[test]
+    fn bedrock_needs_its_key_its_region_and_a_model() {
+        let text = "agentic_mode: \"analyze\"\nagentic_provider: \"bedrock\"\nbedrock_api_key: \"bk\"\nllm_region: \"eu-west-1\"\nllm_model: \"eu.anthropic.claude-sonnet-5-5\"\nllm_base_url: \"https://elsewhere.example\"\n";
+        let cfg = ServiceConfig::from_conf(text, None).unwrap();
+        assert_eq!(cfg.agentic_mode, "analyze");
+        assert_eq!(cfg.agentic_provider.as_deref(), Some("bedrock"));
+        for pair in [
+            ("EDAMAME_LLM_API_KEY", "bk"),
+            ("EDAMAME_LLM_REGION", "eu-west-1"),
+            ("EDAMAME_LLM_MODEL", "eu.anthropic.claude-sonnet-5-5"),
+        ] {
+            assert!(
+                cfg.env.contains(&(pair.0.to_string(), pair.1.to_string())),
+                "{:?}",
+                pair
+            );
+        }
+        // The endpoint follows the region.
+        assert!(!cfg.env.iter().any(|(k, _)| k == "EDAMAME_LLM_BASE_URL"));
+
+        // The only filled slot is found without a named provider.
+        let text = "agentic_mode: \"auto\"\nbedrock_api_key: \"bk\"\nllm_region: \"eu-west-1\"\nllm_model: \"m\"\n";
+        let cfg = ServiceConfig::from_conf(text, None).unwrap();
+        assert_eq!(cfg.agentic_provider.as_deref(), Some("bedrock"));
+
+        // Without the region or the model, nothing would be adjudicated.
+        for missing in ["llm_region", "llm_model", "bedrock_api_key"] {
+            let text: String = [
+                "agentic_mode: \"analyze\"",
+                "agentic_provider: \"bedrock\"",
+                "bedrock_api_key: \"bk\"",
+                "llm_region: \"eu-west-1\"",
+                "llm_model: \"m\"",
+            ]
+            .iter()
+            .filter(|line| !line.starts_with(missing))
+            .map(|line| format!("{}\n", line))
+            .collect();
+            let cfg = ServiceConfig::from_conf(&text, None).unwrap();
+            assert_eq!(cfg.agentic_mode, "disabled", "{}", missing);
+            assert_eq!(cfg.agentic_provider, None, "{}", missing);
+            assert!(cfg.warnings[0].contains("llm_region"), "{}", missing);
+        }
     }
 
     #[test]

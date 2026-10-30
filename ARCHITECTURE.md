@@ -123,7 +123,7 @@ edamame-posture mcp-generate-psk # Generate PSK
 ```bash
 # AI is configured via start command flags, not separate commands:
 edamame-posture start --agentic-mode auto|analyze|disabled \
-                      --agentic-provider edamame|claude|openai|ollama \
+                      --agentic-provider edamame|claude|openai|ollama|bedrock \
                       --agentic-interval 3600 \
                       --llm-api-key "your-api-key"
 

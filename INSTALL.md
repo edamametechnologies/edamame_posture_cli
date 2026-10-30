@@ -61,7 +61,8 @@ curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/edamamete
 | `--openai-api-key <key>` | OpenAI API key for AI assistant. |
 | `--ollama-base-url <url>` | Ollama base URL (default: `http://localhost:11434`). |
 | `--agentic-mode <mode>` | AI mode: `auto`, `analyze`, `off` (turn the Assistant and both detection engines off), or `disabled` (leave them as last set; default). |
-| `--llm-model <model>` | Model for claude/openai/ollama (also `EDAMAME_LLM_MODEL`); written to `llm_model`. |
+| `--llm-model <model>` | Model for claude/openai/ollama/bedrock (also `EDAMAME_LLM_MODEL`); written to `llm_model`. Required with `--agentic-provider bedrock`. |
+| `--llm-region <region>` | AWS region of the Bedrock API key (also `EDAMAME_LLM_REGION`); written to `llm_region`. Required with `--agentic-provider bedrock`, whose key (`--llm-api-key` or `EDAMAME_LLM_API_KEY`) goes to `bedrock_api_key`. |
 | `--agentic-interval <seconds>` | AI processing interval in seconds (default: `3600`). |
 | `--slack-bot-token <token>` | Slack bot token for notifications. |
 | `--slack-actions-channel <id>` | Slack channel ID for routine actions. |
@@ -355,6 +356,7 @@ Package installs create `/etc/edamame_posture.conf` which supports all daemon pa
 - `claude_api_key`: Claude API key
 - `openai_api_key`: OpenAI API key
 - `ollama_base_url`: Ollama base URL
+- `bedrock_api_key`, `llm_region` (2.2.4): Amazon Bedrock API key and the AWS region it was created in; with `llm_model`, the three are required for `agentic_provider: "bedrock"`
 - `agentic_interval`: Processing interval in seconds
 - `slack_bot_token`: Slack bot token
 - `slack_actions_channel`: Slack actions channel ID
@@ -420,8 +422,9 @@ on failure, reading the same configuration format as `/etc/edamame_posture.conf`
   API keys are read from the configuration file by the service itself and never
   appear on a command line. The PIN can also come from a file named by
   `edamame_pin_file` in the configuration, or from `EDAMAME_PIN` in the service
-  environment. Besides the keys of the Linux file, it reads `llm_model` and
-  `llm_base_url` (API base URL, or the Ollama URL). On macOS/Linux the service refuses a configuration that is not
+  environment. Besides the keys of the Linux file, it reads `llm_model`,
+  `llm_base_url` (API base URL, or the Ollama URL), and `bedrock_api_key` with
+  `llm_region` (Amazon Bedrock). On macOS/Linux the service refuses a configuration that is not
   owned by root or is writable by other users, and refuses to register a binary
   that a non-root user could replace.
 - `--conf <path>` selects another configuration, `--no-start` registers without

@@ -89,6 +89,10 @@ llm_api_key="$(get_config_value "llm_api_key")"
 claude_api_key="$(get_config_value "claude_api_key")"
 openai_api_key="$(get_config_value "openai_api_key")"
 ollama_base_url="$(get_config_value "ollama_base_url")"
+# Amazon Bedrock: the key works in the region it was created in, and the model
+# (llm_model) is required, so the three together are its slot.
+bedrock_api_key="$(get_config_value "bedrock_api_key")"
+llm_region="$(get_config_value "llm_region")"
 # Optional overrides for the BYO providers (claude, openai, ollama): the model
 # name and an alternative endpoint (an OpenAI-compatible gateway, a proxy).
 llm_model="$(get_config_value "llm_model")"
@@ -157,7 +161,7 @@ esac
 
 # A provider named in the conf decides which credential slot is authoritative;
 # when the conf names none, the first non-empty key wins (edamame > claude >
-# openai > ollama). Inferring the provider from key order alone mislabels an
+# openai > ollama > bedrock). Inferring the provider from key order alone mislabels an
 # Anthropic key written to llm_api_key as the EDAMAME Portal provider.
 configured_provider="$(get_config_value "agentic_provider")"
 configured_provider=$(echo "$configured_provider" | tr '[:upper:]' '[:lower:]')
@@ -189,6 +193,12 @@ case "$configured_provider" in
       export EDAMAME_LLM_BASE_URL="$ollama_endpoint"
     fi
     ;;
+  bedrock)
+    if [ -n "$bedrock_api_key" ] && [ -n "$llm_region" ] && [ -n "$llm_model" ]; then
+      agentic_provider="bedrock"
+      export EDAMAME_LLM_API_KEY="$bedrock_api_key"
+    fi
+    ;;
 esac
 
 if [ "$agentic_provider" = "none" ] && [ -z "$configured_provider" ]; then
@@ -204,6 +214,9 @@ if [ "$agentic_provider" = "none" ] && [ -z "$configured_provider" ]; then
   elif [ -n "$ollama_base_url" ]; then
     agentic_provider="ollama"
     export EDAMAME_LLM_BASE_URL="$ollama_base_url"
+  elif [ -n "$bedrock_api_key" ] && [ -n "$llm_region" ] && [ -n "$llm_model" ]; then
+    agentic_provider="bedrock"
+    export EDAMAME_LLM_API_KEY="$bedrock_api_key"
   fi
 fi
 
@@ -217,6 +230,11 @@ case "$agentic_provider" in
     if [ "$agentic_provider" != "ollama" ] && [ -n "$llm_base_url" ]; then
       export EDAMAME_LLM_BASE_URL="$llm_base_url"
     fi
+    ;;
+  bedrock)
+    # The endpoint is the region's; llm_base_url does not apply.
+    export EDAMAME_LLM_MODEL="$llm_model"
+    export EDAMAME_LLM_REGION="$llm_region"
     ;;
 esac
 
@@ -241,12 +259,13 @@ elif [ "$agentic_mode" != "disabled" ]; then
       claude)  echo "WARNING: set claude_api_key, or re-run the installer with --agentic-provider claude and EDAMAME_LLM_API_KEY exported." ;;
       openai)  echo "WARNING: set openai_api_key, or re-run the installer with --agentic-provider openai and EDAMAME_LLM_API_KEY exported." ;;
       ollama)  echo "WARNING: set ollama_base_url, or re-run the installer with --agentic-provider ollama and EDAMAME_LLM_BASE_URL exported." ;;
-      *)       echo "WARNING: '$configured_provider' is not a known provider; use edamame, claude, openai or ollama." ;;
+      bedrock) echo "WARNING: set bedrock_api_key, llm_region and llm_model, or re-run the installer with --agentic-provider bedrock, --llm-region and --llm-model, and EDAMAME_LLM_API_KEY exported." ;;
+      *)       echo "WARNING: '$configured_provider' is not a known provider; use edamame, claude, openai, ollama or bedrock." ;;
     esac
   else
     echo "WARNING: agentic_mode is '$agentic_mode' but no LLM credential is set in $CONF."
-    echo "WARNING: set llm_api_key (EDAMAME Portal), claude_api_key, openai_api_key or"
-    echo "WARNING: ollama_base_url there -- re-running the installer with"
+    echo "WARNING: set llm_api_key (EDAMAME Portal), claude_api_key, openai_api_key,"
+    echo "WARNING: ollama_base_url or bedrock_api_key there -- re-running the installer with"
     echo "WARNING: EDAMAME_LLM_API_KEY exported does it for you. The AI assistant"
     echo "WARNING: stays disabled and nothing is adjudicated until one is present."
   fi

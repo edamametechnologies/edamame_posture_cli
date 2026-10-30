@@ -52,7 +52,7 @@ reset_run() {
     CONFIG_AGENTIC_MODE="disabled"; CONFIG_AGENTIC_MODE_SET="false"
     CONFIG_AGENTIC_PROVIDER=""; CONFIG_AGENTIC_PROVIDER_SET="false"
     CONFIG_AGENTIC_INTERVAL="3600"; CONFIG_AGENTIC_INTERVAL_SET="false"
-    CONFIG_LLM_API_KEY=""; CONFIG_LLM_BASE_URL=""; CONFIG_LLM_MODEL=""
+    CONFIG_LLM_API_KEY=""; CONFIG_LLM_BASE_URL=""; CONFIG_LLM_MODEL=""; CONFIG_LLM_REGION=""
     CONFIG_SLACK_BOT_TOKEN=""; CONFIG_SLACK_ACTIONS_CHANNEL=""; CONFIG_SLACK_ESCALATIONS_CHANNEL=""
     CONFIG_NETWORK_SET="false"
     CONFIG_START_LANSCAN="false"; CONFIG_START_CAPTURE="false"; CONFIG_WHITELIST=""
@@ -281,6 +281,67 @@ esac
 case "$WRAP_OUT" in
     *WARNING*) not_ok "off warns about a missing credential: $WRAP_OUT" ;;
     *) ok "off needs no credential" ;;
+esac
+
+# --- 2.2.4: Amazon Bedrock: its key slot, the key's region and the model ----
+STUB3="$WORK/edamame_posture_stub3"
+cat > "$STUB3" <<'EOF'
+#!/bin/sh
+printf 'ARGS:%s\n' "$*"
+if [ "${EDAMAME_LLM_API_KEY:-}" = "$EXPECTED_KEY" ]; then echo "ENV_KEY:match"; else echo "ENV_KEY:mismatch"; fi
+printf 'ENV_MODEL:%s\n' "${EDAMAME_LLM_MODEL:-<unset>}"
+printf 'ENV_REGION:%s\n' "${EDAMAME_LLM_REGION:-<unset>}"
+printf 'ENV_BASE_URL:%s\n' "${EDAMAME_LLM_BASE_URL:-<unset>}"
+EOF
+chmod +x "$STUB3"
+BR_CONF="$WORK/bedrock.conf"
+BR_KEY='ABSKTESTBEDROCKKEY0123456789'
+reset_run
+CONFIG_AGENTIC_MODE="analyze"; CONFIG_AGENTIC_MODE_SET="true"
+CONFIG_AGENTIC_PROVIDER="bedrock"; CONFIG_AGENTIC_PROVIDER_SET="true"
+CONFIG_LLM_API_KEY="$BR_KEY"
+run_configure "$BR_CONF"
+assert_eq "bedrock: key in bedrock slot" "$(conf_yaml_value "$BR_CONF" bedrock_api_key)" "$BR_KEY"
+assert_eq "bedrock: portal slot left empty" "$(conf_yaml_value "$BR_CONF" llm_api_key)" ""
+if service_conf_agentic_without_credential; then ok "bedrock without region and model has no usable credential"; else not_ok "bedrock without region and model has no usable credential"; fi
+WRAP_OUT="$(env -u EDAMAME_LLM_API_KEY -u EDAMAME_LLM_MODEL -u EDAMAME_LLM_REGION -u EDAMAME_LLM_BASE_URL \
+    EXPECTED_KEY="$BR_KEY" EDAMAME_POSTURE_CONF="$BR_CONF" EDAMAME_POSTURE_BIN="$STUB3" sh "$WRAPPER" 2>&1)"
+case "$WRAP_OUT" in
+    *"--agentic-mode analyze"*) not_ok "bedrock without region and model starts no provider: $WRAP_OUT" ;;
+    *) ok "bedrock without region and model starts no provider" ;;
+esac
+case "$WRAP_OUT" in
+    *"set bedrock_api_key, llm_region and llm_model"*) ok "bedrock without region and model says why" ;;
+    *) not_ok "bedrock without region and model says why: $WRAP_OUT" ;;
+esac
+reset_run
+CONFIG_LLM_REGION="eu-west-1"; CONFIG_LLM_MODEL="eu.anthropic.claude-sonnet-5-5"
+if service_conf_requested; then ok "a region counts as configuration"; else not_ok "a region counts as configuration"; fi
+run_configure "$BR_CONF"
+assert_eq "bedrock: region persisted" "$(conf_yaml_value "$BR_CONF" llm_region)" "eu-west-1"
+assert_eq "bedrock: model persisted" "$(conf_yaml_value "$BR_CONF" llm_model)" "eu.anthropic.claude-sonnet-5-5"
+assert_eq "bedrock: key kept by a run without it" "$(conf_yaml_value "$BR_CONF" bedrock_api_key)" "$BR_KEY"
+assert_eq "bedrock: provider kept" "$(conf_yaml_value "$BR_CONF" agentic_provider)" "bedrock"
+assert_eq "region change is an agentic change" "$SVC_AGENTIC_CHANGED" "true"
+if service_conf_agentic_without_credential; then not_ok "bedrock with region and model has a credential"; else ok "bedrock with region and model has a credential"; fi
+reset_run
+run_configure "$BR_CONF"
+assert_eq "no-arg re-run keeps llm_region" "$(conf_yaml_value "$BR_CONF" llm_region)" "eu-west-1"
+assert_eq "no-arg re-run: no agentic change (bedrock)" "$SVC_AGENTIC_CHANGED" "false"
+WRAP_OUT="$(env -u EDAMAME_LLM_API_KEY -u EDAMAME_LLM_MODEL -u EDAMAME_LLM_REGION -u EDAMAME_LLM_BASE_URL \
+    EXPECTED_KEY="$BR_KEY" EDAMAME_POSTURE_CONF="$BR_CONF" EDAMAME_POSTURE_BIN="$STUB3" sh "$WRAPPER" 2>&1)"
+case "$WRAP_OUT" in
+    *"--agentic-mode analyze --agentic-provider bedrock"*) ok "wrapper passes --agentic-provider bedrock" ;;
+    *) not_ok "wrapper passes --agentic-provider bedrock: $WRAP_OUT" ;;
+esac
+case "$WRAP_OUT" in
+    *"ENV_KEY:match"*"ENV_MODEL:eu.anthropic.claude-sonnet-5-5"*"ENV_REGION:eu-west-1"*"ENV_BASE_URL:<unset>"*)
+        ok "wrapper exports the Bedrock key, model and region, and no base URL" ;;
+    *) not_ok "wrapper exports the Bedrock key, model and region, and no base URL: $WRAP_OUT" ;;
+esac
+case "$WRAP_OUT" in
+    *"$BR_KEY"*) not_ok "wrapper never prints the Bedrock key" ;;
+    *) ok "wrapper never prints the Bedrock key" ;;
 esac
 
 # read_pin_file: first line, digits only; warns when group/world readable.

@@ -1248,7 +1248,11 @@ pub fn background_configure_agentic(provider: String) {
     info!("Configuring AI Assistant provider: {}", provider);
 
     // Unified API key handling through EDAMAME_LLM_API_KEY for all providers
-    let api_key = std::env::var("EDAMAME_LLM_API_KEY").unwrap_or_default();
+    // (Bedrock also takes AWS's own variable for its API keys).
+    let mut api_key = std::env::var("EDAMAME_LLM_API_KEY").unwrap_or_default();
+    if api_key.is_empty() && provider == "bedrock" {
+        api_key = std::env::var(BEDROCK_KEY_ENV).unwrap_or_default();
+    }
 
     // Handle EDAMAME Portal LLM
     if provider == "edamame" {
@@ -1283,14 +1287,30 @@ pub fn background_configure_agentic(provider: String) {
         return;
     }
 
-    // Handle BYOLLM providers (claude, openai, ollama)
-    let model = std::env::var("EDAMAME_LLM_MODEL").unwrap_or_else(|_| match provider.as_str() {
-        "claude" => "claude-haiku-4-5-20251001".to_string(),
-        "openai" => "gpt-5-mini-2025-08-07".to_string(),
-        "ollama" => "llama4".to_string(),
-        _ => String::new(),
-    });
-    let base_url = std::env::var("EDAMAME_LLM_BASE_URL").unwrap_or_default();
+    // Handle BYOLLM providers (claude, openai, ollama, bedrock)
+    let bedrock = if provider == "bedrock" {
+        match resolve_bedrock_connection(&api_key, |name| std::env::var(name).ok()) {
+            Ok(connection) => Some(connection),
+            Err(e) => {
+                error!("{}", e);
+                return;
+            }
+        }
+    } else {
+        None
+    };
+    let (model, base_url) = match &bedrock {
+        Some(connection) => (connection.model.clone(), connection.base_url.clone()),
+        None => (
+            std::env::var("EDAMAME_LLM_MODEL").unwrap_or_else(|_| match provider.as_str() {
+                "claude" => "claude-haiku-4-5-20251001".to_string(),
+                "openai" => "gpt-5-mini-2025-08-07".to_string(),
+                "ollama" => "llama4".to_string(),
+                _ => String::new(),
+            }),
+            std::env::var("EDAMAME_LLM_BASE_URL").unwrap_or_default(),
+        ),
+    };
     let slack_bot_token = std::env::var("EDAMAME_AGENTIC_SLACK_BOT_TOKEN")
         .or_else(|_| std::env::var("EDAMAME_AGENTIC_WEBHOOK_ACTIONS_TOKEN"))
         .unwrap_or_default();
@@ -1325,12 +1345,162 @@ pub fn background_configure_agentic(provider: String) {
         telegram_enabled,
         export_to_portal,
     ) {
-        info!("AI Assistant configured: {} / {}", provider, model);
+        match &bedrock {
+            Some(connection) => {
+                // The level is set on its own and belongs to the model.
+                if !agentic_set_llm_reasoning_effort(connection.reasoning_effort.clone()) {
+                    error!(
+                        "Failed to set the reasoning level '{}' of {}",
+                        connection.reasoning_effort, model
+                    );
+                }
+                info!(
+                    "AI Assistant configured: bedrock / {} in {} (reasoning: {})",
+                    model,
+                    connection.region,
+                    if connection.reasoning_effort.is_empty() {
+                        "model default"
+                    } else {
+                        connection.reasoning_effort.as_str()
+                    }
+                );
+            }
+            None => info!("AI Assistant configured: {} / {}", provider, model),
+        }
     } else {
         error!("Failed to configure AI Assistant. Check EDAMAME_LLM_API_KEY environment variable.");
     }
 
     configure_telegram_interactive();
+}
+
+/// AWS's own variable for a Bedrock API key, read when EDAMAME_LLM_API_KEY
+/// is empty.
+const BEDROCK_KEY_ENV: &str = "AWS_BEARER_TOKEN_BEDROCK";
+
+/// Where the region of a Bedrock API key is read, in order: the key works in
+/// the region it was created in only.
+const BEDROCK_REGION_ENVS: &[&str] = &["EDAMAME_LLM_REGION", "AWS_REGION", "AWS_DEFAULT_REGION"];
+
+/// The Bedrock model a daemon connects to, as `background_configure_agentic`
+/// saves it.
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct BedrockConnection {
+    pub region: String,
+    /// The region's runtime endpoint, from core (`agentic_list_bedrock_models`).
+    pub base_url: String,
+    /// An inference profile or model id the key can call.
+    pub model: String,
+    /// One of the model's reasoning levels, empty for the model's default.
+    pub reasoning_effort: String,
+}
+
+/// Resolve `--agentic-provider bedrock` from the environment: the key's
+/// region (`BEDROCK_REGION_ENVS`), the model (`EDAMAME_LLM_MODEL`, required:
+/// which models exist depends on the account and the region) and the
+/// reasoning level (`EDAMAME_LLM_REASONING_EFFORT`, else the model's own
+/// default). The key and the region are checked against Bedrock by listing
+/// the models the key can call, the list the app's model picker shows.
+pub(crate) fn resolve_bedrock_connection(
+    api_key: &str,
+    env: impl Fn(&str) -> Option<String>,
+) -> Result<BedrockConnection, String> {
+    resolve_bedrock_connection_with(api_key, env, |key, region| {
+        edamame_core::api::api_agentic::agentic_list_bedrock_models(key, region)
+    })
+}
+
+fn resolve_bedrock_connection_with(
+    api_key: &str,
+    env: impl Fn(&str) -> Option<String>,
+    list_models: impl FnOnce(String, String) -> edamame_core::api::api_agentic::BedrockModelsAPI,
+) -> Result<BedrockConnection, String> {
+    let var = |name: &str| {
+        env(name)
+            .map(|v| v.trim().to_string())
+            .filter(|v| !v.is_empty())
+    };
+    if api_key.trim().is_empty() {
+        return Err(format!(
+            "A Bedrock API key is required for provider 'bedrock': set EDAMAME_LLM_API_KEY (or {})",
+            BEDROCK_KEY_ENV
+        ));
+    }
+    let Some(region) = BEDROCK_REGION_ENVS.iter().find_map(|name| var(name)) else {
+        return Err(
+            "Provider 'bedrock' needs the AWS region the API key was created in: set EDAMAME_LLM_REGION (for example eu-west-1)"
+                .to_string(),
+        );
+    };
+    if var("EDAMAME_LLM_BASE_URL").is_some() {
+        warn!(
+            "EDAMAME_LLM_BASE_URL is ignored for provider 'bedrock': the endpoint is the region's"
+        );
+    }
+
+    let listed = list_models(api_key.trim().to_string(), region.clone());
+    if !listed.error.is_empty() {
+        return Err(format!(
+            "Listing the Bedrock models in {} failed: {}",
+            region, listed.error
+        ));
+    }
+    let available = || {
+        if listed.models.is_empty() {
+            "none listed for this key".to_string()
+        } else {
+            listed
+                .models
+                .iter()
+                .map(|m| m.id.as_str())
+                .collect::<Vec<_>>()
+                .join(", ")
+        }
+    };
+    let Some(model) = var("EDAMAME_LLM_MODEL") else {
+        return Err(format!(
+            "Provider 'bedrock' needs EDAMAME_LLM_MODEL, one of the models this key can call in {}: {}",
+            region,
+            available()
+        ));
+    };
+    let listed_model = listed.models.iter().find(|m| m.id == model);
+    let reasoning_effort = match (var("EDAMAME_LLM_REASONING_EFFORT"), listed_model) {
+        (Some(level), Some(m)) if !m.reasoning_levels.contains(&level) => {
+            return Err(if m.reasoning_levels.is_empty() {
+                format!(
+                    "EDAMAME_LLM_REASONING_EFFORT is '{}' but {} takes no reasoning level",
+                    level, model
+                )
+            } else {
+                format!(
+                    "EDAMAME_LLM_REASONING_EFFORT is '{}' but {} takes one of: {}",
+                    level,
+                    model,
+                    m.reasoning_levels.join(", ")
+                )
+            });
+        }
+        (Some(level), _) => level,
+        (None, Some(m)) => m.default_reasoning.clone(),
+        (None, None) => String::new(),
+    };
+    if listed_model.is_none() {
+        // Bedrock lists the models measured with EDAMAME's requests; another
+        // one the key can call is the operator's choice.
+        warn!(
+            "Bedrock model '{}' is not among the models listed for this key in {} ({}); using it as given",
+            model,
+            region,
+            available()
+        );
+    }
+    Ok(BedrockConnection {
+        region,
+        base_url: listed.base_url,
+        model,
+        reasoning_effort,
+    })
 }
 
 // ============================================================================
@@ -4614,5 +4784,166 @@ mod tests {
             "evidence",
             "div:c2"
         ));
+    }
+
+    fn bedrock_list() -> edamame_core::api::api_agentic::BedrockModelsAPI {
+        use edamame_core::api::api_agentic::{BedrockModelAPI, BedrockModelsAPI};
+        let model = |id: &str, levels: &[&str], default: &str| BedrockModelAPI {
+            id: id.to_string(),
+            name: id.to_string(),
+            provider: "Anthropic".to_string(),
+            routing: "eu".to_string(),
+            reasoning_levels: levels.iter().map(|l| l.to_string()).collect(),
+            default_reasoning: default.to_string(),
+        };
+        BedrockModelsAPI {
+            base_url: "https://bedrock-runtime.eu-west-1.amazonaws.com".to_string(),
+            models: vec![
+                model(
+                    "eu.anthropic.claude-sonnet-5-5",
+                    &["low", "medium", "high"],
+                    "medium",
+                ),
+                model("eu.anthropic.claude-haiku-4-5", &[], ""),
+            ],
+            error: String::new(),
+        }
+    }
+
+    fn env_of(pairs: &'static [(&'static str, &'static str)]) -> impl Fn(&str) -> Option<String> {
+        move |name| {
+            pairs
+                .iter()
+                .find(|(k, _)| *k == name)
+                .map(|(_, v)| v.to_string())
+        }
+    }
+
+    #[test]
+    fn bedrock_takes_the_region_the_model_and_the_models_own_reasoning_default() {
+        let env = env_of(&[
+            ("AWS_REGION", "eu-west-1"),
+            ("EDAMAME_LLM_MODEL", "eu.anthropic.claude-sonnet-5-5"),
+        ]);
+        let mut asked = None;
+        let connection = resolve_bedrock_connection_with("key", env, |key, region| {
+            asked = Some((key, region));
+            bedrock_list()
+        })
+        .unwrap();
+        assert_eq!(asked, Some(("key".to_string(), "eu-west-1".to_string())));
+        assert_eq!(
+            connection,
+            BedrockConnection {
+                region: "eu-west-1".to_string(),
+                base_url: "https://bedrock-runtime.eu-west-1.amazonaws.com".to_string(),
+                model: "eu.anthropic.claude-sonnet-5-5".to_string(),
+                reasoning_effort: "medium".to_string(),
+            }
+        );
+
+        // EDAMAME_LLM_REGION wins over AWS's variables; a listed level is taken.
+        let env = env_of(&[
+            ("EDAMAME_LLM_REGION", "us-east-1"),
+            ("AWS_REGION", "eu-west-1"),
+            ("EDAMAME_LLM_MODEL", "eu.anthropic.claude-sonnet-5-5"),
+            ("EDAMAME_LLM_REASONING_EFFORT", "high"),
+        ]);
+        let connection =
+            resolve_bedrock_connection_with("key", env, |_, _| bedrock_list()).unwrap();
+        assert_eq!(connection.region, "us-east-1");
+        assert_eq!(connection.reasoning_effort, "high");
+
+        // A model the list does not show is the operator's choice: no level
+        // is guessed for it.
+        let env = env_of(&[
+            ("AWS_DEFAULT_REGION", "eu-west-1"),
+            ("EDAMAME_LLM_MODEL", "eu.meta.llama-5"),
+        ]);
+        let connection =
+            resolve_bedrock_connection_with("key", env, |_, _| bedrock_list()).unwrap();
+        assert_eq!(connection.model, "eu.meta.llama-5");
+        assert_eq!(connection.reasoning_effort, "");
+    }
+
+    #[test]
+    fn bedrock_without_a_key_a_region_or_a_model_is_refused_before_saving() {
+        let never = |_: String, _: String| -> edamame_core::api::api_agentic::BedrockModelsAPI {
+            panic!("Bedrock must not be asked without a key and a region")
+        };
+        let full = &[
+            ("EDAMAME_LLM_REGION", "eu-west-1"),
+            ("EDAMAME_LLM_MODEL", "eu.anthropic.claude-sonnet-5-5"),
+        ];
+        let err = resolve_bedrock_connection_with(" ", env_of(full), never).unwrap_err();
+        assert!(err.contains("AWS_BEARER_TOKEN_BEDROCK"), "{}", err);
+
+        let err = resolve_bedrock_connection_with(
+            "key",
+            env_of(&[("EDAMAME_LLM_MODEL", "eu.anthropic.claude-sonnet-5-5")]),
+            never,
+        )
+        .unwrap_err();
+        assert!(err.contains("EDAMAME_LLM_REGION"), "{}", err);
+
+        // No model: the error names the ones the key can call.
+        let err = resolve_bedrock_connection_with(
+            "key",
+            env_of(&[("EDAMAME_LLM_REGION", "eu-west-1")]),
+            |_, _| bedrock_list(),
+        )
+        .unwrap_err();
+        assert!(err.contains("EDAMAME_LLM_MODEL"), "{}", err);
+        assert!(err.contains("eu.anthropic.claude-haiku-4-5"), "{}", err);
+
+        // Bedrock's own refusal is passed on.
+        let err = resolve_bedrock_connection_with("key", env_of(full), |_, _| {
+            let mut refused = bedrock_list();
+            refused.models.clear();
+            refused.error = "Bedrock error 403 Forbidden: Authentication failed".to_string();
+            refused
+        })
+        .unwrap_err();
+        assert!(err.contains("403"), "{}", err);
+
+        // A level the listed model does not take.
+        let err = resolve_bedrock_connection_with(
+            "key",
+            env_of(&[
+                ("EDAMAME_LLM_REGION", "eu-west-1"),
+                ("EDAMAME_LLM_MODEL", "eu.anthropic.claude-sonnet-5-5"),
+                ("EDAMAME_LLM_REASONING_EFFORT", "max"),
+            ]),
+            |_, _| bedrock_list(),
+        )
+        .unwrap_err();
+        assert!(err.contains("low, medium, high"), "{}", err);
+        let err = resolve_bedrock_connection_with(
+            "key",
+            env_of(&[
+                ("EDAMAME_LLM_REGION", "eu-west-1"),
+                ("EDAMAME_LLM_MODEL", "eu.anthropic.claude-haiku-4-5"),
+                ("EDAMAME_LLM_REASONING_EFFORT", "low"),
+            ]),
+            |_, _| bedrock_list(),
+        )
+        .unwrap_err();
+        assert!(err.contains("takes no reasoning level"), "{}", err);
+    }
+
+    #[test]
+    fn bedrock_resolution_goes_through_cores_listing() {
+        // Core checks the region before any request leaves (it becomes part
+        // of the host name that receives the key).
+        edamame_foundation::runtime::init();
+        let err = resolve_bedrock_connection(
+            "key",
+            env_of(&[
+                ("EDAMAME_LLM_REGION", "eu-west-1.attacker.example/"),
+                ("EDAMAME_LLM_MODEL", "eu.anthropic.claude-sonnet-5-5"),
+            ]),
+        )
+        .unwrap_err();
+        assert!(err.contains("Invalid AWS region"), "{}", err);
     }
 }
