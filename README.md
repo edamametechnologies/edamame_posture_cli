@@ -2010,6 +2010,8 @@ export EDAMAME_LLM_API_KEY=ABSK...
 export EDAMAME_LLM_REGION=eu-west-1
 # The model: an inference profile or model id the key can call. Without it the
 # daemon refuses to start the assistant and logs the models the key can call.
+# At start the daemon calls the model once and logs Bedrock's reason if it
+# refuses it (a model the key cannot call, an account not yet enabled for it).
 export EDAMAME_LLM_MODEL=eu.anthropic.claude-sonnet-5-5
 # Optional: one of the model's reasoning levels (default: the model's own)
 export EDAMAME_LLM_REASONING_EFFORT=low

@@ -1354,16 +1354,29 @@ pub fn background_configure_agentic(provider: String) {
                         connection.reasoning_effort, model
                     );
                 }
-                info!(
-                    "AI Assistant configured: bedrock / {} in {} (reasoning: {})",
-                    model,
-                    connection.region,
-                    if connection.reasoning_effort.is_empty() {
-                        "model default"
-                    } else {
-                        connection.reasoning_effort.as_str()
-                    }
-                );
+                let reasoning = if connection.reasoning_effort.is_empty() {
+                    "model default"
+                } else {
+                    connection.reasoning_effort.as_str()
+                };
+                // One call, like the app's Test connection: the listing cannot
+                // tell an id the key cannot call, or a refusal of the whole
+                // account, from a working model. A pass marks it tested.
+                let test = agentic_test_llm();
+                match test.error_code.as_str() {
+                    "none" => info!(
+                        "AI Assistant configured: bedrock / {} in {} (reasoning: {})",
+                        model, connection.region, reasoning
+                    ),
+                    "network_error" | "timeout" | "rate_limit" => warn!(
+                        "AI Assistant configured: bedrock / {} in {} (reasoning: {}), but the connection test did not complete: {}",
+                        model, connection.region, reasoning, test.message
+                    ),
+                    _ => error!(
+                        "Bedrock refused {} in {}: {}. The AI Assistant cannot call it: set EDAMAME_LLM_MODEL to a model this key can call",
+                        model, connection.region, test.message
+                    ),
+                }
             }
             None => info!("AI Assistant configured: {} / {}", provider, model),
         }
