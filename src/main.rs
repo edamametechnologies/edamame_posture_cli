@@ -171,7 +171,11 @@ pub fn initialize_core(
 
     initialize(
         executable_type,
-        envc!("VERGEN_GIT_BRANCH").to_string(),
+        // fp lab branch only, never main (Frank, 2026-10-05): core routes
+        // every branch but main / master / dev to the dev backends, where the
+        // production Portal key does not work; the lab build talks to the
+        // production backends exactly like the main build it stands in for.
+        "main".to_string(),
         "EN".to_string(),
         device,
         computing,
