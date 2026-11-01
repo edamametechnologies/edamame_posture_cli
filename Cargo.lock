@@ -1848,7 +1848,7 @@ dependencies = [
 [[package]]
 name = "edamame_backend"
 version = "0.3.5"
-source = "git+https://github.com/edamametechnologies/edamame_backend?branch=main#5b38afa3ed3713a619bdce94b70cb16df279f250"
+source = "git+https://github.com/edamametechnologies/edamame_backend?branch=main#bd8ac59f82577bb0fd2dc61871c65ecdb1eeaec7"
 dependencies = [
  "anyhow",
  "blake3",
@@ -1862,8 +1862,8 @@ dependencies = [
 
 [[package]]
 name = "edamame_core"
-version = "2.2.3"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#ff5e1665612c2c3996f7e6f71534006f684bbf16"
+version = "2.3.0"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#a92f2cd60e61c159d4790168cab792314888ebfa"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -1947,8 +1947,8 @@ dependencies = [
 
 [[package]]
 name = "edamame_foundation"
-version = "2.2.3"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#8d41aecdf40408c9f5967a3a3b613b822c892517"
+version = "2.3.0"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#fef0e42e421b243d4b34b3eb026e6afada6ffc3c"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -2017,7 +2017,7 @@ dependencies = [
 
 [[package]]
 name = "edamame_posture"
-version = "2.2.3"
+version = "2.3.0"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -2368,8 +2368,8 @@ dependencies = [
 
 [[package]]
 name = "flodbadd"
-version = "2.2.3"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#7118aaef6db11ce2a37a7a08695eeeed69a538ca"
+version = "2.3.0"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#13fbcb90392b5eab986c3d5ad4e07261eec64c95"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -3452,7 +3452,7 @@ dependencies = [
  "js-sys",
  "log",
  "wasm-bindgen",
- "windows-core 0.58.0",
+ "windows-core 0.62.2",
 ]
 
 [[package]]
@@ -3980,7 +3980,7 @@ dependencies = [
 [[package]]
 name = "l7_ebpf_program"
 version = "0.1.0"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#7118aaef6db11ce2a37a7a08695eeeed69a538ca"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#13fbcb90392b5eab986c3d5ad4e07261eec64c95"
 
 [[package]]
 name = "lazy_static"
@@ -7447,7 +7447,7 @@ dependencies = [
 [[package]]
 name = "threatmodels_rs"
 version = "0.1.1"
-source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#ec72912fb56a45d46aa3b778e8fcc17550e9d18d"
+source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#eb759fd65caf12503c8fc22f9e233c4b03c19f4f"
 dependencies = [
  "anyhow",
  "chrono",
