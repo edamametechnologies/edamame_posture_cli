@@ -81,7 +81,11 @@ E2E, which imports it too); the RPC wrapper is
    decision, `known_open` in `scenarios.py`: every alertable finding has one
    of the declared checks and lies in a temp tree the action created; the
    findings are still reported, and any other alertable finding or incident
-   makes the case `FAIL`). Exit 1 on any FAIL (naming each candidate file),
+   makes the case `FAIL`), `DECIDED` (deterministic leg only: every
+   alertable finding carries a basis decided to alert without a model,
+   `DECIDED_ALERTABLE_WITHOUT_MODEL` in `run_fp_lab.py`, today FP-MAC-40's
+   `packaged_app_credential_store_anomalous_session`; the LLM leg still
+   fails on it when the model kept it). Exit 1 on any FAIL (naming each candidate file),
    2 on preflight failure, else 0.
 
 Findings are attributed to the case in whose window they appeared; a late

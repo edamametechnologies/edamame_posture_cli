@@ -925,8 +925,11 @@ def run_cmd_run(args: argparse.Namespace) -> int:
             case["traceback"] = traceback.format_exc()[-3000:]
             log(f"  ERROR: {exc}")
         alertable = [e for e in case["attack_pattern"] if e.get("alertable")]
+        decided = decided_without_model(args.leg, alertable) if not case["divergence"] else None
         if alertable and not case["divergence"] and known_open_covers(s, alertable, case.get("owned_trees") or []):
             case.update(status="KNOWN-OPEN", reason=f"known open: {s.known_open}")
+        elif decided:
+            case.update(status="DECIDED", reason=f"decided grade without a model: {decided}")
         elif alertable or case["divergence"]:
             case["status"] = "FAIL"
         elif case.get("error"):
@@ -956,8 +959,12 @@ def run_cmd_run(args: argparse.Namespace) -> int:
     settle(state, observer_agents, args.drain_secs, args.tick_every,
            make_collector(drain_case, drain_scn, drain_dir, observer_agents))
     drain_case["tick_timings"] = take_tick_timings()
-    drain_case["status"] = "FAIL" if ([e for e in drain_case["attack_pattern"] if e.get("alertable")]
-                                      or drain_case["divergence"]) else "PASS"
+    drain_alertable = [e for e in drain_case["attack_pattern"] if e.get("alertable")]
+    drain_decided = decided_without_model(args.leg, drain_alertable) if not drain_case["divergence"] else None
+    if drain_decided:
+        drain_case.update(status="DECIDED", reason=f"decided grade without a model: {drain_decided}")
+    else:
+        drain_case["status"] = "FAIL" if (drain_alertable or drain_case["divergence"]) else "PASS"
     drain_case["finished_at"] = now_iso()
     write_json(drain_dir / "case.json", drain_case)
     results.append(drain_case)
@@ -971,6 +978,31 @@ def run_cmd_run(args: argparse.Namespace) -> int:
     sampler.stop()
     write_json(run_dir / "perf.json", daemon_perf.summarize(sampler.samples, results))
     return write_summary(run_dir, pf, results, args)
+
+
+# Detection bases decided to alert without a model, the adjudicator's to
+# lower. On the deterministic leg (no model) such a finding is the decided
+# grade, not a candidate FP; the LLM leg still fails when the model kept it.
+DECIDED_ALERTABLE_WITHOUT_MODEL = {
+    "packaged_app_credential_store_anomalous_session":
+        "FP-MAC-40 (2026-10-23: an application's own credential store on its anomalous session, "
+        "alertable HIGH outside the floor, the model decides)",
+}
+
+
+def decided_without_model(leg: str, alertable: List[dict]) -> Optional[str]:
+    """On the deterministic leg, the decisions covering every alertable
+    finding, or None when one is not covered (or on the LLM leg)."""
+    if leg != "deterministic" or not alertable:
+        return None
+    reasons = set()
+    for entry in alertable:
+        hit = next((DECIDED_ALERTABLE_WITHOUT_MODEL[tag] for tag in (entry.get("detection_basis") or [])
+                    if tag in DECIDED_ALERTABLE_WITHOUT_MODEL), None)
+        if hit is None:
+            return None
+        reasons.add(hit)
+    return "; ".join(sorted(reasons))
 
 
 def known_open_covers(s: Scenario, alertable: List[dict], owned_trees: List[str]) -> bool:
