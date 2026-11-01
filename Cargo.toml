@@ -8,7 +8,7 @@ description = "EDAMAME Security posture analysis and remediation"
 [dependencies]
 # Local copy in order to allow rapid development/debug
 #edamame_core = { path = "../edamame_core", features = [ "userdefaults", "pwned", "flodbadd", "trust", "agentic", "mcp", "swiftrs", "standalone", "fim" ] }
-edamame_core = { git = "https://github.com/edamametechnologies/edamame_core", branch = "main", features = [ "userdefaults", "pwned", "flodbadd", "trust", "agentic", "mcp", "swiftrs", "standalone", "fim" ] }
+edamame_core = { git = "https://github.com/edamametechnologies/edamame_core", branch = "fp-lab-2.3.1", features = [ "userdefaults", "pwned", "flodbadd", "trust", "agentic", "mcp", "swiftrs", "standalone", "fim" ] }
 
 # Error handling
 anyhow = "1.0.82"
