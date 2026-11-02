@@ -30,8 +30,9 @@ jobs:
             runs-on: ubuntu-latest
             arch: x86_64
           - os: macos
-            # We can't use macos-latest here because of permissions issues in the network tests
-            runs-on: macos-14
+            # Pinned rather than macos-latest (permission issues in the network tests were seen
+            # there). macos-14 was retired on 2026-11-02.
+            runs-on: macos-15
             arch:
           - os: windows
             runs-on: windows-latest
@@ -193,8 +194,9 @@ jobs:
             runs-on: ubuntu-latest
             arch: x86_64
           - os: macos
-            # We can't use macos-latest here because of permissions issues in the network tests
-            runs-on: macos-14
+            # Pinned rather than macos-latest (permission issues in the network tests were seen
+            # there). macos-14 was retired on 2026-11-02.
+            runs-on: macos-15
             arch:
           - os: windows
             runs-on: windows-latest
