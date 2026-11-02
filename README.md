@@ -110,7 +110,7 @@ This guide walks you through the most common use case: running EDAMAME Posture i
 - **AI-powered remediation** that analyzes and fixes security issues automatically
 - **Network visibility** with LAN scanning and traffic capture
 - **Unified notifications** for agentic actions and divergence/vulnerability alerts
-- **CVE and divergence detection** -- see the [EDAMAME Agentic User Guide](https://github.com/edamametechnologies/edamame_security/blob/main/AGENTIC.md) for detection architecture and [E2E tests](tests/e2e/E2E_TESTS.md) for coverage details
+- **CVE and divergence detection** -- see the [EDAMAME Agentic User Guide](../edamame_core/docs/ai-security/03-architecture.md) for detection architecture and [E2E tests](tests/e2e/E2E_TESTS.md) for coverage details
 
 ### Prerequisites
 
@@ -336,7 +336,7 @@ edamame_posture get-file-events [--fail-on-suspicious]
 edamame_posture clear-file-events
 ```
 
-The attack pattern detector's checks are model-independent: packet capture, blacklist/anomaly evidence, file integrity events and process lineage produce the raw findings without any LLM. **Publication is not:** every tick with raw findings is adjudicated by the configured LLM (KEEP / DEMOTE / SUPPRESS per finding, bounded by the evidence-floor guardrails), and a tick whose adjudication fails, times out, or has no provider configured is withheld -- `vulnerability-status` reports `adjudication_status: error` or `unavailable` and zero findings until an adjudicator answers. That is the pinned `llm` mode; under the 2.0 default (`auto`) a daemon without an LLM provider runs `deterministic` and publishes its findings without review. See `edamame_core/VULNERABILITYDETECTION.md`, "What the adjudicator adds, and publication without it".
+The attack pattern detector's checks are model-independent: packet capture, blacklist/anomaly evidence, file integrity events and process lineage produce the raw findings without any LLM. **Publication is not:** every tick with raw findings is adjudicated by the configured LLM (KEEP / DEMOTE / SUPPRESS per finding, bounded by the evidence-floor guardrails), and a tick whose adjudication fails, times out, or has no provider configured is withheld -- `vulnerability-status` reports `adjudication_status: error` or `unavailable` and zero findings until an adjudicator answers. That is the pinned `llm` mode; under the 2.0 default (`auto`) a daemon without an LLM provider runs `deterministic` and publishes its findings without review. See [`07-attack-pattern-detector.md`](../edamame_core/docs/ai-security/07-attack-pattern-detector.md), "What the adjudicator adds, and publication without it".
 
 **Adjudication modes** (`vulnerability-adjudication-mode`, persisted; the core
 default since 2.0.0 is `auto`, and the daemon pins `llm` at start when
@@ -356,7 +356,7 @@ severity, which already carries the CRS clamp. The divergence engine takes the
 same switch (`divergence-adjudication-mode`), where `llm` already falls back to
 the deterministic verdict on failure and `deterministic` skips the LLM entirely.
 The measured trade -- what the adjudicator quiets, what it costs -- is in
-`edamame_core/VULNERABILITYDETECTION.md`.
+[`07-attack-pattern-detector.md`](../edamame_core/docs/ai-security/07-attack-pattern-detector.md).
 
 ### Agent Telemetry: Metrics History (read-only, LLM-free)
 

@@ -190,7 +190,7 @@ first leg's findings, which the runner baselines, and hides repeats.
 
 On 2026-10-23 the operator's developer Mac raised seven alertable findings
 on an ordinary day, all benign and none of them a lab shape
-(`edamame_core/FALSEPOSITIVES-APPROACH-2026-10.md`, section 2.1). These five
+([`13-false-positive-program.md`](../../../edamame_core/docs/ai-security/13-false-positive-program.md), the October 2026 analysis, "What the evidence says"). These five
 agent-free scenarios reproduce those shapes. Each is benign by construction
 and passes (no alertable finding) on a correct detector. A FAIL is the FP
 named in the case's `fp_class`, or a new one. The automatic CI leg runs them
@@ -204,7 +204,7 @@ for the no-model user's view).
 | `direct-os-relay-keychain-sidecars` | macOS only | `/usr/bin/curl`, an Apple platform binary standing in for `networkserviceproxy`, runs as a one-shot launchd job (launchd is its parent, as it is the daemon's). The job's shell opens two files in a test home's `Library/Keychains` and execs curl, which holds them: the lock `.fl<hex>` and the safe-save sidecar `login.keychain-db.sb-<hex>-<hex>`. It requests Apple's connectivity page every 10 s for about 80 s (`--rate 6/m`; a curl older than 7.84 holds one slow transfer instead) | The files are placeholders in the workspace (an empty lock file and a copy of a placeholder database) and curl never reads them. The real keychain and `~/Library/Keychains` are never opened | Descriptors closed, test home removed | FP-MAC-19 |
 | `direct-sync-client-store-rename` | Linux, macOS, Windows | `standins.py`, run as `sync-client/fplab_sync_client.py sync-client --data-dir <dir>`, creates its data directory in a test home under the workspace, at the platform's application-data layout (`Library/Application Support/FPLab Sync/account-0001`, `.config/fplab-sync/account-0001`, `AppData/Local/FPLab Sync/account-0001`). It writes a placeholder `credentials.json` there with a safe-save rename and holds it open while it fetches the Drive API discovery document from www.googleapis.com every 8 s for about 80 s. It refreshes the file three times (writes `credentials.json.sb-<hex>`, then replaces the store with it) | The client created the directory and the file, and its command line names the directory. The store holds a fixed placeholder, and the client reads nothing it did not write | Test home removed | FP-MAC-40 |
 | `direct-installer-sibling-temp-staging` | Linux, Windows (needs the system `tar`; on Windows `%SystemRoot%\System32\tar.exe`). Not macOS: a copy of an Apple platform binary is killed at exec | Copies the platform's `tar` into `<tmp>/<ID2>/FPLab Installer/` (the extractor a self-extracting installer carries), writes `payload.tar` beside it, and runs the copy to unpack 480 files into `<tmp>/<ID1>/`, a sibling tree the extraction creates: a manifest, 30 locale tables, 40 components with a descriptor and 10 data parts each, and 9 documents | The payload is inert data: no executable bits, no scripts, no binaries, no network | Both trees removed | FP-MAC-31 (`KNOWN-OPEN`: HIGH is the intended grade, decided 2026-10-24/25; an unsigned installer staging from a temporary tree stays HIGH, the 2.2.1 signature exception lowers only a named publisher's valid signature) |
-| `direct-script-document-in-temp` | Linux, macOS, Windows | `standins.py`, run as `scripts/make_report.py report --out <tmp>/report-<hex>.pdf`, requests pypi.org's JSON API every 8 s for about 60 s. Meanwhile it writes a 1-page PDF report into the temp directory, then rewrites it with 2 pages | The PDF is text in Helvetica, with no JavaScript, actions, annotations or embedded files. The request has nothing to do with the document | PDF removed | E3 in `FALSEPOSITIVES.md` (`fp_class` `new`) |
+| `direct-script-document-in-temp` | Linux, macOS, Windows | `standins.py`, run as `scripts/make_report.py report --out <tmp>/report-<hex>.pdf`, requests pypi.org's JSON API every 8 s for about 60 s. Meanwhile it writes a 1-page PDF report into the temp directory, then rewrites it with 2 pages | The PDF is text in Helvetica, with no JavaScript, actions, annotations or embedded files. The request has nothing to do with the document | PDF removed | E3 in [`registry/README.md`](../../../edamame_core/docs/ai-security/registry/README.md) (`fp_class` `new`) |
 
 Notes:
 
@@ -353,6 +353,6 @@ PASS / SKIP with reasons, resources, artifacts); then `release_all.sh`.
 Add a `Scenario` to `scenarios.py` (and a function to `direct_actions.ACTIONS`
 or a fixture to `lab_workspace.FIXTURES` if needed), then
 `python3 tests/fp_lab/run_fp_lab.py validate`. Set `fp_class` to the FP it
-reproduces (`FALSEPOSITIVES.md` id) or `new`, `marker` to a file the stimulus
+reproduces ([`registry/README.md`](../../../edamame_core/docs/ai-security/registry/README.md) id) or `new`, `marker` to a file the stimulus
 must produce, and `temp_behaviour=True` only when temp is the point. `tags`
 groups scenarios into a set that `--scenarios tag:<name>` selects.

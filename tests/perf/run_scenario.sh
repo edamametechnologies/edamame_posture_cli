@@ -69,7 +69,7 @@ esac
 # a phantom regression. Bumping the window to 360s decouples the sampler
 # horizon from the score-task period (300s, 600s, 900s, ...) so the
 # burst always lands inside the window in a stable position regardless
-# of phase. See FALSEPOSITIVES.md FP-CI-? for the full root-cause writeup.
+# of phase. See edamame_core/docs/ai-security/registry/README.md FP-CI-? for the full root-cause writeup.
 if [[ "$SCENARIO" == "hub_idle" && "$DURATION" -eq 300 ]]; then
   log "scenario=hub_idle: bumping duration 300 -> 360 to decouple sampler from compute_score_task period"
   DURATION=360

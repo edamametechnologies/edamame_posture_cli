@@ -2,7 +2,7 @@ name: FP lab (deterministic leg)
 
 # The FP lab's deterministic leg (tests/fp_lab, both engines pinned to
 # deterministic, no model: what a user without the Portal sees), run
-# automatically (FALSEPOSITIVES-PLAN-2026-10 decision D5):
+# automatically (the 2.2 false-positive plan, edamame_core/docs/ai-security/13-false-positive-program.md decision D5):
 #
 #   - after every push to main that changes which core posture builds
 #     against: when tests.yml (which builds posture from source on every

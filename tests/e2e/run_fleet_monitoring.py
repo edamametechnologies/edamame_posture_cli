@@ -1095,7 +1095,7 @@ def run_real_divergence(agent_type: str, drive_timeout: int) -> tuple[bool | Non
 
 # ── Deterministic lineage floor (Gate 2 leg, SOFT) ─────────────────────────
 #
-# Increment 5 (DETECTIONGAPSPLAN-2026-09 step 5.6) added a prediction-INDEPENDENT
+# Increment 5 (the 2026-09-09 detection-gap plan, edamame_core/docs/ai-security/24-evolution.md step 5.6) added a prediction-INDEPENDENT
 # divergence floor: an agent-attributed session whose process was spawned from
 # /tmp (or whose kernel lineage is otherwise suspicious) AND that egresses to an
 # undeclared external host emits `correlation:untrusted_lineage_floor` (HIGH) and
@@ -1332,7 +1332,7 @@ def _log_drive_tail(drive_log: Path, title: str, lines: int = 15) -> None:
 
 # ── Courier shape (attack-pattern plane, SOFT) ────────────────────────────
 #
-# DETECTION-APPROACH-2026-10 P1/P6. A process that read a credential class and
+# the 2026-10-17 detection approach, edamame_core/docs/ai-security/24-evolution.md P1/P6. A process that read a credential class and
 # whose external sessions never reach the service that class is used with (an
 # SSH private key is used on port 22) is the courier shape: the credential
 # left with a process that talks only elsewhere. Driven here the way the
@@ -1553,7 +1553,7 @@ def run_courier_leg(agent_type: str, drive_timeout: int) -> tuple[str, str]:
 
 # ── Policy scope (divergence policy plane, SOFT) ─────────────────────────
 #
-# DETECTION-APPROACH-2026-10 E3/P6. The policy plane grades
+# the 2026-10-17 detection approach, edamame_core/docs/ai-security/24-evolution.md E3/P6. The policy plane grades
 # `policy:scope_escalation` when the agent's declared plan reaches a
 # destination the human never named: HIGH once a session exercised the claim,
 # LOW while it is the distiller's reading alone. The human plane is derived

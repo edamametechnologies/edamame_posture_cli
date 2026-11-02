@@ -180,7 +180,7 @@ expected_check_for() {
     # The published attack's own split: the main process reads three
     # credential types, its network helper sends (the parent's reads).
     sneakpeek_split)       echo "credential_harvest" ;;
-    # DETECTION-APPROACH-2026-10 P1 (2.1.0): the courier shape. A process
+    # the 2026-10-17 detection approach, edamame_core/docs/ai-security/24-evolution.md P1 (2.1.0): the courier shape. A process
     # holds a decoy SSH key open while its only external sessions trickle
     # filler to a web host on port 443 -- a resolved name on a routine port,
     # no breadth, no burst. The key's class is never used there (ssh's native

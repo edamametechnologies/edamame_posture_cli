@@ -544,7 +544,7 @@ SCENARIOS: List[Scenario] = [
         temp_behaviour=True,
         planes=("attack_pattern",),
         tags=("operators_day",),
-        notes="A Python script writing a PDF in /tmp with a sibling egress (E3 in FALSEPOSITIVES.md, "
+        notes="A Python script writing a PDF in /tmp with a sibling egress (E3 in edamame_core/docs/ai-security/registry/fleet-passes.md, "
         "left to the model on 09-27). Text-only PDF, written then rewritten, removed afterwards.",
     ),
 ]
