@@ -1301,6 +1301,65 @@ print(f"[{scenario}] miss diagnostics: file events {fim.get('events_total', 'una
       f"trace {'absent' if raw is None else f'{len(raw)} raw finding(s)'}"
       + (f", errors: {sorted(doc['errors'])}" if doc["errors"] else ""))
 PY
+  save_linux_fanotify_diagnostics "$scenario"
+}
+
+# findings/<scenario>.fanotify.txt (Linux only): what the kernel says about
+# the daemon's fanotify groups when a scenario misses. The credential-open
+# sensor (flodbadd credential_opens, Linux backend) marks the credential
+# directories by inode and re-marks every 300 s; a directory the previous
+# scenario's cleanup pruned and this one recreated is unmarked until then,
+# and the sensor logs a failed mark only at debug level. 2026-11-03: the
+# ubuntu-x64 leg missed sneakpeek_split twice (runs 41637053642 and
+# 41654883355) with the helper's session captured and its parent resolved
+# but no parent read recorded, while ubuntu-arm64 passed; nothing in the miss
+# document could say whether the marks were there. This reads, as root:
+# every fanotify fdinfo of the daemon (one line per marked inode), the
+# sensor threads' liveness, the current (device, inode) of each credential
+# directory and whether a mark covers it, and the fs.fanotify limits.
+save_linux_fanotify_diagnostics() {
+  local scenario="$1"
+  [[ "$(uname -s)" == "Linux" ]] || return 0
+  local out="$OUTPUT_DIR_ABS/findings/$scenario.fanotify.txt"
+  local sudo_cmd=""
+  if [[ $(id -u) -ne 0 ]] && command -v sudo >/dev/null 2>&1; then
+    sudo_cmd="sudo"
+  fi
+  {
+    echo "captured_utc=$(date -u +%FT%TZ) scenario=$scenario"
+    $sudo_cmd sysctl fs.fanotify 2>/dev/null || true
+    local pids
+    pids="$(pgrep -x edamame_posture 2>/dev/null | tr '\n' ' ')"
+    echo "daemon_pids=${pids:-none}"
+    local pid
+    for pid in $pids; do
+      echo "== pid $pid threads: $($sudo_cmd cat /proc/$pid/task/*/comm 2>/dev/null | grep -c credential) credential-open thread(s) of $($sudo_cmd ls /proc/$pid/task 2>/dev/null | wc -l)"
+      local fd
+      for fd in $($sudo_cmd ls /proc/$pid/fdinfo 2>/dev/null); do
+        if $sudo_cmd grep -q '^fanotify' "/proc/$pid/fdinfo/$fd" 2>/dev/null; then
+          echo "-- fanotify group fd $fd: $($sudo_cmd grep -c '^fanotify ino' "/proc/$pid/fdinfo/$fd" 2>/dev/null) inode mark(s), flags $($sudo_cmd grep -m1 '^fanotify flags' "/proc/$pid/fdinfo/$fd" 2>/dev/null)"
+          $sudo_cmd grep '^fanotify ino' "/proc/$pid/fdinfo/$fd" 2>/dev/null | head -400 | sed 's/^/   /'
+        fi
+      done
+    done
+    echo "== credential directories now (hex ino / sdev, as fdinfo prints them)"
+    local dir
+    for dir in "$HOME/.ssh" "$HOME/.aws" "$HOME/.gnupg" "$HOME/.kube" "$HOME/.docker" "$HOME/.config/gcloud"; do
+      if [[ -d "$dir" ]]; then
+        local ino dev
+        ino="$(stat -c %i "$dir" 2>/dev/null)"; dev="$(stat -c %d "$dir" 2>/dev/null)"
+        printf '%s ino:%x sdev:%x marked_in_fds=' "$dir" "$ino" "$dev"
+        local hits=0
+        for pid in $pids; do
+          hits=$((hits + $($sudo_cmd grep -l "^fanotify ino:$(printf '%x' "$ino") " /proc/$pid/fdinfo/* 2>/dev/null | wc -l)))
+        done
+        echo "$hits"
+      else
+        echo "$dir absent"
+      fi
+    done
+  } > "$out" 2>&1 || true
+  log "  saved the fanotify diagnostics to findings/$scenario.fanotify.txt"
 }
 
 # findings/<scenario>.meta.json: what this runner asserts for the scenario
