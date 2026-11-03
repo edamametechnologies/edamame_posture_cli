@@ -776,6 +776,80 @@ def script_document_in_temp(ws: Path) -> ActionResult:
         out.unlink(missing_ok=True)
 
 
+# 6. A signed installer bootstrapper staging into the OS temp directory: the
+#    shape of FP-WIN-37 (the python.org installer) and FP-WIN-27 (Visual
+#    Studio's bootstrapper) on the fleet, with the vendor's own signed binary.
+PYTHON_RELEASE = "3.12.7"
+PYTHON_WIN_INSTALLER = (f"https://www.python.org/ftp/python/{PYTHON_RELEASE}/"
+                        f"python-{PYTHON_RELEASE}-amd64.exe")
+PYTHON_MAC_PKG = (f"https://www.python.org/ftp/python/{PYTHON_RELEASE}/"
+                  f"python-{PYTHON_RELEASE}-macos11.pkg")
+
+
+def _download(url: str, dest: Path, timeout: int = 600) -> bool:
+    try:
+        with urllib.request.urlopen(url, timeout=timeout) as resp, open(dest, "wb") as out:
+            shutil.copyfileobj(resp, out, 1 << 20)
+        return dest.is_file() and dest.stat().st_size > 1_000_000
+    except (urllib.error.URLError, OSError) as exc:
+        log(f"  download failed: {exc}")
+        return False
+
+
+def signed_installer_bootstrapper_temp(ws: Path) -> ActionResult:
+    """A vendor-signed installer package handled the way users handle it,
+    writing into OS temp without installing anything:
+
+    - Windows: the python.org bootstrapper (Python Software Foundation
+      signature) run with `/quiet /layout <tmp>`: it extracts itself into
+      `%TEMP%\\<guid>\\` and downloads the package layout into the given
+      tree, the shape of FP-WIN-37; nothing is installed.
+    - macOS: the python.org `.pkg` (the same signer) expanded into temp by
+      the platform's `pkgutil --expand-full`, a platform tool staging a
+      signed package's payload.
+    - Linux (dpkg hosts): a distribution package downloaded with
+      `apt-get download` and unpacked into temp by `dpkg-deb -x`.
+
+    Every tree is removed afterwards."""
+    root = _temp_root()
+    run_tree = root / str(uuid.uuid4()).upper()
+    OWNED_TREES.append(run_tree.name)
+    run_tree.mkdir(parents=True)
+    try:
+        if _is_windows():
+            exe = run_tree / f"python-{PYTHON_RELEASE}-amd64.exe"
+            if not _download(PYTHON_WIN_INSTALLER, exe):
+                return False, "could not download the python.org installer"
+            layout = run_tree / "layout"
+            rc = run_cmd([str(exe), "/quiet", "/layout", str(layout)], run_tree, None, 900)
+            staged = sum(1 for p in layout.rglob("*") if p.is_file()) if layout.is_dir() else 0
+            return (rc == 0 and staged > 0,
+                    f"{exe.name} /layout staged {staged} files into {layout} (rc={rc})")
+        if platform.system() == "Darwin":
+            pkg = run_tree / f"python-{PYTHON_RELEASE}-macos11.pkg"
+            if not _download(PYTHON_MAC_PKG, pkg):
+                return False, "could not download the python.org pkg"
+            expanded = run_tree / "expanded"
+            rc = run_cmd(["/usr/sbin/pkgutil", "--expand-full", str(pkg), str(expanded)],
+                         run_tree, None, 600)
+            staged = sum(1 for p in expanded.rglob("*") if p.is_file()) if expanded.is_dir() else 0
+            return (rc == 0 and staged > 0,
+                    f"pkgutil expanded {staged} files of {pkg.name} into {expanded} (rc={rc})")
+        if not (shutil.which("apt-get") and shutil.which("dpkg-deb")):
+            return False, "no dpkg host (apt-get / dpkg-deb missing)"
+        rc = run_cmd(["apt-get", "download", "jq"], run_tree, None, 600)
+        debs = sorted(run_tree.glob("*.deb"))
+        if rc != 0 or not debs:
+            return False, f"apt-get download failed (rc={rc})"
+        unpacked = run_tree / "unpacked"
+        rc = run_cmd(["dpkg-deb", "-x", str(debs[0]), str(unpacked)], run_tree, None, 300)
+        staged = sum(1 for p in unpacked.rglob("*") if p.is_file()) if unpacked.is_dir() else 0
+        return (rc == 0 and staged > 0,
+                f"dpkg-deb unpacked {staged} files of {debs[0].name} into {unpacked} (rc={rc})")
+    finally:
+        _rm(run_tree)
+
+
 ACTIONS: Dict[str, Callable[[Path], ActionResult]] = {
     "build_rust_workspace": build_rust_workspace,
     "build_rust_temp": build_rust_temp,
@@ -792,6 +866,7 @@ ACTIONS: Dict[str, Callable[[Path], ActionResult]] = {
     "sync_client_store_rename": sync_client_store_rename,
     "installer_sibling_temp_staging": installer_sibling_temp_staging,
     "script_document_in_temp": script_document_in_temp,
+    "signed_installer_bootstrapper_temp": signed_installer_bootstrapper_temp,
 }
 
 

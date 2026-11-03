@@ -547,6 +547,27 @@ SCENARIOS: List[Scenario] = [
         notes="A Python script writing a PDF in /tmp with a sibling egress (E3 in edamame_core/docs/ai-security/registry/fleet-passes.md, "
         "left to the model on 09-27). Text-only PDF, written then rewritten, removed afterwards.",
     ),
+    Scenario(
+        id="direct-signed-installer-bootstrapper-temp",
+        title="A vendor-signed installer package staged into OS temp, nothing installed",
+        fp_class="FP-WIN-37",
+        kind="direct",
+        platforms=ALL_DESKTOP,
+        fixture="empty",
+        action="signed_installer_bootstrapper_temp",
+        temp_behaviour=True,
+        planes=("attack_pattern",),
+        tags=("operators_day",),
+        notes="The fleet's installer shapes with the vendor's own signed binary (2026-11-03 review): "
+        "on Windows the python.org bootstrapper run with /quiet /layout extracts itself into "
+        "%TEMP%\\<guid>\\ and downloads the layout into a lab temp tree (FP-WIN-37; FP-WIN-27 is "
+        "the same shape from Visual Studio's bootstrapper); on macOS the platform's pkgutil expands "
+        "the signed python.org pkg into temp; on dpkg hosts apt-get download + dpkg-deb -x unpack a "
+        "distribution package into temp. Downloads about 30 MB; every tree is removed. A game client "
+        "reading a browser's memory (FP-WIN-40, Steam) cannot be driven by the lab: it needs a "
+        "third-party signed requester the lab does not ship; that class is covered by the "
+        "read-only signed-requester rule and the FP-WIN-40 corpus entry.",
+    ),
 ]
 
 

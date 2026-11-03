@@ -356,3 +356,18 @@ or a fixture to `lab_workspace.FIXTURES` if needed), then
 reproduces ([`registry/README.md`](../../../edamame_core/docs/ai-security/registry/README.md) id) or `new`, `marker` to a file the stimulus
 must produce, and `temp_behaviour=True` only when temp is the point. `tags`
 groups scenarios into a set that `--scenarios tag:<name>` selects.
+
+## Shapes the lab cannot drive
+
+- **A game client reading a browser's memory** (FP-WIN-40: Steam enumerating
+  Chrome's modules, graded `process_memory_scrape`). It needs a third-party
+  signed requester the lab does not ship; a copy of a platform binary is
+  killed at exec on macOS and reads as a platform requester elsewhere. The
+  class is covered by the signed read-only requester rule (the finding is
+  adjudicable, never suppressible) and by its corpus entry; the live record
+  on shiawase is the evidence.
+- **A vendor-signed installer that installs.** `direct-signed-installer-bootstrapper-temp`
+  stages the python.org packages into temp without installing anything (the
+  bootstrapper's own temp extraction is the shape); an installation itself
+  would change the host the lab runs on.
+
