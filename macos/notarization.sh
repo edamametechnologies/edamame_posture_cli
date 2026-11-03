@@ -58,5 +58,18 @@ until xcrun stapler staple "$APP_PATH"; do
   sleep $((attempt * 15))
   attempt=$((attempt + 1))
 done
-xcrun stapler validate "$APP_PATH"
+# The validate looks the ticket up in Apple's ticket service again; that
+# lookup can drop ("The network connection was lost", stapler exit 68) right
+# after a staple that succeeded (posture tests.yml 41676079466, 2026-11-03),
+# so it gets the staple's retries.
+attempt=1
+until xcrun stapler validate "$APP_PATH"; do
+  if [ "$attempt" -ge 5 ]; then
+    echo "Validation of the stapled ticket failed after $attempt attempts"
+    exit 1
+  fi
+  echo "Validation failed, retrying in $((attempt * 15)) seconds"
+  sleep $((attempt * 15))
+  attempt=$((attempt + 1))
+done
 echo "Notarization succeeded, ticket stapled"
