@@ -238,18 +238,21 @@ def git_credential_helper(ws: Path) -> ActionResult:
     cred_dir = ws / "git-cred-lab"
     cred_dir.mkdir(parents=True, exist_ok=True)
     store = cred_dir / ".git-credentials"
-    store.write_text("https://fp-lab:placeholder-not-a-token@github.com\n", encoding="utf-8")
+    # LF only: Path.write_text turns "\n" into "\r\n" on Windows, and
+    # git-credential-store then reads the host as "github.com\r" and answers
+    # nothing (the Windows leg skipped this case as "credential helper did
+    # not answer" on every hosted run). git reads this file, not the OS.
+    with store.open("w", encoding="utf-8", newline="\n") as fh:
+        fh.write("https://fp-lab:placeholder-not-a-token@github.com\n")
     try:
         os.chmod(store, 0o600)
     except OSError:
         pass
     gitconfig = cred_dir / "gitconfig"
     store_path = store.as_posix()
-    gitconfig.write_text(
-        "[credential]\n"
-        f"\thelper = store --file={store_path}\n",
-        encoding="utf-8",
-    )
+    with gitconfig.open("w", encoding="utf-8", newline="\n") as fh:
+        fh.write("[credential]\n")
+        fh.write(f"\thelper = store --file={store_path}\n")
     env = dict(LAB_GIT_ENV)
     env["GIT_CONFIG_GLOBAL"] = str(gitconfig)
     env["GIT_CONFIG_NOSYSTEM"] = "1"
