@@ -366,9 +366,14 @@ jobs:
               | sh -s --
             EC=$(command -v edamame_cli.exe 2>/dev/null || command -v edamame_cli 2>/dev/null || echo "$HOME/edamame_cli.exe")
           else
+            # sudo-rs (Ubuntu 25.10+, the ubuntu-26.04 hosted runners) ignores -E with a
+            # warning and the keys below never reach the command (run 41829132244: every
+            # agent case SKIPped on Linux, "ANTHROPIC_API_KEY not set"); it takes
+            # --preserve-env=<names>, so name every exported variable. C sudo keeps -E.
+            SUDO_E=$(sudo --version 2>/dev/null | head -n 1 | grep -q sudo-rs && printf -- '--preserve-env=%s' "$(awk 'BEGIN { n = 0; for (k in ENVIRON) if (k ~ /^[A-Za-z_][A-Za-z0-9_]*$/) { printf "%s%s", (n ? "," : ""), k; n++ } }')" || printf -- '-E')
             curl --proto '=https' --tlsv1.2 -sSf \
               https://raw.githubusercontent.com/edamametechnologies/edamame_cli/main/install.sh \
-              | sudo -E sh -s --
+              | sudo $SUDO_E sh -s --
             EC=$(command -v edamame_cli 2>/dev/null || echo /usr/local/bin/edamame_cli)
           fi
           echo "EDAMAME_CLI=$EC" >> "$GITHUB_ENV"
@@ -440,7 +445,8 @@ jobs:
             taskkill //F //IM edamame_posture.exe 2>/dev/null || true
             CMD="$BIN"
           else
-            sudo -E "$EDAMAME_POSTURE" stop >/dev/null 2>&1 || true
+            SUDO_E=$(sudo --version 2>/dev/null | head -n 1 | grep -q sudo-rs && printf -- '--preserve-env=%s' "$(awk 'BEGIN { n = 0; for (k in ENVIRON) if (k ~ /^[A-Za-z_][A-Za-z0-9_]*$/) { printf "%s%s", (n ? "," : ""), k; n++ } }')" || printf -- '-E')
+            sudo $SUDO_E "$EDAMAME_POSTURE" stop >/dev/null 2>&1 || true
             sudo pkill -9 edamame_posture 2>/dev/null || true
             if [ "$RUNNER_OS" = "Linux" ] && command -v systemctl >/dev/null 2>&1; then
               sudo systemctl stop edamame_posture.service >/dev/null 2>&1 || true
@@ -452,7 +458,7 @@ jobs:
               BIN="$GITHUB_WORKSPACE/posture-build/edamame_posture"
               mkdir -p "$(dirname "$BIN")"; cp posture-artifact/edamame_posture "$BIN"; chmod +x "$BIN"
             fi
-            CMD="sudo -E $BIN"
+            CMD="sudo $SUDO_E $BIN"
           fi
           sleep 2
           $CMD background-start-disconnected --packet-capture --agentic-mode analyze --agentic-provider edamame
@@ -492,7 +498,8 @@ jobs:
             # The runner's Rust toolchain stays usable: with HOME=/root rustup
             # looks in /root/.rustup, finds no default toolchain, and every
             # Rust scenario was skipped (run 37312097578).
-            sudo -E env "PATH=$PATH" "HOME=/root" \
+            SUDO_E=$(sudo --version 2>/dev/null | head -n 1 | grep -q sudo-rs && printf -- '--preserve-env=%s' "$(awk 'BEGIN { n = 0; for (k in ENVIRON) if (k ~ /^[A-Za-z_][A-Za-z0-9_]*$/) { printf "%s%s", (n ? "," : ""), k; n++ } }')" || printf -- '-E')
+            sudo $SUDO_E env "PATH=$PATH" "HOME=/root" \
               "RUSTUP_HOME=${RUSTUP_HOME:-$HOME/.rustup}" "CARGO_HOME=${CARGO_HOME:-$HOME/.cargo}" \
               "EDAMAME_SUPPORTED_AGENTS_INDEX=$EDAMAME_SUPPORTED_AGENTS_INDEX" \
               "$PYBIN" tests/fp_lab/run_fp_lab.py "${ARGS[@]}" --allow-root
@@ -549,7 +556,8 @@ jobs:
             # The runner's Rust toolchain stays usable: with HOME=/root rustup
             # looks in /root/.rustup, finds no default toolchain, and every
             # Rust scenario was skipped (run 37312097578).
-            sudo -E env "PATH=$PATH" "HOME=/root" \
+            SUDO_E=$(sudo --version 2>/dev/null | head -n 1 | grep -q sudo-rs && printf -- '--preserve-env=%s' "$(awk 'BEGIN { n = 0; for (k in ENVIRON) if (k ~ /^[A-Za-z_][A-Za-z0-9_]*$/) { printf "%s%s", (n ? "," : ""), k; n++ } }')" || printf -- '-E')
+            sudo $SUDO_E env "PATH=$PATH" "HOME=/root" \
               "RUSTUP_HOME=${RUSTUP_HOME:-$HOME/.rustup}" "CARGO_HOME=${CARGO_HOME:-$HOME/.cargo}" \
               "EDAMAME_SUPPORTED_AGENTS_INDEX=$EDAMAME_SUPPORTED_AGENTS_INDEX" \
               "FLEET_AGENT_INSTALL_LOG=$FLEET_AGENT_INSTALL_LOG" \
