@@ -244,7 +244,7 @@ In `analyze` mode, the AI assistant will:
 **Command breakdown:**
 | Flag | Description |
 |------|-------------|
-| `sudo -E` | Run with root privileges, preserving environment variables |
+| `sudo -E` | Run with root privileges, preserving environment variables. On systems whose `sudo` is sudo-rs (Ubuntu 25.10 and later), `-E` is ignored: name the variables instead, `sudo --preserve-env=EDAMAME_LLM_API_KEY edamame_posture ...` |
 | `background-start-disconnected` | Run in background without connecting to EDAMAME Hub |
 | `--network-scan` | Enable LAN device discovery (find devices on your network) |
 | `--packet-capture` | Enable network traffic capture (monitor all connections) |
@@ -430,7 +430,7 @@ echo "Stop: edamame_posture background-stop"
 
 | Issue | Solution |
 |-------|----------|
-| "EDAMAME_LLM_API_KEY not set" | Ensure you exported the variable and used `sudo -E` |
+| "EDAMAME_LLM_API_KEY not set" | Ensure you exported the variable and used `sudo -E` (or `sudo --preserve-env=EDAMAME_LLM_API_KEY` where `sudo` is sudo-rs, which ignores `-E`) |
 | "Permission denied" | Run with `sudo` for network capture features |
 | No Slack messages | Verify bot token and channel IDs; check bot is in channels |
 | "Daemon not running" | Check logs for errors: `edamame_posture background-logs` |

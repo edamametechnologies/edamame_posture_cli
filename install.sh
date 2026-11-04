@@ -2836,6 +2836,50 @@ else
     fi
 fi
 
+# The names of every variable this shell exports, comma-separated, for
+# `--preserve-env=list` (names only; a bash function export is not a name).
+exported_env_names() {
+    awk 'BEGIN {
+        n = 0
+        for (name in ENVIRON) {
+            if (name ~ /^[A-Za-z_][A-Za-z0-9_]*$/) {
+                printf "%s%s", (n ? "," : ""), name
+                n++
+            }
+        }
+    }'
+}
+
+# What the daemon reads from its environment when it starts: the CI/CD markers
+# it detects, the credentials and settings this script exports before the
+# start (EDAMAME_PIN, the LLM key, Slack), the tokens the pipeline cancellation
+# reads. Named whether or not they are set yet: a name absent from the
+# environment is not preserved, nothing more.
+DAEMON_ENV_NAMES="CI,GITHUB_ACTIONS,GITHUB_RUN_ID,GITHUB_REPOSITORY,GITLAB_CI,CI_PIPELINE_ID,CI_PROJECT_ID,JENKINS_HOME,CIRCLECI,TRAVIS,TF_BUILD,BITBUCKET_BUILD_NUMBER,TEAMCITY_VERSION,DRONE,BUILDKITE,CODEBUILD_BUILD_ID,BUILDER_OUTPUT,EDAMAME_PIN,EDAMAME_LLM_API_KEY,EDAMAME_LLM_BASE_URL,EDAMAME_LLM_MODEL,EDAMAME_LLM_REGION,EDAMAME_AGENTIC_SLACK_BOT_TOKEN,EDAMAME_AGENTIC_SLACK_ACTIONS_CHANNEL,EDAMAME_AGENTIC_SLACK_ESCALATIONS_CHANNEL,EDAMAME_AGENTIC_WEBHOOK_ACTIONS_TOKEN,EDAMAME_TELEGRAM_BOT_TOKEN,EDAMAME_TELEGRAM_CHAT_ID,EDAMAME_TELEGRAM_ALLOWED_USER_IDS,EDAMAME_TELEGRAM_INTERACTIVE_ENABLED,EDAMAME_CANCEL_PIPELINE_SCRIPT,EDAMAME_EXPORT_TO_PORTAL,GH_TOKEN,GH_TOKEN_FILE,GITLAB_TOKEN,EDAMAME_LOG_LEVEL,RUST_LOG,RUST_BACKTRACE"
+
+# How sudo carries the environment to the daemon. `sudo -E` carried all of it
+# on sudo 1.x. sudo-rs (Ubuntu 25.10+, GitHub's ubuntu-26.04 runners since
+# 2026-11-03) answers "preserving the entire environment is not supported,
+# '-E' is ignored" and starts the daemon without it: no EDAMAME_PIN, no LLM
+# key, no CI/CD detection, and the warning on stderr lands in any JSON a caller
+# captures with 2>&1. `--preserve-env=list` (sudo 1.8.21, 2017, and sudo-rs)
+# names the variables instead: what this shell exports plus what the daemon
+# reads. An older sudo keeps `-E`.
+sudo_env_flag() {
+    _sudo_version_line=$(sudo --version 2>/dev/null | head -n 1)
+    case "$_sudo_version_line" in
+        *sudo-rs*) ;;
+        *)
+            _sudo_version=$(printf '%s\n' "$_sudo_version_line" | sed -n 's/^[Ss]udo version \([0-9][0-9.]*\).*/\1/p')
+            if [ -z "$_sudo_version" ] || version_lt "$_sudo_version" "1.8.21"; then
+                echo "-E"
+                return 0
+            fi
+            ;;
+    esac
+    echo "--preserve-env=$(exported_env_names),$DAEMON_ENV_NAMES"
+}
+
 ensure_privileged_runner() {
     if [ "$PLATFORM" = "windows" ]; then
         SUDO=""
@@ -2848,8 +2892,9 @@ ensure_privileged_runner() {
     fi
 
     if command -v sudo >/dev/null 2>&1; then
-        # Use -E to preserve environment variables (needed for CI/CD detection)
-        SUDO="sudo -E"
+        # The environment reaches the daemon through sudo (CI/CD detection,
+        # the PIN and the LLM key exported before the start): `sudo_env_flag`.
+        SUDO="sudo $(sudo_env_flag)"
         return 0
     fi
 
@@ -2864,7 +2909,7 @@ ensure_privileged_runner() {
         if command -v apk >/dev/null 2>&1; then
             info "sudo not found. Attempting to install via apk (requires root credentials)..."
             if su -c "apk add --no-cache sudo" >/dev/null 2>&1; then
-                SUDO="sudo -E"
+                SUDO="sudo $(sudo_env_flag)"
                 return 0
             else
                 warn "Automatic sudo installation via apk failed."
@@ -2872,7 +2917,7 @@ ensure_privileged_runner() {
         elif command -v apt-get >/dev/null 2>&1; then
             info "sudo not found. Attempting to install via apt-get (requires root credentials)..."
             if su -c "apt-get update -qq && apt-get install -y sudo" >/dev/null; then
-                SUDO="sudo -E"
+                SUDO="sudo $(sudo_env_flag)"
                 return 0
             else
                 warn "Automatic sudo installation via apt-get failed."
@@ -3944,7 +3989,8 @@ if [ "$SHOULD_START_DAEMON" = "true" ]; then
     #                   EDAMAME_LLM_BASE_URL (for ollama), EDAMAME_LLM_REGION (for bedrock)
     # A key given with --llm-api-key lived only in CONFIG_LLM_API_KEY, so the
     # background daemon started without it. Export it (never on the command
-    # line, where ps would show it); $SUDO is `sudo -E` and keeps it.
+    # line, where ps would show it); $SUDO preserves it (`sudo_env_flag`:
+    # `-E`, or the named list sudo-rs needs).
     AGENTIC_PROVIDER_NAME="$CONFIG_AGENTIC_PROVIDER"
     [ "$AGENTIC_PROVIDER_NAME" = "none" ] && AGENTIC_PROVIDER_NAME=""
     # The PIN reaches the daemon in its environment, never on its command
