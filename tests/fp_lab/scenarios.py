@@ -444,7 +444,10 @@ SCENARIOS: List[Scenario] = [
         temp_behaviour=True,
         planes=("attack_pattern",),
         notes="Installer/updater staging under temp (FP-WIN-25/27 class on Windows; the "
-        "grading rule says bare temp lineage of a bootstrap installer is LOW).",
+        "grading rule says bare temp lineage of a bootstrap installer is LOW). The toolchain "
+        "home (RUSTUP_HOME / CARGO_HOME) is in the workspace since 2026-11-05, where a user's "
+        "is: the proxies rustup-init lays into cargo/bin inside a second temp tree are HIGH by "
+        "rule and by decision (FP-LIN-7, the FP-WIN-43 precedent).",
     ),
     Scenario(
         id="direct-git-credential-helper",

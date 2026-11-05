@@ -290,28 +290,40 @@ def curl_public_apis(ws: Path) -> ActionResult:
 
 def rustup_init_temp_staging(ws: Path) -> ActionResult:
     """The rustup bootstrap: a script downloaded to temp downloads rustup-init
-    into another temp dir and runs it, which then talks to static.rust-lang.org.
-    RUSTUP_HOME / CARGO_HOME are inside the staging dir, so the user's real
-    toolchain is untouched, and no toolchain is installed."""
+    into another temp dir (`mktemp -d`) and runs it, which then talks to
+    static.rust-lang.org. RUSTUP_HOME / CARGO_HOME point into the lab
+    workspace, where a user's `~/.rustup` and `~/.cargo` live: the user's real
+    toolchain is untouched, no toolchain is installed, and the proxies
+    rustup-init lays into `cargo/bin` land where a user's do. Until 2026-11-05
+    the two homes were inside the temp staging dir: a temp-resident bootstrap
+    writing executables into a second temp tree is HIGH by the detector's
+    rule (`is_temp_package_bootstrap_target`: the bootstrap's own output is
+    its own scratch directory or the temp root) and by decision (FP-WIN-43:
+    a layout into temp was the lab's choice, not a user's; the detector
+    keeps it HIGH). The Linux fanotify creation group made those writes
+    visible on 2026-11-05 (FP-LIN-7)."""
     curl = cli_path("curl")
     sh = cli_path("sh")
     if not curl or not sh:
         return False, "curl/sh not found"
     tmp = Path(tempfile.mkdtemp(prefix="rustup-stage-"))
+    home = ws / "rustup-home"
     try:
         script = tmp / "rustup-init.sh"
         if run_cmd([curl, "-fsSL", "--proto", "=https", "--tlsv1.2", "-o", str(script), "https://sh.rustup.rs"],
                    tmp, None, 120) != 0:
             return False, "download of rustup-init.sh failed"
-        env = {"RUSTUP_HOME": str(tmp / "rustup"), "CARGO_HOME": str(tmp / "cargo"), "RUSTUP_INIT_SKIP_PATH_CHECK": "yes"}
+        home.mkdir(parents=True, exist_ok=True)
+        env = {"RUSTUP_HOME": str(home / "rustup"), "CARGO_HOME": str(home / "cargo"), "RUSTUP_INIT_SKIP_PATH_CHECK": "yes"}
         rc = run_cmd([sh, str(script), "-y", "--no-modify-path", "--default-toolchain", "none", "--profile", "minimal"],
                      tmp, env, 600)
         if rc != 0:
             return False, "rustup-init failed"
-        rc = run_cmd([str(tmp / "cargo" / "bin" / "rustup"), "--version"], tmp, env, 60)
-        return rc == 0, "rustup-init staged and executed from OS temp"
+        rc = run_cmd([str(home / "cargo" / "bin" / "rustup"), "--version"], tmp, env, 60)
+        return rc == 0, "rustup-init staged and executed from OS temp, its toolchain home in the workspace"
     finally:
         _rm(tmp)
+        _rm(home)
 
 
 # ── operator's day (developer Mac, 2026-10-23) ─────────────────────────
