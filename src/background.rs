@@ -1257,8 +1257,10 @@ pub fn background_configure_agentic(provider: String) {
     // Handle EDAMAME Portal LLM
     if provider == "edamame" {
         if api_key.is_empty() {
-            error!("EDAMAME_LLM_API_KEY environment variable is required for provider 'edamame'");
-            error!("Get your API key at https://portal.edamame.tech/api-keys");
+            // A configuration state the operator reads in the log (a CI job
+            // or a daemon started without the key), not a fault of the
+            // daemon: warn, so it does not reach Sentry as an error.
+            warn!("EDAMAME_LLM_API_KEY environment variable is required for provider 'edamame'; get your API key at https://portal.edamame.tech/api-keys");
             return;
         }
 
