@@ -559,9 +559,12 @@ SCENARIOS: List[Scenario] = [
         planes=("attack_pattern",),
         tags=("operators_day",),
         notes="The fleet's installer shapes with the vendor's own signed binary (2026-11-03 review): "
-        "on Windows the python.org bootstrapper run with /quiet /layout extracts itself into "
-        "%TEMP%\\<guid>\\ and downloads the layout into a lab temp tree (FP-WIN-37; FP-WIN-27 is "
-        "the same shape from Visual Studio's bootstrapper); on macOS the platform's pkgutil expands "
+        "on Windows the python.org bootstrapper, downloaded into a temp tree and run from there with "
+        "/quiet /layout, extracts itself into %TEMP%\\<guid>\\ and its clean-room engine downloads "
+        "the layout into the lab workspace, where a user names Downloads or a share (FP-WIN-37; "
+        "FP-WIN-27 is the same shape from Visual Studio's bootstrapper; the layout into temp of the "
+        "first runs was the lab's choice, not a user's, and stays HIGH by decision: FP-WIN-43, "
+        "2026-11-05); on macOS the platform's pkgutil expands "
         "the signed python.org pkg into temp; on dpkg hosts apt-get download + dpkg-deb -x unpack a "
         "distribution package into temp. Downloads about 30 MB; every tree is removed. A game client "
         "reading a browser's memory (FP-WIN-40, Steam) cannot be driven by the lab: it needs a "

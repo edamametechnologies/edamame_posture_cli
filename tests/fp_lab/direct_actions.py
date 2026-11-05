@@ -804,9 +804,14 @@ def signed_installer_bootstrapper_temp(ws: Path) -> ActionResult:
     writing into OS temp without installing anything:
 
     - Windows: the python.org bootstrapper (Python Software Foundation
-      signature) run with `/quiet /layout <tmp>`: it extracts itself into
-      `%TEMP%\\<guid>\\` and downloads the package layout into the given
-      tree, the shape of FP-WIN-37; nothing is installed.
+      signature), downloaded into a temp tree and run from there with
+      `/quiet /layout <dir>`: it extracts itself into `%TEMP%\\<guid>\\`
+      (FP-WIN-37) and its clean-room engine downloads the package layout into
+      the given directory; nothing is installed. The layout goes into the lab
+      workspace, where a user names Downloads or a share: writing it into
+      temp was the lab's choice, not a user's, and a signed bundle dropping
+      payload into temp is also what a trojaned installer does, so the
+      detector keeps that HIGH by decision (FP-WIN-43, 2026-11-05).
     - macOS: the python.org `.pkg` (the same signer) expanded into temp by
       the platform's `pkgutil --expand-full`, a platform tool staging a
       signed package's payload.
@@ -823,9 +828,12 @@ def signed_installer_bootstrapper_temp(ws: Path) -> ActionResult:
             exe = run_tree / f"python-{PYTHON_RELEASE}-amd64.exe"
             if not _download(PYTHON_WIN_INSTALLER, exe):
                 return False, "could not download the python.org installer"
-            layout = run_tree / "layout"
-            rc = run_cmd([str(exe), "/quiet", "/layout", str(layout)], run_tree, None, 900)
-            staged = sum(1 for p in layout.rglob("*") if p.is_file()) if layout.is_dir() else 0
+            layout = ws / "installer-layout"
+            try:
+                rc = run_cmd([str(exe), "/quiet", "/layout", str(layout)], run_tree, None, 900)
+                staged = sum(1 for p in layout.rglob("*") if p.is_file()) if layout.is_dir() else 0
+            finally:
+                _rm(layout)
             return (rc == 0 and staged > 0,
                     f"{exe.name} /layout staged {staged} files into {layout} (rc={rc})")
         if platform.system() == "Darwin":

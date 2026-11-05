@@ -367,7 +367,9 @@ groups scenarios into a set that `--scenarios tag:<name>` selects.
   adjudicable, never suppressible) and by its corpus entry; the live record
   on shiawase is the evidence.
 - **A vendor-signed installer that installs.** `direct-signed-installer-bootstrapper-temp`
-  stages the python.org packages into temp without installing anything (the
-  bootstrapper's own temp extraction is the shape); an installation itself
-  would change the host the lab runs on.
+  runs the python.org bootstrapper from the temp tree it was downloaded to
+  and writes its layout into the lab workspace without installing anything
+  (the bootstrapper's own temp extraction is the shape; a layout into temp
+  was the lab's choice, not a user's, and stays HIGH by decision: FP-WIN-43,
+  2026-11-05); an installation itself would change the host the lab runs on.
 
