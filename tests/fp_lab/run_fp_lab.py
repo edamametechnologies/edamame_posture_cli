@@ -987,6 +987,9 @@ DECIDED_ALERTABLE_WITHOUT_MODEL = {
     "packaged_app_credential_store_anomalous_session":
         "FP-MAC-40 (2026-10-23: an application's own credential store on its anomalous session, "
         "alertable HIGH outside the floor, the model decides)",
+    "relation_owns_its_store_anomalous_session":
+        "FP-MAC-29 (2026-11-06: a process holding a lock in its own store, its own session in the band, "
+        "alertable HIGH outside the floor, the model decides)",
 }
 
 
