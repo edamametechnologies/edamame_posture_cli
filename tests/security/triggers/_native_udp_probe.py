@@ -71,6 +71,18 @@ static int is_transient(int err) {
 #endif
 }
 
+/* The source address the socket was connected with went away (a lease that
+   renewed, an interface that came back with another address): connecting
+   again picks the current one. Seen on a hosted macOS runner, where the
+   first send failed and the scenario never sent anything. */
+static int is_address_lost(int err) {
+#ifdef _WIN32
+    return err == WSAEADDRNOTAVAIL;
+#else
+    return err == EADDRNOTAVAIL;
+#endif
+}
+
 static void report_send_error(int err) {
 #ifdef _WIN32
     fprintf(stderr, "udp probe: send failed, winsock error %d; stopping\n", err);
@@ -122,13 +134,17 @@ int main(int argc, char **argv) {
     memset(buf, 'D', (size_t)size);
 
     /* The loop ends on the parent's signal (the scenario's duration), or on
-       a send error that is neither the peer's answer nor transient: that
-       one is named on stderr, which the trigger log keeps. */
+       a send error that is neither the peer's answer, transient, nor a lost
+       source address: that one is named on stderr, which the trigger log
+       keeps. */
     while (keep_running) {
         if (send(sock, buf, (size_t)size, 0) < 0) {
             int err = last_send_error();
             if (is_transient(err)) {
                 usleep_ms(TRANSIENT_PAUSE_MS);
+            } else if (is_address_lost(err)) {
+                usleep_ms(TRANSIENT_PAUSE_MS);
+                (void)connect(sock, (struct sockaddr *)&addr, sizeof(addr));
             } else if (!is_peer_answer(err)) {
                 report_send_error(err);
                 break;
