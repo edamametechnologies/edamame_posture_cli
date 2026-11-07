@@ -740,6 +740,38 @@ def settle(state: LabState, observer_agents: List[str], secs: int, every: int,
         time.sleep(max(1, min(every, int(deadline - time.time()) + 1)))
 
 
+
+def memprobe(dest: Path, label: str) -> None:
+    """FP_LAB_MEMPROBE=1 (a memory investigation, not the lab's verdict): the
+    daemon's own memory stats and, on macOS, its malloc zones (vmmap -summary:
+    bytes allocated against dirty pages tells live data from retained free
+    pages) and, with FP_LAB_MSL=1 (the daemon started under
+    MallocStackLogging=lite), the live allocations by call tree."""
+    if os.environ.get("FP_LAB_MEMPROBE") != "1":
+        return
+    dest.mkdir(parents=True, exist_ok=True)
+    row = daemon_perf.sample_daemon()
+    pid = row[0] if row else None
+    info = {"label": label, "at": now_iso(), "pid": pid, "rss_mb": (row[1] / 1048576) if row else None}
+    for method in ("get_agentic_memory_stats", "get_attack_pattern_detector_status", "get_file_monitor_status"):
+        info[method] = as_obj(rpc_or_none(method, timeout=120))
+    write_json(dest / f"memprobe-{label}.json", info)
+    if pid is None or platform.system() != "Darwin":
+        return
+    tools = [("vmmap", ["sudo", "-n", "vmmap", "-summary", str(pid)], 0)]
+    if os.environ.get("FP_LAB_MSL") == "1":
+        tools.append(("malloc_history", ["sudo", "-n", "malloc_history", str(pid), "-callTree", "-invert", "-showContent"], 6000))
+        tools.append(("malloc_history_size", ["sudo", "-n", "malloc_history", str(pid), "-allBySize"], 3000))
+    for name, cmd, keep in tools:
+        try:
+            proc = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=900)
+            out = proc.stdout
+            if keep:
+                out = "\n".join(out.splitlines()[:keep])
+            (dest / f"{name}-{label}.txt").write_text(out + ("\n--- stderr\n" + proc.stderr[-4000:] if proc.stderr else ""), encoding="utf-8")
+        except Exception as exc:  # noqa: BLE001
+            (dest / f"{name}-{label}.txt").write_text(f"failed: {exc}", encoding="utf-8")
+
 def run_cmd_run(args: argparse.Namespace) -> int:
     if hasattr(os, "geteuid") and os.geteuid() == 0 and not args.allow_root:
         log("FP lab: refusing to run as root. Agents must run as the lab user whose home the "
@@ -803,6 +835,10 @@ def run_cmd_run(args: argparse.Namespace) -> int:
                     if status != "ok":
                         item["skip"] = f"{agent}: {reason}"
             plan.append(item)
+    repeat = int(os.environ.get("FP_LAB_REPEAT") or "1")
+    if repeat > 1:
+        plan = [dict(item, case_id=item["case_id"] + (f"#{k}" if k > 1 else ""))
+                for item in plan for k in range(1, repeat + 1)]
     write_json(run_dir / "plan.json", plan)
     for item in plan:
         log(f"  plan: {item['case_id']:<60} {'SKIP: ' + item['skip'] if item['skip'] else 'run'}")
@@ -853,6 +889,7 @@ def run_cmd_run(args: argparse.Namespace) -> int:
         },
         "attack_keys": sorted(state.attack), "incident_ids": sorted(state.incidents)})
 
+    memprobe(run_dir / "memprobe", "after-warmup")
     tool = find_corpus_tool(args.corpus_tool)
     scen_by_id = {s.id: s for s in SCENARIOS}
     results: List[dict] = []
@@ -946,6 +983,7 @@ def run_cmd_run(args: argparse.Namespace) -> int:
             case["status"] = "PASS"
         case["finished_at"] = now_iso()
         case["tick_timings"] = take_tick_timings()
+        memprobe(case_dir / "memprobe", "after-case")
         results.append(case)
         write_json(case_dir / "case.json", case)
         log(f"  => {case['status']} {case.get('reason', '')}")
@@ -968,6 +1006,7 @@ def run_cmd_run(args: argparse.Namespace) -> int:
     else:
         drain_case["status"] = "FAIL" if (drain_alertable or drain_case["divergence"]) else "PASS"
     drain_case["finished_at"] = now_iso()
+    memprobe(drain_dir / "memprobe", "after-drain")
     write_json(drain_dir / "case.json", drain_case)
     results.append(drain_case)
 

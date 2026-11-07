@@ -186,19 +186,18 @@ permissions: read-all
 
 jobs:
   fleet:
-    name: ${{ inputs.mode == 'fp_lab' && 'FP lab' || 'Fleet monitoring' }} (${{ matrix.os }})
+    name: ${{ inputs.mode == 'fp_lab' && 'FP lab' || 'Fleet monitoring' }} (${{ matrix.os }}, msl ${{ matrix.msl }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
         include:
-          - os: ubuntu-latest
-            posture_label: ubuntu-x64
           - os: macos-latest
             posture_label: macos-arm64
-          - os: windows-latest
-            posture_label: windows-x64
+            msl: "0"
+          - os: macos-latest
+            posture_label: macos-arm64
+            msl: "1"
 
     steps:
       # ── Checkout this repo only (NO plugin repos: Level-2 plugins are
@@ -461,7 +460,9 @@ jobs:
             CMD="sudo $SUDO_E $BIN"
           fi
           sleep 2
+          if [ "${{ matrix.msl }}" = 1 ]; then export MallocStackLogging=lite; fi
           $CMD background-start-disconnected --packet-capture --agentic-mode analyze --agentic-provider edamame
+          unset MallocStackLogging
           sleep 5
           $CMD background-status || true
           "$BIN" get-core-version
@@ -480,6 +481,9 @@ jobs:
           AWS_BEARER_TOKEN_BEDROCK: ${{ secrets.AWS_BEARER_TOKEN_BEDROCK }}
           FP_LAB_SCENARIOS: ${{ inputs.fp_lab_scenarios }}
           FP_LAB_LEG: ${{ inputs.fp_lab_leg || 'llm' }}
+          FP_LAB_REPEAT: "4"
+          FP_LAB_MEMPROBE: "1"
+          FP_LAB_MSL: ${{ matrix.msl }}
         run: |
           PY=python3
           command -v python3 >/dev/null 2>&1 || PY=python
@@ -525,7 +529,7 @@ jobs:
         if: always() && inputs.mode == 'fp_lab'
         uses: actions/upload-artifact@v4
         with:
-          name: fp-lab-${{ inputs.fp_lab_leg == 'deterministic' && 'deterministic-' || '' }}${{ matrix.posture_label }}
+          name: fp-lab-${{ inputs.fp_lab_leg == 'deterministic' && 'deterministic-' || '' }}${{ matrix.posture_label }}-msl${{ matrix.msl }}
           path: fp-lab-run
           if-no-files-found: warn
           retention-days: 14
