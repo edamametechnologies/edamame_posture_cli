@@ -990,6 +990,9 @@ DECIDED_ALERTABLE_WITHOUT_MODEL = {
     "relation_owns_its_store_anomalous_session":
         "FP-MAC-29 (2026-11-06: a process holding a lock in its own store, its own session in the band, "
         "alertable HIGH outside the floor, the model decides)",
+    "relation_owns_its_credential_store":
+        "FP-MAC-8 (2026-11-07: a process holding a lock in its own store with a credential file, "
+        "nothing corroborating, alertable HIGH outside the floor, the model decides)",
 }
 
 
