@@ -213,10 +213,10 @@ PS
     ;;
 
   keys)
-    for f in claude.env openai.env cursor.env agentic.env; do [[ -f "$SECRETS/$f" ]] || die "missing $SECRETS/$f"; done
+    [[ -f "$SECRETS/agentic.env" ]] || die "missing $SECRETS/agentic.env"
     # KEY=value lines (no `export`), owner-only ACL, never echoed.
-    grep -hE '^(export )?(ANTHROPIC_API_KEY|OPENAI_API_KEY|CURSOR_API_KEY)=' \
-      "$SECRETS/claude.env" "$SECRETS/openai.env" "$SECRETS/cursor.env" | sed 's/^export //' \
+    keys=$("$HERE/provider_keys.sh" "$SECRETS" claude.env openai.env cursor.env) || die "provider keys"
+    printf '%s\n' "$keys" \
       | ps_run_input "$PRE; \$SecretFile = 'providers.env'" "$SAVE_SECRET"
     grep -hE '^(export )?EDAMAME_LLM_API_KEY=' "$SECRETS/agentic.env" | sed 's/^export //' \
       | ps_run_input "$PRE; \$SecretFile = 'portal.env'" "$SAVE_SECRET"

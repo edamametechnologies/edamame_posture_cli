@@ -310,6 +310,22 @@ def make_scratch_workspace(agent_type: str, root: Path | None = None) -> Path:
     return base
 
 
+def claude_code_on_bedrock() -> bool:
+    """Claude Code reaches Anthropic's models through Amazon Bedrock
+    (`CLAUDE_CODE_USE_BEDROCK`, a Bedrock API key in
+    `AWS_BEARER_TOKEN_BEDROCK`, the region in `AWS_REGION`) instead of an
+    Anthropic API key."""
+    return os.environ.get("CLAUDE_CODE_USE_BEDROCK", "").strip() not in ("", "0", "false")
+
+
+def provider_key_env(spec: dict) -> str | None:
+    """The variable holding the credential an agent's driver needs: its
+    Bedrock key when the agent runs on Bedrock."""
+    if spec.get("bedrock_key_env") and claude_code_on_bedrock():
+        return spec["bedrock_key_env"]
+    return spec.get("key_env")
+
+
 def drive_claude_code(
     workdir: Path,
     prompt: str,
@@ -322,7 +338,8 @@ def drive_claude_code(
     cli = cli_path("claude")
     if not cli:
         return None
-    key = os.environ.get("ANTHROPIC_API_KEY", "")
+    bedrock = claude_code_on_bedrock()
+    key = os.environ.get("AWS_BEARER_TOKEN_BEDROCK" if bedrock else "ANTHROPIC_API_KEY", "")
     if not key:
         return None
     cmd = [cli, "-p", "--dangerously-skip-permissions"]
@@ -335,11 +352,13 @@ def drive_claude_code(
     # BASH_*_TIMEOUT_MS lift Claude Code's Bash-tool timeout (default 120s) so the
     # divergence probe's ~110s keep-alive command is not truncated mid-window.
     env = {
-        "ANTHROPIC_API_KEY": key,
         "IS_SANDBOX": "1",
         "BASH_DEFAULT_TIMEOUT_MS": "200000",
         "BASH_MAX_TIMEOUT_MS": "200000",
     }
+    # On Bedrock the agent's credential and region come from the environment.
+    if not bedrock:
+        env["ANTHROPIC_API_KEY"] = key
     env.update(extra_env or {})
     if background:
         assert log_path is not None
@@ -755,6 +774,7 @@ REAL_DRIVERS = {
     "claude_code": {
         "cli": ["claude"],
         "key_env": "ANTHROPIC_API_KEY",
+        "bedrock_key_env": "AWS_BEARER_TOKEN_BEDROCK",
         "drive": drive_claude_code,
         "gate": "hard",
         "prompt": NORMAL_PROMPT,
@@ -832,7 +852,7 @@ def real_driver_available(agent_type: str) -> tuple[str, str]:
     osn = host_os()
     if osn in NO_INSTALLER.get(agent_type, set()):
         return "skip", f"no headless {agent_type} installer/runtime for {osn} in hosted CI"
-    key_env = spec.get("key_env")
+    key_env = provider_key_env(spec)
     if key_env and not os.environ.get(key_env, ""):
         return "skip", f"{key_env} not set (no provider key to drive the real agent)"
     # Self-installing drivers install their own CLI, so a missing binary is fine.

@@ -165,9 +165,9 @@ SCRIPT
     # The approved keys (Frank, 2026-10-05): the agents' provider keys for the
     # user side, the Portal key for the root daemon. Values go over stdin into
     # 0600 files and are never echoed; `stop` deletes both files.
-    for f in claude.env openai.env cursor.env agentic.env; do [[ -f "$SECRETS/$f" ]] || die "missing $SECRETS/$f"; done
-    grep -hE '^(export )?(ANTHROPIC_API_KEY|OPENAI_API_KEY|CURSOR_API_KEY)=' \
-      "$SECRETS/claude.env" "$SECRETS/openai.env" "$SECRETS/cursor.env" | sed 's/^export //; s/^/export /' \
+    [[ -f "$SECRETS/agentic.env" ]] || die "missing $SECRETS/agentic.env"
+    keys=$("$HERE/provider_keys.sh" "$SECRETS" claude.env openai.env cursor.env) || die "provider keys"
+    printf '%s\n' "$keys" | sed 's/^/export /' \
       | as_user 'umask 077; mkdir -p ~/fp-lab/secrets; cat > ~/fp-lab/secrets/providers.env; chmod 600 ~/fp-lab/secrets/providers.env; sed -E "s/=.*/=<set>/" ~/fp-lab/secrets/providers.env'
     grep -hE '^(export )?EDAMAME_LLM_API_KEY=' "$SECRETS/agentic.env" | sed 's/^export //; s/^/export /' \
       | as_root 'umask 077; mkdir -p /var/root/fp-lab; cat > /var/root/fp-lab/portal.env; chmod 600 /var/root/fp-lab/portal.env; sed -E "s/=.*/=<set>/" /var/root/fp-lab/portal.env'

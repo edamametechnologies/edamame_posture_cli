@@ -163,9 +163,8 @@ case "$CMD" in
     # echoed; `stop` deletes them. The Portal key comes from the released
     # service's EnvironmentFile, which the owned unit reads.
     SECRETS="${FP_LAB_SECRETS:-$WORKSPACE/secrets}"
-    for f in claude.env openai.env; do [[ -f "$SECRETS/$f" ]] || die "missing $SECRETS/$f"; done
-    grep -hE '^(export )?(ANTHROPIC_API_KEY|OPENAI_API_KEY)=' "$SECRETS/claude.env" "$SECRETS/openai.env" \
-      | sed 's/^export //; s/^/export /' \
+    keys=$("$HERE/provider_keys.sh" "$SECRETS" claude.env openai.env) || die "provider keys"
+    printf '%s\n' "$keys" | sed 's/^/export /' \
       | ssh_host 'umask 077; mkdir -p ~/fp-lab/secrets; cat > ~/fp-lab/secrets/providers.env; chmod 600 ~/fp-lab/secrets/providers.env; sed -E "s/=.*/=<set>/" ~/fp-lab/secrets/providers.env'
     ;;
 

@@ -74,6 +74,7 @@ from agent_harness import (  # noqa: E402
     observer_row,
     observer_status,
     observer_tick,
+    provider_key_env,
     real_driver_available,
     rpc_quiet,
     section,
@@ -82,7 +83,8 @@ from scenarios import SCENARIOS, Scenario, validate  # noqa: E402
 from lab_workspace import make_workspace  # noqa: E402
 from direct_actions import OWNED_TREES, run_action  # noqa: E402
 
-PROVIDER_KEY_VARS = ("ANTHROPIC_API_KEY", "OPENAI_API_KEY", "CODEX_API_KEY", "EDAMAME_LLM_API_KEY")
+PROVIDER_KEY_VARS = ("ANTHROPIC_API_KEY", "AWS_BEARER_TOKEN_BEDROCK", "OPENAI_API_KEY", "CODEX_API_KEY",
+                     "EDAMAME_LLM_API_KEY")
 _KEYS: Dict[str, str] = {}
 
 TICK_TIMEOUT = 300.0
@@ -195,7 +197,7 @@ def provider_env(agent_type: Optional[str]):
     for var in PROVIDER_KEY_VARS:
         os.environ.pop(var, None)
     spec = REAL_DRIVERS.get(agent_type or "") or {}
-    key_env = spec.get("key_env")
+    key_env = provider_key_env(spec)
     if key_env and _KEYS.get(key_env):
         os.environ[key_env] = _KEYS[key_env]
     try:

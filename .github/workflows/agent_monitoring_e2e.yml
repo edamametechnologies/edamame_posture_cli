@@ -476,12 +476,26 @@ jobs:
           EDAMAME_SUPPORTED_AGENTS_INDEX: ${{ env.EDAMAME_SUPPORTED_AGENTS_INDEX }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          FP_LAB_CLAUDE_BEDROCK: ${{ vars.FP_LAB_CLAUDE_BEDROCK }}
+          AWS_BEARER_TOKEN_BEDROCK: ${{ secrets.AWS_BEARER_TOKEN_BEDROCK }}
           FP_LAB_SCENARIOS: ${{ inputs.fp_lab_scenarios }}
           FP_LAB_LEG: ${{ inputs.fp_lab_leg || 'llm' }}
         run: |
           PY=python3
           command -v python3 >/dev/null 2>&1 || PY=python
           OUT="$GITHUB_WORKSPACE/fp-lab-run"
+          # The repository variable FP_LAB_CLAUDE_BEDROCK=1 runs Claude Code on
+          # Amazon Bedrock with the AWS_BEARER_TOKEN_BEDROCK secret instead of
+          # the Anthropic API key (the lab's Anthropic credit ran out,
+          # 2026-11-07): the key's region and the EU inference profiles the
+          # runner's `--model sonnet` and Claude Code's small model resolve to.
+          if [ "${FP_LAB_CLAUDE_BEDROCK:-}" = 1 ]; then
+            export CLAUDE_CODE_USE_BEDROCK=1 AWS_REGION=eu-west-1 \
+              ANTHROPIC_DEFAULT_SONNET_MODEL=eu.anthropic.claude-sonnet-5-5 \
+              ANTHROPIC_DEFAULT_HAIKU_MODEL=eu.anthropic.claude-haiku-5-5
+          else
+            unset AWS_BEARER_TOKEN_BEDROCK
+          fi
           # Adjudication follows the shipped default (auto: advisory with the
           # Portal), which is what users see; the security gate pins llm.
           # --allow-hub: the action connected this runner to the Hub (that is
