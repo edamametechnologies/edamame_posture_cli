@@ -546,6 +546,8 @@ jobs:
           EDAMAME_DIVERGENCE_LINEAGE_FLOOR: "1"
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          FP_LAB_CLAUDE_BEDROCK: ${{ vars.FP_LAB_CLAUDE_BEDROCK }}
+          AWS_BEARER_TOKEN_BEDROCK: ${{ secrets.AWS_BEARER_TOKEN_BEDROCK }}
           GITHUB_RUN_ID: ${{ github.run_id }}
           # The divergence leg is multiplatform: it drives a real /dev/udp probe
           # (small datagrams to 6 fixed public IPs x 2 high UDP ports = 12 unique
@@ -559,6 +561,18 @@ jobs:
         run: |
           PY=python3
           command -v python3 >/dev/null 2>&1 || PY=python
+          # FP_LAB_CLAUDE_BEDROCK=1 (the Anthropic credit ran out, 2026-11-07):
+          # Claude Code on Amazon Bedrock as in the FP lab step above, and
+          # Hermes and OpenClaw, which drive no Bedrock key here, on the OpenAI
+          # key Codex uses. Unset, every agent drives its Anthropic key again.
+          if [ "${FP_LAB_CLAUDE_BEDROCK:-}" = 1 ]; then
+            export CLAUDE_CODE_USE_BEDROCK=1 AWS_REGION=eu-west-1 \
+              ANTHROPIC_DEFAULT_SONNET_MODEL=eu.anthropic.claude-sonnet-5-5 \
+              ANTHROPIC_DEFAULT_HAIKU_MODEL=eu.anthropic.claude-haiku-5-5
+            export HERMES_PROVIDER="${HERMES_PROVIDER:-openai-api}" OPENCLAW_PROVIDER="${OPENCLAW_PROVIDER:-openai}"
+          else
+            unset AWS_BEARER_TOKEN_BEDROCK
+          fi
           if [ "$RUNNER_OS" = "Linux" ]; then
             # The posture daemon runs as root for packet capture, so its
             # transcript observer resolves agent roots under /root. Run the

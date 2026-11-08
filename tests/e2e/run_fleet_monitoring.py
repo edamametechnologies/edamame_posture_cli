@@ -24,12 +24,15 @@ model is produced by EDAMAME's LLM pipeline from real agent activity, and the
 divergent stimulus is emitted by a process the real agent itself spawned.
 
 Agent coverage:
-  - claude_code   HARD  real drive (claude CLI + ANTHROPIC_API_KEY)
+  - claude_code   HARD  real drive (claude CLI + ANTHROPIC_API_KEY, or Amazon
+                        Bedrock with CLAUDE_CODE_USE_BEDROCK + AWS_BEARER_TOKEN_BEDROCK)
   - codex         HARD  real drive (codex CLI + OPENAI_API_KEY)
-  - hermes        HARD  real drive (self-installs headless; ANTHROPIC_API_KEY).
+  - hermes        HARD  real drive (self-installs headless; ANTHROPIC_API_KEY, or
+                        OPENAI_API_KEY with an OpenAI HERMES_PROVIDER).
                         install.sh on Linux/macOS, install.ps1 on Windows -- so it
                         is driven + hard-gated on all three desktop OSes.
-  - openclaw      HARD  real drive (self-installs via npm; ANTHROPIC_API_KEY)
+  - openclaw      HARD  real drive (self-installs via npm; ANTHROPIC_API_KEY, or
+                        OPENAI_API_KEY with OPENCLAW_PROVIDER=openai)
   - claude_desktop BEST-EFFORT  GUI app, no supported headless drive CLI; we try
                         and report honestly, never fabricate a transcript
   - cursor        SKIP  GUI IDE; no headless agent CLI wired in hosted CI
@@ -110,7 +113,9 @@ Prerequisites (set up by the calling workflow):
 Environment:
   EDAMAME_CLI                 Path to edamame_cli binary (forwarded to children)
   ANTHROPIC_API_KEY           Drives claude_code / hermes / openclaw (real)
-  OPENAI_API_KEY              Drives codex (real)
+  OPENAI_API_KEY              Drives codex (real), and hermes / openclaw on OpenAI
+  CLAUDE_CODE_USE_BEDROCK     Claude Code on Amazon Bedrock (AWS_BEARER_TOKEN_BEDROCK,
+                              AWS_REGION) instead of ANTHROPIC_API_KEY
   EDAMAME_AGENTS              Optional CSV of agent_types to restrict the run
   FLEET_REQUIRED_AGENTS       CSV of agents that MUST be driven + detected on this
                               leg (default "claude_code,codex"); the floor fails
@@ -133,12 +138,15 @@ Environment:
   HERMES_INSTALL_CMD_WIN      Override the hermes install command (Windows PS)
   PROBE_HOLD_SECS             Divergence probe keep-alive window (default 100)
   PROBE_RECHECK_SECS          Divergence probe single-target re-check interval (default 15)
-  HERMES_PROVIDER             hermes --provider (default "anthropic")
+  HERMES_PROVIDER             hermes --provider (default "anthropic"); an OpenAI
+                              provider (`openai-api`) drives it with OPENAI_API_KEY
   HERMES_MODEL                hermes --model (default: let hermes choose)
   HERMES_CONFIG_SET           Optional `hermes config set <args>` (best-effort)
   HERMES_DRIVE_EXTRA_ARGS     Extra args appended to `hermes chat`
   OPENCLAW_NPM_PKG            npm package for openclaw (default "openclaw@latest")
   OPENCLAW_AGENT              openclaw agent id to drive (default: autodetect)
+  OPENCLAW_PROVIDER           "anthropic" (default) or "openai": the onboarding's
+                              provider and the key it is given
   OPENCLAW_MODEL              openclaw --model (default: onboarding default)
   OPENCLAW_GATEWAY_PORT       openclaw onboarding gateway port (default 18789)
   OPENCLAW_ONBOARD_EXTRA_ARGS Extra args appended to `openclaw onboard`

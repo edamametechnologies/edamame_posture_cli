@@ -318,11 +318,27 @@ def claude_code_on_bedrock() -> bool:
     return os.environ.get("CLAUDE_CODE_USE_BEDROCK", "").strip() not in ("", "0", "false")
 
 
+def hermes_on_openai() -> bool:
+    """Hermes runs on an OpenAI provider (`HERMES_PROVIDER=openai-api`, ...)
+    with `OPENAI_API_KEY` instead of Anthropic's."""
+    return os.environ.get("HERMES_PROVIDER", "anthropic").strip().lower().startswith("openai")
+
+
+def openclaw_on_openai() -> bool:
+    """OpenClaw is onboarded on OpenAI (`OPENCLAW_PROVIDER=openai`) with
+    `OPENAI_API_KEY` instead of Anthropic's."""
+    return os.environ.get("OPENCLAW_PROVIDER", "anthropic").strip().lower() == "openai"
+
+
 def provider_key_env(spec: dict) -> str | None:
     """The variable holding the credential an agent's driver needs: its
-    Bedrock key when the agent runs on Bedrock."""
+    Bedrock key when the agent runs on Bedrock, the OpenAI key when it runs
+    on OpenAI."""
     if spec.get("bedrock_key_env") and claude_code_on_bedrock():
         return spec["bedrock_key_env"]
+    on_openai = spec.get("on_openai")
+    if on_openai and on_openai():
+        return "OPENAI_API_KEY"
     return spec.get("key_env")
 
 
@@ -612,17 +628,20 @@ def drive_hermes(workdir: Path, prompt: str, timeout: int, background: bool, log
             "upstream Hermes installer did not produce a CLI (see install output above)",
             tail=last_cmd_output_tail(),
         )
-    key = os.environ.get("ANTHROPIC_API_KEY", "")
+    key_var = "OPENAI_API_KEY" if hermes_on_openai() else "ANTHROPIC_API_KEY"
+    key = os.environ.get(key_var, "")
     if not key:
         return None
     hermes_home = _hermes_home()
     hermes_home.mkdir(parents=True, exist_ok=True)
     # Hermes loads credentials from <HERMES_HOME>/.env even with --ignore-user-config.
-    env_lines = [f"ANTHROPIC_API_KEY={key}"]
-    if os.environ.get("OPENAI_API_KEY"):
-        env_lines.append(f"OPENAI_API_KEY={os.environ['OPENAI_API_KEY']}")
+    env_lines = [
+        f"{name}={os.environ[name]}"
+        for name in ("ANTHROPIC_API_KEY", "OPENAI_API_KEY")
+        if os.environ.get(name)
+    ]
     (hermes_home / ".env").write_text("\n".join(env_lines) + "\n", encoding="utf-8")
-    env = {"ANTHROPIC_API_KEY": key, "HERMES_HOME": str(hermes_home)}
+    env = {key_var: key, "HERMES_HOME": str(hermes_home)}
     cfg = os.environ.get("HERMES_CONFIG_SET", "")
     if cfg:  # best-effort: also leaves a config.yaml so ~/.hermes is discoverable
         run_cmd([cli, "config", "set", *shlex.split(cfg)], workdir, env, 120)
@@ -696,7 +715,7 @@ def _openclaw_env(key: str) -> dict:
     CLI never started. Point the cache at the runner's scratch space, as the
     error advises; sessions stay under ~/.openclaw, where the observer reads
     them."""
-    env = {"ANTHROPIC_API_KEY": key}
+    env = {"OPENAI_API_KEY" if openclaw_on_openai() else "ANTHROPIC_API_KEY": key}
     if is_windows():
         cache = Path(os.environ.get("RUNNER_TEMP") or tempfile.gettempdir()) / "openclaw-xdg-cache"
         cache.mkdir(parents=True, exist_ok=True)
@@ -707,9 +726,13 @@ def _openclaw_env(key: str) -> dict:
 def _openclaw_onboard(cli: str, key: str, workdir: Path) -> None:
     if _OPENCLAW_ONBOARDED["done"] or os.environ.get("OPENCLAW_SKIP_ONBOARD") == "1":
         return
+    if openclaw_on_openai():
+        auth = ["--auth-choice", "openai-api-key", "--openai-api-key", key]
+    else:
+        auth = ["--auth-choice", "apiKey", "--anthropic-api-key", key]
     args = [
         cli, "onboard", "--non-interactive", "--mode", "local",
-        "--auth-choice", "apiKey", "--anthropic-api-key", key,
+        *auth,
         "--secret-input-mode", "plaintext",
         "--gateway-port", os.environ.get("OPENCLAW_GATEWAY_PORT", "18789"),
         "--gateway-bind", "loopback",
@@ -730,7 +753,7 @@ def drive_openclaw(workdir: Path, prompt: str, timeout: int, background: bool, l
             "upstream OpenClaw npm install did not produce a CLI (see install output above)",
             tail=last_cmd_output_tail(),
         )
-    key = os.environ.get("ANTHROPIC_API_KEY", "")
+    key = os.environ.get("OPENAI_API_KEY" if openclaw_on_openai() else "ANTHROPIC_API_KEY", "")
     if not key:
         return None
     _openclaw_onboard(cli, key, workdir)
@@ -789,6 +812,7 @@ REAL_DRIVERS = {
     "hermes": {
         "cli": ["hermes"],
         "key_env": "ANTHROPIC_API_KEY",
+        "on_openai": hermes_on_openai,
         "drive": drive_hermes,
         "gate": "hard",
         "self_install": True,
@@ -797,6 +821,7 @@ REAL_DRIVERS = {
     "openclaw": {
         "cli": ["openclaw"],
         "key_env": "ANTHROPIC_API_KEY",
+        "on_openai": openclaw_on_openai,
         "drive": drive_openclaw,
         "gate": "hard",
         "self_install": True,
