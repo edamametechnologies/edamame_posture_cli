@@ -8,12 +8,14 @@ seconds: resident memory and cumulative CPU time. Nothing here needs a
 privilege the harness does not already have, and nothing is installed:
 
 - Linux: `/proc/<pid>/stat` (utime + stime) and `/proc/<pid>/status` (VmRSS).
-- macOS: `ps -axo pid=,rss=,time=,command=`.
+- macOS: `ps -axo pid=,rss=,time=,command=`, and the physical footprint from
+  `top -l 1 -pid <pid> -stats pid,mem` (what the OS charges the process,
+  readable for a root daemon without a privilege).
 - Windows: one CIM query (`Win32_Process`: WorkingSetSize, kernel and user
   time in 100 ns units).
 
-The summary reports peak and end RSS, the RSS slope after warm-up (the leak
-signal), mean and p95 CPU (percent of one core, from CPU-time deltas, not
+The summary reports peak and end RSS, the memory slope after warm-up (the leak
+signal: the physical footprint's on macOS, RSS's elsewhere), mean and p95 CPU (percent of one core, from CPU-time deltas, not
 the platform's own averaged %CPU), daemon restarts (a pid change mid-run is a
 crash or a respawn), and the per-case peaks. Flags are for a human to look
 at, never part of the false-positive verdict; `release.mdc` (Pre-Release FP
@@ -26,6 +28,7 @@ import csv
 import datetime as _dt
 import os
 import platform
+import re
 import statistics
 import subprocess
 import threading
@@ -139,6 +142,36 @@ def _windows_daemons() -> List[Tuple[int, float, float]]:
     return out
 
 
+# On macOS `ps` RSS keeps counting the pages malloc freed and marked
+# reusable: the FP lab's installer case took it from 404 to 801 MB over four
+# bursts while the physical footprint came back to 316 MB after each
+# (2026-11-07, the seventh 2.3.2 candidate's build), and the RSS slope read
+# that as growth. There the slope reads the footprint (Frank, 2026-11-09).
+def _top_size_bytes(text: str) -> Optional[float]:
+    """`top`'s MEM column (`316M`, `1024K`, `1.2G`, a trailing `+` / `-`
+    when it changed since the previous sample) in bytes."""
+    m = re.fullmatch(r"([0-9]+(?:\.[0-9]+)?)([BKMGT]?)[+-]?", text.strip())
+    if not m:
+        return None
+    scale = {"": 1, "B": 1, "K": 1024, "M": 1024 ** 2, "G": 1024 ** 3, "T": 1024 ** 4}[m.group(2)]
+    return float(m.group(1)) * scale
+
+
+def macos_footprint_bytes(pid: int) -> Optional[float]:
+    """The physical footprint of `pid` (`top`'s MEM), None when `top` does
+    not report it."""
+    try:
+        text = subprocess.run(["top", "-l", "1", "-pid", str(pid), "-stats", "pid,mem"],
+                              capture_output=True, text=True, timeout=20).stdout
+    except (OSError, subprocess.SubprocessError):
+        return None
+    for line in text.splitlines():
+        parts = line.split()
+        if len(parts) == 2 and parts[0] == str(pid):
+            return _top_size_bytes(parts[1])
+    return None
+
+
 def sample_daemon() -> Optional[Tuple[int, float, float]]:
     """(pid, rss_bytes, cpu_seconds) of the posture daemon, the largest
     `edamame_posture` process (a short-lived CLI child of the same image is
@@ -174,15 +207,18 @@ class PerfSampler(threading.Thread):
         self.csv_path.parent.mkdir(parents=True, exist_ok=True)
         with self.csv_path.open("w", newline="", encoding="utf-8") as fh:
             writer = csv.writer(fh)
-            writer.writerow(["at", "pid", "rss_mb", "cpu_seconds"])
+            writer.writerow(["at", "pid", "rss_mb", "cpu_seconds", "footprint_mb"])
             while not self._halt.is_set():
                 row = sample_daemon()
                 at = _now()
                 if row:
                     pid, rss, cpu = row
-                    sample = {"at": at, "pid": pid, "rss_mb": rss / 1048576, "cpu_seconds": cpu}
+                    footprint = macos_footprint_bytes(pid) if platform.system() == "Darwin" else None
+                    sample = {"at": at, "pid": pid, "rss_mb": rss / 1048576, "cpu_seconds": cpu,
+                              "footprint_mb": None if footprint is None else footprint / 1048576}
                     self.samples.append(sample)
-                    writer.writerow([at.isoformat(), pid, f"{sample['rss_mb']:.1f}", f"{cpu:.2f}"])
+                    writer.writerow([at.isoformat(), pid, f"{sample['rss_mb']:.1f}", f"{cpu:.2f}",
+                                     "" if footprint is None else f"{sample['footprint_mb']:.1f}"])
                     fh.flush()
                 self._halt.wait(self.interval)
 
@@ -229,10 +265,22 @@ def summarize(samples: List[dict], cases: List[dict]) -> dict:
         if cur["pid"] != prev["pid"] or wall <= 0:
             continue
         cpu_pct.append((cur["at"], max(0.0, (cur["cpu_seconds"] - prev["cpu_seconds"]) / wall * 100)))
-    steady = [((s["at"] - t0).total_seconds(), s["rss_mb"]) for s in samples
-              if (s["at"] - t0).total_seconds() >= WARMUP_SECS and s["pid"] == samples[-1]["pid"]]
-    span = (steady[-1][0] - steady[0][0]) if len(steady) >= 2 else 0.0
-    slope = _slope_mb_per_hour(steady) if span >= RSS_SLOPE_MIN_SPAN_SECS else None
+    def slope_of(key: str) -> Tuple[Optional[float], float]:
+        steady = [((s["at"] - t0).total_seconds(), s[key]) for s in samples
+                  if s.get(key) is not None and (s["at"] - t0).total_seconds() >= WARMUP_SECS
+                  and s["pid"] == samples[-1]["pid"]]
+        span = (steady[-1][0] - steady[0][0]) if len(steady) >= 2 else 0.0
+        return (_slope_mb_per_hour(steady) if span >= RSS_SLOPE_MIN_SPAN_SECS else None), span
+
+    rss_slope, rss_span = slope_of("rss_mb")
+    footprints = [s["footprint_mb"] for s in samples if s.get("footprint_mb") is not None]
+    footprint_slope, footprint_span = slope_of("footprint_mb") if footprints else (None, 0.0)
+    # The leak signal: the footprint's slope where it was measured (macOS),
+    # RSS's elsewhere or when too few footprints were read.
+    if footprint_slope is not None:
+        slope, span, basis = footprint_slope, footprint_span, "footprint"
+    else:
+        slope, span, basis = rss_slope, rss_span, "rss"
     cpu_values = [v for _, v in cpu_pct]
     summary = {
         "samples": len(samples),
@@ -241,8 +289,12 @@ def summarize(samples: List[dict], cases: List[dict]) -> dict:
         "restarts": len(pids) - 1,
         "rss_mb": {"start": round(samples[0]["rss_mb"], 1), "end": round(samples[-1]["rss_mb"], 1),
                    "peak": round(max(s["rss_mb"] for s in samples), 1)},
-        "rss_slope_mb_per_hour": None if slope is None else round(slope, 1),
-        "rss_slope_span_secs": round(span),
+        "rss_slope_mb_per_hour": None if rss_slope is None else round(rss_slope, 1),
+        "rss_slope_span_secs": round(rss_span),
+        "footprint_mb": None if not footprints else {
+            "start": round(footprints[0], 1), "end": round(footprints[-1], 1), "peak": round(max(footprints), 1)},
+        "footprint_slope_mb_per_hour": None if footprint_slope is None else round(footprint_slope, 1),
+        "slope_basis": basis,
         "cpu_percent": {"mean": None if not cpu_values else round(statistics.fmean(cpu_values), 1),
                         "p95": None if not cpu_values else round(_p95(cpu_values), 1),
                         "max": None if not cpu_values else round(max(cpu_values), 1)},
@@ -265,7 +317,8 @@ def summarize(samples: List[dict], cases: List[dict]) -> dict:
     if summary["rss_mb"]["peak"] > PEAK_RSS_FLAG_MB:
         flags.append(f"peak RSS {summary['rss_mb']['peak']} MB > {PEAK_RSS_FLAG_MB:.0f} MB")
     if slope is not None and slope > RSS_SLOPE_FLAG_MB_PER_HOUR:
-        flags.append(f"RSS grows {slope:.0f} MB/h over {span / 60:.0f} min after warm-up "
+        measure = "the physical footprint" if basis == "footprint" else "RSS"
+        flags.append(f"{measure} grows {slope:.0f} MB/h over {span / 60:.0f} min after warm-up "
                      f"(> {RSS_SLOPE_FLAG_MB_PER_HOUR:.0f} MB/h): a leak until shown otherwise")
     p95 = summary["cpu_percent"]["p95"]
     mean = summary["cpu_percent"]["mean"]
@@ -288,6 +341,11 @@ def markdown(summary: dict, reference: Optional[dict] = None) -> List[str]:
                  f"restarts: {summary['restarts']}")
     lines.append(f"- RSS start {rss['start']} MB, end {rss['end']} MB, peak {rss['peak']} MB; slope after "
                  f"warm-up: {summary['rss_slope_mb_per_hour']} MB/h over {summary['rss_slope_span_secs'] // 60} min")
+    footprint = summary.get("footprint_mb")
+    if footprint:
+        lines.append(f"- Physical footprint start {footprint['start']} MB, end {footprint['end']} MB, peak "
+                     f"{footprint['peak']} MB; slope after warm-up: {summary.get('footprint_slope_mb_per_hour')} MB/h "
+                     f"(the slope the flags read)")
     lines.append(f"- CPU (percent of one core): mean {cpu['mean']}, p95 {cpu['p95']}, max {cpu['max']}")
     if reference:
         lines.append(f"- Reference (released daemon on this host before the window): {reference}")
