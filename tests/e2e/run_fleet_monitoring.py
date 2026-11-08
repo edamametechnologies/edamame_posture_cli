@@ -150,6 +150,8 @@ Environment:
   OPENCLAW_MODEL              openclaw --model (default: onboarding default)
   OPENCLAW_GATEWAY_PORT       openclaw onboarding gateway port (default 18789)
   OPENCLAW_ONBOARD_EXTRA_ARGS Extra args appended to `openclaw onboard`
+  OPENCLAW_CONFIG_SET         Optional ';'-separated `openclaw config set <path> <value>`
+                              pairs run after onboarding (best-effort)
   OPENCLAW_DRIVE_CMD          Full override template for the openclaw drive command
                               (placeholders: {cli} {agent} {prompt} {model})
   OPENCLAW_DRIVE_EXTRA_ARGS   Extra args appended to the default openclaw drive

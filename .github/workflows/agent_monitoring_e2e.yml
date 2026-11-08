@@ -570,6 +570,16 @@ jobs:
               ANTHROPIC_DEFAULT_SONNET_MODEL=eu.anthropic.claude-sonnet-5-5 \
               ANTHROPIC_DEFAULT_HAIKU_MODEL=eu.anthropic.claude-haiku-5-5
             export HERMES_PROVIDER="${HERMES_PROVIDER:-openai-api}" OPENCLAW_PROVIDER="${OPENCLAW_PROVIDER:-openai}"
+            # Hermes keeps its default model (an Anthropic one) on any
+            # provider: name an OpenAI model. OpenClaw 2026.8.1 (the Windows
+            # pin) runs OpenAI models through its Codex harness, whose plugin
+            # is not registered there: give every OpenAI model its embedded
+            # runtime (a provider-wildcard model entry, the runtime policy
+            # its schema accepts; the path's segment is `openai/*`).
+            export HERMES_MODEL="${HERMES_MODEL:-gpt-5-mini}"
+            if [ "$RUNNER_OS" = "Windows" ]; then
+              export OPENCLAW_CONFIG_SET="${OPENCLAW_CONFIG_SET:-agents.defaults.models.openai/*.agentRuntime.id openclaw}"
+            fi
           else
             unset AWS_BEARER_TOKEN_BEDROCK
           fi

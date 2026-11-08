@@ -743,6 +743,15 @@ def _openclaw_onboard(cli: str, key: str, workdir: Path) -> None:
         args += shlex.split(extra)
     # Tolerate a non-zero/timeout onboarding; the drive below is the real gate.
     run_cmd(args, workdir, _openclaw_env(key), 300)
+    # Best-effort `openclaw config set <path> <value>` pairs, ';'-separated:
+    # on OpenAI, OpenClaw 2026.8.1 runs the agent through its Codex harness,
+    # whose plugin is not registered on Windows ("Agent harness runtime
+    # \"codex\" is unavailable");
+    # `agents.defaults.models.openai/*.agentRuntime.id openclaw` gives every
+    # OpenAI model its embedded runtime.
+    for pair in os.environ.get("OPENCLAW_CONFIG_SET", "").split(";"):
+        if pair.strip():
+            run_cmd([cli, "config", "set", *shlex.split(pair)], workdir, _openclaw_env(key), 120)
     _OPENCLAW_ONBOARDED["done"] = True
 
 
