@@ -309,20 +309,17 @@ jobs:
           INSTALL_LOG="$RUNNER_TEMP/agent_cli_install.log"
           : > "$INSTALL_LOG"
           echo "FLEET_AGENT_INSTALL_LOG=$INSTALL_LOG" >> "$GITHUB_ENV"
-          # OpenClaw 2026.8.2 cannot start its CLI on Windows ("SQLite read-only
-          # worker: Unable to create private Windows SQLite directory" under
-          # %LOCALAPPDATA%\openclaw), which turns the openclaw real-drive leg
-          # into a hard failure that is an upstream regression, not an EDAMAME
-          # one. 2026.8.1 drove fine on windows-latest (2026-09-01 run), so pin
-          # it there. macOS/Linux are pinned to 2026.10.5 since 2026-10-23:
-          # the next release refuses Node < 24.22.1 at preinstall, and the
-          # hosted runners' Node 24 is 24.21.0, so @latest installed no CLI
-          # (2.1.1 release Phase 2, run 39907454819). Return to @latest once
-          # the runners' Node 24 is >= 24.22.1.
+          # OpenClaw is pinned to 2026.10.5 on every OS: the next release
+          # refuses Node < 24.22.1 at preinstall, and the hosted runners' Node
+          # 24 was 24.21.0, so @latest installed no CLI (2.1.1 release Phase 2,
+          # run 39907454819, 2026-10-23); return to @latest once every runner's
+          # Node 24 is >= 24.22.1. Windows ran 2026.8.1 until 2026-11-08, after
+          # 2026.8.2 could not create its private SQLite directory under
+          # %LOCALAPPDATA%\openclaw; the driver now points XDG_CACHE_HOME at
+          # the runner's scratch space (agent_harness._openclaw_env), and on
+          # OpenAI 2026.8.1 ran the agent without creating its sessions
+          # directory (fleet run 42525811538).
           OPENCLAW_SPEC="openclaw@2026.10.5"
-          if [ "$RUNNER_OS" = "Windows" ]; then
-            OPENCLAW_SPEC="openclaw@2026.8.1"
-          fi
           for PKG in @anthropic-ai/claude-code @openai/codex "$OPENCLAW_SPEC"; do
             echo "=== npm install -g $PKG ===" | tee -a "$INSTALL_LOG"
             npm install -g "$PKG" 2>&1 | tee -a "$INSTALL_LOG" \
@@ -571,15 +568,8 @@ jobs:
               ANTHROPIC_DEFAULT_HAIKU_MODEL=eu.anthropic.claude-haiku-5-5
             export HERMES_PROVIDER="${HERMES_PROVIDER:-openai-api}" OPENCLAW_PROVIDER="${OPENCLAW_PROVIDER:-openai}"
             # Hermes keeps its default model (an Anthropic one) on any
-            # provider: name an OpenAI model. OpenClaw 2026.8.1 (the Windows
-            # pin) runs OpenAI models through its Codex harness, whose plugin
-            # is not registered there: give every OpenAI model its embedded
-            # runtime (a provider-wildcard model entry, the runtime policy
-            # its schema accepts; the path's segment is `openai/*`).
+            # provider: name an OpenAI model.
             export HERMES_MODEL="${HERMES_MODEL:-gpt-5-mini}"
-            if [ "$RUNNER_OS" = "Windows" ]; then
-              export OPENCLAW_CONFIG_SET="${OPENCLAW_CONFIG_SET:-agents.defaults.models.openai/*.agentRuntime.id openclaw}"
-            fi
           else
             unset AWS_BEARER_TOKEN_BEDROCK
           fi
