@@ -589,7 +589,41 @@ def verify_detection(agent_type: str, attempts: int = 12, interval: int = 5) -> 
     return bool(row and row.get("discovered")), row
 
 
+def daemon_fully_protects_agents() -> tuple[bool, str]:
+    """Whether the daemon meets the host-wide half of the `unsecured_<agent>`
+    rule: the attack-pattern detector and the divergence engine on, and an AI
+    model able to adjudicate (the Portal signed in or keyed, or an own model).
+    Pausing an agent's observer always raises its threat; resuming clears it
+    only when these three hold, so the toggle expectation reads them first."""
+    protection = cli_rpc("agentic_get_protection_status")
+    llm = cli_rpc("agentic_get_llm_config")
+    if not isinstance(protection, dict) or not isinstance(llm, dict):
+        return False, "protection or llm status unreadable"
+    detector_on = bool(protection.get("attack_pattern_detection"))
+    divergence_on = bool(protection.get("divergence_detection"))
+    provider = str(llm.get("provider") or "").strip()
+    if provider in ("", "none"):
+        model_operating = False
+    elif provider == "internal":
+        model_operating = bool(llm.get("has_edamame_api_key")) or (
+            bool(llm.get("oauth_has_tokens")) and not bool(llm.get("oauth_tokens_expired"))
+        )
+    elif provider == "ollama":
+        model_operating = bool(llm.get("has_api_key")) or bool(llm.get("base_url"))
+    else:
+        model_operating = bool(llm.get("has_api_key"))
+    detail = (
+        f"detector_on={detector_on} divergence_on={divergence_on} "
+        f"provider={provider or 'none'} model_operating={model_operating}"
+    )
+    return detector_on and divergence_on and model_operating, detail
+
+
 def verify_unsecured_toggle(agent_type: str, score_wait: int) -> tuple[bool, str]:
+    """Pausing the observer raises `unsecured_<agent>`. Resuming clears it only
+    when the daemon fully protects the agent (both engines on, a model
+    operating); otherwise the threat stays active, naming what is missing, and
+    the check asserts that instead."""
     name = f"unsecured_{agent_type}"
     set_observer_enabled(agent_type, False)
     observer_tick(agent_type)
@@ -601,10 +635,15 @@ def verify_unsecured_toggle(agent_type: str, score_wait: int) -> tuple[bool, str
     observer_tick(agent_type)
     recompute_score()
     time.sleep(score_wait)
-    inactive_when_resumed = not threat_active(name)
+    active_when_resumed = threat_active(name)
 
-    ok = active_when_paused and inactive_when_resumed
-    detail = f"paused_active={active_when_paused} resumed_inactive={inactive_when_resumed}"
+    fully_protected, protection_detail = daemon_fully_protects_agents()
+    resumed_as_expected = (not active_when_resumed) if fully_protected else active_when_resumed
+    ok = active_when_paused and resumed_as_expected
+    detail = (
+        f"paused_active={active_when_paused} resumed_active={active_when_resumed} "
+        f"fully_protected={fully_protected} ({protection_detail})"
+    )
     return ok, detail
 
 

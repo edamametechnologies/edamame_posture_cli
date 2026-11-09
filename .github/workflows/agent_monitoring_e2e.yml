@@ -17,7 +17,10 @@ name: Agent fleet monitoring E2E
 #   2. verifies EDAMAME's host-side transcript observer DISCOVERS each driven
 #      agent from its real transcripts,
 #   3. verifies pausing a driven agent's observer raises its unsecured_<agent>
-#      threat (soft),
+#      threat (soft; resuming clears it only when the daemon runs both
+#      detection engines with a model able to adjudicate -- the threat also
+#      covers a missing engine or model -- so the resume expectation reads
+#      the daemon's protection and LLM status first),
 #   4. builds a REAL behavioral model from a driven agent, then drives a genuine
 #      divergent egress THROUGH that agent and asserts a DIVERGENCE verdict, and
 #   5. asserts the host blast-radius surface.
@@ -74,7 +77,8 @@ name: Agent fleet monitoring E2E
 # attempted-HARD-agent real drive + observer detection (including an install
 # failure with the provider key present), the per-agent real-coverage floor,
 # the fleet-wide blast-radius leg and the divergence leg (all platforms). Soft
-# (warn only): the unsecured_<agent> toggle, and the deterministic lineage-floor
+# (warn only): the unsecured_<agent> toggle (its resume half is conditional on
+# the daemon's protection status), and the deterministic lineage-floor
 # leg (Inc 5 / step 5.6 -- copies the system interpreter into a fresh OS-temp
 # dir, execs the copy through the driven agent's shell to egress to a TEST-NET
 # host, and asserts a DIVERGENCE carrying correlation:untrusted_lineage_floor).
