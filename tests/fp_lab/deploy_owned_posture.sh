@@ -17,7 +17,11 @@
 # Commands, in the order a lab window uses them:
 #   fetch            download posture-binary-<label> of CI run $FP_LAB_RUN_ID
 #   push             copy the owned binary and the lab harness to the host
-#   record [tag]     record the released daemon's state (read-only)
+#   keys             copy the agents' provider keys (0600, never printed)
+#   agents           install the agent CLIs the lab drives at the pinned versions
+#                    (agent_versions.env) and probe each for an answer; fails
+#                    when one does not answer
+#   record [tag]     record the state (service, daemon, agent CLI versions; read-only)
 #   start            stop the released service, start the owned daemon isolated
 #   status           what the lab preflight will see
 #   run [args]       start run_fp_lab.py detached on the host (args go to `run`)
@@ -98,6 +102,9 @@ case "$CMD" in start|run) OWNED_VERSION=$(owned_version) ;; esac
 # Shell functions shipped to the host in front of each remote script.
 REMOTE_LIB='
 set -u
+# ~/.npm-global/bin first: the pinned agent CLIs (agents) ahead of a native
+# install of the same CLI under ~/.local/bin.
+export PATH="$HOME/.npm-global/bin:$HOME/.local/bin:$PATH"
 wait_rpc() { # wait_rpc <version-prefix> <secs>: wait until the daemon answers with that version
   want="$1"; secs="$2"; v=""
   for _ in $(seq 1 "$secs"); do
@@ -117,6 +124,18 @@ show_state() {
   echo "-- get_file_monitor_status"; timeout 60 edamame_cli rpc get_file_monitor_status 2>&1 | grep -oE "\"is_monitoring\": [a-z]+"
 }
 '
+# The agent CLI pins (agent_versions.env) and the agent CLI functions
+# (agent_cli_lib.sh: install, versions, probe), behind REMOTE_LIB.
+PINS="$HERE/agent_versions.env"
+read_pin() { sed -nE "s/^$1=([0-9A-Za-z.+-]+)\$/\1/p" "$PINS" | head -n 1; }
+CLAUDE_CODE_NPM_VERSION=$(read_pin CLAUDE_CODE_NPM_VERSION)
+CODEX_NPM_VERSION=$(read_pin CODEX_NPM_VERSION)
+[[ -n "$CLAUDE_CODE_NPM_VERSION" && -n "$CODEX_NPM_VERSION" ]] || die "no CLAUDE_CODE_NPM_VERSION / CODEX_NPM_VERSION in $PINS"
+REMOTE_LIB="$REMOTE_LIB
+export CLAUDE_CODE_NPM_VERSION=$CLAUDE_CODE_NPM_VERSION CODEX_NPM_VERSION=$CODEX_NPM_VERSION
+$(cat "$HERE/agent_cli_lib.sh")"
+# remote_bash: the script on stdin, on the host under bash, after REMOTE_LIB.
+remote_bash() { { printf '%s\n' "$REMOTE_LIB"; cat; } | ssh_host 'bash -s'; }
 
 case "$CMD" in
   fetch)
@@ -149,7 +168,7 @@ case "$CMD" in
     # layout; the registry next to it; the corpus shaper under tests/fp_lab/tools.
     STAGE="$CACHE/stage"; rm -rf "$STAGE"; mkdir -p "$STAGE/tests/fp_lab/tools" "$STAGE/tests/e2e" \
       "$STAGE/tests/security/triggers" "$STAGE/supported_agents"
-    cp "$HERE"/*.py "$HERE"/*.md "$STAGE/tests/fp_lab/" 2>/dev/null || true
+    cp "$HERE"/*.py "$HERE"/*.md "$HERE/agent_versions.env" "$STAGE/tests/fp_lab/" 2>/dev/null || true
     cp "$REPO/tests/e2e/agent_harness.py" "$REPO/tests/e2e/supported_agents.py" "$STAGE/tests/e2e/"
     cp "$REPO/tests/security/triggers/_edamame_cli.py" "$STAGE/tests/security/triggers/"
     cp "$WORKSPACE/edamame_foundation/supported_agents/index.json" "$STAGE/supported_agents/"
@@ -169,25 +188,37 @@ case "$CMD" in
     ;;
 
   agents)
-    # Claude Code and Codex, user-level, when missing. A Codex binary alone
-    # is not an install: since 0.160 its tools run in codex-code-mode-host,
-    # beside the binary (test-mint 2026-10-06: a copied binary answered
-    # --version, ran no tool, and every Codex case was a SKIP). Without npm,
-    # Codex comes from the npm registry's platform tarball, verified against
-    # the registry's sha512.
-    ssh_host 'bash -s' <<'EOF'
-export PATH="$HOME/.local/bin:$HOME/.npm-global/bin:$PATH"
+    # Claude Code and Codex at the versions agent_versions.env pins,
+    # user-level. With npm: into ~/.npm-global, first on the lab PATH
+    # (REMOTE_LIB), so a self-updating native install under ~/.local/bin is
+    # shadowed for the window and left as it is. Without npm (test-mint has
+    # no Node.js): Claude Code through its native installer at that version
+    # (~/.local/bin/claude), Codex from the npm registry's platform tarball of
+    # that version, verified against the registry's sha512. A Codex binary
+    # alone is not an install: since 0.160 its tools run in
+    # codex-code-mode-host, beside the binary (test-mint 2026-10-06: a copied
+    # binary answered --version, ran no tool, and every Codex case was a
+    # SKIP). Then the CLIs on PATH must answer with the pins and each must
+    # answer a one-turn prompt within 90 s (agent_cli_lib.sh probe_agents,
+    # with the window's keys), or this step fails instead of ten cases
+    # ending in SKIP later.
+    ssh_host 'test -f ~/fp-lab/secrets/providers.env' || die "keys first (the probe needs the provider keys)"
+    remote_bash <<'EOF' || die "agent CLIs: install or probe failed"
+set -o pipefail
 codex_ok() {
-  codex --version 2>/dev/null | grep -q codex-cli || return 1
+  codex --version 2>/dev/null | grep -q "$CODEX_NPM_VERSION" || return 1
   [ -x "$(dirname "$(readlink -f "$(command -v codex)")")/codex-code-mode-host" ]
+}
+install_claude_native() {
+  # The official installer takes the version as its argument.
+  curl -fsSL https://claude.ai/install.sh | bash -s "$CLAUDE_CODE_NPM_VERSION" 2>&1 | tail -n 2
 }
 install_codex_tarball() {
   case "$(uname -m)" in x86_64) arch=x64 ;; aarch64|arm64) arch=arm64 ;; *) echo "no Codex build for $(uname -m)"; return 1 ;; esac
-  python3 - "$arch" <<'PY'
+  python3 - "$arch" "$CODEX_NPM_VERSION" <<'PY'
 import base64, hashlib, json, os, sys, tarfile, urllib.request
-arch = sys.argv[1]
+arch, ver = sys.argv[1], sys.argv[2]
 reg = "https://registry.npmjs.org/@openai%2Fcodex"
-ver = json.load(urllib.request.urlopen(reg))["dist-tags"]["latest"]
 meta = json.load(urllib.request.urlopen(f"{reg}/{ver}-linux-{arch}"))
 data = urllib.request.urlopen(meta["dist"]["tarball"]).read()
 algo, want = meta["dist"]["integrity"].split("-", 1)
@@ -215,16 +246,18 @@ print(f"installed codex {ver} from the registry ({triple})")
 PY
 }
 if command -v npm >/dev/null; then
-  npm config get prefix | grep -q "$HOME" || npm config set prefix "$HOME/.npm-global"
+  npm_install_pin claude @anthropic-ai/claude-code "$CLAUDE_CODE_NPM_VERSION" || exit 1
+  npm_install_pin codex @openai/codex "$CODEX_NPM_VERSION" || exit 1
+else
+  if claude --version 2>/dev/null | grep -q "$CLAUDE_CODE_NPM_VERSION"; then echo "claude $CLAUDE_CODE_NPM_VERSION already installed ($(command -v claude))"
+  else echo "installing claude $CLAUDE_CODE_NPM_VERSION (native installer)"; install_claude_native; fi
+  if codex_ok; then echo "codex $CODEX_NPM_VERSION already installed ($(command -v codex))"
+  else install_codex_tarball || exit 1; fi
 fi
-if claude --version 2>/dev/null | grep -q "Claude Code"; then echo "claude: $(command -v claude)"
-elif command -v npm >/dev/null; then echo "installing @anthropic-ai/claude-code"; npm install -g @anthropic-ai/claude-code 2>&1 | tail -n 2
-else echo "claude missing and no npm"; fi
-if codex_ok; then echo "codex: $(command -v codex)"
-elif command -v npm >/dev/null; then echo "installing @openai/codex"; npm install -g @openai/codex 2>&1 | tail -n 2
-else install_codex_tarball; fi
-for t in claude codex; do echo "$t version: $($t --version 2>&1 | head -1)"; done
-codex_ok && echo "codex: code-mode host present" || echo "codex: NOT USABLE (no code-mode host)"
+agent_versions
+verify_agent_pins || exit 1
+codex_ok || { echo "codex: NOT USABLE (no code-mode host beside the binary)"; exit 1; }
+probe_agents
 EOF
     ;;
 
@@ -237,6 +270,7 @@ date -u
 systemctl is-active $SERVICE || true
 systemctl show $SERVICE -p MainPID -p ActiveEnterTimestamp -p NRestarts
 systemctl is-active $UNIT 2>/dev/null || true
+agent_versions
 show_state
 EOF
     say "recorded to $OUT"
@@ -332,7 +366,8 @@ EOF
     ssh_host 'bash -s' <<EOF
 mkdir -p ~/fp-lab/runs
 cd ~/fp-lab/harness
-export PATH="\$HOME/.local/bin:\$HOME/.npm-global/bin:\$PATH"
+# The pinned agent CLIs (agents) first, as in REMOTE_LIB.
+export PATH="\$HOME/.npm-global/bin:\$HOME/.local/bin:\$PATH"
 if [ -f ~/fp-lab/secrets/providers.env ]; then set -a; . ~/fp-lab/secrets/providers.env; set +a; fi
 setsid -f python3 tests/fp_lab/run_fp_lab.py run --out ~/fp-lab/runs/$NAME \
   --expect-core-version $OWNED_VERSION --set-adjudication auto \

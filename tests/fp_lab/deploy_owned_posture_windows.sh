@@ -12,7 +12,11 @@
 #   fetch            download posture-binary-windows-x64 (signed exe) of CI run $FP_LAB_RUN_ID
 #   push             copy the exe and the lab harness to C:\Users\<profile>\fp-lab
 #   keys             copy the approved provider and Portal keys (owner-only ACL, never printed)
-#   agents           install the agent CLIs the lab drives when missing (npm)
+#   agents           install the agent CLIs the lab drives at the pinned versions
+#                    (agent_versions.env, npm.cmd) and probe each for an answer;
+#                    fails when one does not answer
+#   record [tag]     record the state (helper service, app, owned task, agent CLI
+#                    versions, what answers on the RPC port) to the state directory
 #   start            stop the app, disable the helper (recovery off first), start posture
 #   status           what the lab preflight will see
 #   run [args]       start run_fp_lab.py as a scheduled task (args go to `run`)
@@ -86,6 +90,9 @@ ssh_win() { ssh "${SSH_OPTS[@]}" "$TARGET" "$@"; }
 PS_LIB=$(cat <<'PSLIB'
 $ErrorActionPreference = "Continue"; $ProgressPreference = "SilentlyContinue"
 $Lab = Join-Path $env:USERPROFILE "fp-lab"
+# The npm global bin first: the pinned agent CLIs (agents) ahead of a native
+# claude.exe under ~\.local\bin.
+$env:Path = "$env:APPDATA\npm;$env:Path"
 $Cli = (Get-Command edamame_cli -ErrorAction SilentlyContinue).Source
 function Wait-Rpc([string]$want, [int]$secs) {
   for ($i = 0; $i -lt $secs; $i++) {
@@ -112,6 +119,44 @@ function Port-Owner([int]$port) {
 function Run-Task([string]$name, [string]$cmdFile) {
   schtasks /Create /TN $name /TR "`"$cmdFile`"" /SC ONCE /ST 00:00 /RU $Account /RL HIGHEST /IT /F | Out-Null
   schtasks /Run /TN $name | Out-Null
+}
+# The agent CLI functions (the PowerShell side of agent_cli_lib.sh).
+function Agent-Versions {
+  foreach ($pair in @(@("claude", $ClaudePin), @("codex", $CodexPin))) {
+    $c = Get-Command $pair[0] -ErrorAction SilentlyContinue
+    if ($c) { "$($pair[0]): $($c.Source) version: $(& $pair[0] --version 2>&1 | Select-Object -First 1) (pin $($pair[1]))" }
+    else { "$($pair[0]): not installed (pin $($pair[1]))" }
+  }
+}
+# The provider keys of the window (providers.env, KEY=value), into the
+# environment of this process for the probe only; never printed.
+function Load-ProviderKeys {
+  foreach ($line in Get-Content "$Lab\secrets\providers.env" -ErrorAction SilentlyContinue) {
+    if ($line -match '^\s*([A-Za-z_][A-Za-z0-9_]*)=(.*)$') { Set-Item -Path "env:$($Matches[1])" -Value $Matches[2] }
+  }
+}
+function Clear-ProviderKeys {
+  foreach ($line in Get-Content "$Lab\secrets\providers.env" -ErrorAction SilentlyContinue) {
+    if ($line -match '^\s*([A-Za-z_][A-Za-z0-9_]*)=') { Remove-Item -Path "env:$($Matches[1])" -ErrorAction SilentlyContinue }
+  }
+}
+# Probe-Agent <name> <args> <dir>: one non-interactive turn within 90 s,
+# through cmd.exe so the npm .cmd shims resolve; the whole tree is ended on
+# timeout (the node child of a shim outlives it). Writes the verdict and
+# returns $true when the CLI exited 0 with the word in its output.
+function Probe-Agent([string]$name, [string[]]$cmdArgs, [string]$dir) {
+  $out = Join-Path $dir "$name.out"; $err = Join-Path $dir "$name.err"
+  $p = Start-Process -FilePath "cmd.exe" -ArgumentList (@("/d", "/c", $name) + $cmdArgs) -WorkingDirectory $dir `
+    -NoNewWindow -PassThru -RedirectStandardOutput $out -RedirectStandardError $err
+  if (-not $p.WaitForExit(90000)) {
+    taskkill /T /F /PID $p.Id 2>$null | Out-Null
+    Write-Host "$name probe: FAILED (no answer in 90 s)"; return $false
+  }
+  $text = "$(Get-Content $out -Raw -ErrorAction SilentlyContinue)$(Get-Content $err -Raw -ErrorAction SilentlyContinue)"
+  if ($p.ExitCode -eq 0 -and $text -match '(?i)ready') { Write-Host "$name probe: ready"; return $true }
+  $tail = (($text -split "`r?`n" | Where-Object { $_ }) | Select-Object -Last 3) -join ' '
+  if ($tail.Length -gt 200) { $tail = $tail.Substring(0, 200) }
+  Write-Host "$name probe: FAILED (exit $($p.ExitCode)): $tail"; return $false
 }
 PSLIB
 )
@@ -147,7 +192,14 @@ ps_run_input() {
   ps_script "$1" "$body_file"; rc=$?
   rm -f "$body_file"; return $rc
 }
-PRE="\$Account = '$ACCOUNT'; \$Owned = '$OWNED_VERSION'; \$Aumid = '$APP_AUMID'"
+# The agent CLI pins (agent_versions.env), handed to every script as
+# $ClaudePin / $CodexPin.
+PINS="$HERE/agent_versions.env"
+read_pin() { sed -nE "s/^$1=([0-9A-Za-z.+-]+)\$/\1/p" "$PINS" | head -n 1; }
+CLAUDE_CODE_NPM_VERSION=$(read_pin CLAUDE_CODE_NPM_VERSION)
+CODEX_NPM_VERSION=$(read_pin CODEX_NPM_VERSION)
+[[ -n "$CLAUDE_CODE_NPM_VERSION" && -n "$CODEX_NPM_VERSION" ]] || die "no CLAUDE_CODE_NPM_VERSION / CODEX_NPM_VERSION in $PINS"
+PRE="\$Account = '$ACCOUNT'; \$Owned = '$OWNED_VERSION'; \$Aumid = '$APP_AUMID'; \$ClaudePin = '$CLAUDE_CODE_NPM_VERSION'; \$CodexPin = '$CODEX_NPM_VERSION'"
 SAVE_SECRET='
 $name = $SecretFile; $path = Join-Path $Lab "secrets\$name"
 New-Item -ItemType Directory -Force -Path (Split-Path $path) | Out-Null
@@ -194,7 +246,7 @@ Move-Item -Force $part "$Lab\bin\edamame_posture.exe"
 PS
     STAGE="$CACHE/stage-windows"; rm -rf "$STAGE"; mkdir -p "$STAGE/tests/fp_lab/tools" "$STAGE/tests/e2e" \
       "$STAGE/tests/security/triggers" "$STAGE/supported_agents"
-    cp "$HERE"/*.py "$HERE"/*.md "$STAGE/tests/fp_lab/" 2>/dev/null || true
+    cp "$HERE"/*.py "$HERE"/*.md "$HERE/agent_versions.env" "$STAGE/tests/fp_lab/" 2>/dev/null || true
     cp "$REPO/tests/e2e/agent_harness.py" "$REPO/tests/e2e/supported_agents.py" "$STAGE/tests/e2e/"
     cp "$REPO/tests/security/triggers/_edamame_cli.py" "$STAGE/tests/security/triggers/"
     cp "$WORKSPACE/edamame_foundation/supported_agents/index.json" "$STAGE/supported_agents/"
@@ -223,20 +275,61 @@ PS
     ;;
 
   agents)
-    # The agent CLIs the lab drives (Claude Code, Codex), user-level, through
-    # npm like the fleet E2E; an installed one is left as it is.
-    ps_run "$PRE" <<'PS'
-# npm.cmd, not npm (npm.ps1 is blocked by the execution policy and failed
-# silently); a CLI counts as installed only when --version answers like the
-# real one (shiawase had a July smoke-test stub claude.cmd in the npm bin).
-foreach ($pair in @(@("claude","@anthropic-ai/claude-code","Claude Code"), @("codex","@openai/codex","codex-cli"))) {
-  $c = Get-Command $pair[0] -ErrorAction SilentlyContinue
-  $v = if ($c) { & $pair[0] --version 2>&1 | Select-Object -First 1 } else { "" }
-  if ("$v" -match $pair[2]) { "$($pair[0]): $($c.Source)" }
-  else { "installing $($pair[1]) (found: $v)"; & npm.cmd install -g $pair[1] 2>&1 | Select-Object -Last 3 }
+    # The agent CLIs the lab drives (Claude Code, Codex) at the versions
+    # agent_versions.env pins, user-level through npm.cmd (npm.ps1 is blocked
+    # by the execution policy and failed silently) into npm's global bin
+    # (%APPDATA%\npm), which the lab PATH puts first: a native claude.exe
+    # under ~\.local\bin or a stub claude.cmd (shiawase's July smoke-test
+    # stub) is shadowed for the window, not touched. Then each CLI must
+    # answer with its pin and answer one turn within 90 s (Probe-Agent, with
+    # the window's keys), or this step fails instead of ten cases ending in
+    # SKIP later.
+    ps_run "$PRE" <<'PS' || die "agent CLIs: install or probe failed"
+if (-not (Test-Path "$Lab\secrets\providers.env")) { "keys first (the probe needs the provider keys)"; exit 1 }
+if (-not (Get-Command npm.cmd -ErrorAction SilentlyContinue)) { "no npm on the host (install Node.js first)"; exit 1 }
+$failed = 0
+foreach ($row in @(@("claude", "@anthropic-ai/claude-code", $ClaudePin), @("codex", "@openai/codex", $CodexPin))) {
+  $bin, $pkg, $pin = $row
+  $shim = Join-Path $env:APPDATA "npm\$($bin).cmd"
+  $have = if (Test-Path $shim) { "$(& $shim --version 2>&1 | Select-Object -First 1)" } else { "" }
+  if ($have -match [regex]::Escape($pin)) { "$bin $pin already installed ($shim)"; continue }
+  "installing $pkg@$pin (found: $have)"
+  & npm.cmd install -g "$pkg@$pin" 2>&1 | Select-Object -Last 3
+  $have = if (Test-Path $shim) { "$(& $shim --version 2>&1 | Select-Object -First 1)" } else { "" }
+  if ($have -notmatch [regex]::Escape($pin)) { "${bin}: $pkg@$pin did not install (found: $have)"; $failed++ }
 }
-foreach ($t in "claude","codex") { "$t version: $(& $t --version 2>&1 | Select-Object -First 1)" }
+Agent-Versions
+if ($failed) { exit 1 }
+Load-ProviderKeys
+$env:DISABLE_AUTOUPDATER = "1"
+$dir = Join-Path $Lab "probe-$(Get-Date -Format yyyyMMddHHmmss)"
+New-Item -ItemType Directory -Force -Path $dir | Out-Null
+if (-not (Probe-Agent "claude" @("-p", '"reply with the word ready"', "--max-turns", "1", "--output-format", "text") $dir)) { $failed++ }
+if (-not (Probe-Agent "codex" @("exec", "--skip-git-repo-check", "-C", "`"$dir`"", '"reply with the word ready"') $dir)) { $failed++ }
+Clear-ProviderKeys
+Remove-Item -Recurse -Force $dir -ErrorAction SilentlyContinue
+if ($failed) { exit 1 }
 PS
+    ;;
+
+  record)
+    # The helper service, the app, the owned posture task, the agent CLI
+    # versions and what the daemon on the RPC port reports (the app's core
+    # before and after a window, the owned posture inside it), to the state
+    # directory the Linux leg writes to (README: `record pre-lab` / `post-lab`).
+    TAG="${1:-state}"
+    OUT="$CACHE/state/shiawase-$(date +%Y%m%d-%H%M%S)-$TAG.txt"; mkdir -p "$(dirname "$OUT")"
+    ps_run "$PRE" <<'PS' | tee "$OUT"
+"$((Get-Date).ToUniversalTime().ToString('yyyy-MM-dd HH:mm:ss')) UTC"
+$svc = Get-CimInstance Win32_Service -Filter "Name='edamame_helper'"
+"helper: $($svc.State)/$($svc.StartMode)"
+"app: $(if (Live edamame) { 'running' } else { 'stopped' })"
+"owned posture task: $((Get-ScheduledTask -TaskName EdamameFpLabPosture -ErrorAction SilentlyContinue).State)"
+Port-Owner 40151; Port-Owner 40152
+Agent-Versions
+if ($Cli) { Show-State } else { "no edamame_cli on PATH: daemon state not read" }
+PS
+    say "recorded to $OUT"
     ;;
 
   start)
@@ -340,7 +433,8 @@ $runner = @"
 @echo off
 for /f "usebackq tokens=1,* delims==" %%a in ("$Lab\secrets\providers.env") do set "%%a=%%b"
 set EDAMAME_CLI_BIN=$Cli
-set PATH=%PATH%;C:\Program Files\Git\bin;%APPDATA%\npm;%USERPROFILE%\.cargo\bin;%USERPROFILE%\.local\bin
+rem npm's global bin first: the pinned agent CLIs (agents) ahead of a native claude.exe
+set PATH=%APPDATA%\npm;%PATH%;C:\Program Files\Git\bin;%USERPROFILE%\.cargo\bin;%USERPROFILE%\.local\bin
 cd /d "$Lab\harness"
 python tests\fp_lab\run_fp_lab.py run --out "$Lab\runs\$Name" --expect-core-version $Owned --set-adjudication auto --perf-reference "$Lab\state\released-perf.json" $Args2 > "$Lab\runs\$Name.log" 2>&1
 "@

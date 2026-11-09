@@ -12,7 +12,11 @@
 #   fetch            download posture-binary-macos-arm64 (signed pkg) of CI run $FP_LAB_RUN_ID
 #   push             copy the pkg, a 2.0.5+ edamame_cli and the lab harness to ~/fp-lab
 #   keys             copy the approved provider and Portal keys (0600, never printed)
-#   agents           install the agent CLIs the lab drives when missing (npm)
+#   agents           install the agent CLIs the lab drives at the pinned versions
+#                    (agent_versions.env, npm under ~/.npm-global) and probe each
+#                    for an answer; fails when one does not answer
+#   record [tag]     record the state (app, helper, owned daemon, agent CLI
+#                    versions, what answers on the RPC port) to the state directory
 #   start            quit the app, disable the helper, install the pkg, start posture
 #   status           what the lab preflight will see
 #   run [args]       start run_fp_lab.py detached (args go to `run`)
@@ -98,7 +102,9 @@ user_bash() { { printf '%s\n' "$USER_LIB"; cat; } | as_user 'bash -s'; }
 # Shipped in front of each user-side script.
 USER_LIB='
 set -u
-export PATH=/opt/homebrew/bin:/usr/local/bin:$HOME/.local/bin:$HOME/.cargo/bin:/usr/bin:/bin:/usr/sbin:/sbin
+# ~/.npm-global/bin first: the pinned agent CLIs (agents) ahead of a Homebrew
+# or native install of the same CLI.
+export PATH=$HOME/.npm-global/bin:/opt/homebrew/bin:/usr/local/bin:$HOME/.local/bin:$HOME/.cargo/bin:/usr/bin:/bin:/usr/sbin:/sbin
 export EDAMAME_CLI_BIN=$HOME/fp-lab/bin/edamame_cli EDAMAME_CLI=$HOME/fp-lab/bin/edamame_cli
 cli() { "$EDAMAME_CLI_BIN" "$@"; }
 wait_rpc() { # wait_rpc <version-prefix> <secs>
@@ -120,6 +126,17 @@ show_state() {
   echo "-- get_file_monitor_status"; cli rpc get_file_monitor_status 2>&1 | grep -oE "\"is_monitoring\": [a-z]+"
 }
 '
+# The agent CLI pins (agent_versions.env) and the agent CLI functions
+# (agent_cli_lib.sh: install, versions, probe), behind USER_LIB in front of
+# every user-side script.
+PINS="$HERE/agent_versions.env"
+read_pin() { sed -nE "s/^$1=([0-9A-Za-z.+-]+)\$/\1/p" "$PINS" | head -n 1; }
+CLAUDE_CODE_NPM_VERSION=$(read_pin CLAUDE_CODE_NPM_VERSION)
+CODEX_NPM_VERSION=$(read_pin CODEX_NPM_VERSION)
+[[ -n "$CLAUDE_CODE_NPM_VERSION" && -n "$CODEX_NPM_VERSION" ]] || die "no CLAUDE_CODE_NPM_VERSION / CODEX_NPM_VERSION in $PINS"
+USER_LIB="$USER_LIB
+export CLAUDE_CODE_NPM_VERSION=$CLAUDE_CODE_NPM_VERSION CODEX_NPM_VERSION=$CODEX_NPM_VERSION
+$(cat "$HERE/agent_cli_lib.sh")"
 
 case "$CMD" in
   fetch)
@@ -150,7 +167,7 @@ case "$CMD" in
     as_user 'chmod 755 ~/fp-lab/bin/edamame_cli; xattr -c ~/fp-lab/bin/edamame_cli ~/fp-lab/bin/edamame-posture.pkg 2>/dev/null; ~/fp-lab/bin/edamame_cli --version'
     STAGE="$CACHE/stage-macos"; rm -rf "$STAGE"; mkdir -p "$STAGE/tests/fp_lab/tools" "$STAGE/tests/e2e" \
       "$STAGE/tests/security/triggers" "$STAGE/supported_agents"
-    cp "$HERE"/*.py "$HERE"/*.md "$STAGE/tests/fp_lab/" 2>/dev/null || true
+    cp "$HERE"/*.py "$HERE"/*.md "$HERE/agent_versions.env" "$STAGE/tests/fp_lab/" 2>/dev/null || true
     cp "$REPO/tests/e2e/agent_harness.py" "$REPO/tests/e2e/supported_agents.py" "$STAGE/tests/e2e/"
     cp "$REPO/tests/security/triggers/_edamame_cli.py" "$STAGE/tests/security/triggers/"
     cp "$WORKSPACE/edamame_foundation/supported_agents/index.json" "$STAGE/supported_agents/"
@@ -174,15 +191,49 @@ SCRIPT
     ;;
 
   agents)
-    # The agent CLIs the lab drives (Claude Code, Codex), user-level through
-    # npm like the fleet E2E; an installed one is left as it is.
-    user_bash <<'SCRIPT'
-for pair in "claude:@anthropic-ai/claude-code" "codex:@openai/codex"; do
-  bin=${pair%%:*}; pkg=${pair#*:}
-  if command -v "$bin" >/dev/null; then echo "$bin: $(command -v $bin)"; else echo "installing $pkg"; npm install -g "$pkg" 2>&1 | tail -n 2; fi
-done
-for t in claude codex; do echo "$t version: $($t --version 2>&1 | head -1)"; done
+    # The agent CLIs the lab drives (Claude Code, Codex) at the versions
+    # agent_versions.env pins, user-level through npm under ~/.npm-global,
+    # whose bin is first on the lab PATH (USER_LIB): the host's Homebrew or
+    # native `claude` is shadowed for the window, never upgraded or removed
+    # (brew cannot pin a version, and it is the host's own). An installed
+    # CLI used to be kept as it was, and a Homebrew claude that stopped
+    # answering mid-window ended ten cases in SKIP: now the CLIs on PATH must
+    # answer with the pins and each must answer a one-turn prompt within 90 s
+    # (agent_cli_lib.sh probe_agents, with the window's keys), or this step
+    # fails.
+    as_user 'test -f ~/fp-lab/secrets/providers.env' || die "keys first (the probe needs the provider keys)"
+    user_bash <<'SCRIPT' || die "agent CLIs: install or probe failed"
+set -o pipefail
+command -v npm >/dev/null || { echo "no npm on the host (install Node.js first)"; exit 1; }
+npm_install_pin claude @anthropic-ai/claude-code "$CLAUDE_CODE_NPM_VERSION" || exit 1
+npm_install_pin codex @openai/codex "$CODEX_NPM_VERSION" || exit 1
+agent_versions
+verify_agent_pins || exit 1
+probe_agents
 SCRIPT
+    ;;
+
+  record)
+    # The released app and helper, the owned daemon, the agent CLI versions
+    # and what the daemon on the RPC port reports (the app's core before and
+    # after a window, the owned posture inside it), to the state directory
+    # the Linux leg writes to (README: `record pre-lab` / `post-lab`).
+    TAG="${1:-state}"
+    OUT="$CACHE/state/fmba-3-$(date +%Y%m%d-%H%M%S)-$TAG.txt"; mkdir -p "$(dirname "$OUT")"
+    { as_root "bash -s" <<EOF
+date -u
+pgrep -x "$APP_NAME" >/dev/null && echo "app: running" || echo "app: stopped"
+launchctl print system/$HELPER_LABEL >/dev/null 2>&1 && echo "helper: loaded" || echo "helper: unloaded"
+launchctl print-disabled system | grep -q '"$HELPER_LABEL" => disabled' && echo "helper: disabled" || echo "helper: enabled"
+pgrep -f "EDAMAME-Helper/edamame_helper.app" >/dev/null && echo "helper process: running" || echo "helper process: stopped"
+pgrep -x edamame_posture >/dev/null && echo "owned posture: running (pid \$(pgrep -x edamame_posture | head -n 1))" || echo "owned posture: stopped"
+EOF
+      user_bash <<'SCRIPT'
+agent_versions
+if [ -x "$EDAMAME_CLI_BIN" ]; then show_state; else echo "no lab edamame_cli (push first): daemon state not read"; fi
+SCRIPT
+    } | tee "$OUT"
+    say "recorded to $OUT"
     ;;
 
   start)

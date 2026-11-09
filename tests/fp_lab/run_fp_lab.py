@@ -592,6 +592,63 @@ def shape_attack_candidate(export_path: Path, fp_id: str, case_id: str, run_dir:
     return {"shaped": True, "corpus_candidate": str(out)}
 
 
+# ── agent CLI versions ──────────────────────────────────────────────────
+
+def _prefer_on_path(*dirs: str) -> None:
+    """Put the existing `dirs` first on PATH, in that order, moving them when
+    already there: the pinned agent CLIs (`deploy ... agents`,
+    agent_versions.env) live in the user npm prefix, which a native
+    installer's ~/.local/bin or a Homebrew bin would otherwise shadow
+    (`_augment_path` only prepends directories PATH does not hold yet)."""
+    parts = [p for p in os.environ.get("PATH", "").split(os.pathsep) if p]
+    for raw in reversed(dirs):
+        d = os.path.expanduser(os.path.expandvars(raw)) if raw else ""
+        if d and os.path.isdir(d):
+            parts = [d] + [p for p in parts if p != d]
+    os.environ["PATH"] = os.pathsep.join(parts)
+
+
+AGENT_PIN_KEYS = {"claude_code": "CLAUDE_CODE_NPM_VERSION", "codex": "CODEX_NPM_VERSION"}
+
+
+def agent_pins() -> Dict[str, str]:
+    """The pins of tests/fp_lab/agent_versions.env (KEY=version lines); empty
+    when the file is not beside this runner."""
+    pins: Dict[str, str] = {}
+    path = HERE / "agent_versions.env"
+    if not path.is_file():
+        return pins
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if line and not line.startswith("#") and "=" in line:
+            key, value = line.split("=", 1)
+            pins[key.strip()] = value.strip()
+    return pins
+
+
+def agent_cli_versions(lab_agents: List[str]) -> dict:
+    """Per lab agent: the CLI the drivers resolve, its `--version` line, the
+    pin and whether they agree. Recorded in preflight.json, never a preflight
+    problem: CI's lab mode runs the fleet E2E's unpinned installs."""
+    pins = agent_pins()
+    out: dict = {}
+    for agent in lab_agents:
+        spec = REAL_DRIVERS.get(agent) or {}
+        path = cli_path(*spec["cli"]) if spec.get("cli") else None
+        row: dict = {"cli": path, "version": None, "pin": pins.get(AGENT_PIN_KEYS.get(agent, ""))}
+        if path:
+            try:
+                proc = subprocess.run([path, "--version"], capture_output=True, text=True, encoding="utf-8",
+                                      errors="replace", timeout=30)
+                text = (proc.stdout or "").strip() or (proc.stderr or "").strip()
+                row["version"] = text.splitlines()[0] if text else None
+            except (OSError, subprocess.SubprocessError) as exc:
+                row["error"] = str(exc)
+        row["matches_pin"] = (row["pin"] in row["version"]) if row["pin"] and row["version"] else None
+        out[agent] = row
+    return out
+
+
 # ── preflight ───────────────────────────────────────────────────────────
 
 def preflight(args: argparse.Namespace, lab_agents: List[str]) -> Tuple[bool, dict]:
@@ -640,6 +697,11 @@ def preflight(args: argparse.Namespace, lab_agents: List[str]) -> Tuple[bool, di
     except Exception as exc:  # noqa: BLE001
         problems.append(f"transcript observer status unavailable: {exc}")
     pf["transcript_observer"] = obs
+    pf["agent_cli"] = agent_cli_versions(lab_agents)
+    for agent, row in pf["agent_cli"].items():
+        state = "" if not row.get("pin") else (" (pin matches)" if row.get("matches_pin")
+                                                else f" (pin {row['pin']} DIFFERS)")
+        log(f"  agent {agent}: {row.get('version') or 'not installed'}{state}")
     if not (isinstance(det, dict) and det.get("running")):
         problems.append("attack-pattern detector is not running")
     if not (isinstance(div, dict) and div.get("running")):
@@ -748,6 +810,9 @@ def run_cmd_run(args: argparse.Namespace) -> int:
         return 2
     stash_provider_keys()
     _augment_path("~/.local/bin", "~/.cargo/bin", "~/.npm-global/bin")
+    # The pinned agent CLIs (deploy `agents`) first: the user npm prefix on
+    # Linux / macOS, npm's global bin on Windows.
+    _prefer_on_path("~/.npm-global/bin", "%APPDATA%\\npm")
     lab_root = Path(os.path.expanduser(args.lab_root)).resolve()
     stamp = time.strftime("%Y%m%d-%H%M%S")
     host = safe_name(socket.gethostname(), 40)
@@ -829,7 +894,10 @@ def run_cmd_run(args: argparse.Namespace) -> int:
     ambient: dict = {"alertable": [], "low": [], "incidents": []}
     # The candidate's memory and CPU through the whole run, warm-up included
     # (daemon_perf: the lab is also the release's realistic load test).
-    sampler = daemon_perf.PerfSampler(run_dir / "perf.csv", interval=args.perf_interval)
+    # The table readings (sessions, lineage, traces, file events) go through
+    # the same quiet RPC path as the snapshots; a daemon that does not answer
+    # leaves their columns empty.
+    sampler = daemon_perf.PerfSampler(run_dir / "perf.csv", interval=args.perf_interval, rpc=rpc_or_none)
     sampler.start()
 
     def keep_ambient(news: dict, _snap: dict) -> None:

@@ -20,12 +20,21 @@ the platform's own averaged %CPU), daemon restarts (a pid change mid-run is a
 crash or a respawn), and the per-case peaks. Flags are for a human to look
 at, never part of the false-positive verdict; `release.mdc` (Pre-Release FP
 Lab Gate) says what blocks a release.
+
+Every `TABLE_SAMPLE_SECS` the sampler also reads, through `edamame_cli` (the
+`rpc` callable the runner hands it), the sizes of what the daemon keeps in
+memory: the session tables, the process lineage table, the engines' traces,
+the file monitor's store (`TABLE_READS`). They go into `perf.csv` beside the
+memory columns, and the summary's "What grew" line says which of them moved
+with a memory slope. A daemon that does not answer leaves the columns empty;
+the sampler never fails on it.
 """
 
 from __future__ import annotations
 
 import csv
 import datetime as _dt
+import json
 import os
 import platform
 import re
@@ -34,7 +43,7 @@ import subprocess
 import threading
 import time
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Tuple
 
 DAEMON_IMAGE = "edamame_posture"
 
@@ -50,9 +59,85 @@ CPU_MEAN_FLAG_PERCENT = 60.0
 # used for the slope.
 WARMUP_SECS = 600.0
 
+# The in-memory tables read beside the memory samples, every
+# `TABLE_SAMPLE_SECS` (`get_agentic_memory_stats` serializes the histories to
+# measure them, so not on every sample). Column, RPC method, path into its
+# answer, divisor (bytes to MB), unit, the label the summary prints.
+TABLE_SAMPLE_SECS = 300.0
+MB = 1048576.0
+TABLE_READS: List[Tuple[str, str, Tuple[str, ...], float, str, str]] = [
+    ("sessions_tracked", "get_analyzer_stats", ("session_stats", "total_sessions_tracked"), 1.0, "", "sessions tracked"),
+    ("lan_sessions", "get_lan_sessions_status", ("session_count",), 1.0, "", "LAN sessions"),
+    ("lineage_rows", "get_attack_pattern_detector_status", ("process_lineage_table_size",), 1.0, "", "lineage rows"),
+    ("task_access_edges", "get_attack_pattern_detector_status", ("task_access_edges",), 1.0, "", "task-access edges"),
+    ("process_events_lost", "get_attack_pattern_detector_status", ("process_events_lost_total",), 1.0, "",
+     "process events lost (counter)"),
+    ("detector_cache", "get_attack_pattern_detector_status", ("cache_size",), 1.0, "", "detector cache"),
+    ("ap_trace_entries", "get_agentic_memory_stats", ("vulnerability", "history_trace_entries"), 1.0, "",
+     "attack-pattern trace entries"),
+    ("ap_trace_mb", "get_agentic_memory_stats", ("vulnerability", "history_trace_json_bytes"), MB, " MB",
+     "attack-pattern traces"),
+    ("div_trace_entries", "get_agentic_memory_stats", ("divergence", "verdict_history_trace_entries"), 1.0, "",
+     "divergence trace entries"),
+    ("div_trace_mb", "get_agentic_memory_stats", ("divergence", "verdict_history_trace_json_bytes"), MB, " MB",
+     "divergence traces"),
+    ("model_history_mb", "get_agentic_memory_stats", ("divergence", "model_history_json_bytes"), MB, " MB",
+     "model history"),
+    ("core_process_mb", "get_agentic_memory_stats", ("overall", "process_memory_bytes"), MB, " MB",
+     "process memory as the core reads it"),
+    ("fim_events", "get_file_monitor_status", ("event_count",), 1.0, "", "file events"),
+]
+TABLE_COLUMNS = [col for col, *_ in TABLE_READS]
+TABLE_META = {col: (unit, label) for col, _m, _p, _d, unit, label in TABLE_READS}
+
 
 def _now() -> _dt.datetime:
     return _dt.datetime.now(_dt.timezone.utc)
+
+
+def _as_obj(value: object) -> object:
+    """The agentic RPCs answer with a JSON string carrying JSON."""
+    if isinstance(value, str):
+        try:
+            return json.loads(value)
+        except ValueError:
+            return None
+    return value
+
+
+def _dig(obj: object, path: Tuple[str, ...]) -> Optional[float]:
+    for key in path:
+        if not isinstance(obj, dict):
+            return None
+        obj = obj.get(key)
+    if isinstance(obj, bool) or not isinstance(obj, (int, float)):
+        return None
+    return float(obj)
+
+
+def read_tables(rpc: Optional[Callable[[str], object]]) -> Dict[str, Optional[float]]:
+    """One reading of every `TABLE_READS` column (None where the daemon did
+    not answer or the field is missing). Each RPC is called once; an
+    exception from the callable reads as no answer."""
+    out: Dict[str, Optional[float]] = {col: None for col in TABLE_COLUMNS}
+    if rpc is None:
+        return out
+    answers: Dict[str, object] = {}
+    for col, method, path, divisor, _unit, _label in TABLE_READS:
+        if method not in answers:
+            try:
+                answers[method] = _as_obj(rpc(method))
+            except Exception:  # noqa: BLE001
+                answers[method] = None
+        value = _dig(answers[method], path)
+        out[col] = None if value is None else value / divisor
+    return out
+
+
+def _fmt_table(col: str, value: Optional[float]) -> str:
+    if value is None:
+        return ""
+    return f"{value:.1f}" if TABLE_META[col][0] else f"{value:.0f}"
 
 
 def _clock_seconds(text: str) -> Optional[float]:
@@ -190,12 +275,17 @@ def sample_daemon() -> Optional[Tuple[int, float, float]]:
 
 class PerfSampler(threading.Thread):
     """Samples the daemon every `interval` seconds into `csv_path` until
-    `stop()`; `samples` keeps the rows for the summary."""
+    `stop()`; `samples` keeps the rows for the summary. `rpc` (method name
+    -> parsed answer or None, the runner's `rpc_or_none`) reads the tables
+    every `TABLE_SAMPLE_SECS`; None leaves the table columns empty."""
 
-    def __init__(self, csv_path: Path, interval: float = 30.0) -> None:
+    def __init__(self, csv_path: Path, interval: float = 30.0,
+                 rpc: Optional[Callable[[str], object]] = None) -> None:
         super().__init__(daemon=True, name="fp-lab-perf")
         self.csv_path = csv_path
         self.interval = interval
+        self.rpc = rpc
+        self.table_every = max(1, int(round(TABLE_SAMPLE_SECS / interval))) if interval > 0 else 1
         self.samples: List[dict] = []
         self._halt = threading.Event()
 
@@ -207,19 +297,27 @@ class PerfSampler(threading.Thread):
         self.csv_path.parent.mkdir(parents=True, exist_ok=True)
         with self.csv_path.open("w", newline="", encoding="utf-8") as fh:
             writer = csv.writer(fh)
-            writer.writerow(["at", "pid", "rss_mb", "cpu_seconds", "footprint_mb"])
+            writer.writerow(["at", "pid", "rss_mb", "cpu_seconds", "footprint_mb"] + TABLE_COLUMNS)
+            n = 0
             while not self._halt.is_set():
                 row = sample_daemon()
                 at = _now()
                 if row:
                     pid, rss, cpu = row
                     footprint = macos_footprint_bytes(pid) if platform.system() == "Darwin" else None
+                    # The first sample and every `table_every`th after it read
+                    # the tables, so the window has a start and an end reading.
+                    tables = read_tables(self.rpc) if n % self.table_every == 0 \
+                        else {col: None for col in TABLE_COLUMNS}
                     sample = {"at": at, "pid": pid, "rss_mb": rss / 1048576, "cpu_seconds": cpu,
                               "footprint_mb": None if footprint is None else footprint / 1048576}
+                    sample.update(tables)
                     self.samples.append(sample)
                     writer.writerow([at.isoformat(), pid, f"{sample['rss_mb']:.1f}", f"{cpu:.2f}",
-                                     "" if footprint is None else f"{sample['footprint_mb']:.1f}"])
+                                     "" if footprint is None else f"{sample['footprint_mb']:.1f}"]
+                                    + [_fmt_table(col, tables[col]) for col in TABLE_COLUMNS])
                     fh.flush()
+                    n += 1
                 self._halt.wait(self.interval)
 
 
@@ -247,6 +345,60 @@ def _p95(values: List[float]) -> Optional[float]:
         return None
     ordered = sorted(values)
     return ordered[min(len(ordered) - 1, int(round(0.95 * (len(ordered) - 1))))]
+
+
+def table_trends(samples: List[dict], t0: _dt.datetime, pid: int) -> Dict[str, dict]:
+    """Per table column: the readings after warm-up on `pid` (the table
+    columns are sparse: a reading every `TABLE_SAMPLE_SECS`, None between),
+    their first and last value and the slope per hour over the same window
+    the memory slope uses (None under three readings or a span under
+    `RSS_SLOPE_MIN_SPAN_SECS`)."""
+    trends: Dict[str, dict] = {}
+    for col in TABLE_COLUMNS:
+        unit, label = TABLE_META[col]
+        points = [((s["at"] - t0).total_seconds(), s[col]) for s in samples
+                  if s.get(col) is not None and (s["at"] - t0).total_seconds() >= WARMUP_SECS
+                  and s["pid"] == pid]
+        span = (points[-1][0] - points[0][0]) if len(points) >= 2 else 0.0
+        slope = _slope_mb_per_hour(points) if span >= RSS_SLOPE_MIN_SPAN_SECS else None
+        trends[col] = {
+            "label": label, "unit": unit.strip(), "readings": len(points),
+            "start": None if not points else round(points[0][1], 1 if unit else 0),
+            "end": None if not points else round(points[-1][1], 1 if unit else 0),
+            "span_secs": round(span),
+            "slope_per_hour": None if slope is None else round(slope, 1 if unit else 0),
+        }
+    return trends
+
+
+def what_grew(trends: Dict[str, dict]) -> str:
+    """One sentence for the summary: the tables whose readings grew over
+    the window, largest relative growth first, then the ones that stayed
+    flat; or that nothing was read."""
+    read = [t for t in trends.values() if t["readings"]]
+    if not read:
+        return "Tables: not sampled (edamame_cli did not answer during the run)"
+    sloped = [t for t in read if t["slope_per_hour"] is not None]
+    if not sloped:
+        n = max(t["readings"] for t in read)
+        return f"What grew after warm-up: too few table readings ({n}) over too short a window to say"
+    span_min = max(t["span_secs"] for t in sloped) // 60
+
+    def fmt(value: float, unit: str) -> str:
+        return f"{value:.1f} {unit}".strip() if unit else f"{value:.0f}"
+
+    def growth(t: dict) -> float:
+        return (t["end"] - t["start"]) / (abs(t["start"]) or 1.0)
+
+    grew = sorted([t for t in sloped if t["slope_per_hour"] > 0 and t["end"] > t["start"]], key=growth, reverse=True)
+    flat = [t["label"] for t in sloped if t not in grew]
+    parts = [f"{t['label']} {fmt(t['start'], t['unit'])} -> {fmt(t['end'], t['unit'])} "
+             f"(+{fmt(t['slope_per_hour'], t['unit'])}/h)" for t in grew]
+    line = f"What grew after warm-up ({span_min} min of table readings): "
+    line += ", ".join(parts) if parts else "nothing in the sampled tables"
+    if flat and parts:
+        line += f"; flat: {', '.join(flat)}"
+    return line
 
 
 def summarize(samples: List[dict], cases: List[dict]) -> dict:
@@ -300,6 +452,9 @@ def summarize(samples: List[dict], cases: List[dict]) -> dict:
                         "max": None if not cpu_values else round(max(cpu_values), 1)},
         "cases": [],
     }
+    # The tables beside the memory slope: same window, same pid.
+    summary["tables"] = table_trends(samples, t0, samples[-1]["pid"])
+    summary["what_grew"] = what_grew(summary["tables"])
     for case in cases:
         start, end = _parse(case.get("started_at") or ""), _parse(case.get("finished_at") or "")
         if not start or not end:
@@ -346,6 +501,8 @@ def markdown(summary: dict, reference: Optional[dict] = None) -> List[str]:
         lines.append(f"- Physical footprint start {footprint['start']} MB, end {footprint['end']} MB, peak "
                      f"{footprint['peak']} MB; slope after warm-up: {summary.get('footprint_slope_mb_per_hour')} MB/h "
                      f"(the slope the flags read)")
+    if summary.get("what_grew"):
+        lines.append(f"- {summary['what_grew']}")
     lines.append(f"- CPU (percent of one core): mean {cpu['mean']}, p95 {cpu['p95']}, max {cpu['max']}")
     if reference:
         lines.append(f"- Reference (released daemon on this host before the window): {reference}")

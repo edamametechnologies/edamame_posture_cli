@@ -25,8 +25,10 @@ for review. LOW findings are recorded, never gating.
 | `direct_actions.py` | Agent-free scenarios: cargo / venv / npm builds in the workspace and in temp, git clone/fetch/push, curl to public APIs, rustup-init temp staging, a git credential helper, and the operator's-day set (below). |
 | `standins.py` | Stand-in programs for the operator's-day set (a cloud-sync client, a user's report script), standard library only, copied into the case workspace and run as their own processes. |
 | `run_fp_lab.py` | The runner: preflight, warm-up baseline, cases, settle ticks, collection and export, drain, summary. Also `list`, `validate`, `shape`. |
-| `daemon_perf.py` | Samples the candidate daemon's RSS and CPU every 30 s through the run (`perf.csv`, `perf.json`, the summary's "Daemon resources": peaks, slope, restarts, per-case peaks, flags). |
-| `deploy_owned_posture.sh` | Operator-side: fetch the CI build, push it and the harness to a host, record state, swap the released service for the owned daemon (isolated, on empty state), run, collect, restore. Linux here; `deploy_owned_posture_macos.sh` and `_windows.sh` for fmba-3 and shiawase. |
+| `daemon_perf.py` | Samples the candidate daemon's RSS and CPU every 30 s through the run (`perf.csv`, `perf.json`, the summary's "Daemon resources": peaks, slope, restarts, per-case peaks, flags), and every 5 min the sizes of what it keeps in memory (session and lineage tables, the engines' traces, file events) so the summary's "What grew" line says what moved with a memory slope. `test_daemon_perf.py` covers the pure parts. |
+| `agent_versions.env` | The agent CLI versions the lab installs and records (`CLAUDE_CODE_NPM_VERSION`, `CODEX_NPM_VERSION`): `agents` installs exactly these, `record` and the preflight write the installed versions beside them. One place to bump. |
+| `agent_cli_lib.sh` | The bash functions the Linux and macOS deploy scripts ship to the host for the agent CLIs: pinned npm install, versions, the responsiveness probe. The Windows leg has them in PowerShell. |
+| `deploy_owned_posture.sh` | Operator-side: fetch the CI build, push it and the harness to a host, keys, agents, record state, swap the released service for the owned daemon (isolated, on empty state), run, collect, restore. Linux here; `deploy_owned_posture_macos.sh` and `_windows.sh` for fmba-3 and shiawase. |
 | `owned_posture.md` | How the owned daemon is deployed and isolated, and what the macOS / Windows legs need. |
 
 Shared code, not copied: agent installation and driving, observer ticks and
@@ -102,6 +104,8 @@ D=tests/fp_lab/deploy_owned_posture.sh
 export FP_LAB_RUN_ID=<tests.yml run id>  # every command, on every host
 $D $H fetch
 $D $H push
+$D $H keys                           # the agents' provider keys, for the window only
+$D $H agents                         # the pinned agent CLIs; fails when one does not answer
 $D $H record pre-lab
 $D $H start
 NAME=$($D $H run | tail -1)          # extra args go to `run_fp_lab.py run`
@@ -115,6 +119,26 @@ The owned build's version comes from the run (`Cargo.toml` at its head
 commit; `FP_LAB_OWNED_VERSION` overrides), the released one from the host.
 `push` verifies the binary's SHA-256 on the host before it replaces the
 previous one, and `run` refuses unless `start` opened the window.
+
+`agents` installs Claude Code and Codex at the versions `agent_versions.env`
+pins, user-level, on every host: through npm into the user prefix
+(`~/.npm-global` on Linux and macOS, `%APPDATA%\npm` on Windows), which the
+lab puts first on PATH, so a Homebrew or native install of the same CLI on
+the host is shadowed for the window and never upgraded or removed; test-mint
+has no Node.js, so there Claude Code comes from its native installer at the
+pinned version and Codex from the registry's platform tarball of it. The
+step then checks that the CLIs on PATH answer with the pins and runs a
+responsiveness probe (one non-interactive turn, `claude -p 'reply with the
+word ready' --max-turns 1` and `codex exec ... 'reply with the word ready'`,
+90 s each, with the window's keys) and fails when a CLI does not answer: a
+Homebrew `claude` that stopped answering mid-window used to end ten cases in
+SKIP. `record <tag>` exists on every host and writes
+`~/Library/Caches/edamame-agents/fp-lab/state/<host>-<time>-<tag>.txt`: the
+released service / helper and app state, the owned daemon, the agent CLI
+versions beside their pins, and what the daemon on the RPC port reports. The
+runner's preflight records the same versions in `preflight.json`
+(`agent_cli`, with `matches_pin`; a difference is recorded, not a preflight
+failure, since CI's lab mode runs the fleet E2E's unpinned installs).
 
 Directly on a host whose daemon is already the build under test:
 
@@ -283,7 +307,8 @@ idle baseline, lineage gate) and perf jobs are part of the gate.
   D=tests/fp_lab/deploy_owned_posture.sh      # test-mint | fmba-3 | shiawase
   $D <host> status                            # released service/app/helper up, no owned daemon
   $D <host> fetch && $D <host> push
-  $D <host> keys && $D <host> agents          # keys for the window only
+  $D <host> keys && $D <host> agents          # keys for the window only; the pinned CLIs, probed
+  $D <host> record pre-lab
   $D <host> start                             # check: active_findings 0, contributor_count 0
   NAME=$($D <host> run | tail -1)
   $D <host> wait "$NAME" && $D <host> collect "$NAME"

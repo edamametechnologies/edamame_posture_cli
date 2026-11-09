@@ -77,11 +77,15 @@ observer reads the home of the single logged-in non-root user
 (`edamame_foundation::console_user`). On test-mint that is `azureuser`.
 Installed user-level, nothing system-wide:
 
-- Claude Code: official installer (`~/.local/bin/claude`, native build).
-- Codex: `agents` installs it from the npm registry's platform tarball
-  (integrity-checked) under `~/.local/share/codex/<ver>` and links
+- Claude Code and Codex at the versions `agent_versions.env` pins
+  (`agents`). Without npm, as on test-mint: Claude Code through the
+  official installer at that version (`~/.local/bin/claude`, native
+  build), Codex from the npm registry's platform tarball of that version
+  (integrity-checked) under `~/.local/share/codex/<ver>`, linked at
   `~/.local/bin/codex`: since 0.160 a Codex binary without its
-  `codex-code-mode-host` runs no tool (2026-10-06).
+  `codex-code-mode-host` runs no tool (2026-10-06). With npm, both go into
+  `~/.npm-global`, first on the lab PATH. The step fails unless both answer
+  with their pins and each answers a one-turn probe within 90 s.
 - uv (`~/.local/bin/uv`): test-mint has no `python3-venv`; the venv
   scenarios fall back to it.
 - No Node.js on test-mint: the npm scenarios report SKIP there.
@@ -211,6 +215,9 @@ helper.
 - **Remote shell:** cmd over SSH; use PowerShell `-EncodedCommand` for
   anything with quotes (AMSI and quoting notes in the dogfood-status skill).
 - **Agents:** `agents` installs Claude Code and Codex user-level through
-  `npm.cmd` (npm.ps1 is blocked by the execution policy); Git Bash for the
-  POSIX-shaped prompts (the heredoc and rustup scenarios are POSIX-only in
-  the catalog).
+  `npm.cmd` (npm.ps1 is blocked by the execution policy) at the versions
+  `agent_versions.env` pins, into `%APPDATA%\npm`, which the lab puts first
+  on PATH (a native `claude.exe` under `~\.local\bin` is shadowed, not
+  touched); it fails unless both answer with their pins and each answers a
+  one-turn probe within 90 s. Git Bash for the POSIX-shaped prompts (the
+  heredoc and rustup scenarios are POSIX-only in the catalog).
