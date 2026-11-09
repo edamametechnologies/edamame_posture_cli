@@ -1848,7 +1848,7 @@ dependencies = [
 [[package]]
 name = "edamame_backend"
 version = "0.3.5"
-source = "git+https://github.com/edamametechnologies/edamame_backend?branch=main#d3548314c0bded13c8cac30194fa0ebf5e8c39dd"
+source = "git+https://github.com/edamametechnologies/edamame_backend?branch=main#b7186cf866b773c074229271b729fcda3b57a8a3"
 dependencies = [
  "anyhow",
  "blake3",
@@ -1863,7 +1863,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "2.3.2"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#e5a38a62fc6a01fcbbec3775aecb94279593e67c"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#41684e7c34106ce046a140445686fc0c011d106c"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -1949,7 +1949,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "2.3.2"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#f8e6dbd6271fa8cd233e008890c7c114e4adc266"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#7bd7e260462f889c3b1d1c6c103c3b160bd61c31"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -2370,7 +2370,7 @@ dependencies = [
 [[package]]
 name = "flodbadd"
 version = "2.3.2"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#183b789596565490abeedfd7f3ff41e07995c8f5"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#e33253b6824e3962d064bd29c110f2b5739b4dc9"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -3121,15 +3121,6 @@ dependencies = [
 
 [[package]]
 name = "hashlink"
-version = "0.11.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "824e001ac4f3012dd16a264bec811403a67ca9deb6c102fc5049b32c4574b35f"
-dependencies = [
- "hashbrown 0.16.1",
-]
-
-[[package]]
-name = "hashlink"
 version = "0.12.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a596f1b20ed2cc5ecac41a164aaebc7258057060f06c0cf7a2ba3991ee7990fb"
@@ -3453,7 +3444,7 @@ dependencies = [
  "js-sys",
  "log",
  "wasm-bindgen",
- "windows-core 0.62.2",
+ "windows-core 0.58.0",
 ]
 
 [[package]]
@@ -3981,7 +3972,7 @@ dependencies = [
 [[package]]
 name = "l7_ebpf_program"
 version = "0.1.0"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#183b789596565490abeedfd7f3ff41e07995c8f5"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#e33253b6824e3962d064bd29c110f2b5739b4dc9"
 
 [[package]]
 name = "lazy_static"
@@ -4124,7 +4115,7 @@ dependencies = [
  "futures",
  "futures-timer",
  "getrandom 0.4.3",
- "hashlink 0.12.2",
+ "hashlink",
  "hex_fmt",
  "libp2p-core",
  "libp2p-identity",
@@ -4270,7 +4261,7 @@ dependencies = [
  "futures",
  "futures-timer",
  "getrandom 0.4.3",
- "hashlink 0.12.2",
+ "hashlink",
  "libp2p-core",
  "libp2p-identity",
  "libp2p-swarm-derive",
@@ -4368,9 +4359,9 @@ dependencies = [
 
 [[package]]
 name = "libsqlite3-sys"
-version = "0.37.0"
+version = "0.39.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b1f111c8c41e7c61a49cd34e44c7619462967221a6443b0ec299e0ac30cfb9b1"
+checksum = "14a5f01b87b92705d07b433c06f96cbc764637d81a0bffb5734ce17cf0f9a2b3"
 dependencies = [
  "cc",
  "pkg-config",
@@ -6429,14 +6420,14 @@ dependencies = [
 
 [[package]]
 name = "rusqlite"
-version = "0.39.0"
+version = "0.41.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a0d2b0146dd9661bf67bb107c0bb2a55064d556eeb3fc314151b957f313bcd4e"
+checksum = "da9bba6f3506135e120a6586df05be18b48d18896600646a4bec8f993d91a594"
 dependencies = [
  "bitflags 2.13.2",
  "fallible-iterator",
  "fallible-streaming-iterator",
- "hashlink 0.11.1",
+ "hashlink",
  "libsqlite3-sys",
  "smallvec",
  "sqlite-wasm-rs",
@@ -7448,7 +7439,7 @@ dependencies = [
 [[package]]
 name = "threatmodels_rs"
 version = "0.1.1"
-source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#9359b6352b3b667973787c55bfb9c4063814de9d"
+source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#d7e187dafeaa2286789605077ac15aea72442d3f"
 dependencies = [
  "anyhow",
  "chrono",
@@ -7890,7 +7881,7 @@ checksum = "b6f5e870be6c3b371b77fe0ee0bafb859fa4964b4404c27de1d380043c4dda20"
 [[package]]
 name = "undeadlock"
 version = "1.2.0"
-source = "git+https://github.com/edamametechnologies/undeadlock?branch=main#0879adcfa8ee27105b1a796312f65c96acc881c4"
+source = "git+https://github.com/edamametechnologies/undeadlock?branch=main#32b329015fa1bed70d70361f2bfe0fafdc5b3bc0"
 dependencies = [
  "dashmap 6.2.1",
  "tokio",
