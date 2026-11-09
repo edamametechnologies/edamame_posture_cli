@@ -139,6 +139,50 @@ jobs:
             exit 1
           fi
 
+      # The path a second action step takes on a runner whose daemon is down
+      # (stopped by an earlier step, crashed, or a persistent runner between
+      # jobs): the status check fails, the installer reconfigures and starts
+      # the daemon again. On 2026-11-05..09 that run started a daemon without
+      # its PIN on the ubuntu-26.04 image (sudo-rs ignores `sudo -E`), and the
+      # action's connection wait ran to the job timeout every day.
+      - name: A second run with the daemon stopped connects again (Linux, the action's re-use path)
+        if: runner.os == 'Linux'
+        env:
+          PIN_SECRET: ${{ secrets.EDAMAME_POSTURE_PIN }}
+          HUB_USER: ${{ vars.EDAMAME_POSTURE_USER }}
+          HUB_DOMAIN: ${{ vars.EDAMAME_POSTURE_DOMAIN }}
+          DEVICE_ID: install-compat-${{ github.run_id }}-${{ matrix.os }}-${{ matrix.method }}-${{ matrix.pin_source }}
+          PIN_SOURCE: ${{ matrix.pin_source }}
+          METHOD: ${{ matrix.method }}
+        run: |
+          set -euo pipefail
+          bin=$(sed -n 's/^binary_path=//p' "$RUNNER_TEMP/edamame_install_state")
+          sudo "$bin" background-stop || true
+          sleep 3
+          args=(--user "$HUB_USER" --domain "$HUB_DOMAIN" --device-id "$DEVICE_ID" \
+                --state-file "$RUNNER_TEMP/edamame_install_state")
+          case "$METHOD" in
+            binary) args+=(--force-binary) ;;
+            debug) args+=(--debug-build) ;;
+          esac
+          if [ "$PIN_SOURCE" = "argv" ]; then
+            args+=(--pin "$PIN_SECRET")
+          else
+            export EDAMAME_PIN="$PIN_SECRET"
+          fi
+          sh ./install.sh "${args[@]}" 2>&1 | tee "$RUNNER_TEMP/install_again.log"
+          if grep -q -- "'-E' is ignored" "$RUNNER_TEMP/install_again.log"; then
+            echo "::error::install.sh ran a command through 'sudo -E' on a host whose sudo ignores it: the daemon it started did not get the installer's environment"
+            exit 1
+          fi
+          if sudo "$bin" background-wait-for-connection 300; then
+            echo "connected again"
+          else
+            echo "::error::the daemon install.sh started again, after the previous one was stopped, did not connect to the Hub: the path a second posture action step takes on a runner whose daemon is down"
+            sudo "$bin" background-logs 2>/dev/null | tail -60 || true
+            exit 1
+          fi
+
       - name: Stop the daemon
         if: always()
         run: |
