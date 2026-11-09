@@ -3770,6 +3770,9 @@ configure_service() {
                                 if ! wait_for_daemon_ready "edamame_posture" 30; then
                                     warn "Service started but daemon not ready - may need more time to initialize"
                                 fi
+                                # The service owns the daemon from here; see the
+                                # systemd branch below.
+                                SHOULD_START_DAEMON="false"
                             else
                                 warn "Failed to start service via rc-service"
                             fi
@@ -3813,6 +3816,12 @@ configure_service() {
                             if ! wait_for_daemon_ready "edamame_posture" 30; then
                                 warn "Service started but daemon not ready - may need more time to initialize"
                             fi
+                            # The unit owns the daemon from here (Restart=always): a
+                            # fallback flag set earlier, when the previous daemon's
+                            # status could not be read, must not kill this one and
+                            # start another by hand, racing the respawned unit for
+                            # the RPC port.
+                            SHOULD_START_DAEMON="false"
                         else
                             warn "Failed to restart service. Check: sudo systemctl status edamame_posture"
                             SHOULD_START_DAEMON="true"  # fall back to manual daemon start
