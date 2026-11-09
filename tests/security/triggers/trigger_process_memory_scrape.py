@@ -228,6 +228,15 @@ def _copy_executable(src: Path, dst: Path) -> Path | None:
         return None
 
 
+def _settles(target: DetachedTarget, wait: float = 0.3) -> bool:
+    """Whether a freshly started target is still there after a short wait:
+    one that refused its arguments (a multicall binary dispatching on a
+    name it does not know) has exited by then, and a dead pid would turn
+    every read into a "no such process" the scenario cannot grade."""
+    time.sleep(wait)
+    return target.alive()
+
+
 def spawn_target(state_dir: Path, sensitive: bool = False) -> DetachedTarget:
     system = platform.system()
     if system == "Windows":
@@ -259,16 +268,31 @@ def spawn_target(state_dir: Path, sensitive: bool = False) -> DetachedTarget:
                 return DetachedTarget(str(sleeper), pid)
     else:
         if sensitive:
+            # A copy of sleep renamed ssh-agent exits at once where coreutils
+            # are the multicall Rust binary (Ubuntu 25.10+, GitHub's
+            # ubuntu-26.04 image): the copy dispatches on argv[0], knows no
+            # "ssh-agent", and the reads below find no target. A sleeper
+            # built on the spot does not read its name; the copy stays the
+            # fallback where no compiler is installed, run as "<copy> sleep"
+            # when sleep resolves to the multicall binary.
+            sleeper = build_plain_sleeper(state_dir, name="ssh-agent")
+            if sleeper is not None:
+                pid = _posix_detached([str(sleeper)])
+                if pid and _settles(DetachedTarget("ssh-agent", pid)):
+                    return DetachedTarget("ssh-agent", pid)
             src = Path("/bin/sleep")
             if not src.exists():
                 src = Path("/usr/bin/sleep")
             dst = _copy_executable(src, state_dir / "ssh-agent")
             if dst is not None:
-                pid = _posix_detached([str(dst), "3600"])
-                if pid:
+                argv = [str(dst), "3600"]
+                if "coreutils" in str(src.resolve()):
+                    argv = [str(dst), "sleep", "3600"]
+                pid = _posix_detached(argv)
+                if pid and _settles(DetachedTarget("ssh-agent", pid)):
                     return DetachedTarget("ssh-agent", pid)
         pid = _posix_detached(["sleep", "3600"])
-        if pid:
+        if pid and _settles(DetachedTarget("sleep", pid)):
             return DetachedTarget("sleep", pid)
     # Last resort (no shell / compiler): a second interpreter as a direct
     # child. Same image and our child -- the detector will not grade it.
