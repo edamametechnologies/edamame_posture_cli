@@ -1863,7 +1863,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "2.3.2"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#a29c6f95c5b2afd852211581492eafa8f1247d91"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#4b9dc3683c0a029b6af70237e582b066f0a52e21"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -1949,7 +1949,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "2.3.2"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#3c30a29bed91584ad84a426eb8bc3bd8cf1cdd28"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#9c945a57334d18fc646457fc27467087865a5b3a"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -2370,7 +2370,7 @@ dependencies = [
 [[package]]
 name = "flodbadd"
 version = "2.3.2"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#e00754cb142053e852e3423a877cf5028eb2eda6"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#1b476227562f62628698090cf28347f493685c4d"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -3444,7 +3444,7 @@ dependencies = [
  "js-sys",
  "log",
  "wasm-bindgen",
- "windows-core 0.58.0",
+ "windows-core 0.62.2",
 ]
 
 [[package]]
@@ -3972,7 +3972,7 @@ dependencies = [
 [[package]]
 name = "l7_ebpf_program"
 version = "0.1.0"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#e00754cb142053e852e3423a877cf5028eb2eda6"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#1b476227562f62628698090cf28347f493685c4d"
 
 [[package]]
 name = "lazy_static"
@@ -7439,7 +7439,7 @@ dependencies = [
 [[package]]
 name = "threatmodels_rs"
 version = "0.1.1"
-source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#b3cbe6e8419c982d0b6c930821a52fac9a6f8042"
+source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#e0f40528cd73030d8f3fbdb16bd518a5fc3daed3"
 dependencies = [
  "anyhow",
  "chrono",
