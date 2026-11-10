@@ -2862,22 +2862,27 @@ DAEMON_ENV_NAMES="CI,GITHUB_ACTIONS,GITHUB_RUN_ID,GITHUB_REPOSITORY,GITLAB_CI,CI
 # 2026-11-03) answers "preserving the entire environment is not supported,
 # '-E' is ignored" and starts the daemon without it: no EDAMAME_PIN, no LLM
 # key, no CI/CD detection, and the warning on stderr lands in any JSON a caller
-# captures with 2>&1. `--preserve-env=list` (sudo 1.8.21, 2017, and sudo-rs)
-# names the variables instead: what this shell exports plus what the daemon
-# reads. An older sudo keeps `-E`.
+# captures with 2>&1. For sudo-rs the variables are named with
+# `--preserve-env=list`: what this shell exports plus what the daemon reads.
+#
+# A classic sudo keeps `-E`, whatever its version: it writes the VALUE of
+# every variable named with `--preserve-env=list` to its log (the line gains
+# "ENV=NAME=value ..."), which put the whole exported environment, secrets
+# included, in the auth log or the journal on each call. `-E` carries the
+# same environment and logs no value. Whether sudo-rs logs the values of the
+# list is not verified.
 sudo_env_flag() {
     _sudo_version_line=$(sudo --version 2>/dev/null | head -n 1)
     case "$_sudo_version_line" in
-        *sudo-rs*) ;;
+        *sudo-rs*)
+            echo "--preserve-env=$(exported_env_names),$DAEMON_ENV_NAMES"
+            ;;
         *)
-            _sudo_version=$(printf '%s\n' "$_sudo_version_line" | sed -n 's/^[Ss]udo version \([0-9][0-9.]*\).*/\1/p')
-            if [ -z "$_sudo_version" ] || version_lt "$_sudo_version" "1.8.21"; then
-                echo "-E"
-                return 0
-            fi
+            # printf, not echo: a shell whose echo takes options (bash, when
+            # the script is piped to it) prints nothing for "-E".
+            printf '%s\n' '-E'
             ;;
     esac
-    echo "--preserve-env=$(exported_env_names),$DAEMON_ENV_NAMES"
 }
 
 ensure_privileged_runner() {
