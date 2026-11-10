@@ -3,6 +3,10 @@ name: Build and publish for linux debs
 on:
   workflow_dispatch:
     inputs:
+      assemble_as_prerelease:
+        description: 'Create the GitHub release as a prerelease, so that releases/latest keeps answering the previous version while this version is assembled; the caller then publishes it (gh release edit <tag> --prerelease=false --latest). release_all.sh passes true once it carries that publish step. Default: the release is the latest as soon as it is created, as before.'
+        type: boolean
+        default: false
       generic_release_notes:
         description: 'Publish "Bug fixes" as the release notes when release_notes/<version>.md does not exist (release_all.sh --generic-release-notes). Without it a release with no notes is refused.'
         type: boolean
@@ -24,19 +28,19 @@ jobs:
       matrix:
         include:
           - os: ubuntu
-            runs-on: ubuntu-latest
+            runs-on: ubuntu-24.04
             arch: i386
             target: i686-unknown-linux-gnu
             deb_arch: i386
           - os: ubuntu
-            runs-on: ubuntu-latest
+            runs-on: ubuntu-24.04
             arch: armhf
             target: armv7-unknown-linux-gnueabihf
             deb_arch: armhf
           - os: ubuntu
             # We have a hard time finding an older version of Ubuntu to generate compatible binaries for older glibc
             # So we use cross-compilation for this target
-            runs-on: ubuntu-latest
+            runs-on: ubuntu-24.04
             arch: amd64
             target: x86_64-unknown-linux-gnu
             deb_arch: amd64
@@ -366,6 +370,15 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
       # Main only
+      # With the `assemble_as_prerelease` input the release is created as a
+      # prerelease: several workflows assemble one version, and the public
+      # releases/latest redirect, which every installer resolves, must not
+      # point at it before all its assets and SHA256SUMS exist. The caller
+      # (edamame_app/release_all.sh) then publishes it with
+      #   gh release edit <tag> --prerelease=false --latest
+      # Without the input (the default, and a manual run) the release is the
+      # latest as soon as it is created, as before. A release that already
+      # exists keeps its flag: no step passes --prerelease or --latest to it.
       - name: Create release if it doesn't exist
         if: github.ref == 'refs/heads/main' && steps.get_release.outputs.exists != 'true'
         # This populates steps.get_release.outputs.upload_url with the upload_url of the release
@@ -378,7 +391,7 @@ jobs:
           release_name: Release ${{ steps.get_release.outputs.tag }}
           body_path: ${{ steps.notes.outputs.path }}
           draft: false
-          prerelease: false
+          prerelease: ${{ inputs.assemble_as_prerelease }}
 
       # Never an empty release body (release_notes.sh refuses to produce one;
       # this checks what GitHub now holds).
@@ -396,9 +409,37 @@ jobs:
             exit 1
           fi
 
+      # Published assets are IMMUTABLE for a given version -- see the same
+      # guard in release_others.yml and release_apks.yml. The builds are not
+      # bit-reproducible, so a re-run after a partial run must ADD what is
+      # missing, never replace an asset whose checksum consumers may already
+      # hold. Exact-match (grep -qxF), so an asset name never matches another
+      # one. A failed listing fails the job: read as "nothing published", it
+      # would make every upload below replace a published asset
+      # (overwrite: true).
+      - name: Determine already-published assets
+        id: published
+        if: github.ref == 'refs/heads/main'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG="${{ steps.get_release.outputs.tag }}"
+          V="${{ steps.get_release.outputs.version }}"
+          # The same names as the asset_name of the three uploads below.
+          EXE="${{ matrix.os == 'windows' && '.exe' || '' }}"
+          NAMES="$(bash .github/scripts/release_lookup.sh assets "${{ github.repository }}" "$TAG")"
+          has() { grep -qxF "$1" <<<"$NAMES" && echo true || echo false; }
+          {
+            echo "bin=$(has "edamame_posture-${V}-${{ matrix.target }}${EXE}")"
+            echo "bin_debug=$(has "edamame_posture-${V}-${{ matrix.target }}-debug${EXE}")"
+            echo "deb=$(has "edamame-posture_${V}-1_${{ matrix.deb_arch }}.deb")"
+          } >> "$GITHUB_OUTPUT"
+
       # Main only
       - name: Upload asset to release
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' && steps.published.outputs.bin != 'true'
         # Supports overwrite
         uses: shogo82148/actions-upload-release-asset@v1
         with:
@@ -413,7 +454,7 @@ jobs:
 
       # Main only - Upload debug binary
       - name: Upload debug asset to release
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' && steps.published.outputs.bin_debug != 'true'
         # Supports overwrite
         uses: shogo82148/actions-upload-release-asset@v1
         with:
@@ -427,7 +468,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload .deb asset to release
-        if: github.ref == 'refs/heads/main'  
+        if: github.ref == 'refs/heads/main' && steps.published.outputs.deb != 'true'
         uses: shogo82148/actions-upload-release-asset@v1
         with:
           upload_url: ${{ steps.get_release.outputs.exists == 'true' && steps.get_release.outputs.upload_url || steps.create_release.outputs.upload_url }}
@@ -437,6 +478,36 @@ jobs:
           overwrite: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # The apt repository serves the bytes the release serves. When the release
+      # already carried this .deb (a re-run), the package built by this run is
+      # not the published one: the published file is fetched here, by its
+      # explicit tag, and the step below uploads that file to the repository.
+      # The download is compared with the digest GitHub recorded at upload.
+      - name: Fetch the published .deb for the apt repository
+        if: github.ref == 'refs/heads/main' && steps.published.outputs.deb == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG="${{ steps.get_release.outputs.tag }}"
+          DEB="edamame-posture_${{ steps.get_release.outputs.version }}-1_${{ matrix.deb_arch }}.deb"
+          DEST="$RUNNER_TEMP/published-deb"
+          rm -rf "$DEST"
+          mkdir -p "$DEST"
+          gh release download "$TAG" --repo "${{ github.repository }}" --pattern "$DEB" --dir "$DEST"
+          GOT="sha256:$(sha256sum "$DEST/$DEB" | awk '{print $1}')"
+          WANT="$(gh api "repos/${{ github.repository }}/releases/tags/$TAG" \
+            --jq '.assets[] | [.name, (.digest // "")] | @tsv' \
+            | awk -F '\t' -v n="$DEB" '$1 == n { print $2 }')"
+          if [ -z "$WANT" ]; then
+            echo "::notice::The release records no digest for $DEB; the download is not compared"
+          elif [ "$GOT" != "$WANT" ]; then
+            echo "::error::Downloaded $DEB is $GOT, the release records $WANT"
+            exit 1
+          fi
+          echo "Fetched the published $DEB ($GOT)"
 
       - name: Upload .deb files to S3
         if: github.ref == 'refs/heads/main'
@@ -454,12 +525,27 @@ jobs:
           # Get the key ID (last 16 characters of the fingerprint)
           KEY_ID=$(gpg --list-secret-keys --keyid-format LONG | grep sec | awk '{print $2}' | cut -d'/' -f2)
 
-          # Install deb-s3
-          sudo gem install deb-s3
+          # Install deb-s3 (a pinned version: this step holds the repository signing key)
+          sudo gem install deb-s3 -v 26.1.0
+
+          # The repository receives the package the release holds: the .deb
+          # built by this run when this run published it, the published file
+          # (fetched by the step above) when the release already carried it.
+          DEB_NAME="edamame-posture_${{ steps.get_release.outputs.version }}-1_${{ matrix.deb_arch }}.deb"
+          if [ "${{ steps.published.outputs.deb }}" = "true" ]; then
+            DEB_PATH="$RUNNER_TEMP/published-deb/$DEB_NAME"
+          else
+            DEB_PATH="target/${{ matrix.target }}/debian/$DEB_NAME"
+          fi
+          if [ ! -s "$DEB_PATH" ]; then
+            echo "::error::$DEB_PATH is missing or empty"
+            exit 1
+          fi
+          echo "Uploading to the apt repository: $DEB_PATH (sha256 $(sha256sum "$DEB_PATH" | awk '{print $1}'))"
 
           # Upload .deb files to S3 with explicit GPG signing
           deb-s3 upload --bucket edamame --prefix repo \
-            target/${{ matrix.target }}/debian/edamame-posture_${{ steps.get_release.outputs.version }}-1_${{ matrix.deb_arch }}.deb \
+            "$DEB_PATH" \
             --sign=$KEY_ID \
             --gpg-options="--batch --pinentry-mode loopback --passphrase $GPG_PASSPHRASE" \
             --suite stable \

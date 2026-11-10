@@ -145,7 +145,28 @@ fi
 
 FILES=("$WORK/$SUMS")
 if [ "$SIGN" = true ]; then
-  (cd "$WORK" && cosign sign-blob --yes --bundle "$BUNDLE" "$SUMS")
+  # A missing cosign is not transient: fail at once, as before.
+  if ! command -v cosign >/dev/null 2>&1; then
+    echo "ERROR: cosign is not installed (required unless --no-sign)" >&2
+    exit 1
+  fi
+  # Keyless signing calls Fulcio (certificate) and Rekor (transparency log),
+  # and either can fail transiently: ask again before failing the run. Six
+  # attempts, waiting 20, 40, 60, 90 and 120 s between them; only the last
+  # failure exits 1 (nothing is published without its signature).
+  SIGN_WAITS=(20 40 60 90 120)
+  SIGN_ATTEMPTS=$((${#SIGN_WAITS[@]} + 1))
+  sign_attempt=1
+  while ! (cd "$WORK" && rm -f "$BUNDLE" && cosign sign-blob --yes --bundle "$BUNDLE" "$SUMS"); do
+    if [ "$sign_attempt" -ge "$SIGN_ATTEMPTS" ]; then
+      echo "ERROR: cosign sign-blob failed ${SIGN_ATTEMPTS} times; ${SUMS} is not published" >&2
+      exit 1
+    fi
+    sign_wait="${SIGN_WAITS[$((sign_attempt - 1))]}"
+    echo "::warning::cosign sign-blob failed (attempt ${sign_attempt}/${SIGN_ATTEMPTS}); trying again in ${sign_wait} s"
+    sleep "$sign_wait"
+    sign_attempt=$((sign_attempt + 1))
+  done
   # Check the signature we are about to publish against the identity users
   # are told to expect (the running workflow, GitHub Actions issuer).
   if [ -n "${GITHUB_WORKFLOW_REF:-}" ]; then

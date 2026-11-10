@@ -3,6 +3,10 @@ name: Build and publish for other platforms
 on:
   workflow_dispatch:
     inputs:
+      assemble_as_prerelease:
+        description: 'Create the GitHub release as a prerelease, so that releases/latest keeps answering the previous version while this version is assembled; the caller then publishes it (gh release edit <tag> --prerelease=false --latest). release_all.sh passes true once it carries that publish step. Default: the release is the latest as soon as it is created, as before.'
+        type: boolean
+        default: false
       generic_release_notes:
         description: 'Publish "Bug fixes" as the release notes when release_notes/<version>.md does not exist (release_all.sh --generic-release-notes). Without it a release with no notes is refused.'
         type: boolean
@@ -28,7 +32,7 @@ jobs:
 
   # The build matrix for the platform input.
   platforms:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
       include: ${{ steps.pick.outputs.include }}
@@ -40,7 +44,7 @@ jobs:
           PLATFORM: ${{ inputs.platform }}
         run: |
           set -euo pipefail
-          macos='{"os":"macos","runs-on":"macos-latest","arch":"universal","target":"universal-apple-darwin"}'
+          macos='{"os":"macos","runs-on":"macos-26","arch":"universal","target":"universal-apple-darwin"}'
           windows='{"os":"windows","runs-on":"vm-runner-windows","arch":"amd64","target":"x86_64-pc-windows-msvc"}'
           case "${PLATFORM:-all}" in
             all) include="[$macos,$windows]" ;;
@@ -411,6 +415,15 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
       # Main only
+      # With the `assemble_as_prerelease` input the release is created as a
+      # prerelease: several workflows assemble one version, and the public
+      # releases/latest redirect, which every installer resolves, must not
+      # point at it before all its assets and SHA256SUMS exist. The caller
+      # (edamame_app/release_all.sh) then publishes it with
+      #   gh release edit <tag> --prerelease=false --latest
+      # Without the input (the default, and a manual run) the release is the
+      # latest as soon as it is created, as before. A release that already
+      # exists keeps its flag: no step passes --prerelease or --latest to it.
       - name: Create release if it doesn't exist
         if: github.ref == 'refs/heads/main' && steps.get_release.outputs.exists != 'true'
         # This populates steps.get_release.outputs.upload_url with the upload_url of the release
@@ -423,7 +436,7 @@ jobs:
           release_name: Release ${{ steps.get_release.outputs.tag }}
           body_path: ${{ steps.notes.outputs.path }}
           draft: false
-          prerelease: false
+          prerelease: ${{ inputs.assemble_as_prerelease }}
 
       # Never an empty release body (release_notes.sh refuses to produce one;
       # this checks what GitHub now holds).
@@ -519,7 +532,7 @@ jobs:
           TAG="${{ steps.get_release.outputs.tag }}"
           V="${{ steps.get_release.outputs.version }}"
           NAMES="$(bash .github/scripts/release_lookup.sh assets "${{ github.repository }}" "$TAG")"
-          has() { printf '%s\n' "$NAMES" | grep -qxF "$1" && echo true || echo false; }
+          has() { grep -qxF "$1" <<<"$NAMES" && echo true || echo false; }
           {
             echo "pkg=$(has "edamame-posture-macos-${V}.pkg")"
             echo "pkg_debug=$(has "edamame-posture-macos-${V}-debug.pkg")"
@@ -604,7 +617,7 @@ jobs:
 
           TO_UPLOAD=()
           for ASSET in "$RELEASE_NAME" "$DEBUG_NAME"; do
-            if printf '%s\n' "$EXISTING" | grep -qxF "$ASSET"; then
+            if grep -qxF "$ASSET" <<<"$EXISTING"; then
               echo "SKIP (already published, checksum is fixed): $ASSET"
             else
               TO_UPLOAD+=("$ASSET")

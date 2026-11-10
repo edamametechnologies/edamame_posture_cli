@@ -636,7 +636,7 @@ jobs:
           # the bundles and the sources record are there whenever it is.
           for ASSET_PATH in simulator-artifacts/* "$SOURCES" "$SUMS"; do
             ASSET_NAME="$(basename "$ASSET_PATH")"
-            if printf '%s\n' "$EXISTING" | grep -qxF "$ASSET_NAME"; then
+            if grep -qxF "$ASSET_NAME" <<<"$EXISTING"; then
               echo "SKIP (already published, checksum is fixed): $ASSET_NAME"
               continue
             fi
@@ -649,7 +649,7 @@ jobs:
           AFTER="$(bash .github/scripts/release_lookup.sh assets "${SIMULATOR_REPO}" "$TAG")"
           for ASSET_PATH in simulator-artifacts/* "$SOURCES" "$SUMS"; do
             ASSET_NAME="$(basename "$ASSET_PATH")"
-            printf '%s\n' "$AFTER" | grep -qxF "$ASSET_NAME" || { echo "::error::asset not on release after upload: $ASSET_NAME"; exit 1; }
+            grep -qxF "$ASSET_NAME" <<<"$AFTER" || { echo "::error::asset not on release after upload: $ASSET_NAME"; exit 1; }
           done
 
       # Stable download links, like the app's standalone builds: under

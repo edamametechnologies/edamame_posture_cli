@@ -3,6 +3,10 @@ name: Release install script
 on:
   workflow_dispatch:
     inputs:
+      assemble_as_prerelease:
+        description: 'Create the GitHub release as a prerelease, so that releases/latest keeps answering the previous version while this version is assembled; the caller then publishes it (gh release edit <tag> --prerelease=false --latest). release_all.sh passes true once it carries that publish step. Default: the release is the latest as soon as it is created, as before.'
+        type: boolean
+        default: false
       generic_release_notes:
         description: 'Publish "Bug fixes" as the release notes when release_notes/<version>.md does not exist (release_all.sh --generic-release-notes). Without it a release with no notes is refused.'
         type: boolean
@@ -18,7 +22,7 @@ permissions: write-all
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 90
 
     steps:
@@ -110,6 +114,15 @@ jobs:
         run: |
           gh release edit ${{ steps.version.outputs.tag }} --repo ${{ github.repository }} --target ${{ github.sha }} --notes-file "${{ steps.notes.outputs.path }}"
 
+      # With the `assemble_as_prerelease` input the release is created as a
+      # prerelease: several workflows assemble one version, and the public
+      # releases/latest redirect, which every installer resolves, must not
+      # point at it before all its assets and SHA256SUMS exist. The caller
+      # (edamame_app/release_all.sh) then publishes it with
+      #   gh release edit <tag> --prerelease=false --latest
+      # Without the input (the default, and a manual run) the release is the
+      # latest as soon as it is created, as before. A release that already
+      # exists keeps its flag: no step passes --prerelease or --latest to it.
       - name: Create release if it doesn't exist
         if: github.ref == 'refs/heads/main' && steps.release_lookup.outputs.exists != 'true'
         id: create_release
@@ -121,7 +134,7 @@ jobs:
           release_name: Release ${{ steps.version.outputs.tag }}
           body_path: ${{ steps.notes.outputs.path }}
           draft: false
-          prerelease: false
+          prerelease: ${{ inputs.assemble_as_prerelease }}
 
       # Never an empty release body (release_notes.sh refuses to produce one;
       # this checks what GitHub now holds).
