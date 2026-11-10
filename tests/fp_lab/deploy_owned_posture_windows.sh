@@ -20,7 +20,10 @@
 #   start            stop the app, disable the helper (recovery off first), start posture
 #   status           what the lab preflight will see
 #   run [args]       start run_fp_lab.py as a scheduled task (args go to `run`)
-#   wait <run>       follow the run until its summary exists
+#   wait <run>       follow the run until its summary exists, print it and its
+#                    verdict; ends 3 when the run is INCOMPLETE (an agent the
+#                    plan meant to drive delivered no case: not a clean leg),
+#                    2 without a summary or verdict, else 0
 #   collect <run>    copy the run back and shape attack-pattern candidates here
 #   stop             stop and remove posture, re-enable the helper and its
 #                    recovery, relaunch the app, delete the keys, verify
@@ -58,7 +61,22 @@ BIN_DIR="$CACHE/bin/$RUN_ID/$LABEL"
 
 die() { echo "deploy_owned_posture_windows: $*" >&2; exit 2; }
 say() { echo "== $*" >&2; }
-CMD="${1:-}"; [[ -n "$CMD" ]] || { sed -n '2,37p' "$0"; exit 2; }
+# leg_verdict <run> <summary.md text>: the verdict the runner wrote, as the
+# last line of `wait` (deploy_owned_posture.sh has the same function).
+# INCOMPLETE (run_fp_lab.py exit 3: an agent the plan meant to drive
+# delivered no case) is not a clean leg and ends `wait` with 3; PASS and FAIL
+# end it with 0, as before; a summary without a verdict line ends it with 2.
+leg_verdict() {
+  local v
+  v=$(printf '%s\n' "$2" | sed -n 's/^- Verdict: \*\*\([A-Z-]*\)\*\*.*/\1/p' | head -n 1) || true
+  [[ -n "$v" ]] || die "$1: the summary has no verdict line: the leg is not known to be clean"
+  echo "== $1: verdict $v"
+  if [[ "$v" == INCOMPLETE ]]; then
+    echo "== $1: INCOMPLETE is not a clean leg: an agent delivered no case (see \"Not delivered\" in the summary); fix it and run the window again" >&2
+    exit 3
+  fi
+}
+CMD="${1:-}"; [[ -n "$CMD" ]] || { sed -n '2,41p' "$0"; exit 2; }
 shift
 
 # The owned build's version: FP_LAB_OWNED_VERSION, else the candidate run's
@@ -140,23 +158,43 @@ function Clear-ProviderKeys {
     if ($line -match '^\s*([A-Za-z_][A-Za-z0-9_]*)=') { Remove-Item -Path "env:$($Matches[1])" -ErrorAction SilentlyContinue }
   }
 }
-# Probe-Agent <name> <args> <dir>: one non-interactive turn within 90 s,
-# through cmd.exe so the npm .cmd shims resolve; the whole tree is ended on
-# timeout (the node child of a shim outlives it). Writes the verdict and
-# returns $true when the CLI exited 0 with the word in its output.
-function Probe-Agent([string]$name, [string[]]$cmdArgs, [string]$dir) {
-  $out = Join-Path $dir "$name.out"; $err = Join-Path $dir "$name.err"
+# Probe-Agent <name> <args> <dir> <stdin>: one non-interactive turn within
+# 90 s, through cmd.exe so the npm .cmd shims resolve; <stdin> is the text on
+# the standard input of the CLI (the prompt for claude, as the lab driver
+# sends it; nothing for codex). The whole tree is ended on timeout (the node
+# child of a shim outlives it). Writes the verdict and returns $true when the
+# CLI answered with the word:
+#   <name> probe: ready                  exit 0 and the word in the output
+#   <name> probe: FAILED (exit N): ...   the CLI ran and did not answer
+#   <name> probe: FAILED (no answer in 90 s)
+# When the exit status cannot be read the answer decides, and the line says
+# so: that is a limit of the probe, not a fault of the CLI.
+function Probe-Agent([string]$name, [string[]]$cmdArgs, [string]$dir, [string]$stdinText) {
+  $out = Join-Path $dir "$name.out"; $err = Join-Path $dir "$name.err"; $inFile = Join-Path $dir "$name.in"
+  [IO.File]::WriteAllText($inFile, "$stdinText")
   $p = Start-Process -FilePath "cmd.exe" -ArgumentList (@("/d", "/c", $name) + $cmdArgs) -WorkingDirectory $dir `
-    -NoNewWindow -PassThru -RedirectStandardOutput $out -RedirectStandardError $err
+    -NoNewWindow -PassThru -RedirectStandardInput $inFile -RedirectStandardOutput $out -RedirectStandardError $err
+  # Read the handle while the process runs: without it Windows PowerShell
+  # has no ExitCode for a -PassThru process once it has exited, and the probe
+  # printed "FAILED (exit ): ready" for a CLI that had answered (2026-11-10).
+  $null = $p.Handle
   if (-not $p.WaitForExit(90000)) {
     taskkill /T /F /PID $p.Id 2>$null | Out-Null
     Write-Host "$name probe: FAILED (no answer in 90 s)"; return $false
   }
+  $p.WaitForExit()
+  $code = $p.ExitCode
   $text = "$(Get-Content $out -Raw -ErrorAction SilentlyContinue)$(Get-Content $err -Raw -ErrorAction SilentlyContinue)"
-  if ($p.ExitCode -eq 0 -and $text -match '(?i)ready') { Write-Host "$name probe: ready"; return $true }
+  # The whole word: "already" is not an answer.
+  $answered = $text -match '(?i)\bready\b'
+  if ($answered -and ($code -eq 0)) { Write-Host "$name probe: ready"; return $true }
+  if ($answered -and ($null -eq $code)) {
+    Write-Host "$name probe: ready (exit status not readable: judged on the answer)"; return $true
+  }
   $tail = (($text -split "`r?`n" | Where-Object { $_ }) | Select-Object -Last 3) -join ' '
-  if ($tail.Length -gt 200) { $tail = $tail.Substring(0, 200) }
-  Write-Host "$name probe: FAILED (exit $($p.ExitCode)): $tail"; return $false
+  if ($tail.Length -gt 300) { $tail = $tail.Substring(0, 300) }
+  $exitText = if ($null -eq $code) { "exit status not readable" } else { "exit $code" }
+  Write-Host "$name probe: FAILED ($exitText): $tail"; return $false
 }
 PSLIB
 )
@@ -281,9 +319,11 @@ PS
     # (%APPDATA%\npm), which the lab PATH puts first: a native claude.exe
     # under ~\.local\bin or a stub claude.cmd (shiawase's July smoke-test
     # stub) is shadowed for the window, not touched. Then each CLI must
-    # answer with its pin and answer one turn within 90 s (Probe-Agent, with
-    # the window's keys), or this step fails instead of ten cases ending in
-    # SKIP later.
+    # answer with its pin and answer one turn within 90 s, launched as the
+    # cases launch it (Probe-Agent, with the window's keys), or this step
+    # fails instead of ten cases ending in SKIP later. Each failure line says
+    # which check it was: an install that did not land, a key that is
+    # missing, or a CLI that did not answer.
     ps_run "$PRE" <<'PS' || die "agent CLIs: install or probe failed"
 if (-not (Test-Path "$Lab\secrets\providers.env")) { "keys first (the probe needs the provider keys)"; exit 1 }
 if (-not (Get-Command npm.cmd -ErrorAction SilentlyContinue)) { "no npm on the host (install Node.js first)"; exit 1 }
@@ -300,12 +340,42 @@ foreach ($row in @(@("claude", "@anthropic-ai/claude-code", $ClaudePin), @("code
 }
 Agent-Versions
 if ($failed) { exit 1 }
+# Each CLI is launched the way the lab launches it for a case, so the probe
+# fails where the cases would and nowhere else: the command line and
+# environment of tests/e2e/agent_harness.py (drive_claude_code, drive_codex),
+# the arguments run_fp_lab.py adds to a first request (--output-format json
+# and its default --model sonnet for Claude Code), and only the agent's own
+# credential, as the runner's provider_env leaves it.
 Load-ProviderKeys
-$env:DISABLE_AUTOUPDATER = "1"
 $dir = Join-Path $Lab "probe-$(Get-Date -Format yyyyMMddHHmmss)"
 New-Item -ItemType Directory -Force -Path $dir | Out-Null
-if (-not (Probe-Agent "claude" @("-p", '"reply with the word ready"', "--max-turns", "1", "--output-format", "text") $dir)) { $failed++ }
-if (-not (Probe-Agent "codex" @("exec", "--skip-git-repo-check", "-C", "`"$dir`"", '"reply with the word ready"') $dir)) { $failed++ }
+$prompt = "reply with the word ready"
+$anthropicKey = $env:ANTHROPIC_API_KEY; $bedrockKey = $env:AWS_BEARER_TOKEN_BEDROCK; $openaiKey = $env:OPENAI_API_KEY
+# Amazon Bedrock or the Anthropic API (agent_harness.claude_code_on_bedrock).
+$onBedrock = @("", "0", "false") -cnotcontains "$env:CLAUDE_CODE_USE_BEDROCK".Trim()
+$claudeKeyName = if ($onBedrock) { "AWS_BEARER_TOKEN_BEDROCK" } else { "ANTHROPIC_API_KEY" }
+$claudeKey = if ($onBedrock) { $bedrockKey } else { $anthropicKey }
+
+# Claude Code: the prompt on standard input, as the driver sends it.
+$env:OPENAI_API_KEY = $null; $env:CODEX_API_KEY = $null
+if ($onBedrock) { $env:ANTHROPIC_API_KEY = $null } else { $env:AWS_BEARER_TOKEN_BEDROCK = $null }
+$env:IS_SANDBOX = "1"; $env:BASH_DEFAULT_TIMEOUT_MS = "200000"; $env:BASH_MAX_TIMEOUT_MS = "200000"
+$env:DISABLE_AUTOUPDATER = "1"
+if (-not $claudeKey) {
+  Write-Host "claude probe: NOT RUN (no $claudeKeyName in providers.env): run keys first"; $failed++
+} elseif (-not (Probe-Agent "claude" @("-p", "--dangerously-skip-permissions", "--output-format", "json", "--model", "sonnet") $dir $prompt)) { $failed++ }
+
+# Codex: both key names, as the driver sets them. The CLI reads
+# CODEX_API_KEY: with OPENAI_API_KEY alone the probe sent no credential and
+# answered 401 while every Codex case passed (2026-11-10).
+$env:IS_SANDBOX = $null; $env:BASH_DEFAULT_TIMEOUT_MS = $null; $env:BASH_MAX_TIMEOUT_MS = $null
+$env:DISABLE_AUTOUPDATER = $null
+$env:ANTHROPIC_API_KEY = $null; $env:AWS_BEARER_TOKEN_BEDROCK = $null
+$env:OPENAI_API_KEY = $openaiKey; $env:CODEX_API_KEY = $openaiKey
+if (-not $openaiKey) {
+  Write-Host "codex probe: NOT RUN (no OPENAI_API_KEY in providers.env): run keys first"; $failed++
+} elseif (-not (Probe-Agent "codex" @("exec", "--sandbox", "danger-full-access", "--skip-git-repo-check", "-C", "`"$dir`"", "`"$prompt`"") $dir "")) { $failed++ }
+$env:OPENAI_API_KEY = $null; $env:CODEX_API_KEY = $null
 Clear-ProviderKeys
 Remove-Item -Recurse -Force $dir -ErrorAction SilentlyContinue
 if ($failed) { exit 1 }
@@ -472,6 +542,7 @@ PS
       if echo "$OUT" | grep -q "^STATE Ready"; then die "runner exited without a summary"; fi
       sleep 60
     done
+    leg_verdict "$NAME" "$OUT"
     ;;
 
   collect)

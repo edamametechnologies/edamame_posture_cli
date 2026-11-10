@@ -21,7 +21,13 @@ Subcommands:
   summarize <run_dir>  re-render summary.json / summary.md from the case files
 
 Exit codes (run): 0 clean, 1 at least one alertable finding or divergence
-incident, 2 preflight / infrastructure failure.
+incident, 2 preflight / infrastructure failure, 3 incomplete: nothing
+alertable, but an agent the plan meant to drive on this host delivered no
+case (every one of its cases ended SKIP or ERROR), so the run measured
+nothing for that agent. 1 wins over 3 when both hold; the summary names
+both. An agent the host has no provider key for, or that `--agents` leaves
+out, is not planned here and never makes a run incomplete. `summarize`
+returns the same 0 / 1 / 3 for the run it re-renders.
 
 Provider keys: ANTHROPIC_API_KEY / OPENAI_API_KEY are read from the
 environment at start, removed from it, and handed only to the agent that needs
@@ -726,6 +732,168 @@ def preflight(args: argparse.Namespace, lab_agents: List[str]) -> Tuple[bool, di
     return not problems, pf
 
 
+# ── skips, delivery and the run's verdict ───────────────────────────────
+
+EXIT_CLEAN, EXIT_FAIL, EXIT_PREFLIGHT, EXIT_INCOMPLETE = 0, 1, 2, 3
+
+# Why a case is SKIP (`skip_kind` in plan.json, case.json and summary.json).
+# Decided by the plan, before anything is driven:
+SKIP_EXCLUDED = "excluded"                          # --skip
+SKIP_PLATFORM = "platform"                          # not a scenario of this OS
+SKIP_AGENT_NOT_SELECTED = "agent_not_selected"      # --agents leaves the agent out
+SKIP_MISSING_TOOL = "missing_tool"                  # configuration: a required tool is not on PATH
+SKIP_MISSING_ENV = "missing_env"                    # configuration: a required variable is not set
+SKIP_AGENT_UNAVAILABLE = "agent_unavailable"        # no provider key (or no driver) for the agent here
+SKIP_AGENT_INSTALL_FAILED = "agent_install_failed"  # the provider key is here, the agent's CLI is not
+# Decided by the drive:
+SKIP_AGENT_REFUSED = "agent_refused"
+SKIP_NOT_DELIVERED = "not_delivered"
+
+# Plan skips that say the case was never meant to run on this host in this
+# run. An agent whose every case is one of these is not planned here. The
+# harness's install_failed class (key present, CLI absent) is deliberately not
+# in the set: the host was given the key to drive that agent.
+NOT_PLANNED_SKIPS = frozenset({SKIP_EXCLUDED, SKIP_PLATFORM, SKIP_AGENT_NOT_SELECTED, SKIP_MISSING_TOOL,
+                               SKIP_MISSING_ENV, SKIP_AGENT_UNAVAILABLE})
+# The skips listed as "Skipped by configuration": what the host or the run
+# did not provide, apart from platform and agent skips.
+CONFIGURATION_SKIPS = {SKIP_MISSING_ENV: "environment variable", SKIP_MISSING_TOOL: "tool"}
+UNDELIVERED_WORDS = {SKIP_NOT_DELIVERED: "stimulus not delivered", SKIP_AGENT_REFUSED: "agent refused",
+                     SKIP_AGENT_INSTALL_FAILED: "agent CLI not installed", "ERROR": "runner error"}
+
+
+def skip_kind_of(case: dict) -> Optional[str]:
+    """Why a SKIP case was skipped: the kind the runner recorded, else (a run
+    of an earlier runner re-rendered by `summarize`) read back from the reason
+    this file writes. None for a case that is not SKIP, and for a reason no
+    rule recognizes, which is then counted as planned (fail closed)."""
+    if case.get("status") != "SKIP":
+        return None
+    if case.get("skip_kind"):
+        return str(case["skip_kind"])
+    reason = str(case.get("reason") or "")
+    agent = str(case.get("agent") or "")
+    if reason == "skipped by --skip":
+        return SKIP_EXCLUDED
+    if re.fullmatch(r"not a \w+ scenario", reason):
+        return SKIP_PLATFORM
+    if reason.endswith("not selected (--agents)"):
+        return SKIP_AGENT_NOT_SELECTED
+    if reason.startswith("missing tool(s): "):
+        return SKIP_MISSING_TOOL
+    if reason.startswith("missing env: "):
+        return SKIP_MISSING_ENV
+    if reason.startswith("agent refused: "):
+        return SKIP_AGENT_REFUSED
+    if reason.startswith("stimulus not delivered"):
+        return SKIP_NOT_DELIVERED
+    if agent and reason.startswith(f"{agent}: "):
+        return SKIP_AGENT_INSTALL_FAILED if "CLI not on PATH" in reason else SKIP_AGENT_UNAVAILABLE
+    return None
+
+
+def planned_agents(plan: List[dict]) -> Dict[str, int]:
+    """Per agent, how many cases the plan means to drive on this host."""
+    counts: Dict[str, int] = {}
+    for item in plan:
+        if item.get("agent") and (not item.get("skip") or item.get("skip_kind") == SKIP_AGENT_INSTALL_FAILED):
+            counts[item["agent"]] = counts.get(item["agent"], 0) + 1
+    return counts
+
+
+def undelivered_agents(cases: List[dict]) -> List[dict]:
+    """Agents the plan meant to drive on this host that delivered no case.
+
+    A case is planned unless the plan skipped it for a reason that says it was
+    never meant to run here (NOT_PLANNED_SKIPS: --skip, another platform, an
+    agent `--agents` leaves out, a missing tool or variable, no provider key).
+    A planned case is delivered unless it ended SKIP (stimulus not delivered,
+    agent refusal, CLI missing with the key present) or ERROR. An agent with
+    planned cases and none delivered measured nothing: a provider account out
+    of credit used to end every one of its cases in SKIP while the run passed.
+    """
+    by_agent: Dict[str, List[dict]] = {}
+    for case in cases:
+        if case.get("kind") == "agent" and case.get("agent"):
+            by_agent.setdefault(str(case["agent"]), []).append(case)
+    out: List[dict] = []
+    for agent in sorted(by_agent):
+        planned = [c for c in by_agent[agent] if skip_kind_of(c) not in NOT_PLANNED_SKIPS]
+        if not planned or any(c.get("status") not in ("SKIP", "ERROR") for c in planned):
+            continue
+        why: Dict[str, int] = {}
+        for c in planned:
+            key = "ERROR" if c.get("status") == "ERROR" else (skip_kind_of(c) or "skipped")
+            why[key] = why.get(key, 0) + 1
+        first = planned[0]
+        out.append({"agent": agent, "planned": len(planned), "delivered": 0, "why": why,
+                    "example": {"case_id": first.get("case_id"),
+                                "reason": str(first.get("reason") or first.get("error") or "")[:300]}})
+    return out
+
+
+def configuration_skips(cases: List[dict]) -> List[dict]:
+    """Cases the plan skipped for what the host or the run did not provide: a
+    required environment variable or tool, with its name."""
+    out: List[dict] = []
+    for case in cases:
+        kind = skip_kind_of(case)
+        if kind not in CONFIGURATION_SKIPS:
+            continue
+        missing = case.get("missing")
+        if not isinstance(missing, list) or not missing:
+            # An earlier runner's case: the names are in its reason.
+            missing = [m.strip() for m in str(case.get("reason") or "").split(":", 1)[-1].split(",") if m.strip()]
+        out.append({"case_id": case.get("case_id"), "kind": kind, "missing": [str(m) for m in missing]})
+    return out
+
+
+def configuration_skip_lines(entries: List[dict], markdown: bool = False) -> List[str]:
+    """The "Skipped by configuration" list, for summary.md (`markdown`) and
+    for the end of the console output. Empty when nothing was skipped so."""
+    if not entries:
+        return []
+    tick = "`" if markdown else ""
+    lines = [f"{'- ' if markdown else ''}Skipped by configuration ({len(entries)}): what this host or run did not "
+             "provide; platform and agent skips are in the table"]
+    for e in entries:
+        what = CONFIGURATION_SKIPS.get(e.get("kind"), "requirement")
+        names = ", ".join(f"{tick}{m}{tick}" for m in e.get("missing") or []) or "?"
+        state = "not set" if e.get("kind") == SKIP_MISSING_ENV else "not on PATH"
+        lines.append(f"  {'- ' if markdown else ''}{tick}{e.get('case_id')}{tick}: {what} {names} {state}")
+    return lines
+
+
+def undelivered_text(entry: dict) -> str:
+    """One undelivered agent, in words: counts and one example reason."""
+    why = ", ".join(f"{n} {UNDELIVERED_WORDS.get(k, k)}" for k, n in sorted(entry.get("why", {}).items()))
+    example = (entry.get("example") or {}).get("reason") or ""
+    return (f"no {entry.get('agent')} case was delivered ({entry.get('planned')} planned on this host: {why}"
+            + (f"; e.g. {example}" if example else "") + ")")
+
+
+def run_verdict(cases: List[dict]) -> Tuple[str, int, List[dict]]:
+    """(verdict, exit code, undelivered agents) of a run's cases. A finding is
+    a FAIL whatever else holds; a run with none is INCOMPLETE when a planned
+    agent delivered nothing."""
+    undelivered = undelivered_agents(cases)
+    if any(c.get("status") == "FAIL" for c in cases):
+        return "FAIL", EXIT_FAIL, undelivered
+    if undelivered:
+        return "INCOMPLETE", EXIT_INCOMPLETE, undelivered
+    return "PASS", EXIT_CLEAN, undelivered
+
+
+def result_line(verdict: str, cases: List[dict], undelivered: List[dict]) -> str:
+    """The run's last console line."""
+    if verdict == "FAIL":
+        failed = sum(1 for c in cases if c.get("status") == "FAIL")
+        return f"RESULT: FAIL ({failed} case(s) with an alertable finding or a divergence incident)"
+    if verdict == "INCOMPLETE":
+        return f"RESULT: INCOMPLETE (no {' or '.join(u['agent'] for u in undelivered)} case was delivered)"
+    return "RESULT: PASS"
+
+
 # ── case execution ──────────────────────────────────────────────────────
 
 def drive_agent_case(s: Scenario, agent: str, ws: Path, case_dir: Path, args: argparse.Namespace) -> dict:
@@ -848,29 +1016,43 @@ def run_cmd_run(args: argparse.Namespace) -> int:
             if wanted and s.id not in wanted and case_id not in wanted \
                     and not wanted & {f"tag:{t}" for t in s.tags}:
                 continue
-            item = {"case_id": case_id, "scenario": s.id, "agent": agent, "skip": None}
+            # `skip_kind` says which kind of skip (the SKIP_* constants): the
+            # summary tells a case this host was never meant to run from one
+            # it was meant to run and did not.
+            item = {"case_id": case_id, "scenario": s.id, "agent": agent, "skip": None, "skip_kind": None}
             if case_id in skipped or s.id in skipped:
-                item["skip"] = "skipped by --skip"
+                item.update(skip="skipped by --skip", skip_kind=SKIP_EXCLUDED)
             elif osn not in s.platforms:
-                item["skip"] = f"not a {osn} scenario"
+                item.update(skip=f"not a {osn} scenario", skip_kind=SKIP_PLATFORM)
             elif s.kind == "agent" and agent not in lab_agents:
-                item["skip"] = f"agent {agent} not selected (--agents)"
+                item.update(skip=f"agent {agent} not selected (--agents)", skip_kind=SKIP_AGENT_NOT_SELECTED)
             else:
                 missing = [t for t in s.requires if not tool_available(t)]
                 missing_env = [e for e in s.requires_env if not os.environ.get(e)]
                 if missing:
-                    item["skip"] = f"missing tool(s): {', '.join(missing)}"
+                    item.update(skip=f"missing tool(s): {', '.join(missing)}", skip_kind=SKIP_MISSING_TOOL,
+                                missing=missing)
                 elif missing_env:
-                    item["skip"] = f"missing env: {', '.join(missing_env)}"
+                    item.update(skip=f"missing env: {', '.join(missing_env)}", skip_kind=SKIP_MISSING_ENV,
+                                missing=missing_env)
                 elif s.kind == "agent":
                     with provider_env(agent):
                         status, reason = real_driver_available(agent)
                     if status != "ok":
-                        item["skip"] = f"{agent}: {reason}"
+                        # "skip": no provider key (or no driver) on this host,
+                        # so the agent is not planned here. "install_failed":
+                        # the key is here and the CLI is not, so it was.
+                        item.update(skip=f"{agent}: {reason}",
+                                    skip_kind=SKIP_AGENT_INSTALL_FAILED if status == "install_failed"
+                                    else SKIP_AGENT_UNAVAILABLE)
             plan.append(item)
     write_json(run_dir / "plan.json", plan)
     for item in plan:
         log(f"  plan: {item['case_id']:<60} {'SKIP: ' + item['skip'] if item['skip'] else 'run'}")
+    intended = planned_agents(plan)
+    log("  agents planned on this host: "
+        + (", ".join(f"{a} ({n} case(s))" for a, n in sorted(intended.items())) or "none")
+        + "; a planned agent that delivers no case makes the run INCOMPLETE (exit 3)")
     if args.dry_run:
         return 0
 
@@ -963,7 +1145,9 @@ def run_cmd_run(args: argparse.Namespace) -> int:
                 "started_at": now_iso(), "attack_pattern": [], "divergence": [], "near_misses": [],
                 "non_clean_verdicts": [], "llm_suppressed": []}
         if item["skip"]:
-            case.update(status="SKIP", reason=item["skip"])
+            case.update(status="SKIP", reason=item["skip"], skip_kind=item.get("skip_kind"))
+            if item.get("missing"):
+                case["missing"] = item["missing"]
             results.append(case)
             write_json(case_dir / "case.json", case)
             continue
@@ -1005,11 +1189,13 @@ def run_cmd_run(args: argparse.Namespace) -> int:
         elif case.get("error"):
             case["status"] = "ERROR"
         elif (case.get("drive") or {}).get("refused"):
-            case.update(status="SKIP", reason=f"agent refused: {case['drive']['refused']}")
+            case.update(status="SKIP", skip_kind=SKIP_AGENT_REFUSED,
+                        reason=f"agent refused: {case['drive']['refused']}")
         elif not (case.get("drive") or {}).get("delivered", False):
             reqs = (case.get("drive") or {}).get("requests") or []
             rcs = [r.get("rc") for r in reqs]
-            case.update(status="SKIP", reason=f"stimulus not delivered ({(case.get('drive') or {}).get('detail') or f'marker {s.marker!r} missing, rc={rcs}'})")
+            case.update(status="SKIP", skip_kind=SKIP_NOT_DELIVERED,
+                        reason=f"stimulus not delivered ({(case.get('drive') or {}).get('detail') or f'marker {s.marker!r} missing, rc={rcs}'})")
         else:
             case["status"] = "PASS"
         case["finished_at"] = now_iso()
@@ -1105,7 +1291,8 @@ def write_summary(run_dir: Path, pf: dict, results: List[dict], args: argparse.N
     counts: Dict[str, int] = {}
     for r in results:
         counts[r["status"]] = counts.get(r["status"], 0) + 1
-    fails = [r for r in results if r["status"] == "FAIL"]
+    verdict, exit_code, undelivered = run_verdict(results)
+    skipped_by_configuration = configuration_skips(results)
     perf_path = run_dir / "perf.json"
     perf = json.loads(perf_path.read_text(encoding="utf-8")) if perf_path.is_file() else None
     perf_reference = None
@@ -1131,10 +1318,16 @@ def write_summary(run_dir: Path, pf: dict, results: List[dict], args: argparse.N
         "leg": pf.get("leg", "llm"),
         "adjudication": {"attack_pattern": (pf.get("attack_pattern_detector") or {}).get("adjudication_mode"),
                          "divergence": (pf.get("divergence_engine") or {}).get("adjudication_mode")},
-        "counts": counts, "verdict": "FAIL" if fails else "PASS",
+        "counts": counts, "verdict": verdict, "exit_code": exit_code,
+        # Agents the plan meant to drive here that delivered no case (the
+        # INCOMPLETE verdict), and the cases skipped for a missing variable
+        # or tool.
+        "undelivered_agents": undelivered,
+        "skipped_by_configuration": skipped_by_configuration,
         "perf": perf, "perf_reference": perf_reference,
         "cases": [{k: r.get(k) for k in ("case_id", "status", "reason", "fp_class", "kind", "agent", "error")}
-                  | {"alertable": [e for e in r.get("attack_pattern", []) if e.get("alertable")],
+                  | {"skip_kind": skip_kind_of(r),
+                     "alertable": [e for e in r.get("attack_pattern", []) if e.get("alertable")],
                      "low": [e for e in r.get("attack_pattern", []) if not e.get("alertable")],
                      "divergence_incidents": r.get("divergence", []),
                      "near_misses": r.get("near_misses", []),
@@ -1151,9 +1344,14 @@ def write_summary(run_dir: Path, pf: dict, results: List[dict], args: argparse.N
              f"- Leg: {summary['leg']}" + (" (what a user without a model sees: the deterministic layer's "
                                            "rate; alertable findings here are not corpus evidence)"
                                            if summary["leg"] == "deterministic" else ""),
-             f"- Verdict: **{summary['verdict']}** ({', '.join(f'{k} {v}' for k, v in sorted(counts.items()))})", "",
-             "| Case | Status | Alertable | LOW | Incidents | Near misses | Note |",
-             "|---|---|---|---|---|---|---|"]
+             f"- Verdict: **{summary['verdict']}** ({', '.join(f'{k} {v}' for k, v in sorted(counts.items()))})"]
+    # An agent the plan meant to drive that delivered nothing: the run
+    # measured nothing for it, whatever the other cases say.
+    lines += [f"- Not delivered: {undelivered_text(u)}. The run is not a clean leg." for u in undelivered]
+    lines += configuration_skip_lines(skipped_by_configuration, markdown=True)
+    lines += ["",
+              "| Case | Status | Alertable | LOW | Incidents | Near misses | Note |",
+              "|---|---|---|---|---|---|---|"]
     for c in summary["cases"]:
         note = (c.get("reason") or c.get("error") or "").replace("|", "/")[:120]
         lines.append(f"| `{c['case_id']}` | {c['status']} | {len(c['alertable'])} | {len(c['low'])} | "
@@ -1190,7 +1388,16 @@ def write_summary(run_dir: Path, pf: dict, results: List[dict], args: argparse.N
         lines.append("")
     if perf is not None:
         lines += daemon_perf.markdown(perf, perf_reference)
-    (run_dir / "summary.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    # Written whole, then renamed: the deploy scripts' `wait` reads the
+    # verdict from summary.md as soon as it exists, and a partial read would
+    # lose it.
+    part = run_dir / "summary.md.part"
+    part.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    try:
+        os.replace(part, run_dir / "summary.md")
+    except OSError:
+        (run_dir / "summary.md").write_text(part.read_text(encoding="utf-8"), encoding="utf-8")
+        part.unlink(missing_ok=True)
     section(f"FP lab verdict: {summary['verdict']}")
     log((run_dir / "summary.md").read_text(encoding="utf-8"))
     for c in summary["cases"]:
@@ -1198,7 +1405,14 @@ def write_summary(run_dir: Path, pf: dict, results: List[dict], args: argparse.N
             log(f"FAIL {c['case_id']}: alertable {e.get('check')} -> {e.get('corpus_candidate') or e.get('export_path')}")
         for e in c["divergence_incidents"]:
             log(f"FAIL {c['case_id']}: divergence incident -> {e.get('corpus_candidate')}")
-    return 1 if fails else 0
+    # Last on the console: what the host was not set up to run, an agent that
+    # delivered nothing, and the verdict line.
+    for line in configuration_skip_lines(skipped_by_configuration):
+        log(line)
+    for u in undelivered:
+        log(f"INCOMPLETE: {undelivered_text(u)}")
+    log(result_line(verdict, results, undelivered))
+    return exit_code
 
 
 # ── shape subcommand ────────────────────────────────────────────────────

@@ -25,7 +25,10 @@
 #   start            stop the released service, start the owned daemon isolated
 #   status           what the lab preflight will see
 #   run [args]       start run_fp_lab.py detached on the host (args go to `run`)
-#   wait <run>       follow a detached run until its summary exists
+#   wait <run>       follow a detached run until its summary exists, print it
+#                    and its verdict; ends 3 when the run is INCOMPLETE (an
+#                    agent the plan meant to drive delivered no case: not a
+#                    clean leg), 2 without a summary or verdict, else 0
 #   collect <run>    copy the run back and shape attack-pattern candidates here
 #   stop             stop the owned daemon, restart the released service, verify
 #
@@ -56,6 +59,23 @@ RELEASED_VERSION="${FP_LAB_RELEASED_VERSION:-}"
 
 die() { echo "deploy_owned_posture: $*" >&2; exit 2; }
 say() { echo "== $*" >&2; }
+# leg_verdict <run> <summary.md text>: the verdict the runner wrote, as the
+# last line of `wait`. The detached runner's exit code does not reach this
+# script, so its summary is read instead (the runner renames it into place
+# whole). INCOMPLETE (run_fp_lab.py exit 3: an agent the plan meant to drive
+# delivered no case) is not a clean leg and ends `wait` with 3; PASS and FAIL
+# end it with 0, as before; a summary without a verdict line ends it with 2.
+# `collect` copies the run whatever the verdict.
+leg_verdict() {
+  local v
+  v=$(printf '%s\n' "$2" | sed -n 's/^- Verdict: \*\*\([A-Z-]*\)\*\*.*/\1/p' | head -n 1) || true
+  [[ -n "$v" ]] || die "$1: the summary has no verdict line: the leg is not known to be clean"
+  echo "== $1: verdict $v"
+  if [[ "$v" == INCOMPLETE ]]; then
+    echo "== $1: INCOMPLETE is not a clean leg: an agent delivered no case (see \"Not delivered\" in the summary); fix it and run the window again" >&2
+    exit 3
+  fi
+}
 
 # The owned build's version: FP_LAB_OWNED_VERSION, else the candidate run's
 # Cargo.toml at its head commit, cached beside the binary. A literal default
@@ -189,25 +209,47 @@ case "$CMD" in
 
   agents)
     # Claude Code and Codex at the versions agent_versions.env pins,
-    # user-level. With npm: into ~/.npm-global, first on the lab PATH
-    # (REMOTE_LIB), so a self-updating native install under ~/.local/bin is
-    # shadowed for the window and left as it is. Without npm (test-mint has
-    # no Node.js): Claude Code through its native installer at that version
-    # (~/.local/bin/claude), Codex from the npm registry's platform tarball of
-    # that version, verified against the registry's sha512. A Codex binary
-    # alone is not an install: since 0.160 its tools run in
-    # codex-code-mode-host, beside the binary (test-mint 2026-10-06: a copied
-    # binary answered --version, ran no tool, and every Codex case was a
-    # SKIP). Then the CLIs on PATH must answer with the pins and each must
-    # answer a one-turn prompt within 90 s (agent_cli_lib.sh probe_agents,
-    # with the window's keys), or this step fails instead of ten cases
-    # ending in SKIP later.
+    # user-level. With npm (test-mint has it, as recorded in the 2.3.2 windows): into
+    # ~/.npm-global, first on the lab PATH (REMOTE_LIB), so a self-updating
+    # native install under ~/.local/bin is shadowed for the window and left
+    # as it is. Without npm: Claude Code through its native installer at that
+    # version (~/.local/bin/claude), Codex from the npm registry's platform
+    # tarball of that version, verified against the registry's sha512. A
+    # Codex binary alone is not an install: since 0.160 its tools run in
+    # codex-code-mode-host, beside the native binary (test-mint 2026-10-06: a
+    # copied binary answered --version, ran no tool, and every Codex case
+    # was a SKIP). Then the CLIs on PATH must answer with the pins and each
+    # must answer a one-turn prompt within 90 s, launched as the cases launch
+    # it (agent_cli_lib.sh probe_agents, with the window's keys), or this
+    # step fails instead of ten cases ending in SKIP later. Each failure
+    # line says which check it was: an install that is not usable (pins,
+    # code-mode host), a key that is missing, or a CLI that did not answer.
     ssh_host 'test -f ~/fp-lab/secrets/providers.env' || die "keys first (the probe needs the provider keys)"
     remote_bash <<'EOF' || die "agent CLIs: install or probe failed"
 set -o pipefail
+# codex_host: the code-mode host of the codex on PATH, where each install
+# keeps it. The registry tarball (below) links ~/.local/bin/codex to the
+# native binary, and the host is beside it. An npm install puts the
+# package's Node launcher (bin/codex.js) on PATH, which runs the native
+# binary of the platform package under the package's own node_modules (or
+# its vendor directory): the host is beside that binary, never beside the
+# launcher. Looking beside the launcher only reported a complete npm
+# install as "NOT USABLE" and failed this step before the probe ran, while
+# the cases drove that same install (test-mint, 2026-11-10).
+codex_host() {
+  real=$(readlink -f "$(command -v codex)" 2>/dev/null) || return 1
+  [ -n "$real" ] || return 1
+  bin=$(dirname "$real"); pkg=$(dirname "$bin")
+  for host in "$bin/codex-code-mode-host" \
+      "$pkg"/node_modules/@openai/codex-*/vendor/*/bin/codex-code-mode-host \
+      "$pkg"/vendor/*/bin/codex-code-mode-host; do
+    if [ -x "$host" ]; then echo "$host"; return 0; fi
+  done
+  return 1
+}
 codex_ok() {
   codex --version 2>/dev/null | grep -q "$CODEX_NPM_VERSION" || return 1
-  [ -x "$(dirname "$(readlink -f "$(command -v codex)")")/codex-code-mode-host" ]
+  codex_host >/dev/null
 }
 install_claude_native() {
   # The official installer takes the version as its argument.
@@ -256,7 +298,8 @@ else
 fi
 agent_versions
 verify_agent_pins || exit 1
-codex_ok || { echo "codex: NOT USABLE (no code-mode host beside the binary)"; exit 1; }
+if host=$(codex_host); then echo "codex code-mode host: $host"
+else echo "codex install: NOT USABLE (no codex-code-mode-host beside $(readlink -f "$(command -v codex)") nor in its npm platform package)"; exit 1; fi
 probe_agents
 EOF
     ;;
@@ -394,9 +437,11 @@ EOF
         sleep 60
       done
     }
+    SUMMARY=""
     while :; do
       if probe "test -f ~/fp-lab/runs/$NAME/summary.md"; then
-        probe "cat ~/fp-lab/runs/$NAME/summary.md" || true; break
+        SUMMARY=$(probe "cat ~/fp-lab/runs/$NAME/summary.md") || true
+        printf '%s\n' "$SUMMARY"; break
       fi
       # [r]: the remote shell's own command line carries the pattern, so a
       # plain one always matched and `wait` never saw the runner exit.
@@ -408,6 +453,7 @@ EOF
       probe "tail -n 3 ~/fp-lab/runs/$NAME.log" || true
       sleep 60
     done
+    leg_verdict "$NAME" "$SUMMARY"
     ;;
 
   collect)

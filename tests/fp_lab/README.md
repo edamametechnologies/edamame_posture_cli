@@ -24,7 +24,7 @@ for review. LOW findings are recorded, never gating.
 | `lab_workspace.py` | Workspace fixtures (a small web-app repo, the same with agent instruction files, the same with secret-shaped test fixtures). Built under the lab root, never in OS temp. |
 | `direct_actions.py` | Agent-free scenarios: cargo / venv / npm builds in the workspace and in temp, git clone/fetch/push, curl to public APIs, rustup-init temp staging, a git credential helper, and the operator's-day set (below). |
 | `standins.py` | Stand-in programs for the operator's-day set (a cloud-sync client, a user's report script), standard library only, copied into the case workspace and run as their own processes. |
-| `run_fp_lab.py` | The runner: preflight, warm-up baseline, cases, settle ticks, collection and export, drain, summary. Also `list`, `validate`, `shape`. |
+| `run_fp_lab.py` | The runner: preflight, warm-up baseline, cases, settle ticks, collection and export, drain, summary. Also `list`, `validate`, `shape`, `summarize`. `test_run_fp_lab.py` covers its pure parts: which skips mean a case was not planned on the host, the INCOMPLETE verdict and its exit code, the "Skipped by configuration" list. |
 | `daemon_perf.py` | Samples the candidate daemon's RSS and CPU every 30 s through the run (`perf.csv`, `perf.json`, the summary's "Daemon resources": peaks, slope, restarts, per-case peaks, flags), and every 5 min the sizes of what it keeps in memory (session and lineage tables, the engines' traces, file events) so the summary's "What grew" line says what moved with a memory slope. `test_daemon_perf.py` covers the pure parts. |
 | `agent_versions.env` | The agent CLI versions the lab installs and records (`CLAUDE_CODE_NPM_VERSION`, `CODEX_NPM_VERSION`): `agents` installs exactly these, `record` and the preflight write the installed versions beside them. One place to bump. |
 | `agent_cli_lib.sh` | The bash functions the Linux and macOS deploy scripts ship to the host for the agent CLIs: pinned npm install, versions, the responsiveness probe. The Windows leg has them in PowerShell. |
@@ -87,8 +87,29 @@ E2E, which imports it too); the RPC wrapper is
    alertable finding carries a basis decided to alert without a model,
    `DECIDED_ALERTABLE_WITHOUT_MODEL` in `run_fp_lab.py`, today FP-MAC-40's
    `packaged_app_credential_store_anomalous_session`; the LLM leg still
-   fails on it when the model kept it). Exit 1 on any FAIL (naming each candidate file),
-   2 on preflight failure, else 0.
+   fails on it when the model kept it). Apart from the table, `summary.md`
+   and `summary.json` list two things:
+   - **Not delivered** (`undelivered_agents`): an agent the plan meant to
+     drive on this host (`--agents` selects it and its provider key is
+     there) whose every planned case ended SKIP or ERROR. The run measured
+     nothing for that agent and is **INCOMPLETE**: a provider account out of
+     credit used to end every Claude Code case in SKIP on a green leg. A CLI
+     that is missing while the key is there counts too (the harness's
+     install-failed class). An agent with no provider key on the host, or
+     left out by `--agents`, is not planned there and never makes a run
+     INCOMPLETE; cases skipped for the platform, `--skip`, a missing tool or
+     variable are not planned either. The plan logs which agents it planned.
+   - **Skipped by configuration** (`skipped_by_configuration`): the cases
+     skipped for a missing environment variable or tool, with its name
+     (`div-lan-ssh-delegated` without `FP_LAB_LAN_SSH_HOST`, the Rust cases
+     without `cargo`), printed again at the end of the console output.
+     Platform and agent skips stay in the table only.
+
+   The console's last line is `RESULT: PASS`, `RESULT: FAIL (...)` or
+   `RESULT: INCOMPLETE (no <agent> case was delivered)`. Exit 1 on any FAIL
+   (naming each candidate file), 3 when INCOMPLETE and nothing failed, 2 on
+   preflight failure, else 0; `summarize` returns the same for the run it
+   re-renders.
 
 Findings are attributed to the case in whose window they appeared; a late
 finding of case N can land in case N+1's window. The export (process, paths,
@@ -109,8 +130,8 @@ $D $H agents                         # the pinned agent CLIs; fails when one doe
 $D $H record pre-lab
 $D $H start
 NAME=$($D $H run | tail -1)          # extra args go to `run_fp_lab.py run`
-$D $H wait "$NAME"
-$D $H collect "$NAME"                # -> ~/Library/Caches/edamame-agents/fp-lab/runs/$NAME
+$D $H wait "$NAME"                   # prints the verdict; 3 = INCOMPLETE, not a clean leg
+$D $H collect "$NAME"                # whatever the verdict -> ~/Library/Caches/edamame-agents/fp-lab/runs/$NAME
 $D $H stop
 $D $H record post-lab
 ```
@@ -124,15 +145,30 @@ previous one, and `run` refuses unless `start` opened the window.
 pins, user-level, on every host: through npm into the user prefix
 (`~/.npm-global` on Linux and macOS, `%APPDATA%\npm` on Windows), which the
 lab puts first on PATH, so a Homebrew or native install of the same CLI on
-the host is shadowed for the window and never upgraded or removed; test-mint
-has no Node.js, so there Claude Code comes from its native installer at the
+the host is shadowed for the window and never upgraded or removed; on a
+Linux host without npm Claude Code comes from its native installer at the
 pinned version and Codex from the registry's platform tarball of it. The
-step then checks that the CLIs on PATH answer with the pins and runs a
-responsiveness probe (one non-interactive turn, `claude -p 'reply with the
-word ready' --max-turns 1` and `codex exec ... 'reply with the word ready'`,
-90 s each, with the window's keys) and fails when a CLI does not answer: a
-Homebrew `claude` that stopped answering mid-window used to end ten cases in
-SKIP. `record <tag>` exists on every host and writes
+step then checks that the CLIs on PATH answer with the pins and, on Linux,
+that Codex's code-mode host is installed (beside the native binary of a
+tarball install, in the platform package of an npm install), and runs a
+responsiveness probe: one
+non-interactive turn per CLI ("reply with the word ready", 90 s), launched
+the way the cases launch it, with the command line and environment of the
+drivers in `tests/e2e/agent_harness.py` and the arguments the runner adds to
+a first request (`claude -p --dangerously-skip-permissions --output-format
+json --model sonnet` with the prompt on standard input; `codex exec --sandbox
+danger-full-access --skip-git-repo-check -C <dir>` with `CODEX_API_KEY` set
+from `OPENAI_API_KEY`), each with only its own key from the window's
+`providers.env`. Each CLI gets one line: `ready`; `FAILED (exit N): <last
+lines>`, the CLI ran as a case would and did not answer (an install, account
+or credit problem); or `NOT RUN`, no key for it (run `keys`). Anything but
+`ready` fails the step: a Homebrew `claude` that stopped answering
+mid-window used to end ten cases in SKIP. The probe used to launch the CLIs
+its own way and reported failures the cases did not have (Codex without
+`CODEX_API_KEY` used a stored login or sent no credential and answered 401
+while every Codex case passed; the Windows probe lost the exit status of a
+CLI that had answered; the Linux check looked for the code-mode host beside
+npm's launcher). `record <tag>` exists on every host and writes
 `~/Library/Caches/edamame-agents/fp-lab/state/<host>-<time>-<tag>.txt`: the
 released service / helper and app state, the owned daemon, the agent CLI
 versions beside their pins, and what the daemon on the RPC port reports. The
@@ -185,7 +221,10 @@ legs (ubuntu-x64, macos-arm64, windows-x64):
   `-f posture_build_run_id=<tests.yml run id>` and `-f fp_lab_scenarios=...`).
 
 The harness is checked out at the build's commit. A FAIL (any alertable
-finding or divergence incident) or a preflight problem fails that leg's job;
+finding or divergence incident), an INCOMPLETE run (exit 3: an agent the
+leg held the provider key for delivered no case) or a preflight problem
+fails that leg's job, with the exit code named in an annotation and the head
+of the run's summary on the job page;
 a core-pinning push whose build left no posture binaries fails the plan job
 instead of skipping the lab. The run directories are the artifacts
 `fp-lab-deterministic-<label>`; the plan job's summary names the build, the
@@ -311,13 +350,15 @@ idle baseline, lineage gate) and perf jobs are part of the gate.
   $D <host> record pre-lab
   $D <host> start                             # check: active_findings 0, contributor_count 0
   NAME=$($D <host> run | tail -1)
-  $D <host> wait "$NAME" && $D <host> collect "$NAME"
+  $D <host> wait "$NAME"; $D <host> collect "$NAME"   # wait ends 3 on INCOMPLETE; collect anyway
   $D <host> stop                              # always; read its output
   ```
 
 - Results: `~/Library/Caches/edamame-agents/fp-lab/runs/<name>/summary.md`
-  (verdict per case, "Daemon resources"), the bundles and corpus candidates
-  beside it.
+  (verdict per case, "Not delivered", "Skipped by configuration", "Daemon
+  resources"), the bundles and corpus candidates beside it. An INCOMPLETE
+  leg is not clean: an agent delivered no case (provider account, key or
+  CLI). Restore it and run the window again.
 
 **4. Not clean:** fix the root cause (`falsepositive-analyze-fix`), commit the
 lab's candidate as a corpus entry, run `fp_replay`, `divergence_replay` and

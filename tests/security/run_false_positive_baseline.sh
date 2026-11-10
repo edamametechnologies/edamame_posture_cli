@@ -28,7 +28,14 @@
 #   PYTHON        path to python3 (default: python3)
 #
 # Outputs (under --output-dir):
-#   baseline.json         full observation record with per-sample findings
+#   baseline.json         full observation record with per-sample findings,
+#                         and the window's raw candidate counts:
+#                         `ticks_with_raw_candidates` (forced ticks whose
+#                         deterministic layer raised at least one candidate)
+#                         and `raw_candidates_max` (the most on one tick).
+#                         A window can be clean (no finding published) with
+#                         raw candidates that adjudication quieted; the counts
+#                         say so, the verdict does not change.
 #   baseline_ticks.log    stdout/stderr from forced detector ticks
 #   baseline_ticks.ndjson one parsed record per forced tick (adjudication
 #                         status, mode, raw candidate count)
@@ -65,7 +72,7 @@ while [[ $# -gt 0 ]]; do
     --abort-on-first-finding)   ABORT_ON_FIRST_FINDING="$2"; shift 2;;
     --anomaly-warmup-duration)  ANOMALY_WARMUP_DURATION="$2"; shift 2;;
     --anomaly-warmup-settle)    ANOMALY_WARMUP_SETTLE="$2"; shift 2;;
-    -h|--help) sed -n '2,42p' "$0"; exit 0;;
+    -h|--help) sed -n '2,50p' "$0"; exit 0;;
     *) die "unknown flag: $1";;
   esac
 done
@@ -334,6 +341,18 @@ def _withheld(t):
     )
 
 
+def _raw_count(t):
+    try:
+        return max(0, int(t.get("raw_candidate_count") or 0))
+    except (TypeError, ValueError):
+        return 0
+
+
+# What the deterministic layer raised on each forced tick, before
+# adjudication: counts only. A clean window can have raw candidates that the
+# adjudicator quieted; check_gate.py reports them.
+raw_counts = [_raw_count(t) for t in ticks if isinstance(t, dict)]
+
 last = ticks[-1] if ticks else {}
 adjudication = {
     "ticks": len(ticks),
@@ -356,6 +375,8 @@ record = {
     "finding_current": int(os.environ["CUR_ENV"]),
     "finding_history": int(os.environ["HIST_ENV"]),
     "first_finding_sample": os.environ["FIRST_FINDING_SAMPLE_ENV"] or None,
+    "raw_candidates_max": max(raw_counts, default=0),
+    "ticks_with_raw_candidates": sum(1 for n in raw_counts if n > 0),
     "adjudication": adjudication,
     "samples": samples,
     "generated_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
@@ -370,6 +391,8 @@ print(json.dumps({k: record[k] for k in (
     "finding_current",
     "finding_history",
     "first_finding_sample",
+    "raw_candidates_max",
+    "ticks_with_raw_candidates",
     "adjudication",
 )}, indent=2))
 PY

@@ -92,6 +92,10 @@ on:
         required: false
         type: string
         default: "info"
+      fail_on_idle_raw_candidates:
+        description: "Fail the security gate on an idle baseline that is clean only after adjudication (its ticks had raw candidates the adjudicator quieted). Off: check_gate.py reports the counts with a NOTE and the verdict is unchanged."
+        type: boolean
+        default: false
   push:
     branches:
       - 'dev'
@@ -1936,6 +1940,28 @@ jobs:
           fi
           "$EDAMAME_CLI" rpc get_core_version || true
 
+      # Which attempt of this run produces the platform's results. The report
+      # job downloads every platform's artifact, so after one leg is run again
+      # the others are an earlier attempt's: check_gate.py prints the attempt
+      # of each platform and a NOTE when they differ or any is above 1 (never
+      # part of the verdict). Written before the first result and whatever
+      # failed earlier, so every upload of this directory carries it (the
+      # always() log collection below creates the directory in that case
+      # too); a stamp that cannot be written never fails the job.
+      - name: Stamp the platform results with the run attempt
+        if: always()
+        continue-on-error: true
+        shell: bash
+        env:
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+          PLATFORM: ${{ matrix.label }}
+        run: |
+          mkdir -p "results/$PLATFORM"
+          printf '{"run_id": %s, "run_attempt": %s, "platform": "%s", "job": "security", "written_utc": "%s"}\n' \
+            "$RUN_ID" "$RUN_ATTEMPT" "$PLATFORM" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "results/$PLATFORM/run_stamp.json"
+          cat "results/$PLATFORM/run_stamp.json"
+
       # Kernel process ancestry: a HARD gate on every platform (2.0.5). The
       # detector binds a process to its parent and to an AI-agent subtree from
       # the kernel process-event stream (Endpoint Security / eBPF / ETW). Until
@@ -3023,6 +3049,10 @@ jobs:
           # lists (daemon_lineage_egress on Windows).
           REQUIRED_SCENARIOS: ${{ needs.setup.outputs.security_scenarios }},${{ needs.setup.outputs.security_divergence_scenarios }}
           NATIVE_MATRIX: ${{ needs.setup.outputs.native_matrix }}
+          # Dispatch input (push: false). The gate reports an idle baseline
+          # whose ticks had raw candidates that adjudication quieted; set, it
+          # fails on one.
+          FAIL_ON_IDLE_RAW_CANDIDATES: ${{ inputs.fail_on_idle_raw_candidates && 'true' || 'false' }}
         run: |
           set +e
           # Every native matrix leg MUST have produced a results directory.
@@ -3031,13 +3061,25 @@ jobs:
           # artifact upload would drop out of the gate silently.
           EXPECTED_PLATFORMS=$(python3 -c 'import json, os; m = json.loads(os.environ["NATIVE_MATRIX"] or "{}"); print(",".join(e["label"] for e in m.get("include", []) if e.get("label")))')
           echo "Expected platforms: $EXPECTED_PLATFORMS"
+          echo "fail_on_idle_raw_candidates: $FAIL_ON_IDLE_RAW_CANDIDATES"
+          GATE_ARGS=()
+          if [[ "$FAIL_ON_IDLE_RAW_CANDIDATES" == "true" ]]; then
+            GATE_ARGS+=(--fail-on-idle-raw-candidates)
+          fi
           python3 tests/security/check_gate.py \
             --results-dir results \
             --required-scenarios "$REQUIRED_SCENARIOS" \
             --expected-platforms "$EXPECTED_PLATFORMS" \
-            --warm-baseline-dir warm_baseline | tee gate-summary.md
+            --warm-baseline-dir warm_baseline \
+            --summary-json gate-summary.json \
+            "${GATE_ARGS[@]}" | tee gate-summary.md
           rc=${PIPESTATUS[0]}
           echo "Gate exit code: $rc"
+          # The gate's NOTEs (platforms from different run attempts, idle
+          # raw candidates) as annotations on the run page as well.
+          if [[ -f gate-summary.json ]]; then
+            python3 -c 'import json, sys; [print("::warning title=Security gate::" + n) for n in json.load(open(sys.argv[1])).get("notes") or []]' gate-summary.json || true
+          fi
           exit "$rc"
 
       - name: Append report to job summary
@@ -3066,6 +3108,7 @@ jobs:
           path: |
             VULNDETECTION.md
             gate-summary.md
+            gate-summary.json
             results/
             warm_baseline/
           if-no-files-found: warn

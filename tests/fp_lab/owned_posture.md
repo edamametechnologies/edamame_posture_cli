@@ -78,17 +78,24 @@ observer reads the home of the single logged-in non-root user
 Installed user-level, nothing system-wide:
 
 - Claude Code and Codex at the versions `agent_versions.env` pins
-  (`agents`). Without npm, as on test-mint: Claude Code through the
-  official installer at that version (`~/.local/bin/claude`, native
-  build), Codex from the npm registry's platform tarball of that version
-  (integrity-checked) under `~/.local/share/codex/<ver>`, linked at
-  `~/.local/bin/codex`: since 0.160 a Codex binary without its
-  `codex-code-mode-host` runs no tool (2026-10-06). With npm, both go into
-  `~/.npm-global`, first on the lab PATH. The step fails unless both answer
-  with their pins and each answers a one-turn probe within 90 s.
+  (`agents`). With npm (test-mint has it, as recorded in the 2.3.2
+  windows), both go into `~/.npm-global`, first on the lab PATH. Without
+  npm: Claude Code through the official installer at that version
+  (`~/.local/bin/claude`, native build), Codex from the npm registry's
+  platform tarball of that version (integrity-checked) under
+  `~/.local/share/codex/<ver>`, linked at `~/.local/bin/codex`. Since 0.160
+  a Codex binary without its
+  `codex-code-mode-host` runs no tool (2026-10-06), so the step looks for
+  the host where each install keeps it: beside the native binary (tarball),
+  or in the platform package under the npm package (`codex` on PATH is then
+  the package's Node launcher, and the host is never beside it). The step
+  fails unless both answer with their pins, the host is there, and each
+  answers a one-turn probe within 90 s, launched as the cases launch it
+  (README, "Running it").
 - uv (`~/.local/bin/uv`): test-mint has no `python3-venv`; the venv
   scenarios fall back to it.
-- No Node.js on test-mint: the npm scenarios report SKIP there.
+- Node.js on test-mint (recorded in the 2.3.2 windows): the npm scenarios
+  run there.
 
 Provider keys: `keys` copies them from the operator's
 `~/Programming/secrets` to an owner-only file on the host for the window
@@ -219,5 +226,8 @@ helper.
   `agent_versions.env` pins, into `%APPDATA%\npm`, which the lab puts first
   on PATH (a native `claude.exe` under `~\.local\bin` is shadowed, not
   touched); it fails unless both answer with their pins and each answers a
-  one-turn probe within 90 s. Git Bash for the POSIX-shaped prompts (the
+  one-turn probe within 90 s, launched as the cases launch it (the same
+  arguments and keys as on Linux and macOS, through `cmd.exe` so the npm
+  `.cmd` shims resolve; the probe holds the process handle so the CLI's exit
+  status is read). Git Bash for the POSIX-shaped prompts (the
   heredoc and rustup scenarios are POSIX-only in the catalog).

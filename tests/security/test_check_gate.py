@@ -19,6 +19,10 @@ fail-closed contract:
 - and only a complete, all-alertable, clean-baseline run with kernel
   ancestry resolved on every platform passes.
 
+Reported without changing the verdict: the run attempt of each platform's
+results (``run_stamp.json``), and the raw candidates of a clean idle
+baseline, which fail the gate only with ``--fail-on-idle-raw-candidates``.
+
 Run with::
 
     python3 -m unittest discover -s tests/security -p 'test_*.py'
@@ -29,6 +33,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -143,7 +148,7 @@ class GateTestCase(unittest.TestCase):
     """Drives check_gate.py as a subprocess against synthetic artifacts."""
 
     def run_gate(
-        self, platforms: dict, required: str = "", expected: str = ""
+        self, platforms: dict, required: str = "", expected: str = "", **kwargs
     ) -> tuple[int, str]:
         """Materialize ``platforms`` on disk and return ``(exit_code, stdout)``.
 
@@ -152,9 +157,27 @@ class GateTestCase(unittest.TestCase):
         verbatim (used to inject unparseable JSON); ``None`` omits the file.
         A platform that names no ``lineage.json`` gets a passing one, so the
         tests of the other artifacts read only their own failure; an empty
-        platform dict stays empty.
+        platform dict stays empty. ``kwargs`` go to ``run_gate_summary``.
         """
-        with tempfile.TemporaryDirectory() as tmp:
+        rc, out, _summary = self.run_gate_summary(platforms, required, expected, **kwargs)
+        return rc, out
+
+    def run_gate_summary(
+        self,
+        platforms: dict,
+        required: str = "",
+        expected: str = "",
+        extra_args: tuple = (),
+        report_attempt: str | None = None,
+    ) -> tuple[int, str, dict | None]:
+        """``run_gate`` plus the ``--summary-json`` file the gate wrote.
+        ``extra_args`` are added to the command line; ``report_attempt`` is
+        the GITHUB_RUN_ATTEMPT of the report (unset when ``None``)."""
+        env = {k: v for k, v in os.environ.items() if k != "GITHUB_RUN_ATTEMPT"}
+        if report_attempt is not None:
+            env["GITHUB_RUN_ATTEMPT"] = report_attempt
+        with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as out_dir:
+            summary_path = os.path.join(out_dir, "gate-summary.json")
             for label, artifacts in platforms.items():
                 pdir = os.path.join(tmp, label)
                 os.makedirs(pdir, exist_ok=True)
@@ -179,13 +202,21 @@ class GateTestCase(unittest.TestCase):
                     required,
                     "--expected-platforms",
                     expected,
+                    "--summary-json",
+                    summary_path,
+                    *extra_args,
                 ],
                 capture_output=True,
                 text=True,
                 encoding="utf-8",
                 errors="replace",
+                env=env,
             )
-        return proc.returncode, proc.stdout + proc.stderr
+            summary = None
+            if os.path.isfile(summary_path):
+                with open(summary_path, encoding="utf-8") as fh:
+                    summary = json.load(fh)
+        return proc.returncode, proc.stdout + proc.stderr, summary
 
 
 class TestGatePasses(GateTestCase):
@@ -739,6 +770,273 @@ class TestWarmBaselineAdvisory(unittest.TestCase):
         rc, out = self._run_with_warm(None)
         self.assertEqual(rc, 0, out)
         self.assertIn("Warm-host baseline (advisory, non-gating)", out)
+
+
+def stamp(attempt: object) -> dict:
+    """``run_stamp.json`` as the ``security`` job writes it."""
+    return {"run_id": 42, "run_attempt": attempt, "platform": "test", "job": "security"}
+
+
+def clean_platform(attempt: object = None, baseline: dict = CLEAN_BASELINE) -> dict:
+    """A platform that passes the gate, stamped with ``attempt`` (unless None)."""
+    out = {"baseline.json": baseline, "results.json": results(scenario("cve_token_exfil"))}
+    if attempt is not None:
+        out["run_stamp.json"] = stamp(attempt)
+    return out
+
+
+def baseline_with_raw(ticks_with: int, peak: int, ticks: int = 12, base: dict = CLEAN_BASELINE) -> dict:
+    """A baseline.json with the idle window's raw candidate counts."""
+    return {
+        **base,
+        "raw_candidates_max": peak,
+        "ticks_with_raw_candidates": ticks_with,
+        "adjudication": {"ticks": ticks, "withheld_ticks": 0, "mode": "llm", "last_status": "adjudicated"},
+    }
+
+
+class TestRunAttempts(GateTestCase):
+    """The attempt each platform's results come from is reported, never gated."""
+
+    def test_single_attempt_lists_each_platform_without_a_note(self):
+        rc, out, summary = self.run_gate_summary(
+            {"macos-arm64": clean_platform(1), "windows-x64": clean_platform(1)},
+            required="cve_token_exfil",
+            expected="macos-arm64,windows-x64",
+        )
+        self.assertEqual(rc, 0, out)
+        self.assertIn("### Run attempts", out)
+        self.assertIn("- macos-arm64: attempt 1", out)
+        self.assertIn("- windows-x64: attempt 1", out)
+        self.assertNotIn("NOTE: the platform results come from", out)
+        self.assertEqual(summary["verdict"], "pass")
+        self.assertEqual(summary["attempts"]["platforms"], {"macos-arm64": 1, "windows-x64": 1})
+        self.assertFalse(summary["attempts"]["mixed"])
+        self.assertFalse(summary["attempts"]["rerun"])
+
+    def test_mixed_attempts_get_a_note_and_keep_the_verdict(self):
+        rc, out, summary = self.run_gate_summary(
+            {
+                "macos-arm64": clean_platform(1),
+                "ubuntu-arm64": clean_platform(2),
+                "windows-x64": clean_platform(1),
+            },
+            required="cve_token_exfil",
+            report_attempt="2",
+        )
+        self.assertEqual(rc, 0, out)
+        self.assertIn("- ubuntu-arm64: attempt 2", out)
+        self.assertIn("- this report: attempt 2", out)
+        self.assertIn(
+            "NOTE: the platform results come from different attempts of this run"
+            " (attempt 1: macos-arm64, windows-x64; attempt 2: ubuntu-arm64)",
+            out,
+        )
+        self.assertIn("PASS - kernel ancestry resolved", out)
+        self.assertEqual(summary["verdict"], "pass")
+        attempts = summary["attempts"]
+        self.assertEqual(
+            (attempts["mixed"], attempts["rerun"], attempts["distinct"], attempts["report"]),
+            (True, True, [1, 2], 2),
+        )
+        self.assertEqual(len(summary["notes"]), 1)
+
+    def test_every_platform_from_a_later_attempt_gets_a_note(self):
+        rc, out, summary = self.run_gate_summary(
+            {"macos-arm64": clean_platform(2), "windows-x64": clean_platform(2)},
+            required="cve_token_exfil",
+        )
+        self.assertEqual(rc, 0, out)
+        self.assertIn(
+            "NOTE: the platform results come from attempt 2 of this run, not from its first attempt", out
+        )
+        self.assertEqual((summary["attempts"]["mixed"], summary["attempts"]["rerun"]), (False, True))
+
+    def test_a_failing_gate_reports_attempts_too(self):
+        rc, out, summary = self.run_gate_summary(
+            {
+                "macos-arm64": clean_platform(1),
+                "windows-x64": clean_platform(2, baseline=DIRTY_BASELINE),
+            },
+            required="cve_token_exfil",
+        )
+        self.assertEqual(rc, 1, out)
+        self.assertIn("NOTE: the platform results come from different attempts", out)
+        self.assertEqual(summary["verdict"], "fail")
+        self.assertEqual(summary["failures"]["baselines"], 1)
+        self.assertTrue(summary["attempts"]["mixed"])
+
+    def test_a_missing_or_malformed_stamp_is_not_an_attempt(self):
+        for bad in (None, {"run_attempt": "x"}, {"run_attempt": 0}, {"run_attempt": True}, "not json"):
+            platform = clean_platform(None)
+            if bad is not None:
+                platform["run_stamp.json"] = bad
+            rc, out, summary = self.run_gate_summary(
+                {"macos-arm64": clean_platform(1), "windows-x64": platform},
+                required="cve_token_exfil",
+            )
+            self.assertEqual(rc, 0, (bad, out))
+            self.assertIn("- windows-x64: attempt not recorded", out)
+            self.assertIn("NOTE: no attempt is recorded for windows-x64", out)
+            self.assertIsNone(summary["attempts"]["platforms"]["windows-x64"])
+            self.assertEqual(summary["attempts"]["unstamped"], ["windows-x64"])
+
+    def test_a_stamp_written_as_a_string_is_read(self):
+        platform = clean_platform(None)
+        platform["run_stamp.json"] = {"run_attempt": "3"}
+        rc, out, summary = self.run_gate_summary({"macos-arm64": platform}, required="cve_token_exfil")
+        self.assertEqual(rc, 0, out)
+        self.assertEqual(summary["attempts"]["platforms"], {"macos-arm64": 3})
+
+    def test_an_error_exit_still_writes_the_summary(self):
+        rc, out, summary = self.run_gate_summary({}, required="cve_token_exfil")
+        self.assertEqual(rc, 2, out)
+        self.assertEqual((summary["verdict"], summary["exit_code"]), ("error", 2))
+
+
+class TestIdleRawCandidates(GateTestCase):
+    """Raw candidates of a clean idle baseline: counts reported with a NOTE,
+    a failure only with --fail-on-idle-raw-candidates."""
+
+    STRICT = ("--fail-on-idle-raw-candidates",)
+
+    def platforms(self, ubuntu_baseline: dict) -> dict:
+        return {
+            "macos-arm64": clean_platform(1, baseline_with_raw(0, 0)),
+            "ubuntu-x64": clean_platform(1, ubuntu_baseline),
+        }
+
+    def test_quieted_candidates_are_reported_and_the_verdict_stays(self):
+        rc, out, summary = self.run_gate_summary(
+            self.platforms(baseline_with_raw(3, 2)), required="cve_token_exfil"
+        )
+        self.assertEqual(rc, 0, out)
+        self.assertIn("CLEAN - 2/2 platforms", out)
+        self.assertIn(
+            "- ubuntu-x64 (clean baseline): 3 of 12 tick(s) had raw candidates, at most 2 on one tick", out
+        )
+        self.assertIn("- macos-arm64 (clean baseline): none in 12 tick(s)", out)
+        self.assertIn("NOTE: 1 platform(s) (ubuntu-x64) had raw candidates on an idle runner", out)
+        self.assertIn("This does not change the verdict", out)
+        self.assertEqual(summary["verdict"], "pass")
+        raw = summary["idle_raw_candidates"]
+        self.assertEqual(raw["quieted"], ["ubuntu-x64"])
+        self.assertFalse(raw["fail_on_idle_raw_candidates"])
+        self.assertEqual(
+            raw["platforms"]["ubuntu-x64"],
+            {"baseline": "clean", "recorded": True, "ticks": 12,
+             "ticks_with_raw_candidates": 3, "raw_candidates_max": 2},
+        )
+        self.assertEqual(summary["failures"]["idle_raw_candidates"], 0)
+
+    def test_the_flag_fails_the_gate_on_quieted_candidates(self):
+        rc, out, summary = self.run_gate_summary(
+            self.platforms(baseline_with_raw(3, 2)), required="cve_token_exfil", extra_args=self.STRICT
+        )
+        self.assertEqual(rc, 1, out)
+        self.assertIn("1 idle baseline(s) with raw candidates (--fail-on-idle-raw-candidates)", out)
+        self.assertIn("| ubuntu-x64 | 3 idle tick(s) had raw candidates (at most 2 on one tick)", out)
+        self.assertIn("`--fail-on-idle-raw-candidates` is set: this fails the gate.", out)
+        self.assertEqual((summary["verdict"], summary["failures"]["idle_raw_candidates"]), ("fail", 1))
+        self.assertTrue(summary["idle_raw_candidates"]["fail_on_idle_raw_candidates"])
+
+    def test_no_raw_candidates_pass_with_the_flag(self):
+        rc, out, summary = self.run_gate_summary(
+            self.platforms(baseline_with_raw(0, 0)), required="cve_token_exfil", extra_args=self.STRICT
+        )
+        self.assertEqual(rc, 0, out)
+        self.assertIn("Raw candidates during the idle window: none on the 2 platform(s) that recorded them", out)
+        self.assertNotIn("NOTE: ", out)
+        self.assertEqual(summary["idle_raw_candidates"]["quieted"], [])
+
+    def test_counts_not_recorded(self):
+        # A baseline without the counts: nothing reported, nothing changed...
+        rc, out = self.run_gate({"macos-arm64": clean_platform(1)}, required="cve_token_exfil")
+        self.assertEqual(rc, 0, out)
+        self.assertNotIn("Raw candidates", out)
+        # ...unless the flag asks for them: absent evidence fails closed.
+        rc, out = self.run_gate(
+            {"macos-arm64": clean_platform(1)}, required="cve_token_exfil", extra_args=self.STRICT
+        )
+        self.assertEqual(rc, 1, out)
+        self.assertIn("did not record its raw candidate counts", out)
+
+    def test_a_dirty_baseline_is_not_counted_as_quieted(self):
+        dirty = baseline_with_raw(2, 4, base=DIRTY_BASELINE)
+        rc, out, summary = self.run_gate_summary(
+            {
+                "macos-arm64": clean_platform(1, baseline_with_raw(0, 0)),
+                "ubuntu-x64": {"baseline.json": dirty},
+            },
+            required="cve_token_exfil",
+            extra_args=self.STRICT,
+        )
+        self.assertEqual(rc, 1, out)
+        self.assertIn("- ubuntu-x64 (dirty baseline): 2 of 12 tick(s) had raw candidates", out)
+        self.assertNotIn("NOTE: 1 platform(s)", out)
+        self.assertEqual(summary["idle_raw_candidates"]["quieted"], [])
+        self.assertEqual(summary["failures"]["idle_raw_candidates"], 0)
+        self.assertEqual(summary["failures"]["baselines"], 1)
+
+
+@unittest.skipIf(os.name == "nt" or not shutil.which("bash"), "needs bash")
+class TestBaselineRecordsRawCandidates(GateTestCase):
+    """run_false_positive_baseline.sh against a stub edamame_cli (no daemon):
+    the counts it records are the ones the gate reads."""
+
+    STUB = r'''#!{python}
+import json, os, sys
+method = sys.argv[2] if len(sys.argv) > 2 else ""
+state = os.environ["STUB_STATE"]
+if method == "debug_run_attack_pattern_detector_tick":
+    seq = [int(x) for x in os.environ["STUB_RAW"].split(",")]
+    n = int(open(state).read()) if os.path.exists(state) else 0
+    with open(state, "w") as fh:
+        fh.write(str(n + 1))
+    out = {{"success": True, "executed": True, "adjudication_status": "adjudicated",
+           "adjudication_mode": "llm", "raw_candidate_count": seq[min(n, len(seq) - 1)],
+           "active_findings": 0, "active_alertable_findings": 0}}
+elif method == "get_attack_pattern_findings":
+    out = {{"findings": []}}
+elif method == "get_attack_pattern_history":
+    out = []
+elif method == "get_attack_pattern_detector_status":
+    out = {{"adjudication_status": "adjudicated", "adjudication_mode": "llm", "raw_candidate_count": 0,
+           "active_findings": 0, "active_alertable_findings": 0}}
+else:
+    out = {{"success": True}}
+print("Result: " + json.dumps(out))
+'''
+
+    def test_quieted_raw_candidates_reach_the_gate(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cli = os.path.join(tmp, "edamame_cli")
+            with open(cli, "w", encoding="utf-8") as fh:
+                fh.write(self.STUB.format(python=sys.executable))
+            os.chmod(cli, 0o755)
+            triggers = os.path.join(tmp, "triggers")
+            os.makedirs(triggers)
+            shutil.copy(os.path.join(HERE, "triggers", "_edamame_cli.py"), triggers)
+            out_dir = os.path.join(tmp, "out")
+            env = dict(os.environ, EDAMAME_CLI=cli, PYTHON=sys.executable, PYTHONDONTWRITEBYTECODE="1",
+                       STUB_STATE=os.path.join(tmp, "ticks"), STUB_RAW="0,5,0")
+            proc = subprocess.run(
+                ["bash", os.path.join(HERE, "run_false_positive_baseline.sh"), "--triggers-dir", triggers,
+                 "--output-dir", out_dir, "--duration", "2", "--tick-interval", "1"],
+                capture_output=True, text=True, encoding="utf-8", errors="replace", env=env, timeout=120,
+            )
+            self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+            with open(os.path.join(out_dir, "baseline.json"), encoding="utf-8") as fh:
+                baseline = json.load(fh)
+        # The second tick raised five candidates, the others none; nothing was
+        # published, so the window is clean.
+        self.assertEqual(baseline["status"], "pass")
+        self.assertEqual((baseline["raw_candidates_max"], baseline["ticks_with_raw_candidates"]), (5, 1))
+        self.assertGreaterEqual(baseline["adjudication"]["ticks"], 2)
+        rc, out = self.run_gate({"ubuntu-x64": clean_platform(1, baseline)}, required="cve_token_exfil")
+        self.assertEqual(rc, 0, out)
+        self.assertIn("at most 5 on one tick", out)
+        self.assertIn("NOTE: 1 platform(s) (ubuntu-x64) had raw candidates", out)
 
 
 class TestGateInputErrors(GateTestCase):

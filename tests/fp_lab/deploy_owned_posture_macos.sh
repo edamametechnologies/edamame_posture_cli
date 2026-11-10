@@ -20,7 +20,10 @@
 #   start            quit the app, disable the helper, install the pkg, start posture
 #   status           what the lab preflight will see
 #   run [args]       start run_fp_lab.py detached (args go to `run`)
-#   wait <run>       follow a detached run until its summary exists
+#   wait <run>       follow a detached run until its summary exists, print it
+#                    and its verdict; ends 3 when the run is INCOMPLETE (an
+#                    agent the plan meant to drive delivered no case: not a
+#                    clean leg), 2 without a summary or verdict, else 0
 #   collect <run>    copy the run back and shape attack-pattern candidates here
 #   stop             stop and remove posture, re-enable the helper, relaunch the
 #                    app, delete the keys, verify
@@ -71,7 +74,22 @@ BIN_DIR="$CACHE/bin/$RUN_ID/$LABEL"
 
 die() { echo "deploy_owned_posture_macos: $*" >&2; exit 2; }
 say() { echo "== $*" >&2; }
-CMD="${1:-}"; [[ -n "$CMD" ]] || { sed -n '2,40p' "$0"; exit 2; }
+# leg_verdict <run> <summary.md text>: the verdict the runner wrote, as the
+# last line of `wait` (deploy_owned_posture.sh has the same function).
+# INCOMPLETE (run_fp_lab.py exit 3: an agent the plan meant to drive
+# delivered no case) is not a clean leg and ends `wait` with 3; PASS and FAIL
+# end it with 0, as before; a summary without a verdict line ends it with 2.
+leg_verdict() {
+  local v
+  v=$(printf '%s\n' "$2" | sed -n 's/^- Verdict: \*\*\([A-Z-]*\)\*\*.*/\1/p' | head -n 1) || true
+  [[ -n "$v" ]] || die "$1: the summary has no verdict line: the leg is not known to be clean"
+  echo "== $1: verdict $v"
+  if [[ "$v" == INCOMPLETE ]]; then
+    echo "== $1: INCOMPLETE is not a clean leg: an agent delivered no case (see \"Not delivered\" in the summary); fix it and run the window again" >&2
+    exit 3
+  fi
+}
+CMD="${1:-}"; [[ -n "$CMD" ]] || { sed -n '2,43p' "$0"; exit 2; }
 shift
 
 # The owned build's version: FP_LAB_OWNED_VERSION, else the candidate run's
@@ -198,9 +216,10 @@ SCRIPT
     # (brew cannot pin a version, and it is the host's own). An installed
     # CLI used to be kept as it was, and a Homebrew claude that stopped
     # answering mid-window ended ten cases in SKIP: now the CLIs on PATH must
-    # answer with the pins and each must answer a one-turn prompt within 90 s
-    # (agent_cli_lib.sh probe_agents, with the window's keys), or this step
-    # fails.
+    # answer with the pins and each must answer a one-turn prompt within 90 s,
+    # launched as the cases launch it (agent_cli_lib.sh probe_agents, with
+    # the window's keys), or this step fails. Each probe line says which:
+    # ready, FAILED (the CLI ran and did not answer) or NOT RUN (no key).
     as_user 'test -f ~/fp-lab/secrets/providers.env' || die "keys first (the probe needs the provider keys)"
     user_bash <<'SCRIPT' || die "agent CLIs: install or probe failed"
 set -o pipefail
@@ -394,8 +413,12 @@ SCRIPT
         sleep 60
       done
     }
+    SUMMARY=""
     while :; do
-      if probe "test -f ~/fp-lab/runs/$NAME/summary.md"; then probe "cat ~/fp-lab/runs/$NAME/summary.md" || true; break; fi
+      if probe "test -f ~/fp-lab/runs/$NAME/summary.md"; then
+        SUMMARY=$(probe "cat ~/fp-lab/runs/$NAME/summary.md") || true
+        printf '%s\n' "$SUMMARY"; break
+      fi
       # [r]: keeps the remote shell's own command line from matching.
       if ! probe "pgrep -f '[r]un_fp_lab.py run --out .*/$NAME' >/dev/null"; then
         probe "test -f ~/fp-lab/runs/$NAME/summary.md" && continue
@@ -404,6 +427,7 @@ SCRIPT
       probe "tail -n 2 ~/fp-lab/runs/$NAME.log" || true
       sleep 60
     done
+    leg_verdict "$NAME" "$SUMMARY"
     ;;
 
   collect)

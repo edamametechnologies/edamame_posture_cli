@@ -127,7 +127,7 @@ on:
         required: false
         default: false
       mode:
-        description: 'fleet = the release gate (default). fp_lab = run tests/fp_lab (real agents doing benign work; fails on any alertable finding or divergence incident) against posture_build_run_id'
+        description: 'fleet = the release gate (default). fp_lab = run tests/fp_lab (real agents doing benign work; fails on any alertable finding or divergence incident, and when an agent the plan meant to drive delivered no case) against posture_build_run_id'
         type: choice
         options: [fleet, fp_lab]
         required: false
@@ -506,6 +506,7 @@ jobs:
           # the Hub connection.
           # --leg deterministic pins both engines instead and needs no model.
           ARGS=(run --out "$OUT" --set-adjudication auto --leg "$FP_LAB_LEG" --scenarios "$FP_LAB_SCENARIOS" --allow-hub)
+          rc=0
           if [ "$RUNNER_OS" = "Linux" ]; then
             # Same reason as the fleet driver: the root daemon's observer reads
             # /root, so the agents run as root with HOME=/root (--allow-root).
@@ -517,10 +518,26 @@ jobs:
             sudo $SUDO_E env "PATH=$PATH" "HOME=/root" \
               "RUSTUP_HOME=${RUSTUP_HOME:-$HOME/.rustup}" "CARGO_HOME=${CARGO_HOME:-$HOME/.cargo}" \
               "EDAMAME_SUPPORTED_AGENTS_INDEX=$EDAMAME_SUPPORTED_AGENTS_INDEX" \
-              "$PYBIN" tests/fp_lab/run_fp_lab.py "${ARGS[@]}" --allow-root
+              "$PYBIN" tests/fp_lab/run_fp_lab.py "${ARGS[@]}" --allow-root || rc=$?
           else
-            "$PY" tests/fp_lab/run_fp_lab.py "${ARGS[@]}"
+            "$PY" tests/fp_lab/run_fp_lab.py "${ARGS[@]}" || rc=$?
           fi
+          # The head of the run's summary on the job page: the verdict, an
+          # agent that delivered no case, the cases skipped by configuration.
+          if [ -f "$OUT/summary.md" ]; then
+            awk '/^[|] Case /{exit} {print}' "$OUT/summary.md" >> "$GITHUB_STEP_SUMMARY" || true
+          fi
+          # Any exit but 0 fails the leg; 3 is INCOMPLETE: nothing alertable,
+          # but an agent the plan meant to drive here (its provider key was
+          # present) delivered no case, so the leg measured nothing for it.
+          case "$rc" in
+            0) ;;
+            1) echo "::error::FP lab (${{ matrix.posture_label }}): alertable finding or divergence incident (exit 1); see summary.md in the run's artifact" ;;
+            2) echo "::error::FP lab (${{ matrix.posture_label }}): preflight or infrastructure failure (exit 2); see the step log" ;;
+            3) echo "::error::FP lab (${{ matrix.posture_label }}): INCOMPLETE (exit 3): an agent the plan meant to drive delivered no case; see 'Not delivered' in summary.md" ;;
+            *) echo "::error::FP lab (${{ matrix.posture_label }}): the runner exited $rc" ;;
+          esac
+          exit "$rc"
 
       - name: "FP lab: upload the run"
         if: always() && inputs.mode == 'fp_lab'

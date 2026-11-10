@@ -29,9 +29,14 @@ name: FP lab (deterministic leg)
 # spends Portal quota).
 #
 # Red is visible: any alertable finding or divergence incident makes the lab
-# step exit 1 and the leg's job fail (a preflight problem exits 2), and a
-# core-pin push whose build left no posture binaries fails the plan job
-# rather than skipping the lab. Each leg uploads its run directory as
+# step exit 1 and the leg's job fail (a preflight problem exits 2; a run in
+# which an agent the plan meant to drive, its provider key present, delivered
+# no case exits 3, INCOMPLETE: a provider account out of credit used to skip
+# every case of that agent on a green leg), and a core-pin push whose build
+# left no posture binaries fails the plan job rather than skipping the lab.
+# The lab step names the exit code in an annotation and puts the head of the
+# run's summary (verdict, undelivered agents, cases skipped by configuration)
+# on the job page. Each leg uploads its run directory as
 # fp-lab-deterministic-<label>.
 
 on:
