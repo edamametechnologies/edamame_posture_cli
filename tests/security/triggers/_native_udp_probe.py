@@ -71,16 +71,37 @@ static int is_transient(int err) {
 #endif
 }
 
-/* The source address the socket was connected with went away (a lease that
-   renewed, an interface that came back with another address): connecting
-   again picks the current one. Seen on a hosted macOS runner, where the
-   first send failed and the scenario never sent anything. */
-static int is_address_lost(int err) {
+/* The socket lost its peer. Either the source address it was connected with
+   went away (a lease that renewed, an interface that came back with another
+   address), or the connect made to pick the current one failed because the
+   host had no usable address yet: a datagram socket whose connect fails is
+   left unconnected, and its next send has no destination. Connecting again
+   is the answer to both, for as long as it takes. Seen on a hosted macOS
+   runner, where the scenario never sent anything. */
+static int is_association_lost(int err) {
 #ifdef _WIN32
-    return err == WSAEADDRNOTAVAIL;
+    return err == WSAEADDRNOTAVAIL || err == WSAENOTCONN
+        || err == WSAEDESTADDRREQ;
 #else
-    return err == EADDRNOTAVAIL;
+    return err == EADDRNOTAVAIL || err == ENOTCONN || err == EDESTADDRREQ;
 #endif
+}
+
+static void report_association_lost(int err, unsigned long sent) {
+#ifdef _WIN32
+    fprintf(stderr, "udp probe: the socket lost its peer after %lu datagram(s)"
+            " (winsock error %d); connecting again\n", sent, err);
+#else
+    fprintf(stderr, "udp probe: the socket lost its peer after %lu datagram(s)"
+            " (%s, errno %d); connecting again\n", sent, strerror(err), err);
+#endif
+    fflush(stderr);
+}
+
+static void report_sending_again(unsigned long attempts) {
+    fprintf(stderr, "udp probe: sending again after %lu connect attempt(s)\n",
+            attempts);
+    fflush(stderr);
 }
 
 static void report_send_error(int err) {
@@ -135,20 +156,43 @@ int main(int argc, char **argv) {
 
     /* The loop ends on the parent's signal (the scenario's duration), or on
        a send error that is neither the peer's answer, transient, nor a lost
-       source address: that one is named on stderr, which the trigger log
-       keeps. */
+       peer: that one is named on stderr, which the trigger log keeps. A lost
+       peer is named there once, and so is the first datagram sent after
+       it. */
+    unsigned long sent = 0;
+    unsigned long connect_attempts = 0;
     while (keep_running) {
+#ifdef UDP_PROBE_TEST_DISSOLVE_AFTER
+        /* Test build only: leave the socket unconnected once, the state a
+           failed connect leaves behind. */
+        if (sent == UDP_PROBE_TEST_DISSOLVE_AFTER && connect_attempts == 0) {
+            struct sockaddr unspec;
+            memset(&unspec, 0, sizeof(unspec));
+            unspec.sa_family = AF_UNSPEC;
+            (void)connect(sock, &unspec, sizeof(unspec));
+        }
+#endif
         if (send(sock, buf, (size_t)size, 0) < 0) {
             int err = last_send_error();
             if (is_transient(err)) {
                 usleep_ms(TRANSIENT_PAUSE_MS);
-            } else if (is_address_lost(err)) {
+            } else if (is_association_lost(err)) {
+                if (connect_attempts == 0) {
+                    report_association_lost(err, sent);
+                }
                 usleep_ms(TRANSIENT_PAUSE_MS);
+                connect_attempts++;
                 (void)connect(sock, (struct sockaddr *)&addr, sizeof(addr));
             } else if (!is_peer_answer(err)) {
                 report_send_error(err);
                 break;
             }
+        } else {
+            if (connect_attempts > 0) {
+                report_sending_again(connect_attempts);
+                connect_attempts = 0;
+            }
+            sent++;
         }
         usleep_ms(interval);
     }
@@ -260,8 +304,9 @@ def spawn_udp_children(
 ) -> list[subprocess.Popen[bytes]]:
     children: list[subprocess.Popen[bytes]] = []
     for ip, port in targets:
-        # stderr is inherited: the probe writes one line there, only when a
-        # send error stops it, and the trigger log is where that belongs.
+        # stderr is inherited: the probe writes there only when a send error
+        # stops it or when its socket lost its peer and it connected again,
+        # and the trigger log is where that belongs.
         children.append(
             subprocess.Popen(
                 [str(binary), ip, str(port), str(interval_ms), str(payload_bytes)],
