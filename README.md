@@ -1,9 +1,11 @@
-# EDAMAME Posture: Free CI/CD and Coding Agent CLI
+# EDAMAME Posture: Free CI/CD and AI Agent CLI
 
-> **EDAMAME** is the developer-first, agent-first runtime security layer for the SDLC. **EDAMAME Posture** secures CI/CD runners, build hosts, and self-hosted agent hosts, **EDAMAME Security** protects workstations and local coding sessions, **EDAMAME Hub** gives teams fleet visibility and proof, and **EDAMAME Portal** handles account access and managed LLM subscription.
+> **EDAMAME** is the trust layer for AI agents and the machines they run on, proven by both security posture and runtime behavior. **EDAMAME Posture** secures CI/CD runners and any server running AI agents, cloud or self-hosted, **EDAMAME Security** protects workstations and the AI agents on them, **EDAMAME Hub** gives teams fleet visibility, AI governance and proof, and **EDAMAME Portal** handles account access and the managed LLM subscription.
 
 ## What is it?
-EDAMAME Posture is a lightweight, developer-first CLI for runner and build-host trust gates, posture checks, runtime network enforcement, and self-hosted agent infrastructure without slowing down development.
+EDAMAME Posture is a lightweight, developer-first CLI for runner and build-host trust gates, posture checks, runtime network enforcement, and any server running AI agents, cloud or self-hosted, without slowing down development.
+
+Watch: [Gate a GitHub Actions build on its runner's posture, its egress and attacks](https://youtu.be/rwHbr6JwHp8) · [An API key for EDAMAME Posture in your CI/CD](https://youtu.be/c7XXrqBRAKE) · AI agent attacks that EDAMAME Posture's detectors catch, in the [Attack Simulator playlist](https://www.youtube.com/playlist?list=PLO8OBTXPWuyc)
 
 ## Table of Contents
 - [What is it?](#what-is-it)
@@ -484,7 +486,7 @@ sudo -E edamame_posture mcp-start --port 3000 --all-interfaces
 
 The server runs at `http://127.0.0.1:3000/mcp` by default, or `http://0.0.0.0:3000/mcp` with `--all-interfaces`.
 
-**MCP Authentication**: The server supports dual-mode authentication. The shared PSK (Bearer token) described above is the recommended approach for CLI/headless use (edamame_posture, provisioning scripts, automation). Per-client credentials (app-mediated pairing via `/mcp/pair`, yielding `edm_mcp_...` tokens) are also available for desktop clients such as edamame_cursor and edamame_openclaw on dev workstations. The auth middleware accepts both.
+**MCP Authentication**: The server supports dual-mode authentication. The shared PSK (Bearer token) described above is the recommended approach for CLI/headless use (edamame_posture, provisioning scripts, automation). Per-client credentials (app-mediated pairing via `/mcp/pair`, yielding `edm_mcp_...` tokens) are also available for desktop clients such as edamame_cursor and edamame_openclaw on workstations. The auth middleware accepts both.
 
 ### MCP Server Options
 
@@ -631,8 +633,8 @@ This gives you the best of both worlds:
 ---
 
 ## Overview
-EDAMAME Posture is a cross-platform CLI that safeguards your software development lifecycle, making it easy to:
-- Assess the security posture of your device, CI/CD environment, or coding agent infrastructure
+EDAMAME Posture is a cross-platform CLI that safeguards every machine that touches your code, making it easy to:
+- Assess the security posture of your device, CI/CD environment, or AI agent infrastructure
 - Harden against common misconfigurations at the click of a button
 - Monitor network traffic to detect and prevent supply chain attacks
 - Generate compliance or audit reports, providing proof of a hardened setup
@@ -665,12 +667,12 @@ These capabilities allow you not only to enforce security at build time but also
 - **Pipeline Security Gates** – Fail builds when security posture doesn't meet requirements, preventing insecure code deployment.
 - **Compliance Reporting** – Generate tamper-proof reports for audits or personal assurance.
 - **Optional Hub Integration** – Connect to EDAMAME Hub when you're ready for shared visibility and policy enforcement.
-- **Versatile for CI/CD, Coding Agents and Dev Machines** – Seamlessly integrates into CI/CD pipelines, coding agent infrastructure, and developer workstations, via CLI, MCP, and GitHub/GitLab Actions.
+- **Versatile for CI/CD, AI Agents and Workstations** – Seamlessly integrates into CI/CD pipelines, AI agent infrastructure, and workstations, via CLI, MCP, and GitHub/GitLab Actions.
 
 ## Targeted Use Cases
 - **Personal Device Hardening**: Quickly validate and remediate workstation security—ensuring it's safe for development work.
 - **CI/CD Pipeline Security**: Insert edamame_posture checks to ensure ephemeral CI runners are properly secured before building or deploying code.
-- **Coding Agent Security**: Harden the server running your coding agent with the CLI, or let the agent monitor its own posture via [MCP integration](https://www.edamame.tech/agents).
+- **AI Agent Security**: Harden the server running your AI agent with the CLI, or let the agent monitor its own posture via [MCP integration](https://www.edamame.tech/agents).
 - **On-Demand Compliance Demonstrations**: Produce signed posture reports when working with clients or partners who require evidence of strong security practices.
 - **Local Network Insights**: Run flodbadd to see what's on your subnet—no need for bulky network security tools.
 
@@ -746,7 +748,7 @@ This mode runs persistently (until stopped) and enforces policies in real-time, 
 
 > Tip: combine `--fail-on-whitelist` (and related checks) with `--cancel-on-violation` to automatically cancel CI pipelines whenever policy violations are detected.
 
-> Using EDAMAME Posture inside managed or cloud coding agents (Cursor background agents, Claude Code sandboxes, CI runners) to gate private-repository access and monitor the agent's environment is covered in [CLOUD_AGENTS.md](CLOUD_AGENTS.md).
+> Using EDAMAME Posture inside managed or cloud AI agents (Cursor background agents, Claude Code sandboxes, CI runners) to gate private-repository access and monitor the agent's environment is covered in [CLOUD_AGENTS.md](CLOUD_AGENTS.md).
 
 ## Threat Models and Security Assessment
 EDAMAME Posture's security assessment capabilities are powered by comprehensive threat models that evaluate security across five key dimensions:
@@ -3076,7 +3078,7 @@ git commit -m "feat: implement new feature
 
 EDAMAME-SIGNATURE: $SIGNATURE"
 ```
-In the above, the commit message now contains a line with `EDAMAME-SIGNATURE: <signature>`. This ties that commit to the security state of the developer's machine at commit time.
+In the above, the commit message now contains a line with `EDAMAME-SIGNATURE: <signature>`. This ties that commit to the security state of the machine it was made on, at commit time.
 
 2. At code review or before merging/deployment, verify the signature:
 Suppose you have the commit hash (or in CI, you're on that commit). You can extract the signature and verify it:
@@ -3126,7 +3128,7 @@ jobs:
 (The above uses PowerShell syntax in a GitHub Actions step for demonstration, assuming edamame_posture is installed on the runner.) If the commit's signature does not exist or does not meet the policy, the job will exit with error, blocking the merge or deployment.
 
 ### Signature Verification in Release Processes
-Organizations can implement signature verification at various stages of the SDLC:
+Organizations can implement signature verification at various stages of the development lifecycle:
 - **Pre-Merge Checks**: Require that any commit merged into protected branches (e.g., main) has a valid EDAMAME signature that passes policy. This can be enforced via CI on pull requests.
 - **Release Approval**: During a release pipeline, confirm that the code being released was authored on compliant devices. For instance, before deploying to production, verify the signatures of all commits since last release.
 - **Continuous Compliance**: Periodically (or continuously) audit historical posture by scanning repository history for EDAMAME signatures and validating them. This provides assurance that over time, all code came from secure environments.
@@ -3315,7 +3317,7 @@ EDAMAME Posture is part of a broader ecosystem of tools and services provided by
 - **[Threat Models](https://github.com/edamametechnologies/threatmodels)**: Threat model definitions used throughout the system
 - **[EDAMAME Hub](https://hub.edamame.tech)**: Web portal for centralized management when using these components in team environments
 
-By using EDAMAME Posture CLI in combination with other ecosystem components, you can scale from individual developer security up to organization-wide endpoint posture management -- including CI/CD pipelines and coding agent infrastructure -- all while maintaining developer autonomy and privacy. See [Coding Agents Security](https://www.edamame.tech/agents) for the full picture on securing coding agents.
+By using EDAMAME Posture CLI in combination with other ecosystem components, you can scale from individual developer security up to organization-wide endpoint posture management -- including CI/CD pipelines and AI agent infrastructure -- all while maintaining developer autonomy and privacy. See [AI agent security](https://www.edamame.tech/agents) for the full picture on securing AI agents.
 
 ## Author
 EDAMAME Technologies
