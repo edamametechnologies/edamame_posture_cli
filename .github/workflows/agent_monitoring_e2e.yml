@@ -662,18 +662,11 @@ jobs:
           fi
           echo "Daemon stopped"
 
-      # ── Slack alert ────────────────────────────────────────────────────
-      - name: Slack alert on failure
-        if: failure()
-        uses: slackapi/slack-github-action@v1.26.0
-        with:
-          channel-id: "C072J0U9TH7"
-          slack-message: |
-            *edamame_posture ${{ inputs.mode == 'fp_lab' && format('FP lab ({0} leg)', inputs.fp_lab_leg || 'llm') || 'fleet monitoring E2E' }} failed*
-            Repository: ${{ github.repository }}
-            Branch: ${{ github.ref }}
-            OS: ${{ matrix.os }}
-            Run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        env:
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-        continue-on-error: true
+  notify:
+    name: Slack alert
+    needs: [fleet]
+    if: always() && github.event_name != 'pull_request' && github.workflow == 'Agent fleet monitoring E2E'
+    uses: edamametechnologies/.github/.github/workflows/slack-notify.yml@main
+    with:
+      results: ${{ toJSON(needs) }}
+    secrets: inherit

@@ -314,16 +314,6 @@ jobs:
           echo "Native matrix: $NATIVE_JSON"
           echo "Container matrix: $CONT_JSON"
 
-      - name: Slack alerts
-        if: failure()
-        uses: slackapi/slack-github-action@v1.26.0
-        with:
-          channel-id: 'C072J0U9TH7'
-          slack-message: "Setup job in ${{ github.workflow }} for ${{ github.repository }} on branch ${{ github.ref }} failed (no build, test, perf or security job will run): see https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-        env:
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-        continue-on-error: true
-
   # =========================================================================
   # build: cargo build --release + sign + upload artifact (per native platform)
   # =========================================================================
@@ -646,16 +636,6 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-      - name: Slack alerts
-        if: failure()
-        uses: slackapi/slack-github-action@v1.26.0
-        with:
-          channel-id: 'C072J0U9TH7'
-          slack-message: "Build (${{ matrix.label }}) in ${{ github.workflow }} for ${{ github.repository }} on branch ${{ github.ref }} failed (test, perf and security jobs for this platform will not run): see https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-        env:
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-        continue-on-error: true
-
   # =========================================================================
   # test-native: download artifact, run general tests on native platforms
   # =========================================================================
@@ -951,23 +931,6 @@ jobs:
         shell: bash
         run: ./tests/llm_test.sh
         continue-on-error: true
-
-      - name: Slack alerts
-        if: steps.ebpf_test.outcome == 'failure' || steps.cargo_tests.outcome == 'failure' || steps.standalone_tests.outcome == 'failure' || steps.integration_tests.outcome == 'failure' || steps.llm_tests.outcome == 'failure'
-        uses: slackapi/slack-github-action@v1.26.0
-        with:
-          channel-id: 'C072J0U9TH7'
-          slack-message: |
-            *Native Test Results for ${{ github.repository }} (${{ matrix.label }})*:
-            - eBPF Test: ${{ steps.ebpf_test.outcome != 'failure' && '✅ Success' || '❌ Failed' }}
-            - Cargo Tests: ${{ steps.cargo_tests.outcome != 'failure' && '✅ Success' || '❌ Failed' }}
-            - Standalone Tests: ${{ steps.standalone_tests.outcome != 'failure' && '✅ Success' || '❌ Failed' }}
-            - Integration Tests: ${{ steps.integration_tests.outcome != 'failure' && '✅ Success' || '❌ Failed' }}
-            - LLM Tests: ${{ steps.llm_tests.outcome != 'failure' && '✅ Success' || '❌ Failed' }}
-            Branch: ${{ github.ref }}
-            More details: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        env:
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
 
       - name: Dump the logs (Non-Windows)
         if: always() && runner.os != 'Windows'
@@ -1290,25 +1253,6 @@ jobs:
           fi
           echo "--- Container Log Dump Complete ---"
 
-      - name: Slack alerts
-        # Won't work on 18.04 because of glibc version
-        # Won't work on ARM64 Alpine because of JavaScript support
-        if: (steps.ebpf_test.outcome == 'failure' || steps.cargo_tests.outcome == 'failure' || steps.standalone_tests.outcome == 'failure' || steps.integration_tests.outcome == 'failure' || steps.llm_tests.outcome == 'failure') && !contains(matrix.container_name, '18.04') && !contains(matrix.container_name, 'aarch64-musl')
-        uses: slackapi/slack-github-action@v1.26.0
-        with:
-          channel-id: 'C072J0U9TH7'
-          slack-message: |
-            *Container Test Results for ${{ github.repository }} (${{ matrix.container_name }})*:
-            - eBPF Test: ${{ steps.ebpf_test.outcome != 'failure' && '✅ Success' || '❌ Failed' }}
-            - Cargo Tests: ${{ steps.cargo_tests.outcome != 'failure' && '✅ Success' || '❌ Failed' }}
-            - Standalone Tests: ${{ steps.standalone_tests.outcome != 'failure' && '✅ Success' || '❌ Failed' }}
-            - Integration Tests: ${{ steps.integration_tests.outcome != 'failure' && '✅ Success' || '❌ Failed' }}
-            - LLM Tests: ${{ steps.llm_tests.outcome != 'failure' && '✅ Success' || '❌ Failed' }}
-            Branch: ${{ github.ref }}
-            More details: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        env:
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-
       - name: Fail job if tests failed
         shell: bash
         # eBPF test failure is ignored on Ubuntu 18.04 (doesn't support eBPF well)
@@ -1564,20 +1508,6 @@ jobs:
           path: results/${{ matrix.label }}
           if-no-files-found: warn
           retention-days: 30
-
-      - name: Slack alerts
-        if: steps.calibrate.outcome == 'failure' || steps.scenarios.outcome == 'failure'
-        uses: slackapi/slack-github-action@v1.26.0
-        with:
-          channel-id: 'C072J0U9TH7'
-          slack-message: |
-            *Performance Test Results for ${{ github.repository }} (${{ matrix.label }})*:
-            - CPU Calibration: ${{ steps.calibrate.outcome != 'failure' && '✅ Success' || '❌ Failed' }}
-            - Performance Scenarios: ${{ steps.scenarios.outcome != 'failure' && '✅ Success' || '❌ Failed' }}
-            Branch: ${{ github.ref }}
-            More details: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        env:
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
 
       - name: Dump the logs (Non-Windows)
         if: always() && runner.os != 'Windows'
@@ -2235,24 +2165,6 @@ jobs:
           path: results/${{ matrix.label }}
           if-no-files-found: warn
           retention-days: 30
-
-      - name: Slack alerts
-        if: steps.install_cli.outcome == 'failure' || steps.triggers.outcome == 'failure' || steps.lineage.outcome == 'failure' || steps.baseline.outcome == 'failure' || steps.detection.outcome == 'failure' || steps.divergence.outcome == 'failure'
-        uses: slackapi/slack-github-action@v1.26.0
-        with:
-          channel-id: 'C072J0U9TH7'
-          slack-message: |
-            *Security (CVE) Test Results for ${{ github.repository }} (${{ matrix.label }})*:
-            - edamame_cli install: ${{ steps.install_cli.outcome != 'failure' && '✅ Success' || '❌ Failed' }}
-            - Trigger fetch: ${{ steps.triggers.outcome != 'failure' && '✅ Success' || '❌ Failed' }}
-            - Kernel process lineage: ${{ steps.lineage.outcome == 'success' && '✅ Resolved' || '❌ Ancestry not resolved (release blocked)' }}
-            - False-positive baseline (10 min idle): ${{ steps.baseline.outcome == 'success' && '✅ Clean' || '❌ Findings during idle window (release blocked)' }}
-            - CVE Detection Suite: ${{ steps.detection.outcome == 'success' && '✅ Success' || (steps.detection.outcome == 'skipped' && '⏭️ Skipped (baseline dirty)' || '❌ Failed') }}
-            - Divergence Detection Suite: ${{ steps.divergence.outcome == 'success' && '✅ Success' || (steps.divergence.outcome == 'skipped' && '⏭️ Skipped (baseline dirty or Windows)' || '❌ Failed') }}
-            Branch: ${{ github.ref }}
-            More details: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        env:
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
 
       - name: Dump the logs (Non-Windows)
         if: always() && runner.os != 'Windows'
@@ -2933,20 +2845,6 @@ jobs:
           if-no-files-found: warn
           retention-days: 365
 
-      - name: Slack alerts
-        if: steps.report.outcome == 'failure' || steps.gate.outcome == 'failure'
-        uses: slackapi/slack-github-action@v1.26.0
-        with:
-          channel-id: 'C072J0U9TH7'
-          slack-message: |
-            *Performance Gate for ${{ github.repository }}*:
-            - Report Generation: ${{ steps.report.outcome != 'failure' && '✅ Success' || '❌ Failed' }}
-            - Release Gate (+100% regression): ${{ steps.gate.outcome != 'failure' && '✅ Pass' || '❌ Regression' }}
-            Branch: ${{ github.ref }}
-            More details: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        env:
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-
       - name: Fail job if report or gate failed
         if: steps.report.outcome == 'failure' || steps.gate.outcome == 'failure'
         shell: bash
@@ -3114,20 +3012,6 @@ jobs:
           if-no-files-found: warn
           retention-days: 90
 
-      - name: Slack alerts
-        if: steps.report.outcome == 'failure' || steps.gate.outcome == 'failure'
-        uses: slackapi/slack-github-action@v1.26.0
-        with:
-          channel-id: 'C072J0U9TH7'
-          slack-message: |
-            *Security Gate for ${{ github.repository }}*:
-            - Report Generation: ${{ steps.report.outcome != 'failure' && '✅ Success' || '❌ Failed' }}
-            - Release Gate (strict): ${{ steps.gate.outcome != 'failure' && '✅ Pass' || '❌ Regression (any CVE scenario failed on any platform)' }}
-            Branch: ${{ github.ref }}
-            More details: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        env:
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-
       - name: Fail job if report or gate failed
         if: steps.report.outcome == 'failure' || steps.gate.outcome == 'failure'
         shell: bash
@@ -3145,3 +3029,12 @@ jobs:
           exit 1
 
 # ci: retrigger after transient lanscan perf flake (2026-05-16)
+
+  notify:
+    name: Slack alert
+    needs: [setup, build, test-native, test-container, perf, security, llm-eval, warm-baseline, perf-report, security-report]
+    if: always() && github.event_name != 'pull_request'
+    uses: edamametechnologies/.github/.github/workflows/slack-notify.yml@main
+    with:
+      results: ${{ toJSON(needs) }}
+    secrets: inherit

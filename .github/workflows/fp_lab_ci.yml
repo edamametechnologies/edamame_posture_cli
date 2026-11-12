@@ -257,16 +257,6 @@ jobs:
           dump_vulnerability_findings: true
           exit_on_vulnerability_findings: true
 
-      - name: Slack alert on failure
-        if: failure()
-        uses: slackapi/slack-github-action@v1.26.0
-        with:
-          channel-id: 'C072J0U9TH7'
-          slack-message: "${{ steps.job_status_check.outcome == 'success' && '[JOB FAILURE]' || '' }}${{ steps.dump_sessions.outcome == 'failure' && '[POSTURE POST JOB FAILURE]' || '' }} FP lab plan (${{ github.event_name }}) in ${{ github.repository }} failed: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-        env:
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-        continue-on-error: true
-
   lab:
     name: Deterministic leg
     needs: plan
@@ -284,4 +274,13 @@ jobs:
       posture_build_run_id: ${{ needs.plan.outputs.posture_build_run_id }}
       fp_lab_ref: ${{ needs.plan.outputs.head_sha }}
       fp_lab_scenarios: ${{ inputs.fp_lab_scenarios || '' }}
+    secrets: inherit
+
+  notify:
+    name: Slack alert
+    needs: [plan, lab]
+    if: always() && github.event_name != 'pull_request'
+    uses: edamametechnologies/.github/.github/workflows/slack-notify.yml@main
+    with:
+      results: ${{ toJSON(needs) }}
     secrets: inherit

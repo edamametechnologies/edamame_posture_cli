@@ -245,21 +245,6 @@ jobs:
             exit 1
           fi
 
-      - name: Slack alerts
-        if: ${{ always() && (steps.install.outcome != 'success' || steps.verify.outcome != 'success' || steps.run.outcome != 'success') }}
-        uses: slackapi/slack-github-action@v1.26.0
-        with:
-          channel-id: 'C072J0U9TH7'
-          slack-message: |
-            *Posture Installer Test (Ubuntu APT)*:
-            - Installation: ${{ steps.install.outcome == 'success' && '✅ Success' || '❌ Failed' }}
-            - Verification: ${{ steps.verify.outcome == 'success' && '✅ Success' || '❌ Failed' }}
-            - Service: ${{ steps.run.outcome == 'success' && '✅ Success' || '❌ Failed' }}
-            More details: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        env:
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-        continue-on-error: true
-
       - name: Fail job if tests failed
         if: ${{ always() && (steps.install.outcome != 'success' || steps.verify.outcome != 'success' || steps.run.outcome != 'success') }}
         run: |
@@ -314,21 +299,6 @@ jobs:
                     exit 1
                 fi
             fi
-
-      - name: Slack alerts
-        if: ${{ always() && (steps.install.outcome != 'success' || steps.verify.outcome != 'success' || steps.run.outcome != 'success') }}
-        uses: slackapi/slack-github-action@v1.26.0
-        with:
-          channel-id: 'C072J0U9TH7'
-          slack-message: |
-            *Posture Installer Test (Alpine APK)*:
-            - Installation: ${{ steps.install.outcome == 'success' && '✅ Success' || '❌ Failed' }}
-            - Verification: ${{ steps.verify.outcome == 'success' && '✅ Success' || '❌ Failed' }}
-            - Service: ${{ steps.run.outcome == 'success' && '✅ Success' || '❌ Failed' }}
-            More details: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        env:
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-        continue-on-error: true
 
       - name: Fail job if tests failed
         if: ${{ always() && (steps.install.outcome != 'success' || steps.verify.outcome != 'success' || steps.run.outcome != 'success') }}
@@ -401,20 +371,6 @@ jobs:
           ./edamame_posture get-core-version
           ./edamame_posture --help | head -n 20
 
-      - name: Slack alerts
-        if: ${{ always() && (steps.download.outcome != 'success' || steps.verify.outcome != 'success') }}
-        uses: slackapi/slack-github-action@v1.26.0
-        with:
-          channel-id: 'C072J0U9TH7'
-          slack-message: |
-            *Posture Installer Test (Linux Binary)*:
-            - Download: ${{ steps.download.outcome == 'success' && '✅ Success' || '❌ Failed' }}
-            - Verification: ${{ steps.verify.outcome == 'success' && '✅ Success' || '❌ Failed' }}
-            More details: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        env:
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-        continue-on-error: true
-
       - name: Fail job if tests failed
         if: ${{ always() && (steps.download.outcome != 'success' || steps.verify.outcome != 'success') }}
         run: |
@@ -448,21 +404,6 @@ jobs:
         run: |
           set -euo pipefail
           pgrep -f edamame_posture || true
-
-      - name: Slack alerts
-        if: ${{ always() && (steps.install.outcome != 'success' || steps.verify.outcome != 'success' || steps.run.outcome != 'success') }}
-        uses: slackapi/slack-github-action@v1.26.0
-        with:
-          channel-id: 'C072J0U9TH7'
-          slack-message: |
-            *Posture Installer Test (macOS Homebrew)*:
-            - Installation: ${{ steps.install.outcome == 'success' && '✅ Success' || '❌ Failed' }}
-            - Verification: ${{ steps.verify.outcome == 'success' && '✅ Success' || '❌ Failed' }}
-            - Background check: ${{ steps.run.outcome == 'success' && '✅ Success' || '❌ Failed' }}
-            More details: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        env:
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-        continue-on-error: true
 
       - name: Fail job if tests failed
         if: ${{ always() && (steps.install.outcome != 'success' || steps.verify.outcome != 'success' || steps.run.outcome != 'success') }}
@@ -510,20 +451,6 @@ jobs:
             Write-Host "ERROR: Binary suspiciously small ($($fileInfo.Length) bytes)"
             exit 1
           }
-
-      - name: Slack alerts
-        if: ${{ always() && (steps.install.outcome != 'success' || steps.verify.outcome != 'success') }}
-        uses: slackapi/slack-github-action@v1.26.0
-        with:
-          channel-id: 'C072J0U9TH7'
-          slack-message: |
-            *Posture Installer Test (Windows Chocolatey)*:
-            - Installation: ${{ steps.install.outcome == 'success' && '✅ Success' || '❌ Failed' }}
-            - Verification: ${{ steps.verify.outcome == 'success' && '✅ Success' || '❌ Failed' }}
-            More details: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        env:
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-        continue-on-error: true
 
       - name: Fail job if tests failed
         if: ${{ always() && (steps.install.outcome != 'success' || steps.verify.outcome != 'success') }}
@@ -653,21 +580,6 @@ jobs:
           codesign --verify --strict "/Library/Application Support/EDAMAME/EDAMAME-Posture/edamame_posture.app"
           /usr/local/bin/edamame_posture get-core-version
 
-      - name: Slack alerts
-        if: ${{ always() && (steps.check.outcome != 'success' || steps.install.outcome != 'success' || steps.verify.outcome != 'success') }}
-        uses: slackapi/slack-github-action@v1.26.0
-        with:
-          channel-id: 'C072J0U9TH7'
-          slack-message: |
-            *Posture Installer Test (macOS PKG, ${{ matrix.runner }}, ${{ matrix.variant }})*:
-            - PKG checks: ${{ steps.check.outcome == 'success' && '✅ Success' || '❌ Failed' }}
-            - Installation: ${{ steps.install.outcome == 'success' && '✅ Success' || '❌ Failed' }}
-            - Verification: ${{ steps.verify.outcome == 'success' && '✅ Success' || '❌ Failed' }}
-            More details: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        env:
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-        continue-on-error: true
-
       - name: Fail job if tests failed
         if: ${{ always() && (steps.check.outcome != 'success' || steps.install.outcome != 'success' || steps.verify.outcome != 'success') }}
         run: |
@@ -734,21 +646,17 @@ jobs:
           ./"$ASSET" --version || ./"$ASSET" --help | head -n 5
           echo "OK: $ASSET is present and executable"
 
-      - name: Slack alerts
-        if: ${{ always() && steps.verify.outcome != 'success' }}
-        uses: slackapi/slack-github-action@v1.26.0
-        with:
-          channel-id: 'C072J0U9TH7'
-          slack-message: |
-            *Posture Release Asset Test (${{ matrix.runner }})*:
-            - Asset verification: ❌ Failed
-            More details: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        env:
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-        continue-on-error: true
-
       - name: Fail job if tests failed
         if: ${{ always() && steps.verify.outcome != 'success' }}
         run: |
           echo "Release asset test for ${{ matrix.runner }} did not succeed"
           exit 1
+
+  notify:
+    name: Slack alert
+    needs: [install-sh-conf, linux-apt, linux-apk, linux-binary, macos-brew, windows-choco, macos-pkg, github-release]
+    if: always() && github.event_name != 'pull_request'
+    uses: edamametechnologies/.github/.github/workflows/slack-notify.yml@main
+    with:
+      results: ${{ toJSON(needs) }}
+    secrets: inherit
