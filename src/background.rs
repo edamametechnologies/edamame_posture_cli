@@ -4354,14 +4354,16 @@ pub fn background_process_agentic(mode: &str) {
                 }
             }
 
-            // Log failures
+            // Log failures. A todo the model could not process (a provider
+            // timeout, a refused call) is an operational condition, not a
+            // defect: warn, not error.
             if !results.failed.is_empty() {
-                error!(
+                warn!(
                     "AI Assistant: {} todos failed processing:",
                     results.failed.len()
                 );
                 for result in &results.failed {
-                    error!(
+                    warn!(
                         "  → {} - {}",
                         result.advice_type,
                         result
