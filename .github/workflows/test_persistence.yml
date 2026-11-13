@@ -132,26 +132,6 @@ jobs:
           $BINARY status
         continue-on-error: true
 
-      - name: Slack alerts
-        if: |
-          steps.install-1.outcome != 'success' ||
-          steps.check-1.outcome != 'success' ||
-          steps.install-2.outcome != 'success' ||
-          steps.check-2.outcome != 'success'
-        uses: slackapi/slack-github-action@v1.26.0
-        with:
-          channel-id: 'C072J0U9TH7'
-          slack-message: |
-            *Native Persistence Test Results for ${{ github.repository }} (${{ matrix.os }}-${{ matrix.arch }})*:
-            - Install 1: ${{ steps.install-1.outcome == 'success' && '✅ Success' || '❌ Failed' }}
-            - Check 1: ${{ steps.check-1.outcome == 'success' && '✅ Success' || '❌ Failed' }}
-            - Install 2: ${{ steps.install-2.outcome == 'success' && '✅ Success' || '❌ Failed' }}
-            - Check 2: ${{ steps.check-2.outcome == 'success' && '✅ Success' || '❌ Failed' }}
-            More details: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        env:
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-        continue-on-error: true
-
       - name: Dump the logs (Non-Windows)
         if: always() && runner.os != 'Windows'
         shell: bash
@@ -295,26 +275,6 @@ jobs:
           $BINARY status
         continue-on-error: true
       
-      - name: Slack alerts
-        if: |
-          steps.install-1.outcome != 'success' ||
-          steps.check-1.outcome != 'success' ||
-          steps.install-2.outcome != 'success' ||
-          steps.check-2.outcome != 'success'
-        uses: slackapi/slack-github-action@v1.26.0
-        with:
-          channel-id: 'C072J0U9TH7'
-          slack-message: |
-            *Native Persistence Test Results for ${{ github.repository }} (${{ matrix.os }}-${{ matrix.arch }})*:
-            - Install 1: ${{ steps.install-1.outcome == 'success' && '✅ Success' || '❌ Failed' }}
-            - Check 1: ${{ steps.check-1.outcome == 'success' && '✅ Success' || '❌ Failed' }}
-            - Install 2: ${{ steps.install-2.outcome == 'success' && '✅ Success' || '❌ Failed' }}
-            - Check 2: ${{ steps.check-2.outcome == 'success' && '✅ Success' || '❌ Failed' }}
-            More details: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        env:
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-        continue-on-error: true
-
       - name: Dump the logs (Non-Windows)
         if: always() && runner.os != 'Windows'
         shell: bash
@@ -520,26 +480,6 @@ jobs:
           $BINARY status
         continue-on-error: true
 
-      - name: Slack alerts
-        if: |
-          steps.install-1.outcome != 'success' ||
-          steps.check-1.outcome != 'success' ||
-          steps.install-2.outcome != 'success' ||
-          steps.check-2.outcome != 'success'
-        uses: slackapi/slack-github-action@v1.26.0
-        with:
-          channel-id: 'C072J0U9TH7'
-          slack-message: |
-            *Container Persistence Test Results for ${{ github.repository }} (${{ matrix.container_name }})*:
-            - Install 1: ${{ steps.install-1.outcome == 'success' && '✅ Success' || '❌ Failed' }}
-            - Check 1: ${{ steps.check-1.outcome == 'success' && '✅ Success' || '❌ Failed' }}
-            - Install 2: ${{ steps.install-2.outcome == 'success' && '✅ Success' || '❌ Failed' }}
-            - Check 2: ${{ steps.check-2.outcome == 'success' && '✅ Success' || '❌ Failed' }}
-            More details: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        env:
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-        continue-on-error: true
-
       - name: Dump the logs (Non-Windows)
         if: always() && runner.os != 'Windows'
         shell: bash
@@ -717,3 +657,13 @@ jobs:
           pkill -9 edamame_posture 2>/dev/null || true
           sleep 1
           echo "Cleanup complete"
+
+  notify:
+    name: Slack alert
+    needs: [test-native, test-native-binary-only, test-container, test-alpine]
+    if: always() && github.event_name != 'pull_request'
+    uses: edamametechnologies/.github/.github/workflows/slack-notify.yml@main
+    with:
+      results: ${{ toJSON(needs) }}
+    secrets:
+      SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}

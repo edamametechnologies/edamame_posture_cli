@@ -190,7 +190,7 @@ jobs:
         if: failure()
         uses: slackapi/slack-github-action@v1.26.0
         with:
-          channel-id: 'C072J0U9TH7'
+          channel-id: ${{ vars.SLACK_ALERTS_CHANNEL || 'C072J0U9TH7' }}
           slack-message: "${{ steps.job_status_check.outcome == 'success' && '[JOB FAILURE]' || '' }}${{ steps.dump_sessions.outcome == 'failure' && '[POSTURE POST JOB FAILURE]' || '' }} Release workflow ${{ github.workflow }} for ${{ github.repository }} on ${{ runner.os }} failed: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
