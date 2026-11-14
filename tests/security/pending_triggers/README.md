@@ -1,22 +1,21 @@
 # Pending triggers
 
 Triggers whose detector check ships switched off. They are kept here, out of
-the gate runners and out of `catalog.json` (the catalog lists what the
-Attack Simulator shows, and a scenario that finds nothing would mislead), and
-they move to `triggers/` with the release that switches their check on.
+the gate runners, out of `catalog.json` and out of `triggers/` (every file
+there ships with the Attack Simulator), and they move to `triggers/` with the
+release that switches their check on.
 
 ## `trigger_transcript_tamper.py`
 
 A stand-in harness (a copy of the interpreter named `claude`) creates a
 transcript under `~/.claude/projects/demo_claude_code_transcript_tamper/` and
 its tool child appends to it: `agent_transcript_tampering`, class
-`subtree_write`. It runs on macOS and Linux, where a store file's creation is
-recorded.
+`subtree_write`. It runs on macOS and Linux.
 
 To wire it, with the release that publishes `transcript_write_trust_enabled`
 true:
 
-- Move the trigger to `triggers/` and drop its `sys.path` line.
+- Move the trigger to `triggers/` and drop its `sys.path` lines.
 - `run_cve_detection.sh`: add `transcript_tamper` to `SCENARIOS_CSV`, map it
   to `agent_transcript_tampering` in `expected_check_for`, and exclude it on
   Windows (`PLATFORM_EXCLUDED_SCENARIOS` in `check_gate.py`).

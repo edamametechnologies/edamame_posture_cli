@@ -5,8 +5,9 @@ writes the harness's own transcript.
 
 Pending: the write provenance of the transcript stores ships switched off
 (`transcript_write_trust_enabled: false` in cve-detection-params-db.json),
-so this trigger is kept out of the gate and out of the catalog until the
-release that switches it on (pending/README.md says how to wire it).
+so this trigger is kept out of the gate, the catalog and the triggers
+directory until the release that switches it on (README.md beside it says
+how to wire it).
 
 Shape (class `subtree_write`):
 
@@ -23,7 +24,7 @@ Shape (class `subtree_write`):
 Everything lives under a project directory with the trigger's prefix, removed
 by cleanup.py. The transcript holds synthetic lines only.
 
-Platforms: macOS and Linux, where a store file's creation is recorded.
+Runs on macOS and Linux.
 """
 
 from __future__ import annotations
@@ -37,8 +38,9 @@ import time
 import uuid
 from pathlib import Path
 
-# The shared helpers live one directory up while this trigger is pending.
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+# The shared helpers live in the triggers directory while this trigger is
+# pending.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "triggers"))
 from _common import AGENT_TYPE_ARG_HELP, file_prefix_for, resolve_agent_type  # noqa: E402
 
 STORES = {
