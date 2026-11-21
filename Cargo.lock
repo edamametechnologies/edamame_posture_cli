@@ -1862,8 +1862,8 @@ dependencies = [
 
 [[package]]
 name = "edamame_core"
-version = "2.3.2"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#696f91fb3a477882df4b9bf7f78720462ec595e5"
+version = "2.3.3"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#8413843ccfc96014c14b5bcd285f0fd3a5af48db"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -1949,8 +1949,8 @@ dependencies = [
 
 [[package]]
 name = "edamame_foundation"
-version = "2.3.2"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#4bcd98f97b387572b2c1e27e623b1c03ba237ed3"
+version = "2.3.3"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#295042a7aefd8c88eeb8ea81f291ab5b395488ee"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -2019,7 +2019,7 @@ dependencies = [
 
 [[package]]
 name = "edamame_posture"
-version = "2.3.2"
+version = "2.3.3"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -2370,8 +2370,8 @@ dependencies = [
 
 [[package]]
 name = "flodbadd"
-version = "2.3.2"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#bb693a2b2a29209852b117846d6252da31114118"
+version = "2.3.3"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#a606d4def8d7bf13be7a44343094bb1fcc22848e"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -3445,7 +3445,7 @@ dependencies = [
  "js-sys",
  "log",
  "wasm-bindgen",
- "windows-core 0.58.0",
+ "windows-core 0.62.2",
 ]
 
 [[package]]
@@ -3973,7 +3973,7 @@ dependencies = [
 [[package]]
 name = "l7_ebpf_program"
 version = "0.1.0"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#bb693a2b2a29209852b117846d6252da31114118"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#a606d4def8d7bf13be7a44343094bb1fcc22848e"
 
 [[package]]
 name = "lazy_static"
@@ -7440,7 +7440,7 @@ dependencies = [
 [[package]]
 name = "threatmodels_rs"
 version = "0.1.1"
-source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#03d851917f321a079d2bcaeb23c4759d0b5aca5a"
+source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#9e619e6b344e707ae57c7a1244ec78339816e30e"
 dependencies = [
  "anyhow",
  "chrono",
