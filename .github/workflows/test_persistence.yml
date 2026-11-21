@@ -333,9 +333,9 @@ jobs:
         if: ${{ contains(matrix.container_image, 'alpine') }}
         shell: sh
         run: |
-          apk update
+          apk --wait 300 update
           # gtk+3.0 runtime is needed for the posture binary (dynamically links GTK3)
-          apk add --no-cache curl bash gtk+3.0
+          apk --wait 300 add --no-cache curl bash gtk+3.0
 
       - name: Install curl (apt)
         if: ${{ !contains(matrix.container_image, 'alpine') }}
@@ -535,9 +535,9 @@ jobs:
       - name: Install dependencies with apk
         shell: sh
         run: |
-          apk update
+          apk --wait 300 update
           # gtk+3.0 runtime is needed for the posture binary (dynamically links GTK3)
-          apk add --no-cache \
+          apk --wait 300 add --no-cache \
             git \
             curl \
             bash \

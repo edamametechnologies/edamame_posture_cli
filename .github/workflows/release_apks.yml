@@ -162,7 +162,7 @@ jobs:
       # Install dependencies with apk
       - name: Install dependencies with apk
         run: |
-          apk add --no-cache \
+          apk --wait 300 add --no-cache \
             build-base \
             protobuf-dev \
             git \
@@ -174,8 +174,8 @@ jobs:
             bison
           
           # eBPF development tools for L7 process resolution
-          apk add --no-cache clang llvm || true
-          apk add --no-cache libbpf-dev linux-headers || true
+          apk --wait 300 add --no-cache clang llvm || true
+          apk --wait 300 add --no-cache libbpf-dev linux-headers || true
           
           # For aarch64, we need to build libpcap from source with -fPIC
           if [[ "${{ matrix.arch }}" == "aarch64" ]]; then
@@ -188,7 +188,7 @@ jobs:
             make -j$(nproc)
             make install
           else
-            apk add --no-cache libpcap-dev
+            apk --wait 300 add --no-cache libpcap-dev
           fi
         shell: alpine.sh --root {0}
 
@@ -230,7 +230,7 @@ jobs:
       # Package Alpine APK
       - name: Package Alpine APK
         run: |
-          apk add --no-cache alpine-sdk sudo
+          apk --wait 300 add --no-cache alpine-sdk sudo
           
           VERSION=$(grep '^version =' ./Cargo.toml | awk '{print $3}' | tr -d '"')
           WORKSPACE_PATH="${GITHUB_WORKSPACE:-$(pwd)}"
@@ -505,7 +505,7 @@ jobs:
           VERSION=$(grep '^version =' ./Cargo.toml | awk '{print $3}' | tr -d '"')
           WORKSPACE_PATH="${GITHUB_WORKSPACE:-$(pwd)}"
           
-          apk add --no-cache aws-cli alpine-sdk
+          apk --wait 300 add --no-cache aws-cli alpine-sdk
           
           # Use the SAME keys saved from the build step (critical for signature consistency)
           mkdir -p "$HOME/.abuild"

@@ -1014,9 +1014,9 @@ jobs:
         if: ${{ contains(matrix.container_image, 'alpine') }}
         shell: sh
         run: |
-          apk update
+          apk --wait 300 update
           # gtk+3.0 runtime is needed before the posture action tries to start the daemon
-          apk add --no-cache build-base git curl bash sudo pkgconf gtk+3.0
+          apk --wait 300 add --no-cache build-base git curl bash sudo pkgconf gtk+3.0
           git config --global --add safe.directory '*'
 
       - name: Setup permissions for git and install missing packages (apt)
@@ -1117,16 +1117,16 @@ jobs:
         if: ${{ contains(matrix.container_image, 'alpine') }}
         shell: sh
         run: |
-          apk add --no-cache protobuf-dev eudev-dev
-          apk add --no-cache clang llvm
-          apk add --no-cache libbpf-dev linux-headers
+          apk --wait 300 add --no-cache protobuf-dev eudev-dev
+          apk --wait 300 add --no-cache clang llvm
+          apk --wait 300 add --no-cache libbpf-dev linux-headers
           # aarch64 musl: build libpcap from source with -fPIC (mirrors
           # release_apks.yml). The apk libpcap.a is -fpic and references its
           # eproto_db table through the 15-bit R_AARCH64_LD64_GOTPAGE_LO15 GOT
           # form, which overflows once the native binary grows past ~32KB GOT.
           # The -fPIC build uses the large GOT model so the entry stays in range.
           if [ "${{ matrix.arch }}" = "aarch64" ]; then
-            apk add --no-cache build-base perl flex bison wget
+            apk --wait 300 add --no-cache build-base perl flex bison wget
             cd /tmp
             wget https://www.tcpdump.org/release/libpcap-1.10.5.tar.gz
             tar xzf libpcap-1.10.5.tar.gz
@@ -1135,7 +1135,7 @@ jobs:
             make -j"$(nproc)"
             make install
           else
-            apk add --no-cache libpcap-dev
+            apk --wait 300 add --no-cache libpcap-dev
           fi
 
       - name: Install build dependencies (apt)
@@ -1166,7 +1166,7 @@ jobs:
         shell: bash
         run: |
           if [ -f /etc/alpine-release ]; then
-            apk add --no-cache build-base
+            apk --wait 300 add --no-cache build-base
           fi
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
           echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
