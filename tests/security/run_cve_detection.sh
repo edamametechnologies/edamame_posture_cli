@@ -826,6 +826,7 @@ from _edamame_cli import cli_rpc
 from _finding_match import (
     findings_of,
     format_histogram,
+    graded_for_scenario,
     is_alertable,
     matches,
     normalize_severity,
@@ -836,12 +837,54 @@ check = os.environ["CHECK"]
 markers = json.loads(os.environ.get("MARKERS_JSON", "[]"))
 ports = {int(p) for p in json.loads(os.environ.get("PORTS_JSON", "[]"))}
 expected_severity = os.environ.get("EXPECTED_SEVERITY", "").strip().upper()
+lowered_markers = [m.lower() for m in markers if m]
+
+# The scenario's own sessions: those whose L7 open files carry a marker, or
+# that target a scenario port. Read before the findings, so a finding whose
+# evidence is another session's (an episode led by another scenario's
+# finding) still matches through the sessions it lists
+# (`_finding_match.matches`).
+try:
+    current_sessions = cli_rpc("get_current_sessions") or []
+except Exception as exc:
+    print(f"__ERR__ sessions: {exc}", file=sys.stderr)
+    current_sessions = []
+
+def _session_files(sess):
+    l7 = sess.get("l7") or {}
+    files = []
+    for key in ("open_files", "live_open_files", "sensitive_open_files"):
+        files.extend(str(v) for v in (l7.get(key) or []))
+    return files
+
+def _is_scenario_session(sess):
+    if not isinstance(sess, dict):
+        return False
+    tup = sess.get("session") or {}
+    if ports and tup.get("dst_port") in ports:
+        return True
+    return bool(lowered_markers) and any(
+        m in f.lower() for f in _session_files(sess) for m in lowered_markers
+    )
+
+scenario_session_uids = sorted(
+    str(sess.get("uid"))
+    for sess in current_sessions
+    if _is_scenario_session(sess) and sess.get("uid")
+)
+
+def _scenario_matches(findings):
+    return [
+        graded_for_scenario(f, check, markers, ports)
+        for f in findings
+        if matches(f, check, markers, ports, scenario_session_uids)
+    ]
 
 matched = []
 
 try:
     report = cli_rpc("get_attack_pattern_findings")
-    current_matched = [f for f in findings_of(report) if matches(f, check, markers, ports)]
+    current_matched = _scenario_matches(findings_of(report))
 except Exception as exc:
     print(f"__ERR__ current: {exc}", file=sys.stderr)
     current_matched = []
@@ -856,9 +899,7 @@ try:
             entry_findings = entry.get("findings")
             if not isinstance(entry_findings, list):
                 continue
-            history_matched.extend(
-                f for f in entry_findings if matches(f, check, markers, ports)
-            )
+            history_matched.extend(_scenario_matches(entry_findings))
 except Exception as exc:
     print(f"__ERR__ history: {exc}", file=sys.stderr)
 
@@ -929,17 +970,8 @@ def _session_snapshot(sess):
 
 sessions_snapshot = []
 try:
-    sessions = cli_rpc("get_current_sessions") or []
-    for sess in sessions:
-        if not isinstance(sess, dict):
-            continue
-        l7 = sess.get("l7") or {}
-        files = []
-        for key in ("open_files", "live_open_files", "sensitive_open_files"):
-            files.extend(str(v) for v in (l7.get(key) or []))
-        port_hit = ports and _session_tuple(sess).get("dst_port") in ports
-        marker_hit = markers and any(m in f for f in files for m in markers)
-        if port_hit or marker_hit:
+    for sess in current_sessions:
+        if _is_scenario_session(sess):
             sessions_snapshot.append(_session_snapshot(sess))
     sessions_snapshot = sessions_snapshot[:25]
 except Exception as exc:
@@ -963,6 +995,7 @@ if dump_path:
                     "current": current_matched,
                     "history": history_matched,
                     "sessions_snapshot": sessions_snapshot,
+                    "scenario_session_uids": scenario_session_uids,
                 },
                 fh,
                 indent=2,

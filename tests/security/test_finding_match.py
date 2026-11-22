@@ -31,6 +31,7 @@ from _finding_match import (  # noqa: E402
     expects_clean,
     findings_of,
     format_histogram,
+    graded_for_scenario,
     is_alertable,
     matches,
     normalize_severity,
@@ -130,6 +131,95 @@ class TestMatches(unittest.TestCase):
     def test_non_dict_finding_never_matches(self):
         self.assertFalse(matches(None, "token_exfiltration"))
         self.assertFalse(matches("x", "token_exfiltration"))
+
+
+def episode(members, **kw) -> dict:
+    """An episode (core 2.2) as `get_attack_pattern_findings` serves it: the
+    strongest member's files, subject and destination, every member's
+    sessions, and the member list."""
+    base = finding(
+        check="credential_harvest",
+        severity="CRITICAL",
+        open_files=["C:\\Users\\r\\.aws\\demo_openclaw_pgserve_credentials"],
+        subject_path="C:\\Users\\r\\.aws\\demo_openclaw_pgserve_credentials",
+        destination_port=63174,
+        session_uid="lead-session",
+        session_uids=["lead-session", "other-session", "scenario-session"],
+        episode={"member_count": len(members), "members": members},
+    )
+    base.update(kw)
+    return base
+
+
+def member(severity, subject) -> dict:
+    return {"finding_key": "vuln:" + subject, "severity": severity, "subject_path": subject}
+
+
+class TestEpisodeMembers(unittest.TestCase):
+    """The agent_cred_harvest miss of 2026-11-22 (windows-x64, posture
+    f5b816f): the scenario's harvest joined an episode led by the pgserve
+    harvest (same python.exe below the same .aws root), so the served finding
+    carried the lead's files and none of the scenario's markers."""
+
+    MARKERS = ["_ach_key", "_ach_secring.key", "_ach.mdc"]
+
+    def members(self, scenario_grade="CRITICAL"):
+        return [
+            member("CRITICAL", "C:\\Users\\r\\.aws\\demo_openclaw_pgserve_credentials"),
+            member("CRITICAL", "C:\\Users\\r\\.aws\\demo_openclaw_sc_credentials"),
+            member(scenario_grade, "C:\\Users\\r\\.aws\\config"),
+        ]
+
+    def test_an_episode_led_by_another_finding_matches_through_the_scenario_session(self):
+        f = episode(self.members())
+        self.assertFalse(matches(f, "credential_harvest", self.MARKERS))
+        self.assertTrue(
+            matches(f, "credential_harvest", self.MARKERS, [], ["scenario-session"])
+        )
+
+    def test_no_shared_session_no_match(self):
+        f = episode(self.members())
+        self.assertFalse(
+            matches(f, "credential_harvest", self.MARKERS, [], ["unrelated-session"])
+        )
+
+    def test_the_check_still_has_to_match(self):
+        f = episode(self.members(), check="token_exfiltration")
+        self.assertFalse(
+            matches(f, "credential_harvest", self.MARKERS, [], ["scenario-session"])
+        )
+
+    def test_a_session_match_is_graded_at_the_weakest_member(self):
+        graded = graded_for_scenario(episode(self.members()), "credential_harvest", self.MARKERS)
+        self.assertEqual(normalize_severity(graded), "CRITICAL")
+        self.assertTrue(is_alertable(graded))
+        self.assertTrue(graded["scenario_graded_at_weakest_member"])
+
+        weak = graded_for_scenario(
+            episode(self.members(scenario_grade="LOW")), "credential_harvest", self.MARKERS
+        )
+        self.assertEqual(normalize_severity(weak), "LOW")
+        self.assertFalse(is_alertable(weak))
+
+    def test_an_own_marker_match_keeps_its_grade(self):
+        f = episode(
+            self.members(scenario_grade="LOW"),
+            open_files=["C:\\Users\\r\\.ssh\\demo_openclaw_ach_key"],
+        )
+        graded = graded_for_scenario(f, "credential_harvest", self.MARKERS)
+        self.assertIs(graded, f)
+        self.assertEqual(normalize_severity(graded), "CRITICAL")
+
+    def test_summarize_counts_a_session_match_at_its_grade(self):
+        got = summarize(
+            [episode(self.members(scenario_grade="LOW"))],
+            "credential_harvest",
+            self.MARKERS,
+            [],
+            ["scenario-session"],
+        )
+        self.assertEqual(got["matched"], 1)
+        self.assertEqual(got["alertable"], 0)
 
 
 class TestHistogram(unittest.TestCase):

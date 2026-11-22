@@ -149,17 +149,23 @@ def _destination_port(finding: Dict[str, Any]) -> Optional[int]:
         return None
 
 
-def matches(
+def _finding_session_uids(finding: Dict[str, Any]) -> set:
+    uids = set()
+    single = finding.get("session_uid")
+    if isinstance(single, str) and single:
+        uids.add(single)
+    for uid in finding.get("session_uids") or []:
+        if isinstance(uid, str) and uid:
+            uids.add(uid)
+    return uids
+
+
+def _matches_own(
     finding: Any,
     check: str,
     markers: Sequence[str] = (),
     ports: Iterable[int] = (),
 ) -> bool:
-    """Scenario-specific match: right check, plus a marker or port attribution.
-
-    A scenario with neither markers nor ports matches any finding of its check
-    type. Markers are matched case-insensitively as substrings.
-    """
     if not isinstance(finding, dict) or finding.get("check") != check:
         return False
     lowered = [m.lower() for m in markers if m]
@@ -171,6 +177,69 @@ def matches(
         if any(m in haystack for m in lowered):
             return True
     return _destination_port(finding) in port_set
+
+
+def matches(
+    finding: Any,
+    check: str,
+    markers: Sequence[str] = (),
+    ports: Iterable[int] = (),
+    session_uids: Iterable[str] = (),
+) -> bool:
+    """Scenario-specific match: right check, plus a marker or port attribution.
+
+    A scenario with neither markers nor ports matches any finding of its check
+    type. Markers are matched case-insensitively as substrings.
+
+    `session_uids` are the scenario's own sessions (the ones whose L7 open
+    files carry a marker, or that target a scenario port). A finding of the
+    check whose sessions include one of them is the detector's verdict on the
+    scenario's session even when its files, subject and destination are
+    another session's: an episode (core 2.2) carries its STRONGEST member's
+    evidence and lists the sessions of every member, so a scenario's finding
+    that joined an episode led by another scenario's finding (the same writer
+    below the same root) shows no marker of its own. Grade such a match with
+    `graded_for_scenario`.
+    """
+    if not isinstance(finding, dict) or finding.get("check") != check:
+        return False
+    if _matches_own(finding, check, markers, ports):
+        return True
+    wanted = {uid for uid in session_uids if isinstance(uid, str) and uid}
+    return bool(wanted) and bool(_finding_session_uids(finding) & wanted)
+
+
+_SEVERITY_RANK = {"CRITICAL": 4, "HIGH": 3, "MEDIUM": 2, "LOW": 1}
+
+
+def graded_for_scenario(
+    finding: Any,
+    check: str,
+    markers: Sequence[str] = (),
+    ports: Iterable[int] = (),
+) -> Any:
+    """The finding as the scenario's gate grades it.
+
+    A finding that matched on its own markers or port keeps its grade. One
+    that matched only through the scenario's sessions is an episode whose
+    lead is another finding; which member is the scenario's cannot be told
+    from the record (a member lists its key, grade, destination and subject,
+    not its session), so the episode is graded at its WEAKEST member: another
+    scenario's stronger member never passes this one. A copy is returned,
+    marked `scenario_graded_at_weakest_member`.
+    """
+    if not isinstance(finding, dict) or _matches_own(finding, check, markers, ports):
+        return finding
+    episode = finding.get("episode")
+    members = episode.get("members") if isinstance(episode, dict) else None
+    grades = [normalize_severity(m) for m in members or [] if isinstance(m, dict)]
+    if not grades:
+        return finding
+    weakest = min(grades, key=lambda grade: _SEVERITY_RANK.get(grade, 0))
+    graded = dict(finding)
+    graded["severity"] = weakest
+    graded["scenario_graded_at_weakest_member"] = True
+    return graded
 
 
 def severity_histogram(findings: Iterable[Any]) -> "Counter[str]":
@@ -208,9 +277,15 @@ def summarize(
     check: str,
     markers: Sequence[str] = (),
     ports: Iterable[int] = (),
+    session_uids: Iterable[str] = (),
 ) -> Dict[str, Any]:
     """Count scenario-matching findings and how many of them would alert."""
-    matched = [f for f in findings if matches(f, check, markers, ports)]
+    uids = list(session_uids)
+    matched = [
+        graded_for_scenario(f, check, markers, ports)
+        for f in findings
+        if matches(f, check, markers, ports, uids)
+    ]
     alertable = [f for f in matched if is_alertable(f)]
     return {
         "matched": len(matched),
