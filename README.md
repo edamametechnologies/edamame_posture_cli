@@ -2061,7 +2061,8 @@ The AI Assistant configuration is passed to the background daemon through enviro
 3. The daemon reads the env vars and configures the LLM provider via `agentic_set_llm_config`
 4. Config is stored in CoreManager state (in-memory, not persisted to disk)
 
-If you deploy through `openclaw_security/setup/provision.sh`, these `EDAMAME_*`
+If you deploy through the OpenClaw Lima provisioner (`lima/openclaw/setup/provision.sh`
+in the internal `self_hosted` repository), these `EDAMAME_*`
 notification variables are written to `/etc/edamame_llm.env` and injected into
 the `edamame_posture` systemd service. OpenClaw's `ALERT_TO` and
 `ALERT_CHANNEL` are separate defaults for the OpenClaw `send_alert` path.
