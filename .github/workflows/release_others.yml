@@ -798,10 +798,6 @@ jobs:
             exit 1
           }
 
-      - name: Check job status before posture dump
-        id: job_status_check
-        if: failure()
-        run: echo "job_was_failing=true" >> "$GITHUB_OUTPUT"
 
       - name: Dump EDAMAME Posture sessions
         id: dump_sessions
@@ -815,11 +811,14 @@ jobs:
           # cleanup step before this gate runs.
           dump_vulnerability_findings: true
           exit_on_vulnerability_findings: true
-      - name: Slack alert on failure
-        if: failure()
-        uses: slackapi/slack-github-action@v1.26.0
-        with:
-          channel-id: ${{ vars.SLACK_ALERTS_CHANNEL || 'C072J0U9TH7' }}
-          slack-message: "${{ steps.job_status_check.outcome == 'success' && '[JOB FAILURE]' || '' }}${{ steps.dump_sessions.outcome == 'failure' && '[POSTURE POST JOB FAILURE]' || '' }} Release workflow ${{ github.workflow }} for ${{ github.repository }} on ${{ runner.os }} (${{ matrix.os }}) failed: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-        env:
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+
+  notify:
+    name: Slack alert
+    needs: [platforms, build]
+    if: always() && github.event_name != 'pull_request'
+    uses: edamametechnologies/.github/.github/workflows/slack-notify.yml@main
+    with:
+      results: ${{ toJSON(needs) }}
+      mode: every-failure
+    secrets:
+      SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
